@@ -1320,6 +1320,46 @@
     </div>
   </div>
 
+  <!-- Modal Dividir Comissão -->
+  <div id="splitRecordModal" class="modal">
+    <div class="modal-content" style="max-width:400px; padding:24px;">
+      <h3 style="margin-bottom:16px;font-size:18px;color:var(--orange)">Dividir Venda</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">O valor original dessa venda será alterado de
+        acordo com a porcentagem que você dividir com a colega.</p>
+
+      <form id="splitRecordForm" onsubmit="event.preventDefault(); saveSplitRecord()">
+        <input type="hidden" id="splitDocId">
+
+        <div class="form-group">
+          <label>Vendedora Original</label>
+          <input type="text" id="splitOrigVendor" readonly
+            style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label>Dividir com Vendedora</label>
+          <input id="splitNewVendor" list="listVendors" required placeholder="Selecione ou digite..."
+            style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label>Como será a divisão?</label>
+          <select id="splitRatio" required
+            style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; width:100%;">
+            <option value="0.5">50% / 50%</option>
+            <option value="0.7">70% Original / 30% Colega</option>
+            <option value="0.3">30% Original / 70% Colega</option>
+          </select>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeSplitRecordModal()">Cancelar</button>
+          <button type="submit" class="btn">Dividir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Detalhes do Vendedor -->
   <div id="vendorDetailModal" class="modal" style="z-index:9999;">
     <div class="modal-content" style="max-width:750px; padding:24px;">
@@ -1444,9 +1484,18 @@
             mês geram dinheiro para um "fundo" da unidade que é dividido por igual entre os vendedores aptos.
           </li>
         </ul>
-        <p><strong>O que NÃO entra na conta?</strong><br>Gympass (Wellhub), TotalPass, Rescisões, e Renovações
-          Automáticas. <br>Taxas, Diferenças de Plano e Avaliações Físicas geram <strong>P1</strong> (dinheiro limpo),
-          mas não contam como numeração de "Ativações".</p>
+        <h4 style="color:var(--text); margin-top:16px; margin-bottom:8px;">O que NÃO entra na conta?</h4>
+        <p style="margin-bottom:16px;">Gympass (Wellhub), TotalPass, Rescisões, e Renovações Automáticas.
+          <br>Taxas, Diferenças de Plano e Avaliações Físicas geram <strong>P1</strong> (dinheiro limpo), mas não contam
+          como numeração de "Ativações".
+          <br>Além disso, qualquer lançamento originado na planilha com um <strong>valor R$ 0,00</strong> (exceto
+          vouchers/degustação) é <u>completamente ignorado</u> para não atrapalhar os relatórios.
+        </p>
+        <h4 style="color:var(--text); margin-top:16px; margin-bottom:8px;">Divisão de Vendas (Split de Comissão)</h4>
+        <p>É possível dividir uma venda em percentuais (ex: 50/50 ou 70/30) com um colega. O sistema irá ratear o valor
+          total de caixa garantindo as fatias correspondentes da comissão e também ajustará as "Ativações"
+          proporcionalmente (contando apenas meia venda para cada um no 50/50, por exemplo, não inflando a meta de P3 da
+          Unidade de forma injusta).</p>
       </div>
     </div>
   </div>
@@ -1468,19 +1517,22 @@
           <li><strong>Alertas Inteligentes:</strong> Leia os alertas coloridos! Eles avisam se falta pouco para toda a
             equipe pular para uma Super Meta (que paga muito mais) ou se as renovações estão caindo.</li>
           <li><strong>Simulador "E se...":</strong> Antes de terminar o expediente, selecione "E se eu fechar +2 Anual
-            Local". O simulador vai prever quanto sua comissão pula imediatamente!</li>
+            Local". O simulador vai prever matematicamente todos os bônus e mostrar quanto sua comissão pula
+            imediatamente!</li>
         </ul>
         <h4 style="color:var(--text); margin-top:16px;">Para Administradores e Líderes</h4>
         <ul style="margin-left:20px; margin-bottom:16px;">
+          <li><strong>Indicadores Vitais:</strong> Veja na sua tela inicial um placar com o Ticket Médio da unidade, Mix
+            de Novos e Renovações para analisar se a retenção da saúde da academia está estabilizada e a conversão do
+            plano degustação.</li>
           <li><strong>Upload de Fechamento:</strong> Todo final/início de mês, baixe o XLS do TecnoFit. Vá no menu
-            Upload e arraste o arquivo. O robô faz a leitura, acha todos os alunos, recusa Gympass e consolida os
-            cálculos.</li>
-          <li><strong>Detalhar Comissão:</strong> Clicando em qualquer <strong>card de Vendedor</strong> na página
-            inicial Admin as caixas registram o Breakdown financeiro daquela pessoa, detalhando os lançamentos daquela
-            conta.</li>
+            Upload e arraste o arquivo. O robô converte a base, descarta Gympass e calcula tudo instantaneamente.</li>
           <li><strong>Tratar Exceções:</strong> Algo não calculou como queria? Clique na aba "Registros Processados" no
             painel, pesquise o cliente e clique em "Ignorar" (lixeira vermelha) ou no Lápis para mudar a Categoria
-            daquela venda pontualmente. O sistema recalcula a meta da unidade ao vivo.</li>
+            daquela venda.</li>
+          <li><strong>Dividir Comissão (Split):</strong> Na mesma lista de Registros Processados, você notará que junto
+            a lixeira de exclusão, há um sinal de <strong>"Divisão (➗)" laranja</strong>. Clique ali, selecione a
+            colegada parceira e a proporção combinada. É automático!</li>
         </ul>
       </div>
     </div>
@@ -2459,6 +2511,83 @@
       }
     }
 
+    function closeSplitRecordModal() {
+      document.getElementById('splitRecordModal').classList.remove('open');
+    }
+
+    async function openSplitRecordModal(id) {
+      if (!currentPeriodId) return;
+      const doc = await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).get();
+      if (!doc.exists) return;
+      const d = doc.data();
+
+      document.getElementById('splitDocId').value = id;
+      document.getElementById('splitOrigVendor').value = d.vendedor || '';
+      document.getElementById('splitNewVendor').value = '';
+      document.getElementById('splitRatio').value = '0.5';
+      document.getElementById('splitRecordModal').classList.add('open');
+    }
+
+    async function saveSplitRecord() {
+      const origId = document.getElementById('splitDocId').value;
+      const partner = document.getElementById('splitNewVendor').value.trim();
+      const ratioVal = parseFloat(document.getElementById('splitRatio').value);
+
+      if (!origId || !currentPeriodId || !partner) return;
+      if (ratioVal <= 0 || ratioVal >= 1) return;
+
+      try {
+        toast('Dividindo comissão...', 'info');
+
+        const origRef = db.collection('periodos').doc(currentPeriodId).collection('itens').doc(origId);
+        const doc = await origRef.get();
+        if (!doc.exists) throw new Error('Registro original não encontrado');
+
+        const origData = doc.data();
+        if (partner.toUpperCase() === (origData.vendedor || '').toUpperCase()) {
+          toast('Vendedor parceiro não pode ser o mesmo do original', 'error');
+          return;
+        }
+
+        const origRatio = origData.splitAtivacao || 1;
+        const baseCaixa = (origData.valorCaixa || 0) / origRatio; // Retrieve true 100% value if already split once
+
+        const newOrigRatio = origRatio * ratioVal;
+        const newPartnerRatio = origRatio * (1 - ratioVal);
+
+        const batch = db.batch();
+
+        // Update original
+        batch.update(origRef, {
+          valorCaixa: baseCaixa * newOrigRatio,
+          splitAtivacao: newOrigRatio,
+          splitWith: partner,
+          item: (origData.item || '') + ` (Split: ${Math.round(newOrigRatio * 100)}%)`
+        });
+
+        // Create cloned split record for partner
+        const partnerRef = db.collection('periodos').doc(currentPeriodId).collection('itens').doc();
+        batch.set(partnerRef, {
+          ...origData,
+          vendedor: partner,
+          valorCaixa: baseCaixa * newPartnerRatio,
+          splitAtivacao: newPartnerRatio,
+          splitWith: origData.vendedor || '',
+          item: (origData.item || '') + ` (Split: ${Math.round(newPartnerRatio * 100)}%)`,
+          originalSplitId: origRef.id // link back
+        });
+
+        await batch.commit();
+        closeSplitRecordModal();
+        toast('Venda dividida com sucesso! Recalculando...', 'success');
+
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+      } catch (err) {
+        toast('Erro ao dividir: ' + err.message, 'error');
+      }
+    }
+
     function openAddRecordModal() {
       document.getElementById('recId').value = '';
       document.getElementById('recForm').reset();
@@ -2679,33 +2808,35 @@
     <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
   </div>`;
 
-      // ── KPI Panel ──
       const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
       const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
       const taxaRenovacao = totalVendas > 0 ? ((t.unitRenovacoes || 0) / totalVendas * 100) : 0;
-      const custoPct = t.unitCaixa > 0 ? (totalComissoes / t.unitCaixa * 100) : 0;
       const convVoucher = t.unitVouchers > 0 ? ((data.p4result?.conversoesMes || 0) / t.unitVouchers * 100) : 0;
+
+      // Calculate Mix de Planos roughly based on average box values if detailed item list isn't present, 
+      // but we don't have item list here in the dashboard summary object. We will just use the available data.
+      const pctNovos = totalVendas > 0 ? ((t.unitNovosRetorno || 0) / totalVendas * 100) : 0;
 
       html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
           <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
           <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">por ativação</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">Por Ativação</div>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
           <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Taxa de Renovação</div>
           <div class="mono" style="font-size:20px;font-weight:700;color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} de ${totalVendas}</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Custo Comissão</div>
-          <div class="mono" style="font-size:20px;font-weight:700;color:${custoPct > 10 ? 'var(--red)' : custoPct > 7 ? 'var(--yellow)' : 'var(--green)'}">${custoPct.toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">do caixa total</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} renovações vs ${t.unitNovosRetorno} novos</div>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
           <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Conversão Voucher</div>
           <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange-light)">${convVoucher.toFixed(0)}%</div>
           <div style="font-size:10px;color:var(--text2);margin-top:3px">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mix (Novos vs Renov)</div>
+          <div class="mono" style="font-size:20px;font-weight:700;color:var(--blue)">${pctNovos.toFixed(0)}% / ${taxaRenovacao.toFixed(0)}%</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">Novos vs Renovações</div>
         </div>
       </div>`;
 
@@ -2940,7 +3071,8 @@
           '<div style="display:flex;gap:4px">' +
           '<button onclick="openEditRecordModal(\'' + r._docId + '\')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:2px" title="Editar">&#9998;</button>' +
           (isProc
-            ? '<button onclick="deleteRecord(\'' + r._docId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Ignorar (Excluir)">&#128465;</button>'
+            ? '<button onclick="openSplitRecordModal(\'' + r._docId + '\')" style="background:none;border:none;color:var(--orange);cursor:pointer;font-size:14px;padding:2px" title="Dividir Comissão">➗</button>' +
+            '<button onclick="deleteRecord(\'' + r._docId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Ignorar (Excluir)">&#128465;</button>'
             : '<button onclick="restoreRecord(\'' + r._docId + '\')" class="btn btn-sm" style="padding:4px 8px;font-size:10px;background:var(--green-bg);color:var(--green)" title="Ativar registro ignorado">Ativar</button>'
           ) +
           '</div>' +
@@ -3008,6 +3140,9 @@
       const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
       const myRank = ranked.findIndex(([n]) => n === myName) + 1;
 
+      window.currentVendorSummary = vs; // store robustly for simulator
+      window.currentUnitTotals = t; // store robustly for simulator
+
       let html = '';
 
       // ── Alerts ──
@@ -3074,10 +3209,10 @@
           <span style="font-size:13px;color:var(--text2)">Se eu fechar mais</span>
           <input id="simQt" type="number" min="0" max="50" value="5" 
             style="width:60px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;padding:6px 10px;text-align:center"
-            oninput="calcSimulator(${JSON.stringify({ ativacoes: myData.ativacoes, caixaTotal: myData.caixa, p3: myData.p3 || 0, tier: myData.p3 > 0 })}, ${t.unitAtivacoes}, ${t.unitNovosRetorno}, ${t.unitRenovacoes}, ${t.unitVouchers})">
+            oninput="updateSimulatorUI()">
           <select id="simTipo"
-            style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px"
-            onchange="calcSimulator(${JSON.stringify({ ativacoes: myData.ativacoes, caixaTotal: myData.caixa, p3: myData.p3 || 0, tier: myData.p3 > 0 })}, ${t.unitAtivacoes}, ${t.unitNovosRetorno}, ${t.unitRenovacoes}, ${t.unitVouchers})">
+            style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px;flex:1"
+            onchange="updateSimulatorUI()">
             <option value="ANUAL_LOCAL">Anual Local (R$3.108)</option>
             <option value="ANUAL_FLEX">Anual Flex (R$3.348)</option>
             <option value="BIANUAL">Bianual (R$5.976)</option>
@@ -3099,40 +3234,92 @@
       loadVendorHistory(myName);
     }
 
-    function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers) {
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+    function updateSimulatorUI() {
+      const vendorName = document.getElementById('splitNewVendor')?.value || ''; // Just safecheck
+      // get the data straight from window.currentVendorSummary and current metadata
+      const vs = window.currentVendorSummary || {};
+      const myName = Object.keys(vs).find(n => window.userProfile && n.toUpperCase().includes((window.userProfile.name || '').toUpperCase()));
+      if (!myName || !vs[myName]) return;
+
+      const myData = vs[myName];
       const qt = parseInt(document.getElementById('simQt')?.value) || 0;
       const tipo = document.getElementById('simTipo')?.value || 'ANUAL_LOCAL';
 
-      const valorMap = { ANUAL_LOCAL: 3108, ANUAL_FLEX: 3348, BIANUAL: 5976, RECORRENTE: 419, MENSAL: 390 };
-      const labelMap = { ANUAL_LOCAL: 'Anual Local', ANUAL_FLEX: 'Anual Flex', BIANUAL: 'Bianual', RECORRENTE: 'Recorrente', MENSAL: 'Mensal' };
-      const val = valorMap[tipo] || 0;
+      // Get global unit totals from somewhere? We can attach it to window
+      const t = window.currentUnitTotals || { unitAtivacoes: 0, unitNovosRetorno: 0, unitRenovacoes: 0, unitVouchers: 0, unitCaixa: 0 };
 
-      const novaCaixa = myData.caixaTotal + val * qt;
-      const novasAtiv = myData.ativacoes + qt;
+      calcSimulator(myData, t.unitAtivacoes, t.unitNovosRetorno, t.unitRenovacoes, t.unitVouchers, qt, tipo);
+    }
+
+    function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers, qt, tipo) {
+      if (!myData || !window.CommissionEngine) return;
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+      // Define plan values and mapping based on the rules
+      const valorMap = {
+        ANUAL_LOCAL: { caixa: 3108, p2: cfg.bonusAnualLocal },
+        ANUAL_FLEX: { caixa: 3348, p2: cfg.bonusAnualFlex },
+        BIANUAL: { caixa: 5976, p2: cfg.bonusBianual },
+        RECORRENTE: { caixa: 419, p2: cfg.bonusRecorrente },
+        MENSAL: { caixa: 390, p2: cfg.bonusMensal }
+      };
+
+      const plan = valorMap[tipo] || { caixa: 0, p2: 0 };
+      const valCaixa = plan.caixa * qt;
+      const valP2 = plan.p2 * qt;
+
+      const currP1 = myData.p1 || 0;
+      const currP2 = myData.p2 || 0;
+      const currP3 = myData.p3 || 0;
+
+      const novaCaixa = myData.caixa + valCaixa;
+
+      // Calculate new P1 
+      const deltaP1 = valCaixa * (cfg.pctNovo / 100);
+      const novoP1 = currP1 + deltaP1;
+
+      // Calculate new P2
+      const deltaP2 = valP2;
+      const novoP2 = currP2 + deltaP2;
+
+      // Calculate new P3 scenario
       const novoUnitAtiv = unitAtiv + qt;
       const novoUnitNovos = unitNovos + qt;
+      // myData.caixa isn't P3 eligible exactly, but close enough for simulation
+      const novoCaixaP3Eligible = (myData.caixa || 0) + valCaixa;
 
-      const novoP1 = novaCaixa * (cfg.pctNovo / 100);
-      const p3result = CommissionEngine.calcP3(novoUnitAtiv, novoUnitNovos, unitRenov, unitVouchers, novaCaixa, cfg);
+      const p3result = CommissionEngine.calcP3(novoUnitAtiv, novoUnitNovos, unitRenov, unitVouchers, novoCaixaP3Eligible, cfg);
       const novoP3 = p3result.final;
+      const deltaP3 = novoP3 - currP3;
 
-      const deltaP1 = novoP1 - (myData.caixaTotal * (cfg.pctNovo / 100));
-      const deltaP3 = novoP3 - (myData.p3 || 0);
-      const delta = deltaP1 + deltaP3;
+      const deltaTotal = deltaP1 + deltaP2 + deltaP3;
+      const novoTotal = (myData.grandTotal || 0) + deltaTotal;
 
-      const tierStr = p3result.tier ? ` (${p3result.tierLabel})` : ' (sem meta)';
       const el = document.getElementById('simResult');
       if (!el) return;
+
+      if (qt === 0) {
+        el.innerHTML = 'Ajuste os campos para simular o impacto na sua comissão.';
+        return;
+      }
+
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-          <div>Δ P1: <span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP1)}</span></div>
-          <div>Δ P3: <span style="color:var(--orange-light);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP3)}</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;margin-top:8px">
+          <div style="background:var(--bg);padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05)">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Ganho em P1 + P2</div>
+            <div style="color:var(--green);font-family:'JetBrains Mono';font-size:14px;font-weight:700">+ R$ ${fmt(deltaP1 + deltaP2)}</div>
+          </div>
+          <div style="background:var(--bg);padding:8px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.05)">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Acelerador Meta (P3)</div>
+            <div style="color:var(--orange-light);font-family:'JetBrains Mono';font-size:14px;font-weight:700">${deltaP3 > 0 ? '+ R$ ' + fmt(deltaP3) : 'R$ 0,00'}</div>
+          </div>
         </div>
-        <div style="font-size:14px;font-weight:700;color:${delta > 0 ? 'var(--green)' : 'var(--text)'}">
-          Total extra: ${delta >= 0 ? '+' : ''}R$ ${fmt(delta)} (Tier${tierStr})
+        <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:12px">
+          <div><span style="font-size:11px;color:var(--text2)">Projeção Total</span><br><span style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono'">R$ ${fmt(novoTotal)}</span></div>
+          <div style="text-align:right"><span style="font-size:11px;color:var(--text2)">Aumento de</span><br><span style="font-size:16px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono'">+ R$ ${fmt(deltaTotal)}</span></div>
         </div>
-        ${p3result.motivos.length ? `<div style="font-size:10px;color:var(--text2);margin-top:4px">⚠ ${p3result.motivos.join(', ')}</div>` : ''}
       `;
     }
 

@@ -535,11 +535,11 @@ const CommissionEngine = {
     const vendorData = this.buildVendorData(processed, splits, cfg);
 
     // Unit totals
-    const unitNovosRetorno = processed.filter(d => d.category === 'novo' || d.category === 'retorno').length;
-    const unitRenovacoes = processed.filter(d => d.category === 'renovacao').length;
-    const unitVouchers = processed.filter(d => d.category === 'voucher').length;
-    const unitAtivacoes = processed.filter(d => d.isActivation).length;
-    const unitCaixa = processed.reduce((s, d) => s + d.valorCaixa, 0);
+    const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
+    const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
+    const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
+    const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
+    const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
     // P3 per vendor
     Object.entries(vendorData).forEach(([name, v]) => {
