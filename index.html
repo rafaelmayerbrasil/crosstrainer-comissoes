@@ -1214,6 +1214,8 @@
         <div class="period-sel">
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
           <select id="periodSelect" onchange="loadPeriod(this.value)"></select>
+          <button class="btn btn-danger btn-sm" onclick="deletePeriod()" id="btnDeletePeriod" style="display:none">🗑
+            Excluir período</button>
         </div>
         <div id="dashboardContent">
           <div class="loading">
@@ -1641,7 +1643,13 @@
         // We need to sign back in as admin
         setTimeout(() => { loadUsers(); }, 1000);
       } catch (e) {
-        errEl.textContent = e.message;
+        const msgs = {
+          'auth/email-already-in-use': 'Este e-mail já está cadastrado. Use um e-mail diferente ou recupere o acesso.',
+          'auth/invalid-email': 'E-mail inválido.',
+          'auth/weak-password': 'Senha muito fraca. Use ao menos 6 caracteres.',
+          'auth/operation-not-allowed': 'Operação não permitida. Contate o administrador.',
+        };
+        errEl.textContent = msgs[e.code] || e.message;
       }
     }
 
@@ -1880,12 +1888,100 @@
       if (sel.options.length > 1) { sel.selectedIndex = 1; loadPeriod(sel.value); }
     }
 
+    let currentPeriodId = null;
+
     async function loadPeriod(periodId) {
-      if (!periodId) return;
+      if (!periodId) {
+        currentPeriodId = null;
+        document.getElementById('btnDeletePeriod').style.display = 'none';
+        return;
+      }
+      currentPeriodId = periodId;
+      document.getElementById('btnDeletePeriod').style.display = '';
       const doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
       const data = doc.data();
-      renderAdminDashboard(data);
+      renderAdminDashboard(data, periodId);
+    }
+
+    async function deletePeriod() {
+      if (!currentPeriodId) return;
+      const sel = document.getElementById('periodSelect');
+      const label = sel.options[sel.selectedIndex]?.text || currentPeriodId;
+      if (!confirm(`Excluir TODOS os dados do período "${label}"? Esta ação não pode ser desfeita.`)) return;
+      try {
+        toast('Excluindo período...', 'info');
+        // Delete all items subcollection
+        const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
+        let snap = await itemsRef.get();
+        while (!snap.empty) {
+          const batch = db.batch();
+          snap.docs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+          snap = await itemsRef.get();
+        }
+        // Delete period document
+        await db.collection('periodos').doc(currentPeriodId).delete();
+        toast(`Período "${label}" excluído.`, 'success');
+        currentPeriodId = null;
+        document.getElementById('btnDeletePeriod').style.display = 'none';
+        document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
+        loadPeriods();
+      } catch (e) {
+        toast('Erro ao excluir: ' + e.message, 'error');
+      }
+    }
+
+    async function deleteRecord(itemId) {
+      if (!currentPeriodId) return;
+      if (!confirm('Excluir este registro? Os totais serão recalculados.')) return;
+      try {
+        await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).delete();
+        toast('Registro excluído. Recalculando...', 'info');
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Período recalculado!', 'success');
+      } catch (e) {
+        toast('Erro: ' + e.message, 'error');
+      }
+    }
+
+    async function recalculatePeriod(periodId) {
+      const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const processed = [];
+      itemsSnap.forEach(doc => {
+        const d = doc.data();
+        if (d.type === 'processed') processed.push(d);
+      });
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      // Rebuild vendorData from remaining processed items
+      const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
+      const unitAtivacoes = processed.filter(d => d.isActivation).length;
+      const unitNovosRetorno = processed.filter(d => d.category === 'novo' || d.category === 'retorno').length;
+      const unitRenovacoes = processed.filter(d => d.category === 'renovacao').length;
+      const unitVouchers = processed.filter(d => d.category === 'voucher').length;
+      const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
+      // Recalc P3
+      Object.entries(vendorData).forEach(([name, v]) => {
+        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
+        const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
+        v.p3 = p3.final; v.p3detail = p3;
+      });
+      // P4
+      const p4result = CommissionEngine.calcP4(processed, null, cfg);
+      p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
+      Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
+      Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
+      const vendorSummary = Object.fromEntries(Object.entries(vendorData).map(([name, v]) => [name, {
+        p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
+        grandTotal: v.grandTotal, ativacoes: v.ativacoes,
+        novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
+        caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
+      }]));
+      await db.collection('periodos').doc(periodId).update({
+        totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
+        vendorSummary,
+      });
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1968,6 +2064,52 @@
       }
 
       document.getElementById('dashboardContent').innerHTML = html;
+
+      // Load and render records table (async, appended after)
+      renderRecordsTable(periodId);
+    }
+
+    async function renderRecordsTable(periodId) {
+      const container = document.getElementById('dashboardContent');
+      const tableDiv = document.createElement('div');
+      tableDiv.id = 'recordsTableSection';
+      tableDiv.style = 'margin-top:24px';
+      tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando registros...</div>';
+      container.appendChild(tableDiv);
+
+      const snap = await db.collection('periodos').doc(periodId).collection('itens').orderBy('vendedor').get();
+      const items = [];
+      snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+      const processed = items.filter(i => i.type === 'processed');
+
+      const pillClass = cat => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[cat] || 'pill-outro');
+
+      let tHtml = `
+        <details open>
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:12px 0;list-style:none;display:flex;align-items:center;gap:8px">
+            <span>&#9660;</span> Registros processados (${processed.length})
+          </summary>
+          <div class="table-wrap" style="margin-top:8px">
+            <table><thead><tr>
+              <th>Vendedor</th><th>Cliente</th><th>Item</th><th>Tipo</th><th>Data</th>
+              <th class="currency">Valor</th><th>Cat.</th><th></th>
+            </tr></thead><tbody>`;
+
+      processed.forEach(r => {
+        tHtml += `<tr>
+          <td>${r.vendedor || ''}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.cliente || ''}</td>
+          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:10px">${r.item || ''}</td>
+          <td><span style="font-size:9px;color:var(--text3)">${r.tipoVenda || ''}</span></td>
+          <td>${r.data || ''}</td>
+          <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
+          <td><span class="pill ${pillClass(r.category)}">${r.label || r.category}</span></td>
+          <td><button onclick="deleteRecord('${r._docId}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Excluir">&#128465;</button></td>
+        </tr>`;
+      });
+
+      tHtml += '</tbody></table></div></details>';
+      tableDiv.innerHTML = tHtml;
     }
 
     function tripeCard(label, val, min, isGold) {
