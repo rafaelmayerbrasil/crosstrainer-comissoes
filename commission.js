@@ -328,9 +328,15 @@ const CommissionEngine = {
         if (!o[sh]) o[sh] = row[idx] !== undefined ? row[idx] : '';
       });
       // Skip junk rows
-      const cod = String(o['Código'] || o['Codigo'] || '');
+      const cod = String(o['Código'] || o['Codigo'] || '').trim();
       if (cod.toUpperCase() === 'TOTAL' || cod.toUpperCase() === 'METAS' || cod.toUpperCase().startsWith('VOCÊ') || cod === '') continue;
-      if (!o['Cliente'] && !o['Itens']) continue;
+      if (!String(o['Cliente'] || '').trim() && !String(o['Itens'] || '').trim()) continue;
+      // Skip rows with no vendedor AND no client AND no item (completely empty data)
+      if (!String(o['Vendedor'] || '').trim() && !String(o['Cliente'] || '').trim() && !String(o['Itens'] || '').trim()) continue;
+      // Skip rows where ALL value fields are zero or empty
+      const hasValue = ['Valor Quitado/Recibo', 'Valor Final', 'Valor Venda'].some(f => parseFloat(o[f]) > 0);
+      const hasDegust = String(o['Itens'] || '').toUpperCase().includes('DEGUST');
+      if (!hasValue && !hasDegust && !String(o['Cliente'] || '').trim()) continue;
       rows.push(o);
     }
     return rows;

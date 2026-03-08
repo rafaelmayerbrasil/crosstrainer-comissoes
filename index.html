@@ -2407,8 +2407,14 @@
         existingItems.forEach(doc => batch1.delete(doc.ref));
         await batch1.commit();
 
-        // Add new items in batches of 400
-        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' }))];
+        // Add new items in batches of 400 — filter out empty/junk rows
+        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' }))]
+          .filter(d => {
+            const hasContent = (d.vendedor || '').trim() || (d.cliente || '').trim() || (d.item || '').trim();
+            const hasValue = (d.valorCaixa || 0) > 0;
+            const isDegust = d.isDegustacao === true;
+            return hasContent || hasValue || isDegust;
+          });
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
           allItems.slice(i, i + 400).forEach((item, idx) => {
@@ -3570,11 +3576,16 @@
           }
         });
 
-        // Prepare Items Sheet
+        // Prepare Items Sheet — filter out junk rows (no vendor, no client, no item, zero value)
         const itemsData = [
           ['Vendedor', 'Data', 'Cliente', 'Item', 'Categoria / Lógica', 'Valor Caixa', 'Tipo (Excel Original)', 'Status']
         ];
-        items.forEach(r => {
+        items.filter(r => {
+          // Skip completely empty rows
+          const hasContent = (r.vendedor || '').trim() || (r.cliente || '').trim() || (r.item || '').trim();
+          const hasValue = (r.valorCaixa || 0) > 0;
+          return hasContent || hasValue;
+        }).forEach(r => {
           itemsData.push([
             r.vendedor || '',
             r.data || '',
