@@ -1769,22 +1769,28 @@
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> Gympass / Wellhub</div>
+                <span style="color:var(--red);">✕</span> Gympass / Wellhub
+              </div>
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> TotalPass</div>
+                <span style="color:var(--red);">✕</span> TotalPass
+              </div>
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> Rescisões contratuais</div>
+                <span style="color:var(--red);">✕</span> Rescisões contratuais
+              </div>
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> Renovações automáticas</div>
+                <span style="color:var(--red);">✕</span> Renovações automáticas
+              </div>
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> Valor R$0,00 (exceto voucher)</div>
+                <span style="color:var(--red);">✕</span> Valor R$0,00 (exceto voucher)
+              </div>
               <div
                 style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;">
-                <span style="color:var(--red);">✕</span> Vendedores não-comissionáveis</div>
+                <span style="color:var(--red);">✕</span> Vendedores não-comissionáveis
+              </div>
             </div>
             <div
               style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--text3);">
@@ -2142,7 +2148,8 @@
               </div>
               <div style="font-size:11px; color:var(--text3); line-height:1.6;">No dashboard, clique no botão
                 <strong>"Baixar Relatório XLS"</strong> para exportar o resumo do período em Excel com duas abas: resumo
-                por vendedor e lançamentos detalhados.</div>
+                por vendedor e lançamentos detalhados.
+              </div>
             </div>
           </div>
         </div>
@@ -2674,7 +2681,7 @@
       const el = document.getElementById('page-' + page);
       if (el) el.classList.add('active');
       document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
-      document.querySelectorAll('.sb-item').forEach(i => { if (i.onclick.toString().includes(page)) i.classList.add('active'); });
+      document.querySelectorAll('.sb-item').forEach(i => { if (i.onclick?.toString().includes(page)) i.classList.add('active'); });
       document.querySelector('.sidebar')?.classList.remove('open');
 
       // Init page
@@ -4029,6 +4036,8 @@
     let compPeriodsCache = [];
 
     async function loadComparativoPeriods() {
+      const el = document.getElementById('comparativoContent');
+      if (el) el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando períodos...</div>';
       try {
         const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
         const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -4045,7 +4054,10 @@
           if (docs.length > idx) sel.selectedIndex = idx + 1;
         });
         renderComparativo();
-      } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
+      } catch (e) {
+        toast('Erro ao carregar períodos: ' + e.message, 'error');
+        if (el) el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--red);font-size:13px">Erro ao carregar períodos: ${e.message}</div>`;
+      }
     }
 
     function renderComparativo() {

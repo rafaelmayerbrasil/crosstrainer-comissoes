@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API calls
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crosstrainer-v2.0';
+const CACHE_NAME = 'crosstrainer-v2.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -45,11 +45,11 @@ self.addEventListener('fetch', event => {
 
   // Network-first for Firebase and Google APIs (auth, firestore)
   if (url.hostname.includes('googleapis.com') ||
-      url.hostname.includes('gstatic.com') ||
-      url.hostname.includes('firebaseio.com') ||
-      url.hostname.includes('firestore.googleapis.com') ||
-      url.hostname.includes('identitytoolkit.googleapis.com') ||
-      url.hostname.includes('securetoken.googleapis.com')) {
+    url.hostname.includes('gstatic.com') ||
+    url.hostname.includes('firebaseio.com') ||
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('securetoken.googleapis.com')) {
     return; // Let the browser handle these normally
   }
 
