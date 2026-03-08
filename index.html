@@ -1466,6 +1466,7 @@
       document.querySelector('.sidebar')?.classList.remove('open');
 
       // Init page
+      if (page === 'dashboard') loadPeriods();
       if (page === 'settings') renderSettings();
       if (page === 'users') loadUsers();
       if (page === 'upload') initUpload();
