@@ -2421,6 +2421,8 @@
     }
 
     let currentPeriodItems = [];
+    let currentSortCol = 'vendedor';
+    let currentSortAsc = true;
 
     async function renderRecordsTable(periodId) {
       const container = document.getElementById('recordsTableSection');
@@ -2434,7 +2436,7 @@
 
       const filterHtml = `
         <div style="display:flex;gap:12px;margin-bottom:12px">
-          <input type="text" id="recordSearch" placeholder="🔍 Buscar vendedor ou cliente..." oninput="filterRecordsTable()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+          <input type="text" id="recordSearch" placeholder="🔍 Buscar vendedor, cliente ou item..." oninput="filterRecordsTable()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
           <select id="recordCatFilter" onchange="filterRecordsTable()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
             <option value="">Todas Categorias</option>
             <option value="novo">Novo</option>
@@ -2442,7 +2444,7 @@
             <option value="retorno">Retorno</option>
             <option value="voucher">Voucher</option>
             <option value="avulsa">Avulsa</option>
-            <option value="ignorada">Ignorado</option>
+            <option value="ignorada">Ignorada</option>
           </select>
         </div>
         <div id="recordsTableWrap"></div>
@@ -2451,44 +2453,88 @@
       filterRecordsTable();
     }
 
+    function sortRecords(col) {
+      if (currentSortCol === col) {
+        currentSortAsc = !currentSortAsc;
+      } else {
+        currentSortCol = col;
+        currentSortAsc = true;
+      }
+      filterRecordsTable();
+    }
+
     function filterRecordsTable() {
       const wrap = document.getElementById('recordsTableWrap');
       if (!wrap) return;
 
-      const q = (document.getElementById('recordSearch')?.value || '').toLowerCase();
+      const q = (document.getElementById('recordSearch')?.value || '').toLowerCase().trim();
       const cat = document.getElementById('recordCatFilter')?.value || '';
 
-      const filtered = currentPeriodItems.filter(r => {
-        const matchQ = (r.vendedor || '').toLowerCase().includes(q) || (r.cliente || '').toLowerCase().includes(q) || (r.item || '').toLowerCase().includes(q);
+      let filtered = currentPeriodItems.filter(r => {
+        const str = ((r.vendedor || '') + ' ' + (r.cliente || '') + ' ' + (r.item || '')).toLowerCase();
+        const matchQ = q === '' || str.includes(q);
         const matchCat = cat === '' || r.category === cat;
         return matchQ && matchCat;
       });
 
+      // Sorting
+      filtered.sort((a, b) => {
+        let vA = a[currentSortCol];
+        let vB = b[currentSortCol];
+        if (currentSortCol === 'valorCaixa') {
+          vA = Number(vA) || 0;
+          vB = Number(vB) || 0;
+        } else if (currentSortCol === 'data') {
+          // Parse DD/MM/YYYY
+          const pA = (vA || '').split('/'); const pB = (vB || '').split('/');
+          vA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          vB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
+        } else {
+          vA = (vA || '').toString().toLowerCase();
+          vB = (vB || '').toString().toLowerCase();
+        }
+
+        if (vA < vB) return currentSortAsc ? -1 : 1;
+        if (vA > vB) return currentSortAsc ? 1 : -1;
+        return 0;
+      });
+
       const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
 
-      let tHtml = `
-          <div class="table-wrap" style="max-height:500px;overflow-y:auto">
-            <table><thead><tr>
-              <th>Vendedor</th><th>Cliente</th><th>Item</th><th>Tipo</th><th>Data</th>
-              <th class="currency">Valor</th><th>Cat.</th><th style="width:60px">Ações</th>
-            </tr></thead><tbody>`;
+      const sortIcon = col => currentSortCol === col ? (currentSortAsc ? ' <span style="color:var(--orange)">&#8593;</span>' : ' <span style="color:var(--orange)">&#8595;</span>') : '';
+
+      let tHtml = '<div class="table-wrap" style="max-height:500px;overflow-y:auto">' +
+        '<table><thead><tr>' +
+        '<th onclick="sortRecords(\'vendedor\')" style="cursor:pointer;user-select:none">Vendedor' + sortIcon('vendedor') + '</th>' +
+        '<th onclick="sortRecords(\'cliente\')" style="cursor:pointer;user-select:none">Cliente' + sortIcon('cliente') + '</th>' +
+        '<th onclick="sortRecords(\'item\')" style="cursor:pointer;user-select:none">Item' + sortIcon('item') + '</th>' +
+        '<th onclick="sortRecords(\'tipoVenda\')" style="cursor:pointer;user-select:none">Tipo' + sortIcon('tipoVenda') + '</th>' +
+        '<th onclick="sortRecords(\'data\')" style="cursor:pointer;user-select:none">Data' + sortIcon('data') + '</th>' +
+        '<th onclick="sortRecords(\'valorCaixa\')" style="cursor:pointer;user-select:none" class="currency">Valor' + sortIcon('valorCaixa') + '</th>' +
+        '<th onclick="sortRecords(\'category\')" style="cursor:pointer;user-select:none">Cat.' + sortIcon('category') + '</th>' +
+        '<th style="width:60px">Ações</th>' +
+        '</tr></thead><tbody>';
+
+      if (filtered.length === 0) {
+        tHtml += '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text3)">Nenhum registro encontrado.</td></tr>';
+      }
 
       filtered.forEach(r => {
-        tHtml += `<tr>
-          <td>${r.vendedor || ''}</td>
-          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.cliente || ''}</td>
-          <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:10px">${r.item || ''}</td>
-          <td><span style="font-size:9px;color:var(--text3)">${r.tipoVenda || ''}</span></td>
-          <td>${r.data || ''}</td>
-          <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
-          <td><span class="pill ${pillClass(r.category)}">${r.label || r.category}</span></td>
-          <td>
-            <div style="display:flex;gap:4px">
-              <button onclick="openEditRecordModal('${r._docId}')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:2px" title="Editar">&#9998;</button>
-              <button onclick="deleteRecord('${r._docId}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Excluir">&#128465;</button>
-            </div>
-          </td>
-        </tr>`;
+        tHtml += '<tr>' +
+          '<td>' + (r.vendedor || '') + '</td>' +
+          '<td title="' + (r.cliente || '') + '" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">' + (r.cliente || '') + '</td>' +
+          '<td title="' + (r.item || '') + '" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:10px">' + (r.item || '') + '</td>' +
+          '<td><span style="font-size:9px;color:var(--text3)">' + (r.tipoVenda || '') + '</span></td>' +
+          '<td>' + (r.data || '') + '</td>' +
+          '<td class="currency">R$ ' + fmt(r.valorCaixa || 0) + '</td>' +
+          '<td><span class="pill ' + pillClass(r.category) + '">' + (r.label || r.category) + '</span></td>' +
+          '<td>' +
+          '<div style="display:flex;gap:4px">' +
+          '<button onclick="openEditRecordModal(\'' + r._docId + '\')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:2px" title="Editar">&#9998;</button>' +
+          '<button onclick="deleteRecord(\'' + r._docId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Excluir">&#128465;</button>' +
+          '</div>' +
+          '</td>' +
+          '</tr>';
       });
 
       tHtml += '</tbody></table></div>';
@@ -2513,7 +2559,7 @@
         snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
         docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
         sel.innerHTML = '<option value="">Selecione</option>';
-        docs.forEach(d => { sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`; });
+        docs.forEach(d => { sel.innerHTML += `< option value = "${d.id}" > ${months[d.month]} ${d.year}</option > `; });
         if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
       } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
     }
@@ -2558,29 +2604,29 @@
       const faltaMeta = cfg.meta - t.unitAtivacoes;
       const faltaSuper = cfg.superMeta - t.unitAtivacoes;
       const faltaGold = cfg.metaGold - t.unitAtivacoes;
-      if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div>`);
-      else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div>`);
-      else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div>`);
-      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div>`);
-      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div>`);
+      if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div > `);
+      else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div > `);
+      else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div > `);
+      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div > `);
+      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div > `);
 
       if (alertsHtml.length > 0) {
-        html += `<div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)">
+        html += `< div style = "background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)" >
           <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🔔 Alertas</div>
           ${alertsHtml.join('')}
-        </div>`;
+        </div > `;
       }
 
       // ── Stats row ──
-      html += `<div class="stats-row">
+      html += `< div class="stats-row" >
         <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
         <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes)}</div></div>
         <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa)}</div></div>
         <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank > 0 ? myRank + 'º' : '—'}</div><div class="s-sub">de ${ranked.length}</div></div>
-      </div>`;
+      </div > `;
 
       // ── Cards: composição + meta unidade ──
-      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      html += `< div style = "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px" >
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -2597,10 +2643,10 @@
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠️'}</div>
           <div style="font-size:11px;color:var(--text2)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠️'}</div>
         </div>
-      </div>`;
+      </div > `;
 
       // ── Minhas vendas ──
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px">
+      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" >
         <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
           <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text2)">Novos</div></div>
@@ -2608,10 +2654,10 @@
           <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text2)">Retornos</div></div>
           <div><div style="font-size:20px;font-weight:700;color:var(--yellow);font-family:'JetBrains Mono',monospace">${Math.round(myData.vouchers)}</div><div style="font-size:10px;color:var(--text2)">Vouchers</div></div>
         </div>
-      </div>`;
+      </div > `;
 
       // ── Simulador "E se..." ──
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id="simuladorCard">
+      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id = "simuladorCard" >
         <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">🧮 Simulador "E se..."</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
           <span style="font-size:13px;color:var(--text2)">Se eu fechar mais</span>
@@ -2629,14 +2675,14 @@
           </select>
         </div>
         <div id="simResult" style="font-size:13px;color:var(--text2)">Ajuste os campos para simular.</div>
-      </div>`;
+      </div > `;
 
       // ── Histórico pessoal (placeholder, carregado async) ──
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px" >
         <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📊 Meu Histórico</div>
         <canvas id="vendorHistoryChart" style="max-height:200px"></canvas>
         <div id="vendorHistoryTable" style="margin-top:16px;font-size:12px;color:var(--text2)">Carregando histórico...</div>
-      </div>`;
+      </div > `;
 
       el.innerHTML = html;
       loadVendorHistory(myName);
@@ -2668,10 +2714,10 @@
       const el = document.getElementById('simResult');
       if (!el) return;
       el.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        < div style = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px" >
           <div>Δ P1: <span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP1)}</span></div>
           <div>Δ P3: <span style="color:var(--orange-light);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP3)}</span></div>
-        </div>
+        </div >
         <div style="font-size:14px;font-weight:700;color:${delta > 0 ? 'var(--green)' : 'var(--text)'}">
           Total extra: ${delta >= 0 ? '+' : ''}R$ ${fmt(delta)} (Tier${tierStr})
         </div>
@@ -2698,7 +2744,9 @@
           if (my) {
             const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
             const pos = ranked.findIndex(([n]) => n.toUpperCase() === myName.toUpperCase()) + 1;
-            rows.push({ label: `${months[d.month]}/${String(d.year).slice(2)}`, ativ: Math.round(my.ativacoes), comissao: my.grandTotal || 0, pos });
+            rows.push({
+              label: `${months[d.month]}/${String(d.year).slice(2)}`, ativ: Math.round(my.ativacoes), comissao: my.grandTotal || 0, pos
+            });
           }
         });
 
