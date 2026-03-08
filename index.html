@@ -1538,6 +1538,46 @@
     </div>
   </div>
 
+  <!-- Modal Sobre o App -->
+  <div id="aboutModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:460px; padding:28px; text-align:center;">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:4px;">
+        <button type="button" class="close-btn" onclick="closeAboutModal()" style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+      </div>
+      <div style="margin-bottom:20px;">
+        <div style="width:56px;height:56px;background:var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+          <svg viewBox="0 0 20 20" fill="none" style="width:28px;height:28px"><rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2"/><path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--orange);">CROSS<span style="color:var(--text)">TRAINER</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Sistema de Comissões</div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;text-align:left">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:12px;">Informações do App</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Versão</span><span class="mono" style="color:var(--text)">2.0.0</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Build</span><span class="mono" style="color:var(--text)">2026.03</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Engine</span><span class="mono" style="color:var(--text)">CommissionEngine v2</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Stack</span><span style="color:var(--text)">Firebase · Chart.js · SheetJS</span></div>
+        </div>
+      </div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:left">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:12px;">Créditos</div>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:44px;height:44px;background:var(--orange-glow);color:var(--orange);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;font-family:'Bebas Neue',sans-serif;flex-shrink:0">RM</div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">Rafael Mayer Brasil</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Idealizador, Proprietário & Desenvolvedor</div>
+            <div style="font-size:11px;color:var(--orange);margin-top:4px">Todos os direitos reservados © 2026</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:10px;color:var(--text3);line-height:1.6">
+        Sistema proprietário desenvolvido para gestão de comissões de vendas.<br>
+        Uso restrito e não autorizado para redistribuição.
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
 
@@ -1557,6 +1597,7 @@
         <button class="btn" onclick="doLogin()" id="loginBtn">Entrar</button>
         <div class="error-msg" id="loginError"></div>
       </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:24px;cursor:pointer" onclick="openAboutModal()">v2.0 · por Rafael Mayer Brasil</div>
     </div>
   </div>
 
@@ -1632,7 +1673,7 @@
         </div>
         <input type="hidden" id="periodMonthHidden">
         <div id="uploadPreview" style="display:none"></div>
-        <div id="uploadActions" style="display:none;margin-top:16px;display:flex;gap:10px">
+        <div id="uploadActions" style="display:none;margin-top:16px;gap:10px">
           <button class="btn" onclick="confirmUpload()">✅ Confirmar e Salvar</button>
           <button class="btn btn-ghost btn-sm" onclick="cancelUpload()">Cancelar</button>
         </div>
@@ -1839,6 +1880,7 @@
       html += '<div class="sb-section">Ajuda & Regras</div>';
       html += `<div class="sb-item" onclick="openRulesModal()"><span class="icon">📖</span>Regras da Comissão</div>`;
       html += `<div class="sb-item" onclick="openHelpModal()"><span class="icon">❓</span>Ajuda do App</div>`;
+      html += `<div class="sb-item" onclick="openAboutModal()"><span class="icon">ℹ️</span>Sobre</div>`;
 
       nav.innerHTML = html;
     }
@@ -2072,7 +2114,6 @@
       document.getElementById('uploadPreview').style.display = 'none';
       document.getElementById('uploadActions').style.display = 'none';
       pendingUpload = null;
-      let pendingPreviewSort = { col: 'vendedor', asc: true };
 
       zone.onclick = () => input.click();
       zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
@@ -2638,7 +2679,7 @@
           finalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
           pYear = parseInt(parts[0], 10);
           pMonth = parseInt(parts[1], 10);
-          targetPeriodId = `cp_${pYear}_${String(pMonth).padStart(2, '0')}`;
+          targetPeriodId = `cp_${pYear}-${String(pMonth).padStart(2, '0')}`;
         }
       }
 
@@ -3102,7 +3143,7 @@
         snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
         docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
         sel.innerHTML = '<option value="">Selecione</option>';
-        docs.forEach(d => { sel.innerHTML += `< option value = "${d.id}" > ${months[d.month]} ${d.year}</option > `; });
+        docs.forEach(d => { sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`; });
         if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
       } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
     }
@@ -3503,6 +3544,8 @@
     function closeRulesModal() { document.getElementById('rulesModal').classList.remove('open'); }
     function openHelpModal() { document.getElementById('helpModal').classList.add('open'); }
     function closeHelpModal() { document.getElementById('helpModal').classList.remove('open'); }
+    function openAboutModal() { document.getElementById('aboutModal').classList.add('open'); }
+    function closeAboutModal() { document.getElementById('aboutModal').classList.remove('open'); }
 
     async function exportPeriodToExcel() {
       if (!currentPeriodId) return;

@@ -156,6 +156,31 @@ const CommissionEngine = {
     return r;
   },
 
+  // ─── Quick category mapper (used for restore/toggle) ───
+  mapCategory(itemStr, tipoVendaStr) {
+    const item = (itemStr || '').toUpperCase().trim();
+    const tipo = (tipoVendaStr || '').toLowerCase().trim();
+
+    if (item.includes('DEGUSTAÇÃO') || item.includes('DEGUSTACAO') || item.includes('MÊS DEGUSTAÇÃO'))
+      return 'voucher';
+    if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
+      return tipo.includes('renova') ? 'avulsa_renov' : 'avulsa';
+    if (item.includes('MATRÍCULA') || item.includes('MATRICULA') || item.includes('TAXA'))
+      return 'matricula';
+    if (item.includes('DIFERENÇA') || item.includes('DIFERENCA'))
+      return 'diferenca';
+    if (item.includes('AVALIACAO') || item.includes('AVALIAÇÃO'))
+      return 'avaliacao';
+    if (item.includes('AULA EXPERIMENTAL') || item.includes('EXPERIMENTAL'))
+      return 'experimental';
+    if (item.includes('GRUPO') && item.includes('CORRIDA'))
+      return 'grupo_corrida';
+    if (tipo.includes('renova')) return 'renovacao';
+    if (tipo.includes('retorno')) return 'retorno';
+    if (tipo.includes('novo')) return 'novo';
+    return 'outro';
+  },
+
   // ─── Get value from row ───
   getValor(row, config) {
     const campo = config.campoValor;
