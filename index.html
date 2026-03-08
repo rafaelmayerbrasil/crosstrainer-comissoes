@@ -1283,7 +1283,10 @@
       </div>
       <form id="recForm" onsubmit="saveRecord(event)">
         <input type="hidden" id="recId">
-        <div class="form-group"><label>Vendedor</label><input id="recVend" required
+        <datalist id="listVendors"></datalist>
+        <datalist id="listItems"></datalist>
+        <datalist id="listTipos"></datalist>
+        <div class="form-group"><label>Vendedor</label><input id="recVend" required list="listVendors"
             placeholder="Nome do vendedor (EX: MARIA)"></div>
         <div class="form-group"><label>Cliente</label><input id="recCli" placeholder="Nome do cliente"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1291,10 +1294,10 @@
           <div class="form-group"><label>Valor Pagamento (R$)</label><input id="recCaixa" type="number" step="0.01"
               required></div>
         </div>
-        <div class="form-group"><label>Plano / Item</label><input id="recItem"
+        <div class="form-group"><label>Plano / Item</label><input id="recItem" list="listItems"
             placeholder="Ex: GYMPASS, MÊS DEGUSTAÇÃO, ANUAL"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group"><label>Tipo Venda Fonte</label><input id="recTipo"
+          <div class="form-group"><label>Tipo Venda Fonte</label><input id="recTipo" list="listTipos"
               placeholder="Ex: Nova Venda, Renovacao"></div>
           <div class="form-group">
             <label>Categoria Mapeada</label>
@@ -2399,9 +2402,9 @@
           data: {
             labels,
             datasets: [
-              { label: 'Ativações', data: ativData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', tension: 0.4, yAxisID: 'y1', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
-              { label: 'Caixa (R$ mil)', data: caixaData, borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y2', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
-              { label: 'Comissão (R$ mil)', data: comData, borderColor: '#E8920D', backgroundColor: 'rgba(232,146,13,0.05)', tension: 0.4, yAxisID: 'y2', borderDash: [4, 4], pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
+              { label: 'Ativações', data: ativData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', tension: 0.4, yAxisID: 'y1', pointStyle: 'circle', pointRadius: 5, pointHoverRadius: 7, spanGaps: true },
+              { label: 'Caixa (R$ mil)', data: caixaData, borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y2', pointStyle: 'rectRounded', pointRadius: 6, pointHoverRadius: 8, spanGaps: true },
+              { label: 'Comissão (R$ mil)', data: comData, borderColor: '#00BCD4', backgroundColor: 'rgba(0,188,212,0.1)', tension: 0.4, yAxisID: 'y2', pointStyle: 'triangle', pointRadius: 7, pointHoverRadius: 9, spanGaps: true },
             ],
           },
           options: {
@@ -2434,6 +2437,8 @@
       snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
       currentPeriodItems = items.filter(i => i.type === 'processed');
 
+      populateDatalists();
+
       const filterHtml = `
         <div style="display:flex;gap:12px;margin-bottom:12px">
           <input type="text" id="recordSearch" placeholder="🔍 Buscar vendedor, cliente ou item..." oninput="filterRecordsTable()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
@@ -2451,6 +2456,23 @@
       `;
       container.innerHTML = filterHtml;
       filterRecordsTable();
+    }
+
+    function populateDatalists() {
+      const vendors = new Set();
+      const items = new Set();
+      const tipos = new Set();
+      currentPeriodItems.forEach(r => {
+        if (r.vendedor) vendors.add(r.vendedor);
+        if (r.item) items.add(r.item);
+        if (r.tipoVenda) tipos.add(r.tipoVenda);
+      });
+      const vendEl = document.getElementById('listVendors');
+      const itemEl = document.getElementById('listItems');
+      const tipoEl = document.getElementById('listTipos');
+      if (vendEl) vendEl.innerHTML = Array.from(vendors).sort().map(v => '<option value="' + v + '">').join('');
+      if (itemEl) itemEl.innerHTML = Array.from(items).sort().map(v => '<option value="' + v + '">').join('');
+      if (tipoEl) tipoEl.innerHTML = Array.from(tipos).sort().map(v => '<option value="' + v + '">').join('');
     }
 
     function sortRecords(col) {
@@ -2522,8 +2544,8 @@
       filtered.forEach(r => {
         tHtml += '<tr>' +
           '<td>' + (r.vendedor || '') + '</td>' +
-          '<td title="' + (r.cliente || '') + '" style="max-width:160px;overflow:hidden;text-overflow:ellipsis">' + (r.cliente || '') + '</td>' +
-          '<td title="' + (r.item || '') + '" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:10px">' + (r.item || '') + '</td>' +
+          '<td style="max-width:160px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
+          '<td style="max-width:160px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
           '<td><span style="font-size:9px;color:var(--text3)">' + (r.tipoVenda || '') + '</span></td>' +
           '<td>' + (r.data || '') + '</td>' +
           '<td class="currency">R$ ' + fmt(r.valorCaixa || 0) + '</td>' +
