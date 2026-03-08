@@ -712,14 +712,14 @@
     .v-parts {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 6px;
+      gap: 4px;
       margin-bottom: 12px
     }
 
     .v-part {
       background: var(--bg);
       border-radius: 6px;
-      padding: 8px;
+      padding: 8px 4px;
       text-align: center
     }
 
@@ -733,7 +733,7 @@
     }
 
     .v-part .vp-val {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace
     }
@@ -1320,6 +1320,172 @@
     </div>
   </div>
 
+  <!-- Modal Detalhes do Vendedor -->
+  <div id="vendorDetailModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:750px; padding:24px;">
+      <div
+        style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <div>
+          <h3 id="vdModalName" style="font-size:18px; color:var(--orange); margin:0; line-height:1.2;">Nome do Vendedor
+          </h3>
+          <div id="vdModalPeriod" style="font-size:12px; color:var(--text3); margin-top:2px;">Período</div>
+        </div>
+        <button type="button" class="close-btn" onclick="closeVendorDetailModal()"
+          style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+        <!-- Breakdown -->
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:16px;">
+          <h4
+            style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">
+            Composição da Comissão</h4>
+          <table style="width:100%; font-size:12px;">
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:6px 0; color:var(--text3);">P1 (% sobre Caixa)</td>
+              <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP1">R$
+                0,00</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:6px 0; color:var(--text3);">P2 (Bônus Fixo)</td>
+              <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP2">R$
+                0,00</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:6px 0; color:var(--text3);">P3 (Meta Unidade)</td>
+              <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP3">R$
+                0,00</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:6px 0; color:var(--text3);">P4a (Voucher Indiv.)</td>
+              <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP4a">
+                R$ 0,00</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:6px 0; color:var(--text3);">P4b (Voucher Pool)</td>
+              <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP4b">
+                R$ 0,00</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0 0 0; font-weight:700; color:var(--orange);">Total a Receber</td>
+              <td
+                style="padding:10px 0 0 0; text-align:right; font-family:'JetBrains Mono'; font-weight:700; font-size:15px; color:var(--orange);"
+                id="vdTotal">R$ 0,00</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- KPIs -->
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:16px;">
+          <h4
+            style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">
+            Painel de Contribuição</h4>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div>
+              <div style="font-size:10px; color:var(--text3);">Ativações Contribuídas</div>
+              <div style="font-family:'Bebas Neue'; font-size:24px; color:var(--text);" id="vdAtiv">0</div>
+            </div>
+            <div>
+              <div style="font-size:10px; color:var(--text3);">Renovações</div>
+              <div style="font-family:'Bebas Neue'; font-size:24px; color:var(--text);" id="vdRenov">0</div>
+            </div>
+            <div>
+              <div style="font-size:10px; color:var(--text3);">Vouchers</div>
+              <div style="font-family:'Bebas Neue'; font-size:24px; color:var(--text);" id="vdVouch">0</div>
+            </div>
+            <div>
+              <div style="font-size:10px; color:var(--text3);">Caixa Gerado</div>
+              <div style="font-family:'JetBrains Mono'; font-size:13px; margin-top:6px; color:var(--green);"
+                id="vdCaixa">R$ 0,00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4
+          style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">
+          Planos Vendidos no Período</h4>
+        <div id="vdItemsWrap"
+          style="background:var(--bg); border:1px solid var(--border); border-radius:8px; max-height:200px; overflow-y:auto;">
+          <!-- Tabela populada via JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Regras da Comissão -->
+  <div id="rulesModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:700px; padding:24px; max-height:85vh; overflow-y:auto;">
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <h3 style="font-size:18px; color:var(--orange); margin:0;">Regras da Comissão (P1 a P4)</h3>
+        <button type="button" class="close-btn" onclick="closeRulesModal()"
+          style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+      </div>
+      <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+        <p>A comissão na CrossTrainer é dividida em 4 pilares principais (os <strong>"Ps"</strong>). Eles compõem o
+          valor total que você receberá no mês.</p>
+        <ul style="margin-left:20px; margin-bottom:16px;">
+          <li style="margin-bottom:8px"><strong>P1 (Comissão sobre o Caixa):</strong> É um percentual sobre o valor pago
+            pelo aluno. Para planos Novos e Retornos você ganha um percentual maior (ex: 5%), e para Renovações um menor
+            (ex: 2.5%). Valoriza trazer dinheiro novo!</li>
+          <li style="margin-bottom:8px"><strong>P2 (Bônus Fixo por Plano):</strong> Prêmio fixo garantido por cada
+            venda, independente do caixa. Planos longos pagam mais. <br>Exemplo: Bianual (+R$80), Anual Flex (+R$45),
+            Anual Local (+R$30).</li>
+          <li style="margin-bottom:8px"><strong>P3 (Bônus de Meta da Unidade):</strong> Bônus coletivo ativado pelo
+            sucesso da unidade. Se a unidade atingir a Meta de Ativações no mês, todo o caixa gerado por você gera um
+            bônus adicional. <br><em>Atenção ao Tripé: A unidade precisa atingir os mínimos de Renovações e Vouchers.
+              Falhar nisso pode cortar o P3 de todos em 15% ou 30%!</em></li>
+          <li style="margin-bottom:8px"><strong>P4 (Vouchers / Mês Degustação):</strong>
+            <br>- <strong>P4a (P4i - Individual):</strong> Quando um "Mês Degustação" ativado por você se torna um plano
+            cheio dentro de 45 dias, você ganha bônus extra por converter.
+            <br>- <strong>P4b (P4p - Pool da Unidade):</strong> Se a unidade bater meta, os demais cupons convertidos no
+            mês geram dinheiro para um "fundo" da unidade que é dividido por igual entre os vendedores aptos.
+          </li>
+        </ul>
+        <p><strong>O que NÃO entra na conta?</strong><br>Gympass (Wellhub), TotalPass, Rescisões, e Renovações
+          Automáticas. <br>Taxas, Diferenças de Plano e Avaliações Físicas geram <strong>P1</strong> (dinheiro limpo),
+          mas não contam como numeração de "Ativações".</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ajuda do App -->
+  <div id="helpModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:700px; padding:24px; max-height:85vh; overflow-y:auto;">
+      <div
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+        <h3 style="font-size:18px; color:var(--orange); margin:0;">Ajuda & Como Usar o Sistema</h3>
+        <button type="button" class="close-btn" onclick="closeHelpModal()"
+          style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+      </div>
+      <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+        <h4 style="color:var(--text); margin-top:16px;">Para Vendedores</h4>
+        <ul style="margin-left:20px; margin-bottom:16px;">
+          <li><strong>Meu Painel:</strong> Assista o placar para ver a sua colocação, o seu caixa e acompanhar a barra
+            de progresso do mês.</li>
+          <li><strong>Alertas Inteligentes:</strong> Leia os alertas coloridos! Eles avisam se falta pouco para toda a
+            equipe pular para uma Super Meta (que paga muito mais) ou se as renovações estão caindo.</li>
+          <li><strong>Simulador "E se...":</strong> Antes de terminar o expediente, selecione "E se eu fechar +2 Anual
+            Local". O simulador vai prever quanto sua comissão pula imediatamente!</li>
+        </ul>
+        <h4 style="color:var(--text); margin-top:16px;">Para Administradores e Líderes</h4>
+        <ul style="margin-left:20px; margin-bottom:16px;">
+          <li><strong>Upload de Fechamento:</strong> Todo final/início de mês, baixe o XLS do TecnoFit. Vá no menu
+            Upload e arraste o arquivo. O robô faz a leitura, acha todos os alunos, recusa Gympass e consolida os
+            cálculos.</li>
+          <li><strong>Detalhar Comissão:</strong> Clicando em qualquer <strong>card de Vendedor</strong> na página
+            inicial Admin as caixas registram o Breakdown financeiro daquela pessoa, detalhando os lançamentos daquela
+            conta.</li>
+          <li><strong>Tratar Exceções:</strong> Algo não calculou como queria? Clique na aba "Registros Processados" no
+            painel, pesquise o cliente e clique em "Ignorar" (lixeira vermelha) ou no Lápis para mudar a Categoria
+            daquela venda pontualmente. O sistema recalcula a meta da unidade ao vivo.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
 
@@ -1368,8 +1534,17 @@
 
       <!-- ADMIN: DASHBOARD -->
       <div class="page" id="page-dashboard">
-        <div class="page-hdr">
-          <h1>Dashboard</h1>
+        <div class="page-hdr"
+          style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h1>Dashboard</h1>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-outline"
+              style="padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:6px;"
+              onclick="exportPeriodToExcel()"><span style="color:var(--green)">&#8681;</span> Baixar Relatório
+              XLS</button>
+          </div>
         </div>
         <div class="period-sel">
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
@@ -1609,6 +1784,10 @@
         html += '<div class="sb-section">Meu Espaço</div>';
         html += sbItem('meu-painel', '📊', 'Meu Painel');
       }
+      html += '<div class="sb-section">Ajuda & Regras</div>';
+      html += `<div class="sb-item" onclick="openRulesModal()"><span class="icon">📖</span>Regras da Comissão</div>`;
+      html += `<div class="sb-item" onclick="openHelpModal()"><span class="icon">❓</span>Ajuda do App</div>`;
+
       nav.innerHTML = html;
     }
 
@@ -1841,6 +2020,7 @@
       document.getElementById('uploadPreview').style.display = 'none';
       document.getElementById('uploadActions').style.display = 'none';
       pendingUpload = null;
+      let pendingPreviewSort = { col: 'vendedor', asc: true };
 
       zone.onclick = () => input.click();
       zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
@@ -1932,7 +2112,16 @@
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px">Vendedores encontrados ${newVendors.length > 0 ? `— <span style="color:var(--yellow)">${newVendors.length} novo(s) serão cadastrados automaticamente</span>` : ''}</div>
             <div>${vendorTagsHtml}</div>
           </div>
+          
+          <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <h4 style="margin:0;font-size:13px;color:var(--text2)">Revisão de Registros</h4>
+            </div>
+            <div id="uploadPreviewTableWrap"></div>
+          </div>
         </div>`;
+
+          renderPreviewTable();
 
           toast(`Arquivo processado: ${result.processed.length} itens.`, 'success');
         } catch (err) {
@@ -1960,6 +2149,107 @@
       await batch.commit();
       if (newVendors.length > 0)
         toast(`${newVendors.length} vendedor(es) novo(s) cadastrado(s) automaticamente.`, 'success');
+    }
+
+    let pendingPreviewSort = { col: 'vendedor', asc: true };
+    function sortPreview(col) {
+      if (pendingPreviewSort.col === col) {
+        pendingPreviewSort.asc = !pendingPreviewSort.asc;
+      } else {
+        pendingPreviewSort.col = col;
+        pendingPreviewSort.asc = true;
+      }
+      renderPreviewTable();
+    }
+
+    function toggleIgnorePreviewItem(idx, isProcessed) {
+      if (!pendingUpload) return;
+      const arrFrom = isProcessed ? pendingUpload.result.processed : pendingUpload.result.excluded;
+      const item = arrFrom.splice(idx, 1)[0];
+
+      if (isProcessed) {
+        item.category = 'ignorada';
+        item.label = 'Ignorada (manual)';
+        pendingUpload.result.excluded.push(item);
+      } else {
+        item.category = CommissionEngine.mapCategory(item.item || '', item.tipoVenda || '');
+        item.label = item.category;
+        pendingUpload.result.processed.push(item);
+      }
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const newResult = CommissionEngine.calculate(pendingUpload.rawRows, cfg);
+      newResult.processed = pendingUpload.result.processed;
+      newResult.excluded = pendingUpload.result.excluded;
+      pendingUpload.result = newResult;
+
+      renderPreviewTable();
+    }
+
+    function renderPreviewTable() {
+      if (!pendingUpload) return;
+      const wrap = document.getElementById('uploadPreviewTableWrap');
+      if (!wrap) return;
+
+      const allItems = [
+        ...pendingUpload.result.processed.map((r, i) => ({ ...r, _origList: 'processed', _origIdx: i })),
+        ...pendingUpload.result.excluded.map((r, i) => ({ ...r, _origList: 'excluded', _origIdx: i }))
+      ];
+
+      allItems.sort((a, b) => {
+        let vA = a[pendingPreviewSort.col];
+        let vB = b[pendingPreviewSort.col];
+        if (pendingPreviewSort.col === 'valorCaixa') {
+          vA = Number(vA) || 0;
+          vB = Number(vB) || 0;
+        } else if (pendingPreviewSort.col === 'data') {
+          const pA = (vA || '').split('/'); const pB = (vB || '').split('/');
+          vA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          vB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
+        } else {
+          vA = (vA || '').toString().toLowerCase();
+          vB = (vB || '').toString().toLowerCase();
+        }
+        if (vA < vB) return pendingPreviewSort.asc ? -1 : 1;
+        if (vA > vB) return pendingPreviewSort.asc ? 1 : -1;
+        return 0;
+      });
+
+      const sortIcon = col => pendingPreviewSort.col === col ? (pendingPreviewSort.asc ? ' <span style="color:var(--orange)">&#8593;</span>' : ' <span style="color:var(--orange)">&#8595;</span>') : '';
+      const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
+
+      let tHtml = '<div class="table-wrap" style="max-height:350px;overflow-y:auto">' +
+        '<table><thead><tr>' +
+        '<th onclick="sortPreview(\'vendedor\')" style="cursor:pointer;user-select:none">Vendedor' + sortIcon('vendedor') + '</th>' +
+        '<th onclick="sortPreview(\'cliente\')" style="cursor:pointer;user-select:none">Cliente' + sortIcon('cliente') + '</th>' +
+        '<th onclick="sortPreview(\'item\')" style="cursor:pointer;user-select:none">Item' + sortIcon('item') + '</th>' +
+        '<th onclick="sortPreview(\'tipoVenda\')" style="cursor:pointer;user-select:none">Tipo' + sortIcon('tipoVenda') + '</th>' +
+        '<th onclick="sortPreview(\'data\')" style="cursor:pointer;user-select:none">Data' + sortIcon('data') + '</th>' +
+        '<th onclick="sortPreview(\'valorCaixa\')" style="cursor:pointer;user-select:none" class="currency">Valor' + sortIcon('valorCaixa') + '</th>' +
+        '<th onclick="sortPreview(\'category\')" style="cursor:pointer;user-select:none">Cat.' + sortIcon('category') + '</th>' +
+        '<th style="width:70px">Ações</th>' +
+        '</tr></thead><tbody>';
+
+      allItems.forEach(r => {
+        const isProc = r._origList === 'processed';
+        tHtml += '<tr style="opacity:' + (isProc ? '1' : '0.6') + '">' +
+          '<td>' + (r.vendedor || '') + '</td>' +
+          '<td style="max-width:140px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
+          '<td style="max-width:140px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
+          '<td><span style="font-size:9px">' + (r.tipoVenda || '') + '</span></td>' +
+          '<td>' + (r.data || '') + '</td>' +
+          '<td class="currency">R$ ' + fmt(r.valorCaixa || 0) + '</td>' +
+          '<td><span class="pill ' + pillClass(r.category) + '">' + (r.label || r.category) + '</span></td>' +
+          '<td>' +
+          '<button onclick="toggleIgnorePreviewItem(' + r._origIdx + ', ' + isProc + ')" class="btn btn-sm" style="padding:4px 8px;font-size:10px;background:' + (isProc ? 'var(--bg)' : 'var(--green-bg)') + ';color:' + (isProc ? 'var(--orange)' : 'var(--green)') + '">' +
+          (isProc ? 'Ignorar' : 'Ativar') +
+          '</button>' +
+          '</td>' +
+          '</tr>';
+      });
+
+      tHtml += '</tbody></table></div>';
+      wrap.innerHTML = tHtml;
     }
 
     async function confirmUpload() {
@@ -2113,15 +2403,42 @@
 
     async function deleteRecord(itemId) {
       if (!currentPeriodId) return;
-      if (!confirm('Excluir este registro? Os totais serão recalculados.')) return;
+      if (!confirm('Ignorar este registro das comissões? Ele ficará salvo como excluído.')) return;
       try {
-        await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).delete();
-        toast('Registro excluído. Recalculando...', 'info');
+        await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).update({
+          type: 'excluded',
+          category: 'ignorada',
+          label: 'Ignorada (manual)'
+        });
+        toast('Registro ignorado. Recalculando...', 'info');
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
         toast('Período recalculado!', 'success');
       } catch (e) {
         toast('Erro: ' + e.message, 'error');
+      }
+    }
+
+    async function restoreRecord(itemId) {
+      if (!currentPeriodId) return;
+      if (!confirm('Restaurar este registro para as comissões?')) return;
+      try {
+        // Obter o registro e refazer o parse da categoria baseado no nome original
+        const doc = await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).get();
+        const d = doc.data();
+        const cat = CommissionEngine.mapCategory(d.item || '', d.tipoVenda || '');
+
+        await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).update({
+          type: 'processed',
+          category: cat,
+          label: cat
+        });
+        toast('Registro restaurado. Recalculando...', 'info');
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Período recalculado!', 'success');
+      } catch (e) {
+        toast('Erro ao restaurar: ' + e.message, 'error');
       }
     }
 
@@ -2327,11 +2644,13 @@
       </div>`;
 
       // ── Vendor ranking cards ──
+      window.currentVendorSummary = vs;
       const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
       html += '<div class="vendor-grid">';
       sorted.forEach(([name, v], i) => {
         const rankBadge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
-        html += `<div class="v-card"><div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
+        html += `<div class="v-card" style="cursor:pointer" onclick="openVendorDetailModal('${name.replace(/'/g, "\\'")}')" title="Ver detalhes da comissão">
+      <div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
       <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
       <div class="v-parts">
         <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
@@ -2435,7 +2754,7 @@
       const snap = await db.collection('periodos').doc(periodId).collection('itens').orderBy('vendedor').get();
       const items = [];
       snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-      currentPeriodItems = items.filter(i => i.type === 'processed');
+      currentPeriodItems = items;
 
       populateDatalists();
 
@@ -2541,8 +2860,9 @@
         tHtml += '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text3)">Nenhum registro encontrado.</td></tr>';
       }
 
-      filtered.forEach(r => {
-        tHtml += '<tr>' +
+      filtered.forEach((r, idx) => {
+        const isProc = r.type !== 'excluded';
+        tHtml += '<tr style="opacity:' + (isProc ? '1' : '0.6') + '">' +
           '<td>' + (r.vendedor || '') + '</td>' +
           '<td style="max-width:160px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
           '<td style="max-width:160px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
@@ -2553,7 +2873,10 @@
           '<td>' +
           '<div style="display:flex;gap:4px">' +
           '<button onclick="openEditRecordModal(\'' + r._docId + '\')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:2px" title="Editar">&#9998;</button>' +
-          '<button onclick="deleteRecord(\'' + r._docId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Excluir">&#128465;</button>' +
+          (isProc
+            ? '<button onclick="deleteRecord(\'' + r._docId + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Ignorar (Excluir)">&#128465;</button>'
+            : '<button onclick="restoreRecord(\'' + r._docId + '\')" class="btn btn-sm" style="padding:4px 8px;font-size:10px;background:var(--green-bg);color:var(--green)" title="Ativar registro ignorado">Ativar</button>'
+          ) +
           '</div>' +
           '</td>' +
           '</tr>';
@@ -2626,29 +2949,29 @@
       const faltaMeta = cfg.meta - t.unitAtivacoes;
       const faltaSuper = cfg.superMeta - t.unitAtivacoes;
       const faltaGold = cfg.metaGold - t.unitAtivacoes;
-      if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div > `);
-      else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div > `);
-      else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div > `);
-      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div > `);
-      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`< div style = "display:flex;align-items:center;gap:8px;margin-bottom:6px" ><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div > `);
+      if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div>`);
+      else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div>`);
+      else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div>`);
+      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div>`);
+      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div>`);
 
       if (alertsHtml.length > 0) {
-        html += `< div style = "background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)" >
+        html += `<div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)">
           <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🔔 Alertas</div>
           ${alertsHtml.join('')}
-        </div > `;
+        </div>`;
       }
 
       // ── Stats row ──
-      html += `< div class="stats-row" >
+      html += `<div class="stats-row">
         <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
         <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes)}</div></div>
         <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa)}</div></div>
         <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank > 0 ? myRank + 'º' : '—'}</div><div class="s-sub">de ${ranked.length}</div></div>
-      </div > `;
+      </div>`;
 
       // ── Cards: composição + meta unidade ──
-      html += `< div style = "display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px" >
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -2665,10 +2988,10 @@
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠️'}</div>
           <div style="font-size:11px;color:var(--text2)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠️'}</div>
         </div>
-      </div > `;
+      </div>`;
 
       // ── Minhas vendas ──
-      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" >
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px">
         <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
           <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text2)">Novos</div></div>
@@ -2676,10 +2999,10 @@
           <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text2)">Retornos</div></div>
           <div><div style="font-size:20px;font-weight:700;color:var(--yellow);font-family:'JetBrains Mono',monospace">${Math.round(myData.vouchers)}</div><div style="font-size:10px;color:var(--text2)">Vouchers</div></div>
         </div>
-      </div > `;
+      </div>`;
 
       // ── Simulador "E se..." ──
-      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id = "simuladorCard" >
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id="simuladorCard">
         <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">🧮 Simulador "E se..."</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
           <span style="font-size:13px;color:var(--text2)">Se eu fechar mais</span>
@@ -2697,14 +3020,14 @@
           </select>
         </div>
         <div id="simResult" style="font-size:13px;color:var(--text2)">Ajuste os campos para simular.</div>
-      </div > `;
+      </div>`;
 
       // ── Histórico pessoal (placeholder, carregado async) ──
-      html += `< div style = "background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px" >
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
         <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📊 Meu Histórico</div>
         <canvas id="vendorHistoryChart" style="max-height:200px"></canvas>
         <div id="vendorHistoryTable" style="margin-top:16px;font-size:12px;color:var(--text2)">Carregando histórico...</div>
-      </div > `;
+      </div>`;
 
       el.innerHTML = html;
       loadVendorHistory(myName);
@@ -2736,10 +3059,10 @@
       const el = document.getElementById('simResult');
       if (!el) return;
       el.innerHTML = `
-        < div style = "display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px" >
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div>Δ P1: <span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP1)}</span></div>
           <div>Δ P3: <span style="color:var(--orange-light);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP3)}</span></div>
-        </div >
+        </div>
         <div style="font-size:14px;font-weight:700;color:${delta > 0 ? 'var(--green)' : 'var(--text)'}">
           Total extra: ${delta >= 0 ? '+' : ''}R$ ${fmt(delta)} (Tier${tierStr})
         </div>
@@ -2842,6 +3165,150 @@
       t.textContent = msg;
       container.appendChild(t);
       setTimeout(() => t.remove(), 4000);
+    }
+    // ═══════════════════════════════════════════════════════════════
+    // VENDOR DETAILS & EXPORT
+    // ═══════════════════════════════════════════════════════════════
+    async function openVendorDetailModal(vendorName) {
+      if (!window.currentVendorSummary || !currentPeriodId) return;
+      const vs = window.currentVendorSummary[vendorName];
+      if (!vs) return;
+
+      document.getElementById('vdModalName').textContent = vendorName;
+      const sel = document.getElementById('periodSelect');
+      document.getElementById('vdModalPeriod').textContent = sel.options[sel.selectedIndex]?.text || '';
+
+      // Set Breakdown
+      document.getElementById('vdP1').textContent = `R$ ${fmt(vs.p1)}`;
+      document.getElementById('vdP2').textContent = `R$ ${fmt(vs.p2)}`;
+      document.getElementById('vdP3').textContent = `R$ ${fmt(vs.p3)}`;
+      document.getElementById('vdP4a').textContent = `R$ ${fmt(vs.p4i)}`;
+      document.getElementById('vdP4b').textContent = `R$ ${fmt(vs.p4p)}`;
+      document.getElementById('vdTotal').textContent = `R$ ${fmt(vs.grandTotal)}`;
+
+      // Set KPIs
+      document.getElementById('vdAtiv').textContent = Math.round(vs.ativacoes || 0);
+      document.getElementById('vdCaixa').textContent = `R$ ${fmt(vs.caixa || 0)}`;
+      document.getElementById('vdRenov').textContent = vs.renovacoes || 0;
+      document.getElementById('vdVouch').textContent = vs.vouchers || 0;
+
+      // Render Items
+      const wrap = document.getElementById('vdItemsWrap');
+      wrap.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Carregando lançamentos...</div>';
+      document.getElementById('vendorDetailModal').classList.add('open');
+
+      try {
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').where('vendedor', '==', vendorName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+
+        // Ordenaçao padrao por data decrescente
+        items.sort((a, b) => {
+          const pA = (a.data || '').split('/'); const pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
+          return dB - dA;
+        });
+
+        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
+
+        let tHtml = '<table style="width:100%; border-collapse:collapse; text-align:left; white-space:nowrap; font-size:11px;">' +
+          '<thead><tr style="background:var(--surface2); border-bottom:1px solid var(--border);">' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Data</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Cliente</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Item</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Cat.</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2); text-align:right;">Valor</th>' +
+          '</tr></thead><tbody>';
+
+        if (items.length === 0) {
+          tHtml += '<tr><td colspan="5" style="padding:16px; text-align:center; color:var(--text3);">Nenhum lançamento no período.</td></tr>';
+        }
+
+        items.forEach(r => {
+          const isProc = r.type !== 'excluded';
+          tHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03); opacity:${isProc ? '1' : '0.5'}" title="${isProc ? '' : 'Ignorado das comissões'}">
+            <td style="padding:8px 12px; color:var(--text3);">${r.data || ''}</td>
+            <td style="padding:8px 12px; max-width:140px; word-break:break-word; white-space:normal; color:var(--text);">${r.cliente || ''}</td>
+            <td style="padding:8px 12px; max-width:140px; word-break:break-word; white-space:normal; color:var(--text3); font-size:10px;">${r.item || ''}</td>
+            <td style="padding:8px 12px;"><span class="pill ${pillClass(r.category)}">${r.label || r.category}</span></td>
+            <td style="padding:8px 12px; text-align:right; font-family:'JetBrains Mono'; color:${isProc ? 'var(--orange-light)' : 'var(--text3)'};">R$ ${fmt(r.valorCaixa || 0)}</td>
+          </tr>`;
+        });
+        tHtml += '</tbody></table>';
+        wrap.innerHTML = tHtml;
+      } catch (err) {
+        wrap.innerHTML = `<div style="padding:16px;text-align:center;color:var(--red);font-size:12px">Erro ao carregar: ${err.message}</div>`;
+      }
+    }
+
+    function closeVendorDetailModal() {
+      document.getElementById('vendorDetailModal').classList.remove('open');
+    }
+
+    function openRulesModal() { document.getElementById('rulesModal').classList.add('open'); }
+    function closeRulesModal() { document.getElementById('rulesModal').classList.remove('open'); }
+    function openHelpModal() { document.getElementById('helpModal').classList.add('open'); }
+    function closeHelpModal() { document.getElementById('helpModal').classList.remove('open'); }
+
+    async function exportPeriodToExcel() {
+      if (!currentPeriodId) return;
+      try {
+        toast('Gerando arquivo...', 'info');
+        // Get all items
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+
+        // Prepare Summary Sheet
+        const vs = window.currentVendorSummary || {};
+        const summaryData = [
+          ['Vendedor', 'Geral Total', 'P1 (% Caixa)', 'P2 (Fixo)', 'P3 (Meta Un.)', 'P4 (Indiv.)', 'P4 (Pool)', 'Ativações', 'Renovações', 'Vouchers', 'Caixa (R$)']
+        ];
+        Object.entries(vs).forEach(([vName, vData]) => {
+          if (!vData.isNaoCom) {
+            summaryData.push([
+              vName, vData.grandTotal || 0, vData.p1 || 0, vData.p2 || 0, vData.p3 || 0, vData.p4i || 0, vData.p4p || 0,
+              vData.ativacoes || 0, vData.renovacoes || 0, vData.vouchers || 0, vData.caixa || 0
+            ]);
+          }
+        });
+
+        // Prepare Items Sheet
+        const itemsData = [
+          ['Vendedor', 'Data', 'Cliente', 'Item', 'Categoria / Lógica', 'Valor Caixa', 'Tipo (Excel Original)', 'Status']
+        ];
+        items.forEach(r => {
+          itemsData.push([
+            r.vendedor || '',
+            r.data || '',
+            r.cliente || '',
+            r.item || '',
+            r.label || r.category || '',
+            r.valorCaixa || 0,
+            r.tipoVenda || '',
+            r.type === 'excluded' ? 'Ignorado' : 'Processado'
+          ]);
+        });
+
+        // Build Workbook
+        const wb = XLSX.utils.book_new();
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        const wsItems = XLSX.utils.aoa_to_sheet(itemsData);
+
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo Vendedores');
+        XLSX.utils.book_append_sheet(wb, wsItems, 'Lançamentos Detalhados');
+
+        // Download
+        const sel = document.getElementById('periodSelect');
+        let pName = sel.options[sel.selectedIndex]?.text || currentPeriodId;
+        pName = pName.replace(/\s+/g, '_');
+        XLSX.writeFile(wb, `Comissoes_CT_${pName}.xlsx`);
+        toast('Exportação concluída!', 'success');
+
+      } catch (e) {
+        toast('Erro ao exportar: ' + e.message, 'error');
+      }
     }
   </script>
 </body>
