@@ -201,7 +201,7 @@ const CommissionEngine = {
 
       const valor = this.getValor(row, cfg);
       if (valor <= 0 && !info.isDegustacao) {
-        excluded.push({ ...row, _idx: idx, _reason: 'Valor zero ou negativo' });
+        // Completely drop 0-value items from analysis
         return;
       }
 
