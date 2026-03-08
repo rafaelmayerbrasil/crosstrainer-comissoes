@@ -1290,7 +1290,7 @@
             placeholder="Nome do vendedor (EX: MARIA)"></div>
         <div class="form-group"><label>Cliente</label><input id="recCli" placeholder="Nome do cliente"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group"><label>Data</label><input id="recData" placeholder="DD/MM/AAAA"></div>
+          <div class="form-group"><label>Data</label><input type="date" id="recData" required></div>
           <div class="form-group"><label>Valor Pagamento (R$)</label><input id="recCaixa" type="number" step="0.01"
               required></div>
         </div>
@@ -2457,7 +2457,14 @@
       document.getElementById('recId').value = id;
       document.getElementById('recVend').value = d.vendedor || '';
       document.getElementById('recCli').value = d.cliente || '';
-      document.getElementById('recData').value = d.data || '';
+
+      let dateVal = d.data || '';
+      if (dateVal.includes('/')) {
+        const p = dateVal.split('/');
+        if (p.length === 3) dateVal = `${p[2]}-${p[1]}-${p[0]}`;
+      }
+      document.getElementById('recData').value = dateVal;
+
       document.getElementById('recItem').value = d.item || '';
       document.getElementById('recCaixa').value = d.valorCaixa || 0;
       document.getElementById('recTipo').value = d.tipoVenda || '';
@@ -2473,11 +2480,27 @@
     async function saveRecord(e) {
       e.preventDefault();
       if (!currentPeriodId) return;
+
+      const rawDate = document.getElementById('recData').value; // YYYY-MM-DD
+      let finalDate = rawDate;
+      let targetPeriodId = currentPeriodId;
+      let pYear = null, pMonth = null;
+
+      if (rawDate && rawDate.includes('-')) {
+        const parts = rawDate.split('-');
+        if (parts.length === 3) {
+          finalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          pYear = parseInt(parts[0], 10);
+          pMonth = parseInt(parts[1], 10);
+          targetPeriodId = `cp_${pYear}_${String(pMonth).padStart(2, '0')}`;
+        }
+      }
+
       const id = document.getElementById('recId').value;
       const data = {
         vendedor: document.getElementById('recVend').value.trim().toUpperCase() || 'SEM VENDEDOR',
         cliente: document.getElementById('recCli').value.trim() || '',
-        data: document.getElementById('recData').value.trim() || '',
+        data: finalDate,
         item: document.getElementById('recItem').value.trim() || '',
         valorCaixa: parseFloat(document.getElementById('recCaixa').value) || 0,
         tipoVenda: document.getElementById('recTipo').value.trim() || '',
@@ -2488,15 +2511,41 @@
 
       try {
         toast('Salvando...', 'info');
-        if (id) {
-          await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).update(data);
-        } else {
-          await db.collection('periodos').doc(currentPeriodId).collection('itens').add(data);
+
+        // Check if target period exists
+        const pRef = db.collection('periodos').doc(targetPeriodId);
+        const pSnap = await pRef.get();
+        if (!pSnap.exists && pYear && pMonth) {
+          await pRef.set({ unitId: 'cp', year: pYear, month: pMonth, totals: {}, vendorSummary: {} });
         }
+
+        if (id) {
+          if (targetPeriodId !== currentPeriodId) {
+            // Moving to another period
+            await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).delete();
+            await db.collection('periodos').doc(targetPeriodId).collection('itens').add(data);
+          } else {
+            await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).update(data);
+          }
+        } else {
+          await db.collection('periodos').doc(targetPeriodId).collection('itens').add(data);
+        }
+
         closeRecordModal();
-        await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
-        toast('Período recalculado!', 'success');
+
+        if (targetPeriodId !== currentPeriodId) {
+          await recalculatePeriod(currentPeriodId);
+          await recalculatePeriod(targetPeriodId);
+          toast('Lançamento salvo num novo período. Atualizando lista...', 'info');
+          await loadPeriods();
+          // set period select to target
+          document.getElementById('periodSelect').value = targetPeriodId;
+          await loadPeriod(targetPeriodId);
+        } else {
+          await recalculatePeriod(currentPeriodId);
+          await loadPeriod(currentPeriodId);
+          toast('Período recalculado!', 'success');
+        }
       } catch (err) { toast('Erro: ' + err.message, 'error'); }
     }
 
