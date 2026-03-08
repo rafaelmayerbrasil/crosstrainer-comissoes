@@ -11,6 +11,7 @@
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -2006,11 +2007,12 @@
     // ═══════════════════════════════════════════════════════════════
     // ADMIN DASHBOARD RENDER
     // ═══════════════════════════════════════════════════════════════
-    function renderAdminDashboard(data) {
+    function renderAdminDashboard(data, periodId) {
       const t = data.totals;
       const vs = data.vendorSummary || {};
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
       const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
+      const comVendors = Object.values(vs).filter(v => !v.isNaoCom);
 
       // Meta
       const hitGold = t.unitAtivacoes >= cfg.metaGold;
@@ -2018,13 +2020,22 @@
       const hitMeta = t.unitAtivacoes >= cfg.meta;
       const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
       const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
-      const novosOk = t.unitNovosRetorno >= cfg.minNovos;
-      const renovOk = t.unitRenovacoes >= cfg.minRenov;
-      const vouchOk = t.unitVouchers >= cfg.minVoucher;
 
       let html = '';
 
-      // Meta panel
+      // ── Inconsistency alerts ──
+      const alerts = [];
+      if (t.unitVouchers === 0) alerts.push('⚠ Nenhum voucher (Mês Degustação) encontrado neste período');
+      const vendorsWithNoName = Object.keys(vs).filter(n => n === 'Sem Vendedor' || !n.trim());
+      if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
+      if (alerts.length > 0) {
+        html += `<div style="background:rgba(245,166,35,0.1);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:20px">
+          <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔔 Avisos</div>
+          ${alerts.map(a => `<div style="font-size:12px;color:var(--text2);margin-bottom:3px">${a}</div>`).join('')}
+        </div>`;
+      }
+
+      // ── Meta panel ──
       html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
     <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
     <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
@@ -2032,7 +2043,7 @@
     <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
     <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
   </div><div>
-    <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
+    <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
     <div class="tripe-grid">
       ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
       ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
@@ -2041,7 +2052,7 @@
     </div>
   </div></div></div>`;
 
-      // Stats
+      // ── Stats row ──
       const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
       const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
       const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
@@ -2055,11 +2066,42 @@
     <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
   </div>`;
 
-      // Vendor cards
+      // ── KPI Panel ──
+      const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
+      const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
+      const taxaRenovacao = totalVendas > 0 ? ((t.unitRenovacoes || 0) / totalVendas * 100) : 0;
+      const custoPct = t.unitCaixa > 0 ? (totalComissoes / t.unitCaixa * 100) : 0;
+      const convVoucher = t.unitVouchers > 0 ? ((data.p4result?.conversoesMes || 0) / t.unitVouchers * 100) : 0;
+
+      html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
+          <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">por ativação</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Taxa de Renovação</div>
+          <div class="mono" style="font-size:20px;font-weight:700;color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} de ${totalVendas}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Custo Comissão</div>
+          <div class="mono" style="font-size:20px;font-weight:700;color:${custoPct > 10 ? 'var(--red)' : custoPct > 7 ? 'var(--yellow)' : 'var(--green)'}">${custoPct.toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">do caixa total</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Conversão Voucher</div>
+          <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange-light)">${convVoucher.toFixed(0)}%</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div>
+        </div>
+      </div>`;
+
+      // ── Vendor ranking cards ──
       const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
       html += '<div class="vendor-grid">';
       sorted.forEach(([name, v], i) => {
-        html += `<div class="v-card"><div class="vc-head"><span class="rank">${i + 1}</span><span class="vc-name">${name}</span></div>
+        const rankBadge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+        html += `<div class="v-card"><div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
       <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
       <div class="v-parts">
         <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
@@ -2073,19 +2115,72 @@
       });
       html += '</div>';
 
-      // Non-commissionable summary
+      // ── Non-commissionable summary ──
       const naoComVendors = Object.entries(vs).filter(([n, v]) => v.isNaoCom);
       if (naoComVendors.length > 0) {
-        html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3)">';
-        html += '<strong style="color:var(--text2)">Não-comissionáveis:</strong> ';
+        html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)">';
+        html += '<strong>Não-comissionáveis:</strong> ';
         html += naoComVendors.map(([n, v]) => `${n} (${Math.round(v.ativacoes)} ativ, R$ ${fmt(v.caixa)} caixa)`).join(' · ');
         html += '</div>';
       }
 
+      // ── History chart placeholder ──
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px">
+        <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📈 Evolução Histórica</div>
+        <canvas id="historyChart" style="max-height:220px"></canvas>
+      </div>`;
+
       document.getElementById('dashboardContent').innerHTML = html;
 
-      // Load and render records table (async, appended after)
+      // Render chart and records table async
+      renderHistoryChart();
       renderRecordsTable(periodId);
+    }
+
+    async function renderHistoryChart() {
+      try {
+        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const labels = docs.map(d => `${months[d.month]}/${String(d.year).slice(2)}`);
+        const ativData = docs.map(d => d.totals?.unitAtivacoes || 0);
+        const caixaData = docs.map(d => (d.totals?.unitCaixa || 0) / 1000); // em R$ mil
+        const comData = docs.map(d => {
+          const vs = d.vendorSummary || {};
+          return Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0) / 1000;
+        });
+
+        const canvas = document.getElementById('historyChart');
+        if (!canvas) return;
+        if (canvas._chartInstance) canvas._chartInstance.destroy();
+
+        canvas._chartInstance = new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Ativações', data: ativData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', tension: 0.4, yAxisID: 'y1' },
+              { label: 'Caixa (R$ mil)', data: caixaData, borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y2' },
+              { label: 'Comissão (R$ mil)', data: comData, borderColor: '#E8920D', backgroundColor: 'rgba(232,146,13,0.05)', tension: 0.4, yAxisID: 'y2', borderDash: [4, 4] },
+            ],
+          },
+          options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { labels: { color: '#908a82', font: { size: 11 } } },
+            },
+            scales: {
+              x: { ticks: { color: '#908a82', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+              y1: { type: 'linear', position: 'left', ticks: { color: '#4CAF50', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Ativações', color: '#4CAF50', font: { size: 10 } } },
+              y2: { type: 'linear', position: 'right', ticks: { color: '#F5A623', font: { size: 10 }, callback: v => `R$${v}k` }, grid: { drawOnChartArea: false }, title: { display: true, text: 'R$ mil', color: '#F5A623', font: { size: 10 } } },
+            },
+          },
+        });
+      } catch (e) { /* silently fail if no history */ }
     }
 
     async function renderRecordsTable(periodId) {
@@ -2141,15 +2236,17 @@
     // VENDOR DASHBOARD
     // ═══════════════════════════════════════════════════════════════
     async function loadVendorPeriods() {
-      const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
-      const sel = document.getElementById('vendorPeriodSelect');
-      sel.innerHTML = '<option value="">Selecione</option>';
-      snap.forEach(doc => {
-        const d = doc.data();
+      try {
+        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const sel = document.getElementById('vendorPeriodSelect');
         const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
-      });
-      if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+        sel.innerHTML = '<option value="">Selecione</option>';
+        docs.forEach(d => { sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`; });
+        if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
+      } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
     }
 
     async function loadVendorPeriod(periodId) {
@@ -2172,7 +2269,7 @@
 
       const el = document.getElementById('vendorDashboard');
       if (!myData) {
-        el.innerHTML = '<p style="color:var(--text3);padding:40px;text-align:center">Nenhum dado encontrado para o seu nome neste período.</p>';
+        el.innerHTML = '<p style="color:var(--text2);padding:40px;text-align:center">Nenhum dado encontrado para o seu nome neste período.</p>';
         return;
       }
 
@@ -2185,43 +2282,214 @@
       const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
       const myRank = ranked.findIndex(([n]) => n === myName) + 1;
 
-      let html = `
-    <div class="stats-row">
-      <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
-      <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes)}</div></div>
-      <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa)}</div></div>
-      <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank > 0 ? myRank + 'º' : '—'}</div><div class="s-sub">de ${ranked.length}</div></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><span style="font-size:10px;color:var(--text3)">P1: % Caixa</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1 || 0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P2: Bônus Fixo</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2 || 0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P3: Meta</span><div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P4: Voucher</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div></div>
+      let html = '';
+
+      // ── Alerts ──
+      const alertsHtml = [];
+      const faltaMeta = cfg.meta - t.unitAtivacoes;
+      const faltaSuper = cfg.superMeta - t.unitAtivacoes;
+      const faltaGold = cfg.metaGold - t.unitAtivacoes;
+      if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div>`);
+      else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div>`);
+      else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div>`);
+      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div>`);
+      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div>`);
+
+      if (alertsHtml.length > 0) {
+        html += `<div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)">
+          <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">🔔 Alertas</div>
+          ${alertsHtml.join('')}
+        </div>`;
+      }
+
+      // ── Stats row ──
+      html += `<div class="stats-row">
+        <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
+        <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes)}</div></div>
+        <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa)}</div></div>
+        <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank > 0 ? myRank + 'º' : '—'}</div><div class="s-sub">de ${ranked.length}</div></div>
+      </div>`;
+
+      // ── Cards: composição + meta unidade ──
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><span style="font-size:10px;color:var(--text2)">P1: % Caixa</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1 || 0)}</div></div>
+            <div><span style="font-size:10px;color:var(--text2)">P2: Bônus Fixo</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2 || 0)}</div></div>
+            <div><span style="font-size:10px;color:var(--text2)">P3: Meta</span><div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div></div>
+            <div><span style="font-size:10px;color:var(--text2)">P4: Voucher</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div></div>
+          </div>
         </div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Meta da Unidade</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${t.unitAtivacoes} ativações — ${hitGold ? '👑 Meta Gold' : hitSuper ? '🔥 Super Meta' : hitMeta ? '🏅 Meta' : 'Não atingida'}</div>
-        <div style="font-size:11px;color:var(--text3)">Novos+Ret: ${t.unitNovosRetorno}/${cfg.minNovos} ${t.unitNovosRetorno >= cfg.minNovos ? '✅' : '❌'}</div>
-        <div style="font-size:11px;color:var(--text3)">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠'}</div>
-        <div style="font-size:11px;color:var(--text3)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠'}</div>
-      </div>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
-      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
-        <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text3)">Novos</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace">${Math.round(myData.renovacoes)}</div><div style="font-size:10px;color:var(--text3)">Renovações</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text3)">Retornos</div></div>
-        <div><div style="font-size:20px;font-weight:700;color:var(--yellow);font-family:'JetBrains Mono',monospace">${Math.round(myData.vouchers)}</div><div style="font-size:10px;color:var(--text3)">Vouchers</div></div>
-      </div>
-    </div>`;
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Meta da Unidade</div>
+          <div style="font-size:13px;color:var(--text);margin-bottom:8px;font-weight:600">${t.unitAtivacoes} ativações — ${hitGold ? '👑 Meta Gold' : hitSuper ? '🔥 Super Meta' : hitMeta ? '🏅 Meta' : 'Não atingida'}</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Novos+Ret: ${t.unitNovosRetorno}/${cfg.minNovos} ${t.unitNovosRetorno >= cfg.minNovos ? '✅' : '❌'}</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠️'}</div>
+          <div style="font-size:11px;color:var(--text2)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠️'}</div>
+        </div>
+      </div>`;
+
+      // ── Minhas vendas ──
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+          <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text2)">Novos</div></div>
+          <div><div style="font-size:20px;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace">${Math.round(myData.renovacoes)}</div><div style="font-size:10px;color:var(--text2)">Renovações</div></div>
+          <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text2)">Retornos</div></div>
+          <div><div style="font-size:20px;font-weight:700;color:var(--yellow);font-family:'JetBrains Mono',monospace">${Math.round(myData.vouchers)}</div><div style="font-size:10px;color:var(--text2)">Vouchers</div></div>
+        </div>
+      </div>`;
+
+      // ── Simulador "E se..." ──
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id="simuladorCard">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">🧮 Simulador "E se..."</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:13px;color:var(--text2)">Se eu fechar mais</span>
+          <input id="simQt" type="number" min="0" max="50" value="5" 
+            style="width:60px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;padding:6px 10px;text-align:center"
+            oninput="calcSimulator(${JSON.stringify({ ativacoes: myData.ativacoes, caixaTotal: myData.caixa, p3: myData.p3 || 0, tier: myData.p3 > 0 })}, ${t.unitAtivacoes}, ${t.unitNovosRetorno}, ${t.unitRenovacoes}, ${t.unitVouchers})">
+          <select id="simTipo"
+            style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px"
+            onchange="calcSimulator(${JSON.stringify({ ativacoes: myData.ativacoes, caixaTotal: myData.caixa, p3: myData.p3 || 0, tier: myData.p3 > 0 })}, ${t.unitAtivacoes}, ${t.unitNovosRetorno}, ${t.unitRenovacoes}, ${t.unitVouchers})">
+            <option value="ANUAL_LOCAL">Anual Local (R$3.108)</option>
+            <option value="ANUAL_FLEX">Anual Flex (R$3.348)</option>
+            <option value="BIANUAL">Bianual (R$5.976)</option>
+            <option value="RECORRENTE">Recorrente (R$419)</option>
+            <option value="MENSAL">Mensal (R$390)</option>
+          </select>
+        </div>
+        <div id="simResult" style="font-size:13px;color:var(--text2)">Ajuste os campos para simular.</div>
+      </div>`;
+
+      // ── Histórico pessoal (placeholder, carregado async) ──
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📊 Meu Histórico</div>
+        <canvas id="vendorHistoryChart" style="max-height:200px"></canvas>
+        <div id="vendorHistoryTable" style="margin-top:16px;font-size:12px;color:var(--text2)">Carregando histórico...</div>
+      </div>`;
 
       el.innerHTML = html;
+      loadVendorHistory(myName);
     }
+
+    function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers) {
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const qt = parseInt(document.getElementById('simQt')?.value) || 0;
+      const tipo = document.getElementById('simTipo')?.value || 'ANUAL_LOCAL';
+
+      const valorMap = { ANUAL_LOCAL: 3108, ANUAL_FLEX: 3348, BIANUAL: 5976, RECORRENTE: 419, MENSAL: 390 };
+      const labelMap = { ANUAL_LOCAL: 'Anual Local', ANUAL_FLEX: 'Anual Flex', BIANUAL: 'Bianual', RECORRENTE: 'Recorrente', MENSAL: 'Mensal' };
+      const val = valorMap[tipo] || 0;
+
+      const novaCaixa = myData.caixaTotal + val * qt;
+      const novasAtiv = myData.ativacoes + qt;
+      const novoUnitAtiv = unitAtiv + qt;
+      const novoUnitNovos = unitNovos + qt;
+
+      const novoP1 = novaCaixa * (cfg.pctNovo / 100);
+      const p3result = CommissionEngine.calcP3(novoUnitAtiv, novoUnitNovos, unitRenov, unitVouchers, novaCaixa, cfg);
+      const novoP3 = p3result.final;
+
+      const deltaP1 = novoP1 - (myData.caixaTotal * (cfg.pctNovo / 100));
+      const deltaP3 = novoP3 - (myData.p3 || 0);
+      const delta = deltaP1 + deltaP3;
+
+      const tierStr = p3result.tier ? ` (${p3result.tierLabel})` : ' (sem meta)';
+      const el = document.getElementById('simResult');
+      if (!el) return;
+      el.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>Δ P1: <span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP1)}</span></div>
+          <div>Δ P3: <span style="color:var(--orange-light);font-weight:700;font-family:'JetBrains Mono'">${delta > 0 ? '+' : ''}R$ ${fmt(deltaP3)}</span></div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:${delta > 0 ? 'var(--green)' : 'var(--text)'}">
+          Total extra: ${delta >= 0 ? '+' : ''}R$ ${fmt(delta)} (Tier${tierStr})
+        </div>
+        ${p3result.motivos.length ? `<div style="font-size:10px;color:var(--text2);margin-top:4px">⚠ ${p3result.motivos.join(', ')}</div>` : ''}
+      `;
+    }
+
+    async function loadVendorHistory(myName) {
+      try {
+        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const rows = [];
+        docs.forEach(d => {
+          const vs = d.vendorSummary || {};
+          // Find my data case-insensitively
+          let my = null;
+          Object.entries(vs).forEach(([name, v]) => {
+            if (name.toUpperCase() === myName.toUpperCase() || name.toUpperCase().includes(myName.toUpperCase())) my = v;
+          });
+          if (my) {
+            const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+            const pos = ranked.findIndex(([n]) => n.toUpperCase() === myName.toUpperCase()) + 1;
+            rows.push({ label: `${months[d.month]}/${String(d.year).slice(2)}`, ativ: Math.round(my.ativacoes), comissao: my.grandTotal || 0, pos });
+          }
+        });
+
+        if (!rows.length) {
+          document.getElementById('vendorHistoryTable').textContent = 'Sem histórico disponível.';
+          return;
+        }
+
+        // Chart
+        const canvas = document.getElementById('vendorHistoryChart');
+        if (canvas) {
+          if (canvas._chartInstance) canvas._chartInstance.destroy();
+          canvas._chartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+              labels: rows.map(r => r.label),
+              datasets: [
+                { label: 'Comissão (R$)', data: rows.map(r => r.comissao), borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y1' },
+                { label: 'Ativações', data: rows.map(r => r.ativ), borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.05)', tension: 0.4, yAxisID: 'y2' },
+              ],
+            },
+            options: {
+              responsive: true,
+              interaction: { mode: 'index', intersect: false },
+              plugins: { legend: { labels: { color: '#908a82', font: { size: 11 } } } },
+              scales: {
+                x: { ticks: { color: '#908a82', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                y1: { type: 'linear', position: 'left', ticks: { color: '#F5A623', font: { size: 10 }, callback: v => `R$${v.toLocaleString('pt-BR')}` }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                y2: { type: 'linear', position: 'right', ticks: { color: '#4CAF50', font: { size: 10 } }, grid: { drawOnChartArea: false } },
+              },
+            },
+          });
+        }
+
+        // Table
+        const tableEl = document.getElementById('vendorHistoryTable');
+        if (tableEl) {
+          tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:6px;color:var(--text2);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Mês</th>
+              <th style="text-align:right;padding:6px;color:var(--text2);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Ativações</th>
+              <th style="text-align:right;padding:6px;color:var(--text2);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Comissão</th>
+              <th style="text-align:right;padding:6px;color:var(--text2);font-weight:700;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border)">Posição</th>
+            </tr></thead>
+            <tbody>
+              ${rows.slice().reverse().map(r => `<tr>
+                <td style="padding:6px;border-bottom:1px solid var(--border);color:var(--text)">${r.label}</td>
+                <td style="padding:6px;border-bottom:1px solid var(--border);text-align:right;font-family:'JetBrains Mono';color:var(--green)">${r.ativ}</td>
+                <td style="padding:6px;border-bottom:1px solid var(--border);text-align:right;font-family:'JetBrains Mono';color:var(--orange-light)">R$ ${fmt(r.comissao)}</td>
+                <td style="padding:6px;border-bottom:1px solid var(--border);text-align:right;color:var(--text2)">${r.pos > 0 ? r.pos + 'º' : '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`;
+        }
+      } catch (e) {
+        const el = document.getElementById('vendorHistoryTable');
+        if (el) el.textContent = 'Erro ao carregar histórico.';
+      }
+    }
+
 
     // ═══════════════════════════════════════════════════════════════
     // HELPERS
