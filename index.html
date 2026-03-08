@@ -1623,28 +1623,34 @@
       if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
 
       try {
-        // Save current user to restore session
-        const currentEmail = currentUser.email;
+        // Use a secondary Firebase app so the admin session is never replaced
+        const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
+          || firebase.initializeApp(firebaseConfig, 'secondary');
+        const secondaryAuth = secondaryApp.auth();
 
-        // Create auth user
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        // Create auth user via secondary app
+        const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+        const newUid = cred.user.uid;
 
-        // Create Firestore profile
-        await db.collection('users').doc(cred.user.uid).set({
-          name, email, role, unitId: 'cp', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        // Sign out secondary app immediately (admin session untouched)
+        await secondaryAuth.signOut();
+
+        // Create Firestore profile using primary (admin) auth
+        await db.collection('users').doc(newUid).set({
+          name, email, role, unitId: 'cp',
+          status: 'ativo',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        // Note: creating a user signs them in, so we need to sign back in as admin
-        // This is a limitation of client-side auth. For production, use Cloud Functions.
-        toast(`Usuário ${name} criado! Faça login novamente.`, 'success');
+        toast(`Usuário ${name} criado com sucesso!`, 'success');
         document.getElementById('addUserForm').style.display = 'none';
-
-        // The onAuthStateChanged will handle the state change
-        // We need to sign back in as admin
-        setTimeout(() => { loadUsers(); }, 1000);
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newUserEmail').value = '';
+        document.getElementById('newUserPass').value = '';
+        loadUsers();
       } catch (e) {
         const msgs = {
-          'auth/email-already-in-use': 'Este e-mail já está cadastrado. Use um e-mail diferente ou recupere o acesso.',
+          'auth/email-already-in-use': 'Este e-mail já está cadastrado. Use um e-mail diferente.',
           'auth/invalid-email': 'E-mail inválido.',
           'auth/weak-password': 'Senha muito fraca. Use ao menos 6 caracteres.',
           'auth/operation-not-allowed': 'Operação não permitida. Contate o administrador.',
