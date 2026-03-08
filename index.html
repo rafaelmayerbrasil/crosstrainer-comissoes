@@ -1627,20 +1627,21 @@
         const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
           || firebase.initializeApp(firebaseConfig, 'secondary');
         const secondaryAuth = secondaryApp.auth();
+        const secondaryDb = firebase.firestore(secondaryApp);
 
         // Create auth user via secondary app
         const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // Sign out secondary app immediately (admin session untouched)
-        await secondaryAuth.signOut();
-
-        // Create Firestore profile using primary (admin) auth
-        await db.collection('users').doc(newUid).set({
+        // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
+        await secondaryDb.collection('users').doc(newUid).set({
           name, email, role, unitId: 'cp',
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        // Sign out secondary app (admin session untouched)
+        await secondaryAuth.signOut();
 
         toast(`Usuário ${name} criado com sucesso!`, 'success');
         document.getElementById('addUserForm').style.display = 'none';
