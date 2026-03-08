@@ -1156,10 +1156,166 @@
       background: var(--border);
       border-radius: 3px
     }
+
+    /* ─── TABS & MODALS ─── */
+    .admin-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 0 8px 0;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      color: var(--orange-light);
+      border-bottom-color: var(--orange-light);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h3 {
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .close-btn:hover {
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 700;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+    }
   </style>
 </head>
 
 <body>
+
+  <!-- MODALS -->
+  <div id="recordModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="recordModalTitle">Novo Lançamento</h3>
+        <button class="close-btn" onclick="closeRecordModal()">&times;</button>
+      </div>
+      <form id="recForm" onsubmit="saveRecord(event)">
+        <input type="hidden" id="recId">
+        <div class="form-group"><label>Vendedor</label><input id="recVend" required
+            placeholder="Nome do vendedor (EX: MARIA)"></div>
+        <div class="form-group"><label>Cliente</label><input id="recCli" placeholder="Nome do cliente"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group"><label>Data</label><input id="recData" placeholder="DD/MM/AAAA"></div>
+          <div class="form-group"><label>Valor Pagamento (R$)</label><input id="recCaixa" type="number" step="0.01"
+              required></div>
+        </div>
+        <div class="form-group"><label>Plano / Item</label><input id="recItem"
+            placeholder="Ex: GYMPASS, MÊS DEGUSTAÇÃO, ANUAL"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group"><label>Tipo Venda Fonte</label><input id="recTipo"
+              placeholder="Ex: Nova Venda, Renovacao"></div>
+          <div class="form-group">
+            <label>Categoria Mapeada</label>
+            <select id="recCat">
+              <option value="novo">Novo</option>
+              <option value="renovacao">Renovação</option>
+              <option value="retorno">Retorno</option>
+              <option value="voucher">Voucher (Mês Degustação)</option>
+              <option value="avulsa">Avulsa / Diária</option>
+              <option value="avulsa_renov">Avulsa_Renov</option>
+              <option value="ignorada">Ignorado (Gympass/Rescisão)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeRecordModal()">Cancelar</button>
+          <button type="submit" class="btn">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
@@ -1966,6 +2122,64 @@
       }
     }
 
+    function openAddRecordModal() {
+      document.getElementById('recId').value = '';
+      document.getElementById('recForm').reset();
+      document.getElementById('recordModalTitle').textContent = 'Novo Lançamento';
+      document.getElementById('recordModal').classList.add('open');
+    }
+
+    async function openEditRecordModal(id) {
+      if (!currentPeriodId) return;
+      const doc = await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).get();
+      if (!doc.exists) return;
+      const d = doc.data();
+      document.getElementById('recId').value = id;
+      document.getElementById('recVend').value = d.vendedor || '';
+      document.getElementById('recCli').value = d.cliente || '';
+      document.getElementById('recData').value = d.data || '';
+      document.getElementById('recItem').value = d.item || '';
+      document.getElementById('recCaixa').value = d.valorCaixa || 0;
+      document.getElementById('recTipo').value = d.tipoVenda || '';
+      document.getElementById('recCat').value = d.category || 'novo';
+      document.getElementById('recordModalTitle').textContent = 'Editar Lançamento';
+      document.getElementById('recordModal').classList.add('open');
+    }
+
+    function closeRecordModal() {
+      document.getElementById('recordModal').classList.remove('open');
+    }
+
+    async function saveRecord(e) {
+      e.preventDefault();
+      if (!currentPeriodId) return;
+      const id = document.getElementById('recId').value;
+      const data = {
+        vendedor: document.getElementById('recVend').value.trim().toUpperCase() || 'SEM VENDEDOR',
+        cliente: document.getElementById('recCli').value.trim() || '',
+        data: document.getElementById('recData').value.trim() || '',
+        item: document.getElementById('recItem').value.trim() || '',
+        valorCaixa: parseFloat(document.getElementById('recCaixa').value) || 0,
+        tipoVenda: document.getElementById('recTipo').value.trim() || '',
+        category: document.getElementById('recCat').value,
+        type: 'processed',
+        isActivation: ['novo', 'retorno', 'renovacao', 'voucher'].includes(document.getElementById('recCat').value)
+      };
+
+      try {
+        toast('Salvando...', 'info');
+        if (id) {
+          await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).update(data);
+        } else {
+          await db.collection('periodos').doc(currentPeriodId).collection('itens').add(data);
+        }
+        closeRecordModal();
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Período recalculado!', 'success');
+      } catch (err) { toast('Erro: ' + err.message, 'error'); }
+    }
+
     async function recalculatePeriod(periodId) {
       const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
       const processed = [];
@@ -1981,26 +2195,31 @@
       const unitRenovacoes = processed.filter(d => d.category === 'renovacao').length;
       const unitVouchers = processed.filter(d => d.category === 'voucher').length;
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
+
       // Recalc P3
       Object.entries(vendorData).forEach(([name, v]) => {
         if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
         const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
         v.p3 = p3.final; v.p3detail = p3;
       });
+
       // P4
       const p4result = CommissionEngine.calcP4(processed, null, cfg);
       p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
       Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
+
       const vendorSummary = Object.fromEntries(Object.entries(vendorData).map(([name, v]) => [name, {
         p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
         grandTotal: v.grandTotal, ativacoes: v.ativacoes,
         novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
         caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
       }]));
+
       await db.collection('periodos').doc(periodId).update({
         totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
         vendorSummary,
+        p4result: p4result
       });
     }
 
@@ -2021,13 +2240,21 @@
       const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
       const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
 
-      let html = '';
-
       // ── Inconsistency alerts ──
       const alerts = [];
       if (t.unitVouchers === 0) alerts.push('⚠ Nenhum voucher (Mês Degustação) encontrado neste período');
-      const vendorsWithNoName = Object.keys(vs).filter(n => n === 'Sem Vendedor' || !n.trim());
+      const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
       if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
+
+      let html = `
+      <div class="admin-tabs">
+        <button class="tab-btn active" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='block';document.getElementById('tabRegistros').style.display='none';">Resumo Gerencial</button>
+        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='block';">Registros Processados</button>
+      </div>
+      
+      <div id="tabResumo">
+      `;
+
       if (alerts.length > 0) {
         html += `<div style="background:rgba(245,166,35,0.1);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:20px">
           <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔔 Avisos</div>
@@ -2128,7 +2355,17 @@
       html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px">
         <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📈 Evolução Histórica</div>
         <canvas id="historyChart" style="max-height:220px"></canvas>
-      </div>`;
+      </div>
+      </div> <!-- END tabResumo -->
+      
+      <div id="tabRegistros" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="font-size:16px;margin:0">Tabela de Lançamentos</h3>
+          <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar Lançamento</button>
+        </div>
+        <div id="recordsTableSection"></div>
+      </div> <!-- END tabRegistros -->
+      `;
 
       document.getElementById('dashboardContent').innerHTML = html;
 
@@ -2162,9 +2399,9 @@
           data: {
             labels,
             datasets: [
-              { label: 'Ativações', data: ativData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', tension: 0.4, yAxisID: 'y1' },
-              { label: 'Caixa (R$ mil)', data: caixaData, borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y2' },
-              { label: 'Comissão (R$ mil)', data: comData, borderColor: '#E8920D', backgroundColor: 'rgba(232,146,13,0.05)', tension: 0.4, yAxisID: 'y2', borderDash: [4, 4] },
+              { label: 'Ativações', data: ativData, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.1)', tension: 0.4, yAxisID: 'y1', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
+              { label: 'Caixa (R$ mil)', data: caixaData, borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y2', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
+              { label: 'Comissão (R$ mil)', data: comData, borderColor: '#E8920D', backgroundColor: 'rgba(232,146,13,0.05)', tension: 0.4, yAxisID: 'y2', borderDash: [4, 4], pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
             ],
           },
           options: {
@@ -2175,7 +2412,7 @@
             },
             scales: {
               x: { ticks: { color: '#908a82', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
-              y1: { type: 'linear', position: 'left', ticks: { color: '#4CAF50', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Ativações', color: '#4CAF50', font: { size: 10 } } },
+              y1: { type: 'linear', position: 'left', ticks: { color: '#4CAF50', font: { size: 10 }, precision: 0 }, grid: { color: 'rgba(255,255,255,0.04)' }, title: { display: true, text: 'Ativações', color: '#4CAF50', font: { size: 10 } } },
               y2: { type: 'linear', position: 'right', ticks: { color: '#F5A623', font: { size: 10 }, callback: v => `R$${v}k` }, grid: { drawOnChartArea: false }, title: { display: true, text: 'R$ mil', color: '#F5A623', font: { size: 10 } } },
             },
           },
@@ -2183,33 +2420,60 @@
       } catch (e) { /* silently fail if no history */ }
     }
 
+    let currentPeriodItems = [];
+
     async function renderRecordsTable(periodId) {
-      const container = document.getElementById('dashboardContent');
-      const tableDiv = document.createElement('div');
-      tableDiv.id = 'recordsTableSection';
-      tableDiv.style = 'margin-top:24px';
-      tableDiv.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando registros...</div>';
-      container.appendChild(tableDiv);
+      const container = document.getElementById('recordsTableSection');
+      if (!container) return;
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando registros...</div>';
 
       const snap = await db.collection('periodos').doc(periodId).collection('itens').orderBy('vendedor').get();
       const items = [];
       snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-      const processed = items.filter(i => i.type === 'processed');
+      currentPeriodItems = items.filter(i => i.type === 'processed');
 
-      const pillClass = cat => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[cat] || 'pill-outro');
+      const filterHtml = `
+        <div style="display:flex;gap:12px;margin-bottom:12px">
+          <input type="text" id="recordSearch" placeholder="🔍 Buscar vendedor ou cliente..." oninput="filterRecordsTable()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+          <select id="recordCatFilter" onchange="filterRecordsTable()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+            <option value="">Todas Categorias</option>
+            <option value="novo">Novo</option>
+            <option value="renovacao">Renovação</option>
+            <option value="retorno">Retorno</option>
+            <option value="voucher">Voucher</option>
+            <option value="avulsa">Avulsa</option>
+            <option value="ignorada">Ignorado</option>
+          </select>
+        </div>
+        <div id="recordsTableWrap"></div>
+      `;
+      container.innerHTML = filterHtml;
+      filterRecordsTable();
+    }
+
+    function filterRecordsTable() {
+      const wrap = document.getElementById('recordsTableWrap');
+      if (!wrap) return;
+
+      const q = (document.getElementById('recordSearch')?.value || '').toLowerCase();
+      const cat = document.getElementById('recordCatFilter')?.value || '';
+
+      const filtered = currentPeriodItems.filter(r => {
+        const matchQ = (r.vendedor || '').toLowerCase().includes(q) || (r.cliente || '').toLowerCase().includes(q) || (r.item || '').toLowerCase().includes(q);
+        const matchCat = cat === '' || r.category === cat;
+        return matchQ && matchCat;
+      });
+
+      const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
 
       let tHtml = `
-        <details open>
-          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text2);padding:12px 0;list-style:none;display:flex;align-items:center;gap:8px">
-            <span>&#9660;</span> Registros processados (${processed.length})
-          </summary>
-          <div class="table-wrap" style="margin-top:8px">
+          <div class="table-wrap" style="max-height:500px;overflow-y:auto">
             <table><thead><tr>
               <th>Vendedor</th><th>Cliente</th><th>Item</th><th>Tipo</th><th>Data</th>
-              <th class="currency">Valor</th><th>Cat.</th><th></th>
+              <th class="currency">Valor</th><th>Cat.</th><th style="width:60px">Ações</th>
             </tr></thead><tbody>`;
 
-      processed.forEach(r => {
+      filtered.forEach(r => {
         tHtml += `<tr>
           <td>${r.vendedor || ''}</td>
           <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.cliente || ''}</td>
@@ -2218,12 +2482,17 @@
           <td>${r.data || ''}</td>
           <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
           <td><span class="pill ${pillClass(r.category)}">${r.label || r.category}</span></td>
-          <td><button onclick="deleteRecord('${r._docId}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Excluir">&#128465;</button></td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button onclick="openEditRecordModal('${r._docId}')" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;padding:2px" title="Editar">&#9998;</button>
+              <button onclick="deleteRecord('${r._docId}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px" title="Excluir">&#128465;</button>
+            </div>
+          </td>
         </tr>`;
       });
 
-      tHtml += '</tbody></table></div></details>';
-      tableDiv.innerHTML = tHtml;
+      tHtml += '</tbody></table></div>';
+      wrap.innerHTML = tHtml;
     }
 
     function tripeCard(label, val, min, isGold) {
@@ -2447,8 +2716,8 @@
             data: {
               labels: rows.map(r => r.label),
               datasets: [
-                { label: 'Comissão (R$)', data: rows.map(r => r.comissao), borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y1' },
-                { label: 'Ativações', data: rows.map(r => r.ativ), borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.05)', tension: 0.4, yAxisID: 'y2' },
+                { label: 'Comissão (R$)', data: rows.map(r => r.comissao), borderColor: '#F5A623', backgroundColor: 'rgba(245,166,35,0.1)', tension: 0.4, yAxisID: 'y1', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
+                { label: 'Ativações', data: rows.map(r => r.ativ), borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.05)', tension: 0.4, yAxisID: 'y2', pointRadius: 4, pointHoverRadius: 6, spanGaps: true },
               ],
             },
             options: {
