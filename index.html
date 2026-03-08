@@ -2116,6 +2116,7 @@
           <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
               <h4 style="margin:0;font-size:13px;color:var(--text2)">Revisão de Registros</h4>
+              <input type="text" placeholder="🔍 Pesquisar vendedor, cliente, item..." style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;width:250px" oninput="setPreviewFilter(this.value)">
             </div>
             <div id="uploadPreviewTableWrap"></div>
           </div>
@@ -2152,6 +2153,13 @@
     }
 
     let pendingPreviewSort = { col: 'vendedor', asc: true };
+    let pendingPreviewFilter = '';
+
+    function setPreviewFilter(val) {
+      pendingPreviewFilter = val.toLowerCase();
+      renderPreviewTable();
+    }
+
     function sortPreview(col) {
       if (pendingPreviewSort.col === col) {
         pendingPreviewSort.asc = !pendingPreviewSort.asc;
@@ -2191,10 +2199,19 @@
       const wrap = document.getElementById('uploadPreviewTableWrap');
       if (!wrap) return;
 
-      const allItems = [
+      let allItems = [
         ...pendingUpload.result.processed.map((r, i) => ({ ...r, _origList: 'processed', _origIdx: i })),
         ...pendingUpload.result.excluded.map((r, i) => ({ ...r, _origList: 'excluded', _origIdx: i }))
       ];
+
+      if (pendingPreviewFilter) {
+        allItems = allItems.filter(r =>
+          (r.vendedor || '').toLowerCase().includes(pendingPreviewFilter) ||
+          (r.cliente || '').toLowerCase().includes(pendingPreviewFilter) ||
+          (r.item || '').toLowerCase().includes(pendingPreviewFilter) ||
+          (r.category || '').toLowerCase().includes(pendingPreviewFilter)
+        );
+      }
 
       allItems.sort((a, b) => {
         let vA = a[pendingPreviewSort.col];

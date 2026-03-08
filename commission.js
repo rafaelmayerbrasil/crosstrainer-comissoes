@@ -278,15 +278,33 @@ const CommissionEngine = {
       }
     }
     const headers = json[hi].map(h => String(h).trim());
+    // Standardize headers to avoid case-sensitivity issues
+    const stdHeaders = headers.map(h => {
+      const lower = h.toLowerCase();
+      if (lower.includes('código') || lower.includes('codigo')) return 'Código';
+      if (lower === 'cliente') return 'Cliente';
+      if (lower === 'data') return 'Data';
+      if (lower === 'itens') return 'Itens';
+      if (lower === 'valor venda') return 'Valor Venda';
+      if (lower === 'valor final') return 'Valor Final';
+      if (lower.includes('quitado') || lower.includes('recibo')) return 'Valor Quitado/Recibo';
+      if (lower === 'origem') return 'Origem';
+      if (lower === 'tipo de venda' || lower === 'tipo') return 'Tipo de Venda';
+      if (lower === 'vendedor') return 'Vendedor';
+      return h;
+    });
+
     const rows = [];
     for (let i = hi + 1; i < json.length; i++) {
       const row = json[i];
       if (!row || row.length < 3) continue;
       const o = {};
-      headers.forEach((h, idx) => { o[h] = row[idx] !== undefined ? row[idx] : ''; });
+      stdHeaders.forEach((sh, idx) => {
+        if (!o[sh]) o[sh] = row[idx] !== undefined ? row[idx] : '';
+      });
       // Skip junk rows
       const cod = String(o['Código'] || o['Codigo'] || '');
-      if (cod === 'Total' || cod === 'METAS' || cod.startsWith('Você') || cod === '') continue;
+      if (cod.toUpperCase() === 'TOTAL' || cod.toUpperCase() === 'METAS' || cod.toUpperCase().startsWith('VOCÊ') || cod === '') continue;
       if (!o['Cliente'] && !o['Itens']) continue;
       rows.push(o);
     }
