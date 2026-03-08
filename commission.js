@@ -205,7 +205,7 @@ const CommissionEngine = {
         return;
       }
 
-      const vendedor = String(row['Vendedor'] || '').trim();
+      const vendedor = String(row['Vendedor'] || '').trim() || 'Sem Vendedor';
       const isNaoCom = naoComList.some(n => vendedor.toUpperCase().includes(n));
       const codigo = String(row['Código'] || row['Codigo'] || '').trim();
 

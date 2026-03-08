@@ -1,652 +1,1711 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CrossTrainer — Comissões</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0a0a0a">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<style>
-:root{--bg:#0a0a0a;--surface:#131315;--surface2:#1a1a1e;--surface3:#222226;--border:#2a2a30;--border2:#353538;--text:#eee9e0;--text2:#908a82;--text3:#5a5650;--orange:#E8920D;--orange-light:#F5A623;--orange-dim:rgba(232,146,13,0.08);--orange-glow:rgba(232,146,13,0.12);--green:#5cb85c;--green-bg:rgba(92,184,92,0.08);--red:#e05a3a;--red-bg:rgba(224,90,58,0.06);--blue:#5b9bd5;--blue-bg:rgba(91,155,213,0.08);--yellow:#FDD835;--yellow-bg:rgba(253,216,53,0.08);--purple:#AB47BC;--purple-bg:rgba(171,71,188,0.08);--radius:8px}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
-.mono{font-family:'JetBrains Mono',monospace}
-a{color:var(--orange);text-decoration:none}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrossTrainer — Comissões</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #131315;
+      --surface2: #1a1a1e;
+      --surface3: #222226;
+      --border: #2a2a30;
+      --border2: #353538;
+      --text: #eee9e0;
+      --text2: #908a82;
+      --text3: #5a5650;
+      --orange: #E8920D;
+      --orange-light: #F5A623;
+      --orange-dim: rgba(232, 146, 13, 0.08);
+      --orange-glow: rgba(232, 146, 13, 0.12);
+      --green: #5cb85c;
+      --green-bg: rgba(92, 184, 92, 0.08);
+      --red: #e05a3a;
+      --red-bg: rgba(224, 90, 58, 0.06);
+      --blue: #5b9bd5;
+      --blue-bg: rgba(91, 155, 213, 0.08);
+      --yellow: #FDD835;
+      --yellow-bg: rgba(253, 216, 53, 0.08);
+      --purple: #AB47BC;
+      --purple-bg: rgba(171, 71, 188, 0.08);
+      --radius: 8px
+    }
 
-/* ─── LAYOUT ─── */
-.app{display:flex;min-height:100vh}
-.sidebar{width:240px;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;transition:transform .3s}
-.sidebar.hidden{transform:translateX(-240px)}
-.main{flex:1;margin-left:240px;min-height:100vh;transition:margin-left .3s}
-.main.full{margin-left:0}
-.page{padding:28px 32px;max-width:1200px;margin:0 auto;display:none}
-.page.active{display:block}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
 
-/* ─── SIDEBAR ─── */
-.sb-logo{display:flex;align-items:center;gap:10px;padding:0 20px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
-.sb-logo-icon{width:30px;height:30px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center}
-.sb-logo-icon svg{width:16px;height:16px}
-.sb-logo-text{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:var(--orange)}
-.sb-logo-text span{color:var(--text)}
-.sb-nav{flex:1}
-.sb-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;border-left:3px solid transparent}
-.sb-item:hover{color:var(--text);background:var(--surface2)}
-.sb-item.active{color:var(--orange);background:var(--orange-dim);border-left-color:var(--orange)}
-.sb-item .icon{font-size:16px;width:20px;text-align:center}
-.sb-section{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;padding:16px 20px 8px}
-.sb-user{padding:16px 20px;border-top:1px solid var(--border);margin-top:auto}
-.sb-user .name{font-size:13px;font-weight:600}
-.sb-user .role{font-size:11px;color:var(--text3)}
-.sb-user .logout{font-size:11px;color:var(--orange);cursor:pointer;margin-top:6px}
-.sb-user .logout:hover{text-decoration:underline}
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased
+    }
 
-/* ─── MOBILE TOGGLE ─── */
-.menu-toggle{display:none;position:fixed;top:12px;left:12px;z-index:60;width:40px;height:40px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:18px;cursor:pointer;align-items:center;justify-content:center}
+    .mono {
+      font-family: 'JetBrains Mono', monospace
+    }
 
-/* ─── LOGIN ─── */
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;width:100%;max-width:380px;text-align:center}
-.login-box .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--orange);margin-bottom:6px}
-.login-box .logo span{color:var(--text)}
-.login-box .sub{font-size:12px;color:var(--text3);margin-bottom:32px}
-.login-box h2{font-size:18px;font-weight:700;margin-bottom:24px}
-.input-group{margin-bottom:14px;text-align:left}
-.input-group label{display:block;font-size:11px;color:var(--text2);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
-.input-group input,.input-group select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:14px}
-.input-group input:focus,.input-group select:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 2px var(--orange-dim)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 24px;background:var(--orange);color:#000;border:none;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;width:100%}
-.btn:hover{background:var(--orange-light)}.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);width:auto}
-.btn-ghost:hover{border-color:var(--text2);color:var(--text)}
-.btn-sm{padding:7px 16px;font-size:12px;width:auto}
-.btn-danger{background:var(--red)}
-.error-msg{color:var(--red);font-size:12px;margin-top:12px;min-height:18px}
-.link-btn{color:var(--orange);font-size:12px;cursor:pointer;margin-top:16px;display:inline-block}
-.link-btn:hover{text-decoration:underline}
+    a {
+      color: var(--orange);
+      text-decoration: none
+    }
 
-/* ─── PAGE HEADER ─── */
-.page-hdr{margin-bottom:28px}
-.page-hdr h1{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:1px}
-.page-hdr p{font-size:13px;color:var(--text2);margin-top:4px}
-.page-hdr .badge{display:inline-block;font-size:10px;font-weight:700;background:var(--orange-glow);color:var(--orange);padding:3px 10px;border-radius:4px;letter-spacing:.5px;margin-left:10px}
+    /* ─── LAYOUT ─── */
+    .app {
+      display: flex;
+      min-height: 100vh
+    }
 
-/* ─── UPLOAD ─── */
-.upload-zone{border:2px dashed var(--border2);border-radius:10px;padding:44px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);margin-bottom:20px}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--orange);background:var(--orange-dim)}
-.upload-zone .uz-icon{font-size:36px;margin-bottom:10px}
-.upload-zone p{color:var(--text2);font-size:13px}
-.upload-zone strong{color:var(--orange-light)}
-.upload-zone .hint{font-size:11px;color:var(--text3);margin-top:8px}
-.upload-zone input{display:none}
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 50;
+      transition: transform .3s
+    }
 
-/* ─── STATS ROW ─── */
-.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;position:relative;overflow:hidden}
-.stat::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border)}
-.stat.accent::after{background:var(--orange)}.stat.green::after{background:var(--green)}
-.stat .s-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:5px}
-.stat .s-value{font-size:18px;font-weight:700;letter-spacing:-.3px}
-.stat.accent .s-value{color:var(--orange-light)}
-.stat .s-sub{font-size:10px;color:var(--text3);margin-top:2px;font-family:'JetBrains Mono',monospace}
+    .sidebar.hidden {
+      transform: translateX(-240px)
+    }
 
-/* ─── META PANEL ─── */
-.meta-panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:24px}
-.meta-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin-bottom:16px}
-.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.meta-bar{height:28px;background:var(--bg);border-radius:6px;position:relative;overflow:visible;margin:8px 0}
-.meta-bar-fill{height:100%;border-radius:6px;transition:width .5s ease}
-.meta-marker{position:absolute;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,0.2)}
-.meta-marker .m-label{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--text3);white-space:nowrap;font-family:'JetBrains Mono',monospace}
-.tripe-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tripe{background:var(--bg);border-radius:6px;padding:12px;text-align:center;border:1px solid var(--border)}
-.tripe.ok{border-color:var(--green)}.tripe.warn{border-color:var(--yellow)}.tripe.fail{border-color:var(--red)}.tripe.gold{border-color:var(--orange)}
-.tripe .t-label{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px}
-.tripe .t-val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.tripe.ok .t-val{color:var(--green)}.tripe.warn .t-val{color:var(--yellow)}.tripe.fail .t-val{color:var(--red)}.tripe.gold .t-val{color:var(--orange)}
-.tripe .t-min{font-size:9px;color:var(--text3);margin-top:2px}
-.tripe .t-status{font-size:8px;margin-top:4px;font-weight:700}
+    .main {
+      flex: 1;
+      margin-left: 240px;
+      min-height: 100vh;
+      transition: margin-left .3s
+    }
 
-/* ─── VENDOR CARDS ─── */
-.vendor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:24px}
-.v-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 22px;transition:border-color .2s}
-.v-card:hover{border-color:var(--border2)}
-.v-card .vc-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.v-card .rank{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:var(--orange-glow);color:var(--orange);font-size:10px;font-weight:800;border-radius:4px;font-family:'JetBrains Mono',monospace}
-.v-card .vc-name{font-size:14px;font-weight:700}
-.v-card .vc-tag{font-size:9px;padding:2px 6px;border-radius:3px;background:rgba(90,86,80,0.15);color:var(--text3);font-weight:700}
-.v-card .vc-ativ{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-bottom:12px}
-.v-parts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
-.v-part{background:var(--bg);border-radius:6px;padding:8px;text-align:center}
-.v-part .vp-label{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;font-weight:700;margin-bottom:3px}
-.v-part .vp-val{font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.v-card .vc-total{border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between;align-items:baseline}
-.v-card .vc-total .lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700}
-.v-card .vc-total .val{font-size:22px;font-weight:700;color:var(--orange-light);font-family:'JetBrains Mono',monospace}
+    .main.full {
+      margin-left: 0
+    }
 
-/* ─── TABS ─── */
-.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)}
-.tab{background:none;border:none;color:var(--text3);padding:10px 18px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
-.tab.active{color:var(--orange);border-bottom-color:var(--orange)}
-.tab-content{display:none}.tab-content.active{display:block}
+    .page {
+      padding: 28px 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: none
+    }
 
-/* ─── TABLE ─── */
-.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto;max-height:500px;overflow-y:auto}
-table{width:100%;border-collapse:collapse;font-size:11.5px}
-thead th{text-align:left;padding:9px 10px;font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:2}
-tbody td{padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
-tbody tr:hover{background:var(--orange-dim)}
-.pill{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.2px;text-transform:uppercase}
-.pill-novo{background:var(--green-bg);color:var(--green)}.pill-renovacao{background:var(--blue-bg);color:var(--blue)}.pill-retorno{background:var(--orange-glow);color:var(--orange)}.pill-voucher{background:var(--yellow-bg);color:var(--yellow)}.pill-avulsa{background:var(--purple-bg);color:var(--purple)}.pill-outro{background:rgba(90,86,80,0.1);color:var(--text2)}
-.currency{text-align:right;font-family:'JetBrains Mono',monospace}
-.total-row td{font-weight:700;background:var(--orange-dim);border-top:2px solid var(--orange)}
+    .page.active {
+      display: block
+    }
 
-/* ─── FILTERS ─── */
-.filter-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-.filter-row select,.filter-row input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px}
-.filter-row label{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase}
+    /* ─── SIDEBAR ─── */
+    .sb-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px
+    }
 
-/* ─── USER MANAGEMENT ─── */
-.user-list{display:grid;gap:10px;margin-top:20px}
-.user-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
-.user-row .ur-info{display:flex;align-items:center;gap:12px}
-.user-row .ur-avatar{width:36px;height:36px;background:var(--orange-glow);color:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
-.user-row .ur-name{font-size:14px;font-weight:600}
-.user-row .ur-email{font-size:11px;color:var(--text3)}
-.user-row .ur-role{font-size:10px;padding:3px 8px;border-radius:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-.role-admin{background:var(--orange-glow);color:var(--orange)}
-.role-vendedor{background:var(--green-bg);color:var(--green)}
-.role-naocom{background:rgba(90,86,80,0.1);color:var(--text3)}
+    .sb-logo-icon {
+      width: 30px;
+      height: 30px;
+      background: var(--orange);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center
+    }
 
-/* ─── SETTINGS ─── */
-.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.settings-section{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border);grid-column:1/-1}
-.settings-section:first-child{border-top:none;margin-top:0;padding-top:0}
+    .sb-logo-icon svg {
+      width: 16px;
+      height: 16px
+    }
 
-/* ─── LOADING ─── */
-.loading{display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--text3);font-size:14px}
-.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .6s linear infinite;margin-right:10px}
-@keyframes spin{to{transform:rotate(360deg)}}
+    .sb-logo-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px;
+      letter-spacing: 2px;
+      color: var(--orange)
+    }
 
-/* ─── TOAST ─── */
-.toast-container{position:fixed;top:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
-.toast{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;animation:slideIn .3s ease;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
-.toast.success{border-left:3px solid var(--green)}.toast.error{border-left:3px solid var(--red)}.toast.info{border-left:3px solid var(--orange)}
-@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+    .sb-logo-text span {
+      color: var(--text)
+    }
 
-/* ─── PERIOD SELECTOR ─── */
-.period-sel{display:flex;gap:8px;align-items:center;margin-bottom:20px}
-.period-sel select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif}
+    .sb-nav {
+      flex: 1
+    }
 
-/* ─── RESPONSIVE ─── */
-@media(max-width:768px){
-  .sidebar{transform:translateX(-240px)}.sidebar.open{transform:translateX(0)}
-  .main{margin-left:0!important}
-  .menu-toggle{display:flex}
-  .page{padding:16px}
-  .vendor-grid{grid-template-columns:1fr}
-  .v-parts{grid-template-columns:repeat(3,1fr)}
-  .meta-grid{grid-template-columns:1fr}
-  .stats-row{grid-template-columns:1fr 1fr}
-}
+    .sb-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .15s;
+      border-left: 3px solid transparent
+    }
 
-::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-</style>
+    .sb-item:hover {
+      color: var(--text);
+      background: var(--surface2)
+    }
+
+    .sb-item.active {
+      color: var(--orange);
+      background: var(--orange-dim);
+      border-left-color: var(--orange)
+    }
+
+    .sb-item .icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center
+    }
+
+    .sb-section {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text3);
+      font-weight: 700;
+      padding: 16px 20px 8px
+    }
+
+    .sb-user {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      margin-top: auto
+    }
+
+    .sb-user .name {
+      font-size: 13px;
+      font-weight: 600
+    }
+
+    .sb-user .role {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .sb-user .logout {
+      font-size: 11px;
+      color: var(--orange);
+      cursor: pointer;
+      margin-top: 6px
+    }
+
+    .sb-user .logout:hover {
+      text-decoration: underline
+    }
+
+    /* ─── MOBILE TOGGLE ─── */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 60;
+      width: 40px;
+      height: 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center
+    }
+
+    /* ─── LOGIN ─── */
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px
+    }
+
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center
+    }
+
+    .login-box .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 2px;
+      color: var(--orange);
+      margin-bottom: 6px
+    }
+
+    .login-box .logo span {
+      color: var(--text)
+    }
+
+    .login-box .sub {
+      font-size: 12px;
+      color: var(--text3);
+      margin-bottom: 32px
+    }
+
+    .login-box h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 24px
+    }
+
+    .input-group {
+      margin-bottom: 14px;
+      text-align: left
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: .5px
+    }
+
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px
+    }
+
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim)
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 24px;
+      background: var(--orange);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      width: 100%
+    }
+
+    .btn:hover {
+      background: var(--orange-light)
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+      width: auto
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--text2);
+      color: var(--text)
+    }
+
+    .btn-sm {
+      padding: 7px 16px;
+      font-size: 12px;
+      width: auto
+    }
+
+    .btn-danger {
+      background: var(--red)
+    }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 18px
+    }
+
+    .link-btn {
+      color: var(--orange);
+      font-size: 12px;
+      cursor: pointer;
+      margin-top: 16px;
+      display: inline-block
+    }
+
+    .link-btn:hover {
+      text-decoration: underline
+    }
+
+    /* ─── PAGE HEADER ─── */
+    .page-hdr {
+      margin-bottom: 28px
+    }
+
+    .page-hdr h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 1px
+    }
+
+    .page-hdr p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 4px
+    }
+
+    .page-hdr .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--orange-glow);
+      color: var(--orange);
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: .5px;
+      margin-left: 10px
+    }
+
+    /* ─── UPLOAD ─── */
+    .upload-zone {
+      border: 2px dashed var(--border2);
+      border-radius: 10px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: var(--surface);
+      margin-bottom: 20px
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag {
+      border-color: var(--orange);
+      background: var(--orange-dim)
+    }
+
+    .upload-zone .uz-icon {
+      font-size: 36px;
+      margin-bottom: 10px
+    }
+
+    .upload-zone p {
+      color: var(--text2);
+      font-size: 13px
+    }
+
+    .upload-zone strong {
+      color: var(--orange-light)
+    }
+
+    .upload-zone .hint {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 8px
+    }
+
+    .upload-zone input {
+      display: none
+    }
+
+    /* ─── STATS ROW ─── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 24px
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden
+    }
+
+    .stat::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--border)
+    }
+
+    .stat.accent::after {
+      background: var(--orange)
+    }
+
+    .stat.green::after {
+      background: var(--green)
+    }
+
+    .stat .s-label {
+      font-size: 9px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      margin-bottom: 5px
+    }
+
+    .stat .s-value {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -.3px
+    }
+
+    .stat.accent .s-value {
+      color: var(--orange-light)
+    }
+
+    .stat .s-sub {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 2px;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    /* ─── META PANEL ─── */
+    .meta-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 24px
+    }
+
+    .meta-panel h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--orange);
+      font-weight: 700;
+      margin-bottom: 16px
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px
+    }
+
+    .meta-bar {
+      height: 28px;
+      background: var(--bg);
+      border-radius: 6px;
+      position: relative;
+      overflow: visible;
+      margin: 8px 0
+    }
+
+    .meta-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width .5s ease
+    }
+
+    .meta-marker {
+      position: absolute;
+      top: -2px;
+      bottom: -2px;
+      width: 2px;
+      background: rgba(255, 255, 255, 0.2)
+    }
+
+    .meta-marker .m-label {
+      position: absolute;
+      bottom: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      color: var(--text3);
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .tripe-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px
+    }
+
+    .tripe {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--border)
+    }
+
+    .tripe.ok {
+      border-color: var(--green)
+    }
+
+    .tripe.warn {
+      border-color: var(--yellow)
+    }
+
+    .tripe.fail {
+      border-color: var(--red)
+    }
+
+    .tripe.gold {
+      border-color: var(--orange)
+    }
+
+    .tripe .t-label {
+      font-size: 8px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      font-weight: 700;
+      margin-bottom: 4px
+    }
+
+    .tripe .t-val {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .tripe.ok .t-val {
+      color: var(--green)
+    }
+
+    .tripe.warn .t-val {
+      color: var(--yellow)
+    }
+
+    .tripe.fail .t-val {
+      color: var(--red)
+    }
+
+    .tripe.gold .t-val {
+      color: var(--orange)
+    }
+
+    .tripe .t-min {
+      font-size: 9px;
+      color: var(--text3);
+      margin-top: 2px
+    }
+
+    .tripe .t-status {
+      font-size: 8px;
+      margin-top: 4px;
+      font-weight: 700
+    }
+
+    /* ─── VENDOR CARDS ─── */
+    .vendor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px
+    }
+
+    .v-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      transition: border-color .2s
+    }
+
+    .v-card:hover {
+      border-color: var(--border2)
+    }
+
+    .v-card .vc-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px
+    }
+
+    .v-card .rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: var(--orange-glow);
+      color: var(--orange);
+      font-size: 10px;
+      font-weight: 800;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .v-card .vc-name {
+      font-size: 14px;
+      font-weight: 700
+    }
+
+    .v-card .vc-tag {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(90, 86, 80, 0.15);
+      color: var(--text3);
+      font-weight: 700
+    }
+
+    .v-card .vc-ativ {
+      font-size: 10px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 12px
+    }
+
+    .v-parts {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 12px
+    }
+
+    .v-part {
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center
+    }
+
+    .v-part .vp-label {
+      font-size: 8px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      font-weight: 700;
+      margin-bottom: 3px
+    }
+
+    .v-part .vp-val {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .v-card .vc-total {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline
+    }
+
+    .v-card .vc-total .lbl {
+      font-size: 9px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700
+    }
+
+    .v-card .vc-total .val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--orange-light);
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    /* ─── TABS ─── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .tab {
+      background: none;
+      border: none;
+      color: var(--text3);
+      padding: 10px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all .15s
+    }
+
+    .tab.active {
+      color: var(--orange);
+      border-bottom-color: var(--orange)
+    }
+
+    .tab-content {
+      display: none
+    }
+
+    .tab-content.active {
+      display: block
+    }
+
+    /* ─── TABLE ─── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      max-height: 500px;
+      overflow-y: auto
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px
+    }
+
+    thead th {
+      text-align: left;
+      padding: 9px 10px;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text3);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 2
+    }
+
+    tbody td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap
+    }
+
+    tbody tr:hover {
+      background: var(--orange-dim)
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      text-transform: uppercase
+    }
+
+    .pill-novo {
+      background: var(--green-bg);
+      color: var(--green)
+    }
+
+    .pill-renovacao {
+      background: var(--blue-bg);
+      color: var(--blue)
+    }
+
+    .pill-retorno {
+      background: var(--orange-glow);
+      color: var(--orange)
+    }
+
+    .pill-voucher {
+      background: var(--yellow-bg);
+      color: var(--yellow)
+    }
+
+    .pill-avulsa {
+      background: var(--purple-bg);
+      color: var(--purple)
+    }
+
+    .pill-outro {
+      background: rgba(90, 86, 80, 0.1);
+      color: var(--text2)
+    }
+
+    .currency {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    .total-row td {
+      font-weight: 700;
+      background: var(--orange-dim);
+      border-top: 2px solid var(--orange)
+    }
+
+    /* ─── FILTERS ─── */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap
+    }
+
+    .filter-row select,
+    .filter-row input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px
+    }
+
+    .filter-row label {
+      font-size: 10px;
+      color: var(--text3);
+      font-weight: 700;
+      text-transform: uppercase
+    }
+
+    /* ─── USER MANAGEMENT ─── */
+    .user-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px
+    }
+
+    .user-row {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between
+    }
+
+    .user-row .ur-info {
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .user-row .ur-avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--orange-glow);
+      color: var(--orange);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px
+    }
+
+    .user-row .ur-name {
+      font-size: 14px;
+      font-weight: 600
+    }
+
+    .user-row .ur-email {
+      font-size: 11px;
+      color: var(--text3)
+    }
+
+    .user-row .ur-role {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px
+    }
+
+    .role-admin {
+      background: var(--orange-glow);
+      color: var(--orange)
+    }
+
+    .role-vendedor {
+      background: var(--green-bg);
+      color: var(--green)
+    }
+
+    .role-naocom {
+      background: rgba(90, 86, 80, 0.1);
+      color: var(--text3)
+    }
+
+    .role-pendente {
+      background: var(--yellow-bg);
+      color: var(--yellow)
+    }
+
+    /* ─── SETTINGS ─── */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px
+    }
+
+    .settings-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--orange);
+      font-weight: 700;
+      margin: 20px 0 10px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      grid-column: 1/-1
+    }
+
+    .settings-section:first-child {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 0
+    }
+
+    /* ─── LOADING ─── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--text3);
+      font-size: 14px
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin-right: 10px
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    /* ─── TOAST ─── */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      animation: slideIn .3s ease;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3)
+    }
+
+    .toast.success {
+      border-left: 3px solid var(--green)
+    }
+
+    .toast.error {
+      border-left: 3px solid var(--red)
+    }
+
+    .toast.info {
+      border-left: 3px solid var(--orange)
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100px);
+        opacity: 0
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1
+      }
+    }
+
+    /* ─── PERIOD SELECTOR ─── */
+    .period-sel {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 20px
+    }
+
+    .period-sel select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media(max-width:768px) {
+      .sidebar {
+        transform: translateX(-240px)
+      }
+
+      .sidebar.open {
+        transform: translateX(0)
+      }
+
+      .main {
+        margin-left: 0 !important
+      }
+
+      .menu-toggle {
+        display: flex
+      }
+
+      .page {
+        padding: 16px
+      }
+
+      .vendor-grid {
+        grid-template-columns: 1fr
+      }
+
+      .v-parts {
+        grid-template-columns: repeat(3, 1fr)
+      }
+
+      .meta-grid {
+        grid-template-columns: 1fr
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg)
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- TOAST -->
-<div class="toast-container" id="toasts"></div>
+  <!-- TOAST -->
+  <div class="toast-container" id="toasts"></div>
 
-<!-- MOBILE MENU -->
-<button class="menu-toggle" id="menuToggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <!-- MOBILE MENU -->
+  <button class="menu-toggle" id="menuToggle"
+    onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
 
-<!-- LOGIN PAGE -->
-<div class="login-page" id="loginPage">
-  <div class="login-box">
-    <div class="logo">CROSS<span>TRAINER</span></div>
-    <div class="sub">Sistema de Comissões</div>
-    <div id="loginForm">
-      <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com"></div>
-      <div class="input-group"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••"></div>
-      <button class="btn" onclick="doLogin()" id="loginBtn">Entrar</button>
-      <div class="error-msg" id="loginError"></div>
+  <!-- LOGIN PAGE -->
+  <div class="login-page" id="loginPage">
+    <div class="login-box">
+      <div class="logo">CROSS<span>TRAINER</span></div>
+      <div class="sub">Sistema de Comissões</div>
+      <div id="loginForm">
+        <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com">
+        </div>
+        <div class="input-group"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••"></div>
+        <button class="btn" onclick="doLogin()" id="loginBtn">Entrar</button>
+        <div class="error-msg" id="loginError"></div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- APP -->
-<div class="app" id="appShell" style="display:none">
+  <!-- APP -->
+  <div class="app" id="appShell" style="display:none">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-icon"><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2"/><path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></svg></div>
-      <div class="sb-logo-text">CROSS<span>TRAINER</span></div>
-    </div>
-    <nav class="sb-nav" id="sidebarNav"></nav>
-    <div class="sb-user"><div class="name" id="userName"></div><div class="role" id="userRole"></div><div class="logout" onclick="doLogout()">Sair</div></div>
-  </aside>
-
-  <!-- MAIN CONTENT -->
-  <div class="main" id="mainContent">
-
-    <!-- ADMIN: DASHBOARD -->
-    <div class="page" id="page-dashboard">
-      <div class="page-hdr"><h1>Dashboard</h1></div>
-      <div class="period-sel">
-        <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
-        <select id="periodSelect" onchange="loadPeriod(this.value)"></select>
-        <button class="btn btn-sm" onclick="navigateTo('upload')">📊 Novo Upload</button>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-logo">
+        <div class="sb-logo-icon"><svg viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2" />
+            <path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
+          </svg></div>
+        <div class="sb-logo-text">CROSS<span>TRAINER</span></div>
       </div>
-      <div id="dashboardContent"><div class="loading"><div class="spinner"></div>Selecione um período ou faça um upload.</div></div>
-    </div>
+      <nav class="sb-nav" id="sidebarNav"></nav>
+      <div class="sb-user">
+        <div class="name" id="userName"></div>
+        <div class="role" id="userRole"></div>
+        <div class="logout" onclick="doLogout()">Sair</div>
+      </div>
+    </aside>
 
-    <!-- ADMIN: UPLOAD -->
-    <div class="page" id="page-upload">
-      <div class="page-hdr"><h1>Upload de Arquivo</h1><p>Suba o Excel do TecnoFit para processar as comissões.</p></div>
-      <div class="upload-zone" id="uploadZone">
-        <div class="uz-icon">📊</div>
-        <p><strong>Arraste o arquivo Excel aqui</strong> ou clique para selecionar</p>
-        <div class="hint">Arquivo .xlsx exportado do TecnoFit</div>
-        <input type="file" id="fileInput" accept=".xlsx,.xls">
-      </div>
-      <div class="input-group" style="max-width:300px;margin-bottom:20px">
-        <label>Mês/Ano do período</label>
-        <input type="month" id="periodMonth" value="">
-      </div>
-      <div id="uploadPreview" style="display:none"></div>
-      <div id="uploadActions" style="display:none;margin-top:16px;display:flex;gap:10px">
-        <button class="btn" onclick="confirmUpload()">✅ Confirmar e Salvar</button>
-        <button class="btn btn-ghost btn-sm" onclick="cancelUpload()">Cancelar</button>
-      </div>
-    </div>
+    <!-- MAIN CONTENT -->
+    <div class="main" id="mainContent">
 
-    <!-- ADMIN: USERS -->
-    <div class="page" id="page-users">
-      <div class="page-hdr"><h1>Gestão de Usuários</h1><p>Cadastre, edite e remova vendedores e administradores.</p></div>
-      <button class="btn btn-sm" onclick="showAddUser()" style="margin-bottom:16px">+ Novo Usuário</button>
-      <div id="addUserForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;max-width:500px">
-        <h3 style="font-size:14px;margin-bottom:14px">Novo Usuário</h3>
-        <div class="input-group"><label>Nome</label><input id="newUserName" placeholder="Nome completo"></div>
-        <div class="input-group"><label>Email</label><input id="newUserEmail" type="email" placeholder="email@exemplo.com"></div>
-        <div class="input-group"><label>Senha inicial</label><input id="newUserPass" type="text" placeholder="Mín. 6 caracteres"></div>
-        <div class="input-group"><label>Perfil</label>
-          <select id="newUserRole"><option value="vendedor">Vendedor(a)</option><option value="admin">Administrador</option></select>
+      <!-- ADMIN: DASHBOARD -->
+      <div class="page" id="page-dashboard">
+        <div class="page-hdr">
+          <h1>Dashboard</h1>
         </div>
-        <div style="display:flex;gap:10px;margin-top:14px">
-          <button class="btn btn-sm" onclick="createUser()">Criar</button>
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('addUserForm').style.display='none'">Cancelar</button>
+        <div class="period-sel">
+          <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
+          <select id="periodSelect" onchange="loadPeriod(this.value)"></select>
         </div>
-        <div class="error-msg" id="addUserError"></div>
-      </div>
-      <div id="userList"><div class="loading"><div class="spinner"></div>Carregando...</div></div>
-    </div>
-
-    <!-- ADMIN: SETTINGS -->
-    <div class="page" id="page-settings">
-      <div class="page-hdr"><h1>Configurações</h1><p>Regras de comissão, metas e não-comissionáveis.</p></div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">
-        <div class="settings-grid" id="settingsForm"></div>
-        <div style="margin-top:20px;text-align:right"><button class="btn btn-sm" onclick="saveSettings()">💾 Salvar Configurações</button></div>
-      </div>
-    </div>
-
-    <!-- VENDEDOR: DASHBOARD -->
-    <div class="page" id="page-meu-painel">
-      <div class="page-hdr"><h1>Meu Painel</h1></div>
-      <div class="period-sel">
-        <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
-        <select id="vendorPeriodSelect" onchange="loadVendorPeriod(this.value)"></select>
-      </div>
-      <div id="vendorDashboard"><div class="loading"><div class="spinner"></div>Selecione um período.</div></div>
-    </div>
-
-  </div>
-</div>
-
-<!-- COMMISSION ENGINE -->
-<script src="commission.js"></script>
-
-<script>
-// ═══════════════════════════════════════════════════════════════
-// FIREBASE CONFIG — REPLACE WITH YOUR PROJECT CONFIG
-// ═══════════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyCILbVvHuOgEaFsK-OrXCN7_NmJeMB5GKI",
-  authDomain: "crosstrainer-comissoes.firebaseapp.com",
-  projectId: "crosstrainer-comissoes",
-  storageBucket: "crosstrainer-comissoes.firebasestorage.app",
-  messagingSenderId: "909536955760",
-  appId: "1:909536955760:web:36a4d166aa747f5f9653b5"
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-// ═══════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════
-let currentUser = null;
-let userProfile = null;
-let unitConfig = {};
-let currentPage = 'dashboard';
-let pendingUpload = null;
-
-// ═══════════════════════════════════════════════════════════════
-// AUTH
-// ═══════════════════════════════════════════════════════════════
-auth.onAuthStateChanged(async user => {
-  if (user) {
-    currentUser = user;
-    try {
-      const doc = await db.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        userProfile = doc.data();
-        await loadUnitConfig();
-        showApp();
-      } else {
-        toast('Usuário não encontrado no sistema.', 'error');
-        auth.signOut();
-      }
-    } catch (e) {
-      toast('Erro ao carregar perfil: ' + e.message, 'error');
-    }
-  } else {
-    currentUser = null;
-    userProfile = null;
-    showLogin();
-  }
-});
-
-async function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-  errEl.textContent = '';
-  if (!email || !pass) { errEl.textContent = 'Preencha email e senha.'; return; }
-  document.getElementById('loginBtn').disabled = true;
-  try {
-    await auth.signInWithEmailAndPassword(email, pass);
-  } catch (e) {
-    errEl.textContent = e.code === 'auth/user-not-found' ? 'Usuário não encontrado.' :
-      e.code === 'auth/wrong-password' ? 'Senha incorreta.' :
-      e.code === 'auth/invalid-email' ? 'Email inválido.' : e.message;
-  }
-  document.getElementById('loginBtn').disabled = false;
-}
-
-function doLogout() { auth.signOut(); }
-
-function showLogin() {
-  document.getElementById('loginPage').style.display = '';
-  document.getElementById('appShell').style.display = 'none';
-}
-
-function showApp() {
-  document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('appShell').style.display = '';
-  document.getElementById('userName').textContent = userProfile.name || currentUser.email;
-  document.getElementById('userRole').textContent = userProfile.role === 'admin' ? 'Administrador' : 'Vendedor(a)';
-  buildSidebar();
-  if (userProfile.role === 'admin') {
-    navigateTo('dashboard');
-    loadPeriods();
-  } else {
-    navigateTo('meu-painel');
-    loadVendorPeriods();
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// NAVIGATION
-// ═══════════════════════════════════════════════════════════════
-function buildSidebar() {
-  const nav = document.getElementById('sidebarNav');
-  const isAdmin = userProfile.role === 'admin';
-  let html = '';
-  if (isAdmin) {
-    html += '<div class="sb-section">Gestão</div>';
-    html += sbItem('dashboard', '📊', 'Dashboard');
-    html += sbItem('upload', '📤', 'Upload');
-    html += '<div class="sb-section">Admin</div>';
-    html += sbItem('users', '👥', 'Usuários');
-    html += sbItem('settings', '⚙', 'Configurações');
-  } else {
-    html += '<div class="sb-section">Meu Espaço</div>';
-    html += sbItem('meu-painel', '📊', 'Meu Painel');
-  }
-  nav.innerHTML = html;
-}
-
-function sbItem(page, icon, label) {
-  return `<div class="sb-item ${currentPage === page ? 'active' : ''}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span>${label}</div>`;
-}
-
-function navigateTo(page) {
-  currentPage = page;
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const el = document.getElementById('page-' + page);
-  if (el) el.classList.add('active');
-  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
-  document.querySelectorAll('.sb-item').forEach(i => { if (i.onclick.toString().includes(page)) i.classList.add('active'); });
-  document.querySelector('.sidebar')?.classList.remove('open');
-
-  // Init page
-  if (page === 'settings') renderSettings();
-  if (page === 'users') loadUsers();
-  if (page === 'upload') initUpload();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// UNIT CONFIG
-// ═══════════════════════════════════════════════════════════════
-async function loadUnitConfig() {
-  try {
-    const doc = await db.collection('units').doc('cp').get();
-    if (doc.exists) unitConfig = doc.data().config || {};
-    else {
-      await db.collection('units').doc('cp').set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
-      unitConfig = CommissionEngine.defaultConfig;
-    }
-  } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
-}
-
-function renderSettings() {
-  const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-  const fields = [
-    { section: 'P1 — Percentual sobre Caixa' },
-    { key: 'pctNovo', label: '% Novo / Retorno', val: cfg.pctNovo },
-    { key: 'pctRenov', label: '% Renovação', val: cfg.pctRenov },
-    { key: 'voucherFixo', label: 'R$ Voucher (fixo)', val: cfg.voucherFixo },
-    { section: 'P2 — Bônus Fixo por Contrato' },
-    { key: 'bonusBianual', label: 'Bianual', val: cfg.bonusBianual },
-    { key: 'bonusAnualFlex', label: 'Anual Flex', val: cfg.bonusAnualFlex },
-    { key: 'bonusAnualLocal', label: 'Anual Local', val: cfg.bonusAnualLocal },
-    { key: 'bonusRecorrente', label: 'Recorrente', val: cfg.bonusRecorrente },
-    { key: 'bonusMensal', label: 'Mensal', val: cfg.bonusMensal },
-    { section: 'P3 — Bônus de Meta' },
-    { key: 'meta', label: 'Meta (ativações)', val: cfg.meta },
-    { key: 'superMeta', label: 'Super Meta', val: cfg.superMeta },
-    { key: 'metaGold', label: 'Meta Gold', val: cfg.metaGold },
-    { key: 'metaFixo', label: 'Meta: fixo R$', val: cfg.metaFixo },
-    { key: 'superFixo', label: 'Super: fixo R$', val: cfg.superFixo },
-    { key: 'goldFixo', label: 'Gold: fixo R$', val: cfg.goldFixo },
-    { key: 'metaPct', label: '% sobre base', val: cfg.metaPct },
-    { key: 'tetoMeta', label: 'Teto Meta', val: cfg.tetoMeta },
-    { key: 'tetoSuper', label: 'Teto Super', val: cfg.tetoSuper },
-    { key: 'tetoGold', label: 'Teto Gold', val: cfg.tetoGold },
-    { section: 'Tripé — Mínimos' },
-    { key: 'minNovos', label: 'Mín. Novos+Retorno', val: cfg.minNovos },
-    { key: 'minRenov', label: 'Mín. Renovações', val: cfg.minRenov },
-    { key: 'minVoucher', label: 'Mín. Vouchers', val: cfg.minVoucher },
-    { key: 'multFalhaRenov', label: 'Mult. falha Renov', val: cfg.multFalhaRenov },
-    { key: 'multFalhaVoucher', label: 'Mult. falha Voucher', val: cfg.multFalhaVoucher },
-    { section: 'P4 — Conversão de Voucher' },
-    { key: 'bonusConversaoVoucher', label: 'R$ por conversão', val: cfg.bonusConversaoVoucher },
-    { key: 'prazoConversaoDias', label: 'Prazo (dias)', val: cfg.prazoConversaoDias },
-    { key: 'poolVoucherMeta', label: 'Pool Meta R$', val: cfg.poolVoucherMeta },
-    { key: 'poolVoucherSuper', label: 'Pool Super R$', val: cfg.poolVoucherSuper },
-    { section: 'Não-Comissionáveis' },
-    { key: 'naoComissionaveis', label: 'Lista (separar por vírgula)', val: (cfg.naoComissionaveis || []).join(', '), type: 'text', wide: true },
-  ];
-
-  let html = '';
-  fields.forEach(f => {
-    if (f.section) {
-      html += `<div class="settings-section">${f.section}</div>`;
-    } else {
-      const w = f.wide ? 'style="grid-column:1/-1"' : '';
-      if (f.type === 'text') {
-        html += `<div class="input-group" ${w}><label>${f.label}</label><input id="cfg_${f.key}" value="${f.val}"></div>`;
-      } else {
-        html += `<div class="input-group" ${w}><label>${f.label}</label><input type="number" id="cfg_${f.key}" value="${f.val}" step="any"></div>`;
-      }
-    }
-  });
-  document.getElementById('settingsForm').innerHTML = html;
-}
-
-async function saveSettings() {
-  const cfg = {};
-  document.querySelectorAll('#settingsForm input').forEach(inp => {
-    const key = inp.id.replace('cfg_', '');
-    if (key === 'naoComissionaveis') {
-      cfg[key] = inp.value.split(',').map(s => s.trim()).filter(Boolean);
-    } else {
-      cfg[key] = parseFloat(inp.value) || 0;
-    }
-  });
-  try {
-    await db.collection('units').doc('cp').update({ config: cfg });
-    unitConfig = cfg;
-    toast('Configurações salvas!', 'success');
-  } catch (e) {
-    toast('Erro ao salvar: ' + e.message, 'error');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// USERS
-// ═══════════════════════════════════════════════════════════════
-async function loadUsers() {
-  const snap = await db.collection('users').get();
-  const users = [];
-  snap.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
-
-  const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-  const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase());
-
-  document.getElementById('userList').innerHTML = users.length === 0
-    ? '<p style="color:var(--text3)">Nenhum usuário cadastrado.</p>'
-    : users.map(u => {
-        const isNaoCom = naoComList.some(n => (u.name || '').toUpperCase().includes(n));
-        const roleClass = u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
-        const roleLabel = u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
-        return `<div class="user-row">
-          <div class="ur-info"><div class="ur-avatar">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}</div><div class="ur-email">${u.email}</div></div></div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <span class="ur-role ${roleClass}">${roleLabel}</span>
-            ${u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${u.email}')">Remover</button>` : ''}
+        <div id="dashboardContent">
+          <div class="loading">
+            <div class="spinner"></div>Selecione um período ou faça um upload.
           </div>
-        </div>`;
-      }).join('');
-}
+        </div>
+      </div>
 
-function showAddUser() { document.getElementById('addUserForm').style.display = ''; }
+      <!-- ADMIN: UPLOAD -->
+      <div class="page" id="page-upload">
+        <div class="page-hdr">
+          <h1>Upload de Arquivo</h1>
+          <p>Suba o Excel do TecnoFit para processar as comissões.</p>
+        </div>
+        <div class="upload-zone" id="uploadZone">
+          <div class="uz-icon">📊</div>
+          <p><strong>Arraste o arquivo Excel aqui</strong> ou clique para selecionar</p>
+          <div class="hint">Arquivo .xlsx exportado do TecnoFit</div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+        <div class="input-group" style="max-width:300px;margin-bottom:20px">
+          <label>Mês/Ano do período</label>
+          <input type="month" id="periodMonth" value="">
+        </div>
+        <div id="uploadPreview" style="display:none"></div>
+        <div id="uploadActions" style="display:none;margin-top:16px;display:flex;gap:10px">
+          <button class="btn" onclick="confirmUpload()">✅ Confirmar e Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelUpload()">Cancelar</button>
+        </div>
+      </div>
 
-async function createUser() {
-  const name = document.getElementById('newUserName').value.trim();
-  const email = document.getElementById('newUserEmail').value.trim();
-  const pass = document.getElementById('newUserPass').value;
-  const role = document.getElementById('newUserRole').value;
-  const errEl = document.getElementById('addUserError');
-  errEl.textContent = '';
+      <!-- ADMIN: USERS -->
+      <div class="page" id="page-users">
+        <div class="page-hdr">
+          <h1>Gestão de Usuários</h1>
+          <p>Cadastre, edite e remova vendedores e administradores.</p>
+        </div>
+        <button class="btn btn-sm" onclick="showAddUser()" style="margin-bottom:16px">+ Novo Usuário</button>
+        <div id="addUserForm"
+          style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;max-width:500px">
+          <h3 style="font-size:14px;margin-bottom:14px">Novo Usuário</h3>
+          <div class="input-group"><label>Nome</label><input id="newUserName" placeholder="Nome completo"></div>
+          <div class="input-group"><label>Email</label><input id="newUserEmail" type="email"
+              placeholder="email@exemplo.com"></div>
+          <div class="input-group"><label>Senha inicial</label><input id="newUserPass" type="text"
+              placeholder="Mín. 6 caracteres"></div>
+          <div class="input-group"><label>Perfil</label>
+            <select id="newUserRole">
+              <option value="vendedor">Vendedor(a)</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-sm" onclick="createUser()">Criar</button>
+            <button class="btn btn-ghost btn-sm"
+              onclick="document.getElementById('addUserForm').style.display='none'">Cancelar</button>
+          </div>
+          <div class="error-msg" id="addUserError"></div>
+        </div>
+        <div id="userList">
+          <div class="loading">
+            <div class="spinner"></div>Carregando...
+          </div>
+        </div>
+      </div>
 
-  if (!name || !email || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
-  if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
+      <!-- ADMIN: SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="page-hdr">
+          <h1>Configurações</h1>
+          <p>Regras de comissão, metas e não-comissionáveis.</p>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">
+          <div class="settings-grid" id="settingsForm"></div>
+          <div style="margin-top:20px;text-align:right"><button class="btn btn-sm" onclick="saveSettings()">💾 Salvar
+              Configurações</button></div>
+        </div>
+      </div>
 
-  try {
-    // Save current user to restore session
-    const currentEmail = currentUser.email;
+      <!-- VENDEDOR: DASHBOARD -->
+      <div class="page" id="page-meu-painel">
+        <div class="page-hdr">
+          <h1>Meu Painel</h1>
+        </div>
+        <div class="period-sel">
+          <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
+          <select id="vendorPeriodSelect" onchange="loadVendorPeriod(this.value)"></select>
+        </div>
+        <div id="vendorDashboard">
+          <div class="loading">
+            <div class="spinner"></div>Selecione um período.
+          </div>
+        </div>
+      </div>
 
-    // Create auth user
-    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    </div>
+  </div>
 
-    // Create Firestore profile
-    await db.collection('users').doc(cred.user.uid).set({
-      name, email, role, unitId: 'cp', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  <!-- COMMISSION ENGINE -->
+  <script src="commission.js"></script>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════
+    // FIREBASE CONFIG — REPLACE WITH YOUR PROJECT CONFIG
+    // ═══════════════════════════════════════════════════════════════
+    const firebaseConfig = {
+      apiKey: "AIzaSyCILbVvHuOgEaFsK-OrXCN7_NmJeMB5GKI",
+      authDomain: "crosstrainer-comissoes.firebaseapp.com",
+      projectId: "crosstrainer-comissoes",
+      storageBucket: "crosstrainer-comissoes.firebasestorage.app",
+      messagingSenderId: "909536955760",
+      appId: "1:909536955760:web:36a4d166aa747f5f9653b5"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════
+    let currentUser = null;
+    let userProfile = null;
+    let unitConfig = {};
+    let currentPage = 'dashboard';
+    let pendingUpload = null;
+
+    // ═══════════════════════════════════════════════════════════════
+    // AUTH
+    // ═══════════════════════════════════════════════════════════════
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        currentUser = user;
+        try {
+          const doc = await db.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            userProfile = doc.data();
+            await loadUnitConfig();
+            showApp();
+          } else {
+            toast('Usuário não encontrado no sistema.', 'error');
+            auth.signOut();
+          }
+        } catch (e) {
+          toast('Erro ao carregar perfil: ' + e.message, 'error');
+        }
+      } else {
+        currentUser = null;
+        userProfile = null;
+        showLogin();
+      }
     });
 
-    // Note: creating a user signs them in, so we need to sign back in as admin
-    // This is a limitation of client-side auth. For production, use Cloud Functions.
-    toast(`Usuário ${name} criado! Faça login novamente.`, 'success');
-    document.getElementById('addUserForm').style.display = 'none';
+    async function doLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
+      if (!email || !pass) { errEl.textContent = 'Preencha email e senha.'; return; }
+      document.getElementById('loginBtn').disabled = true;
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (e) {
+        errEl.textContent = e.code === 'auth/user-not-found' ? 'Usuário não encontrado.' :
+          e.code === 'auth/wrong-password' ? 'Senha incorreta.' :
+            e.code === 'auth/invalid-email' ? 'Email inválido.' : e.message;
+      }
+      document.getElementById('loginBtn').disabled = false;
+    }
 
-    // The onAuthStateChanged will handle the state change
-    // We need to sign back in as admin
-    setTimeout(() => { loadUsers(); }, 1000);
-  } catch (e) {
-    errEl.textContent = e.message;
-  }
-}
+    function doLogout() { auth.signOut(); }
 
-async function deleteUser(uid, email) {
-  if (!confirm(`Remover ${email}?`)) return;
-  try {
-    await db.collection('users').doc(uid).delete();
-    toast('Usuário removido.', 'success');
-    loadUsers();
-  } catch (e) { toast('Erro: ' + e.message, 'error'); }
-}
+    function showLogin() {
+      document.getElementById('loginPage').style.display = '';
+      document.getElementById('appShell').style.display = 'none';
+    }
 
-// ═══════════════════════════════════════════════════════════════
-// UPLOAD & PROCESSING
-// ═══════════════════════════════════════════════════════════════
-function initUpload() {
-  const zone = document.getElementById('uploadZone');
-  const input = document.getElementById('fileInput');
-  const now = new Date();
-  document.getElementById('periodMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  document.getElementById('uploadPreview').style.display = 'none';
-  document.getElementById('uploadActions').style.display = 'none';
-  pendingUpload = null;
+    function showApp() {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('appShell').style.display = '';
+      document.getElementById('userName').textContent = userProfile.name || currentUser.email;
+      document.getElementById('userRole').textContent = userProfile.role === 'admin' ? 'Administrador' : 'Vendedor(a)';
+      buildSidebar();
+      if (userProfile.role === 'admin') {
+        navigateTo('dashboard');
+        loadPeriods();
+      } else {
+        navigateTo('meu-painel');
+        loadVendorPeriods();
+      }
+    }
 
-  zone.onclick = () => input.click();
-  zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
-  zone.ondragleave = () => zone.classList.remove('drag');
-  zone.ondrop = e => { e.preventDefault(); zone.classList.remove('drag'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };
-  input.onchange = e => { if (e.target.files.length) handleFile(e.target.files[0]); };
-}
+    // ═══════════════════════════════════════════════════════════════
+    // NAVIGATION
+    // ═══════════════════════════════════════════════════════════════
+    function buildSidebar() {
+      const nav = document.getElementById('sidebarNav');
+      const isAdmin = userProfile.role === 'admin';
+      let html = '';
+      if (isAdmin) {
+        html += '<div class="sb-section">Gestão</div>';
+        html += sbItem('dashboard', '📊', 'Dashboard');
+        html += sbItem('upload', '📤', 'Upload');
+        html += '<div class="sb-section">Admin</div>';
+        html += sbItem('users', '👥', 'Usuários');
+        html += sbItem('settings', '⚙', 'Configurações');
+      } else {
+        html += '<div class="sb-section">Meu Espaço</div>';
+        html += sbItem('meu-painel', '📊', 'Meu Painel');
+      }
+      nav.innerHTML = html;
+    }
 
-function handleFile(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      const rawRows = CommissionEngine.cleanRawData(json);
+    function sbItem(page, icon, label) {
+      return `<div class="sb-item ${currentPage === page ? 'active' : ''}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span>${label}</div>`;
+    }
 
-      if (rawRows.length === 0) { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
+    function navigateTo(page) {
+      currentPage = page;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const el = document.getElementById('page-' + page);
+      if (el) el.classList.add('active');
+      document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.sb-item').forEach(i => { if (i.onclick.toString().includes(page)) i.classList.add('active'); });
+      document.querySelector('.sidebar')?.classList.remove('open');
 
-      // Process
+      // Init page
+      if (page === 'settings') renderSettings();
+      if (page === 'users') loadUsers();
+      if (page === 'upload') initUpload();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UNIT CONFIG
+    // ═══════════════════════════════════════════════════════════════
+    async function loadUnitConfig() {
+      try {
+        const doc = await db.collection('units').doc('cp').get();
+        if (doc.exists) unitConfig = doc.data().config || {};
+        else {
+          await db.collection('units').doc('cp').set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
+          unitConfig = CommissionEngine.defaultConfig;
+        }
+      } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
+    }
+
+    function renderSettings() {
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-      const result = CommissionEngine.calculate(rawRows, cfg);
-      pendingUpload = { rawRows, result, fileName: file.name };
+      const fields = [
+        { section: 'P1 — Percentual sobre Caixa' },
+        { key: 'pctNovo', label: '% Novo / Retorno', val: cfg.pctNovo },
+        { key: 'pctRenov', label: '% Renovação', val: cfg.pctRenov },
+        { key: 'voucherFixo', label: 'R$ Voucher (fixo)', val: cfg.voucherFixo },
+        { section: 'P2 — Bônus Fixo por Contrato' },
+        { key: 'bonusBianual', label: 'Bianual', val: cfg.bonusBianual },
+        { key: 'bonusAnualFlex', label: 'Anual Flex', val: cfg.bonusAnualFlex },
+        { key: 'bonusAnualLocal', label: 'Anual Local', val: cfg.bonusAnualLocal },
+        { key: 'bonusRecorrente', label: 'Recorrente', val: cfg.bonusRecorrente },
+        { key: 'bonusMensal', label: 'Mensal', val: cfg.bonusMensal },
+        { section: 'P3 — Bônus de Meta' },
+        { key: 'meta', label: 'Meta (ativações)', val: cfg.meta },
+        { key: 'superMeta', label: 'Super Meta', val: cfg.superMeta },
+        { key: 'metaGold', label: 'Meta Gold', val: cfg.metaGold },
+        { key: 'metaFixo', label: 'Meta: fixo R$', val: cfg.metaFixo },
+        { key: 'superFixo', label: 'Super: fixo R$', val: cfg.superFixo },
+        { key: 'goldFixo', label: 'Gold: fixo R$', val: cfg.goldFixo },
+        { key: 'metaPct', label: '% sobre base', val: cfg.metaPct },
+        { key: 'tetoMeta', label: 'Teto Meta', val: cfg.tetoMeta },
+        { key: 'tetoSuper', label: 'Teto Super', val: cfg.tetoSuper },
+        { key: 'tetoGold', label: 'Teto Gold', val: cfg.tetoGold },
+        { section: 'Tripé — Mínimos' },
+        { key: 'minNovos', label: 'Mín. Novos+Retorno', val: cfg.minNovos },
+        { key: 'minRenov', label: 'Mín. Renovações', val: cfg.minRenov },
+        { key: 'minVoucher', label: 'Mín. Vouchers', val: cfg.minVoucher },
+        { key: 'multFalhaRenov', label: 'Mult. falha Renov', val: cfg.multFalhaRenov },
+        { key: 'multFalhaVoucher', label: 'Mult. falha Voucher', val: cfg.multFalhaVoucher },
+        { section: 'P4 — Conversão de Voucher' },
+        { key: 'bonusConversaoVoucher', label: 'R$ por conversão', val: cfg.bonusConversaoVoucher },
+        { key: 'prazoConversaoDias', label: 'Prazo (dias)', val: cfg.prazoConversaoDias },
+        { key: 'poolVoucherMeta', label: 'Pool Meta R$', val: cfg.poolVoucherMeta },
+        { key: 'poolVoucherSuper', label: 'Pool Super R$', val: cfg.poolVoucherSuper },
+        { section: 'Não-Comissionáveis' },
+        { key: 'naoComissionaveis', label: 'Lista (separar por vírgula)', val: (cfg.naoComissionaveis || []).join(', '), type: 'text', wide: true },
+      ];
 
-      // Show preview
-      const prev = document.getElementById('uploadPreview');
-      prev.style.display = '';
-      document.getElementById('uploadActions').style.display = 'flex';
+      let html = '';
+      fields.forEach(f => {
+        if (f.section) {
+          html += `<div class="settings-section">${f.section}</div>`;
+        } else {
+          const w = f.wide ? 'style="grid-column:1/-1"' : '';
+          if (f.type === 'text') {
+            html += `<div class="input-group" ${w}><label>${f.label}</label><input id="cfg_${f.key}" value="${f.val}"></div>`;
+          } else {
+            html += `<div class="input-group" ${w}><label>${f.label}</label><input type="number" id="cfg_${f.key}" value="${f.val}" step="any"></div>`;
+          }
+        }
+      });
+      document.getElementById('settingsForm').innerHTML = html;
+    }
 
-      prev.innerHTML = `
+    async function saveSettings() {
+      const cfg = {};
+      document.querySelectorAll('#settingsForm input').forEach(inp => {
+        const key = inp.id.replace('cfg_', '');
+        if (key === 'naoComissionaveis') {
+          cfg[key] = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+        } else {
+          cfg[key] = parseFloat(inp.value) || 0;
+        }
+      });
+      try {
+        await db.collection('units').doc('cp').update({ config: cfg });
+        unitConfig = cfg;
+        toast('Configurações salvas!', 'success');
+      } catch (e) {
+        toast('Erro ao salvar: ' + e.message, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // USERS
+    // ═══════════════════════════════════════════════════════════════
+    async function loadUsers() {
+      const snap = await db.collection('users').get();
+      const users = [];
+      snap.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase());
+
+      document.getElementById('userList').innerHTML = users.length === 0
+        ? '<p style="color:var(--text3)">Nenhum usuário cadastrado.</p>'
+        : users.map(u => {
+          const isPendente = u.status === 'pendente';
+          const isNaoCom = !isPendente && naoComList.some(n => (u.name || '').toUpperCase().includes(n));
+          const roleClass = isPendente ? 'role-pendente' : u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
+          const roleLabel = isPendente ? 'Pendente' : u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
+          return `<div class="user-row">
+          <div class="ur-info"><div class="ur-avatar">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}</div><div class="ur-email">${isPendente ? 'Cadastrado automaticamente pelo Excel — configure o acesso' : u.email}</div></div></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="ur-role ${roleClass}">${roleLabel}</span>
+            ${isPendente ? `<button class="btn btn-sm" style="background:var(--yellow);color:#000" onclick="activateUser('${u.id}','${u.name}')">Configurar acesso</button>` : ''}
+            ${!isPendente && u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${u.email}')">Remover</button>` : ''}
+          </div>
+        </div>`;
+        }).join('');
+    }
+
+    async function activateUser(uid, name) {
+      const email = prompt(`Defina o e-mail de acesso para ${name}:`);
+      if (!email) return;
+      const pass = prompt(`Defina a senha inicial para ${name} (mín. 6 caracteres):`);
+      if (!pass || pass.length < 6) { alert('Senha deve ter ao menos 6 caracteres.'); return; }
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection('users').doc(cred.user.uid).set({
+          name, email, role: 'vendedor', unitId: 'cp',
+          status: 'ativo', autoCreated: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Remove the pending placeholder doc
+        await db.collection('users').doc(uid).delete();
+        toast(`Acesso configurado para ${name}!`, 'success');
+        setTimeout(() => loadUsers(), 1200);
+      } catch (e) {
+        toast('Erro ao configurar acesso: ' + e.message, 'error');
+      }
+    }
+
+    function showAddUser() { document.getElementById('addUserForm').style.display = ''; }
+
+    async function createUser() {
+      const name = document.getElementById('newUserName').value.trim();
+      const email = document.getElementById('newUserEmail').value.trim();
+      const pass = document.getElementById('newUserPass').value;
+      const role = document.getElementById('newUserRole').value;
+      const errEl = document.getElementById('addUserError');
+      errEl.textContent = '';
+
+      if (!name || !email || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
+      if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
+
+      try {
+        // Save current user to restore session
+        const currentEmail = currentUser.email;
+
+        // Create auth user
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+
+        // Create Firestore profile
+        await db.collection('users').doc(cred.user.uid).set({
+          name, email, role, unitId: 'cp', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Note: creating a user signs them in, so we need to sign back in as admin
+        // This is a limitation of client-side auth. For production, use Cloud Functions.
+        toast(`Usuário ${name} criado! Faça login novamente.`, 'success');
+        document.getElementById('addUserForm').style.display = 'none';
+
+        // The onAuthStateChanged will handle the state change
+        // We need to sign back in as admin
+        setTimeout(() => { loadUsers(); }, 1000);
+      } catch (e) {
+        errEl.textContent = e.message;
+      }
+    }
+
+    async function deleteUser(uid, email) {
+      if (!confirm(`Remover ${email}?`)) return;
+      try {
+        await db.collection('users').doc(uid).delete();
+        toast('Usuário removido.', 'success');
+        loadUsers();
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // UPLOAD & PROCESSING
+    // ═══════════════════════════════════════════════════════════════
+    function initUpload() {
+      const zone = document.getElementById('uploadZone');
+      const input = document.getElementById('fileInput');
+      const now = new Date();
+      document.getElementById('periodMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('uploadPreview').style.display = 'none';
+      document.getElementById('uploadActions').style.display = 'none';
+      pendingUpload = null;
+
+      zone.onclick = () => input.click();
+      zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
+      zone.ondragleave = () => zone.classList.remove('drag');
+      zone.ondrop = e => { e.preventDefault(); zone.classList.remove('drag'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };
+      input.onchange = e => { if (e.target.files.length) handleFile(e.target.files[0]); };
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = async e => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          const rawRows = CommissionEngine.cleanRawData(json);
+
+          if (rawRows.length === 0) { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
+
+          // ── Auto-detect period from dates in the file ──
+          const monthCount = {};
+          rawRows.forEach(row => {
+            const dt = row['Data'];
+            let d = dt instanceof Date ? dt : null;
+            if (!d && typeof dt === 'string') {
+              const parts = dt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+              if (parts) d = new Date(parts[3], parts[2] - 1, parts[1]);
+            }
+            if (d && !isNaN(d)) {
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+              monthCount[key] = (monthCount[key] || 0) + 1;
+            }
+          });
+          const detectedPeriod = Object.entries(monthCount).sort((a, b) => b[1] - a[1])[0]?.[0];
+          if (detectedPeriod) {
+            document.getElementById('periodMonth').value = detectedPeriod;
+            const [yr, mo] = detectedPeriod.split('-');
+            const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+            toast(`Período detectado automaticamente: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
+          }
+
+          // Process
+          const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+          const result = CommissionEngine.calculate(rawRows, cfg);
+
+          // ── Check which vendors are new (not yet in Firestore) ──
+          const existingSnap = await db.collection('users').get();
+          const existingNames = [];
+          existingSnap.forEach(doc => { if (doc.data().name) existingNames.push(doc.data().name.toUpperCase().trim()); });
+          const vendorNames = Object.keys(result.vendorData).filter(n => n !== 'Sem Vendedor');
+          const newVendors = vendorNames.filter(n => !existingNames.some(e => e === n.toUpperCase().trim()));
+
+          pendingUpload = { rawRows, result, fileName: file.name, newVendors, existingNames };
+
+          // Show preview
+          const prev = document.getElementById('uploadPreview');
+          prev.style.display = '';
+          document.getElementById('uploadActions').style.display = 'flex';
+
+          const vendorTagsHtml = vendorNames.map(n => {
+            const isNew = newVendors.includes(n);
+            return `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isNew ? 'var(--yellow-bg)' : 'var(--green-bg)'};color:${isNew ? 'var(--yellow)' : 'var(--green)'}">${n}${isNew ? ' 🆕' : ' ✅'}</span>`;
+          }).join('');
+
+          prev.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${file.name}</h3>
           <div class="stats-row">
@@ -657,143 +1716,169 @@ function handleFile(file) {
             <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${result.unitTotals.unitAtivacoes}</div></div>
             <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(result.unitTotals.unitCaixa)}</div></div>
           </div>
-          <p style="font-size:12px;color:var(--text2)">Vendedores encontrados: ${Object.keys(result.vendorData).join(', ')}</p>
+          <div style="margin-top:10px">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px">Vendedores encontrados ${newVendors.length > 0 ? `— <span style="color:var(--yellow)">${newVendors.length} novo(s) serão cadastrados automaticamente</span>` : ''}</div>
+            <div>${vendorTagsHtml}</div>
+          </div>
         </div>`;
 
-      toast(`Arquivo processado: ${result.processed.length} itens.`, 'success');
-    } catch (err) {
-      toast('Erro ao processar arquivo: ' + err.message, 'error');
+          toast(`Arquivo processado: ${result.processed.length} itens.`, 'success');
+        } catch (err) {
+          toast('Erro ao processar arquivo: ' + err.message, 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
     }
-  };
-  reader.readAsArrayBuffer(file);
-}
 
-async function confirmUpload() {
-  if (!pendingUpload) return;
-  const period = document.getElementById('periodMonth').value;
-  if (!period) { toast('Selecione o mês/ano.', 'error'); return; }
-
-  const [year, month] = period.split('-');
-  const periodId = `cp_${year}-${month}`;
-  const { rawRows, result, fileName } = pendingUpload;
-
-  try {
-    toast('Salvando...', 'info');
-
-    // Save period summary
-    await db.collection('periodos').doc(periodId).set({
-      unitId: 'cp', year: parseInt(year), month: parseInt(month),
-      fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
-      uploadedBy: currentUser.uid,
-      totals: result.unitTotals,
-      vendorSummary: Object.fromEntries(
-        Object.entries(result.vendorData).map(([name, v]) => [name, {
-          p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
-          grandTotal: v.grandTotal, ativacoes: v.ativacoes,
-          novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
-          caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
-        }])
-      ),
-      p4result: {
-        conversoesMes: result.p4result.conversoesMes,
-        vouchersAtivos45d: result.p4result.vouchersAtivos45d,
-        pool: result.p4result.pool, poolTier: result.p4result.poolTier,
-      },
-    }, { merge: true });
-
-    // Save items in batches
-    const batch1 = db.batch();
-    const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
-
-    // Delete existing items first (in case of re-upload)
-    const existingItems = await itemsRef.get();
-    existingItems.forEach(doc => batch1.delete(doc.ref));
-    await batch1.commit();
-
-    // Add new items in batches of 400
-    const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' }))];
-    for (let i = 0; i < allItems.length; i += 400) {
+    async function autoRegisterVendors(newVendors) {
+      if (!newVendors || newVendors.length === 0) return;
       const batch = db.batch();
-      allItems.slice(i, i + 400).forEach((item, idx) => {
-        const ref = itemsRef.doc();
-        // Clean object for Firestore (remove functions, dates)
-        const clean = {};
-        Object.entries(item).forEach(([k, v]) => {
-          if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
-          else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
+      newVendors.forEach(name => {
+        const ref = db.collection('users').doc();
+        batch.set(ref, {
+          name,
+          email: '',
+          role: 'vendedor',
+          unitId: 'cp',
+          status: 'pendente',
+          autoCreated: true,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         });
-        delete clean.dateObj;
-        batch.set(ref, clean);
       });
       await batch.commit();
+      if (newVendors.length > 0)
+        toast(`${newVendors.length} vendedor(es) novo(s) cadastrado(s) automaticamente.`, 'success');
     }
 
-    toast('Período salvo com sucesso!', 'success');
-    pendingUpload = null;
-    loadPeriods();
-    navigateTo('dashboard');
-  } catch (e) {
-    toast('Erro ao salvar: ' + e.message, 'error');
-  }
-}
+    async function confirmUpload() {
+      if (!pendingUpload) return;
+      const period = document.getElementById('periodMonth').value;
+      if (!period) { toast('Selecione o mês/ano.', 'error'); return; }
 
-function cancelUpload() {
-  pendingUpload = null;
-  document.getElementById('uploadPreview').style.display = 'none';
-  document.getElementById('uploadActions').style.display = 'none';
-}
+      const [year, month] = period.split('-');
+      const periodId = `cp_${year}-${month}`;
+      const { rawRows, result, fileName, newVendors } = pendingUpload;
 
-// ═══════════════════════════════════════════════════════════════
-// PERIODS
-// ═══════════════════════════════════════════════════════════════
-async function loadPeriods() {
-  const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
-  const sel = document.getElementById('periodSelect');
-  sel.innerHTML = '<option value="">Selecione um período</option>';
-  snap.forEach(doc => {
-    const d = doc.data();
-    const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
-  });
-  // Auto-select first
-  if (sel.options.length > 1) { sel.selectedIndex = 1; loadPeriod(sel.value); }
-}
+      try {
+        toast('Salvando...', 'info');
 
-async function loadPeriod(periodId) {
-  if (!periodId) return;
-  const doc = await db.collection('periodos').doc(periodId).get();
-  if (!doc.exists) return;
-  const data = doc.data();
-  renderAdminDashboard(data);
-}
+        // Auto-register new vendors found in the file
+        await autoRegisterVendors(newVendors);
 
-// ═══════════════════════════════════════════════════════════════
-// ADMIN DASHBOARD RENDER
-// ═══════════════════════════════════════════════════════════════
-function renderAdminDashboard(data) {
-  const t = data.totals;
-  const vs = data.vendorSummary || {};
-  const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-  const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
+        // Save period summary
+        await db.collection('periodos').doc(periodId).set({
+          unitId: 'cp', year: parseInt(year), month: parseInt(month),
+          fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+          uploadedBy: currentUser.uid,
+          totals: result.unitTotals,
+          vendorSummary: Object.fromEntries(
+            Object.entries(result.vendorData).map(([name, v]) => [name, {
+              p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
+              grandTotal: v.grandTotal, ativacoes: v.ativacoes,
+              novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
+              caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
+            }])
+          ),
+          p4result: {
+            conversoesMes: result.p4result.conversoesMes,
+            vouchersAtivos45d: result.p4result.vouchersAtivos45d,
+            pool: result.p4result.pool, poolTier: result.p4result.poolTier,
+          },
+        }, { merge: true });
 
-  // Meta
-  const hitGold = t.unitAtivacoes >= cfg.metaGold;
-  const hitSuper = t.unitAtivacoes >= cfg.superMeta;
-  const hitMeta = t.unitAtivacoes >= cfg.meta;
-  const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
-  const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
-  const novosOk = t.unitNovosRetorno >= cfg.minNovos;
-  const renovOk = t.unitRenovacoes >= cfg.minRenov;
-  const vouchOk = t.unitVouchers >= cfg.minVoucher;
+        // Save items in batches
+        const batch1 = db.batch();
+        const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
-  let html = '';
+        // Delete existing items first (in case of re-upload)
+        const existingItems = await itemsRef.get();
+        existingItems.forEach(doc => batch1.delete(doc.ref));
+        await batch1.commit();
 
-  // Meta panel
-  html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold?'var(--orange-light)':hitMeta?'var(--green)':'var(--text)'}">${t.unitAtivacoes}</span></div>
+        // Add new items in batches of 400
+        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' }))];
+        for (let i = 0; i < allItems.length; i += 400) {
+          const batch = db.batch();
+          allItems.slice(i, i + 400).forEach((item, idx) => {
+            const ref = itemsRef.doc();
+            // Clean object for Firestore (remove functions, dates)
+            const clean = {};
+            Object.entries(item).forEach(([k, v]) => {
+              if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
+              else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
+            });
+            delete clean.dateObj;
+            batch.set(ref, clean);
+          });
+          await batch.commit();
+        }
+
+        toast('Período salvo com sucesso!', 'success');
+        pendingUpload = null;
+        loadPeriods();
+        navigateTo('dashboard');
+      } catch (e) {
+        toast('Erro ao salvar: ' + e.message, 'error');
+      }
+    }
+
+    function cancelUpload() {
+      pendingUpload = null;
+      document.getElementById('uploadPreview').style.display = 'none';
+      document.getElementById('uploadActions').style.display = 'none';
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PERIODS
+    // ═══════════════════════════════════════════════════════════════
+    async function loadPeriods() {
+      const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
+      const sel = document.getElementById('periodSelect');
+      sel.innerHTML = '<option value="">Selecione um período</option>';
+      snap.forEach(doc => {
+        const d = doc.data();
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
+      });
+      // Auto-select first
+      if (sel.options.length > 1) { sel.selectedIndex = 1; loadPeriod(sel.value); }
+    }
+
+    async function loadPeriod(periodId) {
+      if (!periodId) return;
+      const doc = await db.collection('periodos').doc(periodId).get();
+      if (!doc.exists) return;
+      const data = doc.data();
+      renderAdminDashboard(data);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ADMIN DASHBOARD RENDER
+    // ═══════════════════════════════════════════════════════════════
+    function renderAdminDashboard(data) {
+      const t = data.totals;
+      const vs = data.vendorSummary || {};
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
+
+      // Meta
+      const hitGold = t.unitAtivacoes >= cfg.metaGold;
+      const hitSuper = t.unitAtivacoes >= cfg.superMeta;
+      const hitMeta = t.unitAtivacoes >= cfg.meta;
+      const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
+      const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
+      const novosOk = t.unitNovosRetorno >= cfg.minNovos;
+      const renovOk = t.unitRenovacoes >= cfg.minRenov;
+      const vouchOk = t.unitVouchers >= cfg.minVoucher;
+
+      let html = '';
+
+      // Meta panel
+      html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
     <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
-    <div class="meta-marker" style="left:${(cfg.meta/cfg.metaGold)*100}%"><span class="m-label">${cfg.meta}</span></div>
-    <div class="meta-marker" style="left:${(cfg.superMeta/cfg.metaGold)*100}%"><span class="m-label">${cfg.superMeta}</span></div>
+    <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
+    <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
     <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
   </div><div>
     <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
@@ -805,12 +1890,12 @@ function renderAdminDashboard(data) {
     </div>
   </div></div></div>`;
 
-  // Stats
-  const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
-  const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
-  const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
+      // Stats
+      const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
+      const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
+      const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
 
-  html += `<div class="stats-row">
+      html += `<div class="stats-row">
     <div class="stat accent"><div class="s-label">Comissão Total</div><div class="s-value mono">R$ ${fmt(totalComissoes)}</div><div class="s-sub">P1+P2+P3+P4</div></div>
     <div class="stat"><div class="s-label">P1: % Caixa</div><div class="s-value mono">R$ ${fmt(totalP1)}</div></div>
     <div class="stat"><div class="s-label">P2: Bônus Fixo</div><div class="s-value mono">R$ ${fmt(totalP2)}</div></div>
@@ -819,91 +1904,91 @@ function renderAdminDashboard(data) {
     <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
   </div>`;
 
-  // Vendor cards
-  const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
-  html += '<div class="vendor-grid">';
-  sorted.forEach(([name, v], i) => {
-    html += `<div class="v-card"><div class="vc-head"><span class="rank">${i+1}</span><span class="vc-name">${name}</span></div>
+      // Vendor cards
+      const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+      html += '<div class="vendor-grid">';
+      sorted.forEach(([name, v], i) => {
+        html += `<div class="v-card"><div class="vc-head"><span class="rank">${i + 1}</span><span class="vc-name">${name}</span></div>
       <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
       <div class="v-parts">
-        <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1||0)}</div></div>
-        <div class="v-part"><div class="vp-label">P2</div><div class="vp-val">R$${fmt(v.p2||0)}</div></div>
-        <div class="v-part"><div class="vp-label">P3</div><div class="vp-val" style="color:var(--orange-light)">R$${fmt(v.p3||0)}</div></div>
-        <div class="v-part"><div class="vp-label">P4i</div><div class="vp-val">R$${fmt(v.p4i||0)}</div></div>
-        <div class="v-part"><div class="vp-label">P4p</div><div class="vp-val">R$${fmt(v.p4p||0)}</div></div>
+        <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
+        <div class="v-part"><div class="vp-label">P2</div><div class="vp-val">R$${fmt(v.p2 || 0)}</div></div>
+        <div class="v-part"><div class="vp-label">P3</div><div class="vp-val" style="color:var(--orange-light)">R$${fmt(v.p3 || 0)}</div></div>
+        <div class="v-part"><div class="vp-label">P4i</div><div class="vp-val">R$${fmt(v.p4i || 0)}</div></div>
+        <div class="v-part"><div class="vp-label">P4p</div><div class="vp-val">R$${fmt(v.p4p || 0)}</div></div>
       </div>
-      <div class="vc-total"><span class="lbl">Total</span><span class="val">R$ ${fmt(v.grandTotal||0)}</span></div>
+      <div class="vc-total"><span class="lbl">Total</span><span class="val">R$ ${fmt(v.grandTotal || 0)}</span></div>
     </div>`;
-  });
-  html += '</div>';
+      });
+      html += '</div>';
 
-  // Non-commissionable summary
-  const naoComVendors = Object.entries(vs).filter(([n, v]) => v.isNaoCom);
-  if (naoComVendors.length > 0) {
-    html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3)">';
-    html += '<strong style="color:var(--text2)">Não-comissionáveis:</strong> ';
-    html += naoComVendors.map(([n, v]) => `${n} (${Math.round(v.ativacoes)} ativ, R$ ${fmt(v.caixa)} caixa)`).join(' · ');
-    html += '</div>';
-  }
+      // Non-commissionable summary
+      const naoComVendors = Object.entries(vs).filter(([n, v]) => v.isNaoCom);
+      if (naoComVendors.length > 0) {
+        html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text3)">';
+        html += '<strong style="color:var(--text2)">Não-comissionáveis:</strong> ';
+        html += naoComVendors.map(([n, v]) => `${n} (${Math.round(v.ativacoes)} ativ, R$ ${fmt(v.caixa)} caixa)`).join(' · ');
+        html += '</div>';
+      }
 
-  document.getElementById('dashboardContent').innerHTML = html;
-}
-
-function tripeCard(label, val, min, isGold) {
-  const ok = val >= min;
-  const cls = isGold ? (ok ? 'gold' : 'fail') : (ok ? 'ok' : 'warn');
-  return `<div class="tripe ${cls}"><div class="t-label">${label}</div><div class="t-val">${val}</div><div class="t-min">mín. ${min}</div><div class="t-status">${ok ? '✅ OK' : isGold ? '❌ ZERA' : '⚠ REDUZ'}</div></div>`;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// VENDOR DASHBOARD
-// ═══════════════════════════════════════════════════════════════
-async function loadVendorPeriods() {
-  const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
-  const sel = document.getElementById('vendorPeriodSelect');
-  sel.innerHTML = '<option value="">Selecione</option>';
-  snap.forEach(doc => {
-    const d = doc.data();
-    const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
-  });
-  if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
-}
-
-async function loadVendorPeriod(periodId) {
-  if (!periodId) return;
-  const doc = await db.collection('periodos').doc(periodId).get();
-  if (!doc.exists) return;
-  const data = doc.data();
-  const vendorName = userProfile.name?.toUpperCase();
-  const vs = data.vendorSummary || {};
-  const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-
-  // Find vendor (case insensitive match)
-  let myData = null;
-  let myName = '';
-  Object.entries(vs).forEach(([name, v]) => {
-    if (name.toUpperCase() === vendorName || name.toUpperCase().includes(vendorName)) {
-      myData = v; myName = name;
+      document.getElementById('dashboardContent').innerHTML = html;
     }
-  });
 
-  const el = document.getElementById('vendorDashboard');
-  if (!myData) {
-    el.innerHTML = '<p style="color:var(--text3);padding:40px;text-align:center">Nenhum dado encontrado para o seu nome neste período.</p>';
-    return;
-  }
+    function tripeCard(label, val, min, isGold) {
+      const ok = val >= min;
+      const cls = isGold ? (ok ? 'gold' : 'fail') : (ok ? 'ok' : 'warn');
+      return `<div class="tripe ${cls}"><div class="t-label">${label}</div><div class="t-val">${val}</div><div class="t-min">mín. ${min}</div><div class="t-status">${ok ? '✅ OK' : isGold ? '❌ ZERA' : '⚠ REDUZ'}</div></div>`;
+    }
 
-  const t = data.totals;
-  const hitMeta = t.unitAtivacoes >= cfg.meta;
-  const hitSuper = t.unitAtivacoes >= cfg.superMeta;
-  const hitGold = t.unitAtivacoes >= cfg.metaGold;
+    // ═══════════════════════════════════════════════════════════════
+    // VENDOR DASHBOARD
+    // ═══════════════════════════════════════════════════════════════
+    async function loadVendorPeriods() {
+      const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
+      const sel = document.getElementById('vendorPeriodSelect');
+      sel.innerHTML = '<option value="">Selecione</option>';
+      snap.forEach(doc => {
+        const d = doc.data();
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
+      });
+      if (sel.options.length > 1) { sel.selectedIndex = 1; loadVendorPeriod(sel.value); }
+    }
 
-  // Ranking
-  const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
-  const myRank = ranked.findIndex(([n]) => n === myName) + 1;
+    async function loadVendorPeriod(periodId) {
+      if (!periodId) return;
+      const doc = await db.collection('periodos').doc(periodId).get();
+      if (!doc.exists) return;
+      const data = doc.data();
+      const vendorName = userProfile.name?.toUpperCase();
+      const vs = data.vendorSummary || {};
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
 
-  let html = `
+      // Find vendor (case insensitive match)
+      let myData = null;
+      let myName = '';
+      Object.entries(vs).forEach(([name, v]) => {
+        if (name.toUpperCase() === vendorName || name.toUpperCase().includes(vendorName)) {
+          myData = v; myName = name;
+        }
+      });
+
+      const el = document.getElementById('vendorDashboard');
+      if (!myData) {
+        el.innerHTML = '<p style="color:var(--text3);padding:40px;text-align:center">Nenhum dado encontrado para o seu nome neste período.</p>';
+        return;
+      }
+
+      const t = data.totals;
+      const hitMeta = t.unitAtivacoes >= cfg.meta;
+      const hitSuper = t.unitAtivacoes >= cfg.superMeta;
+      const hitGold = t.unitAtivacoes >= cfg.metaGold;
+
+      // Ranking
+      const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+      const myRank = ranked.findIndex(([n]) => n === myName) + 1;
+
+      let html = `
     <div class="stats-row">
       <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
       <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes)}</div></div>
@@ -914,18 +1999,18 @@ async function loadVendorPeriod(periodId) {
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div><span style="font-size:10px;color:var(--text3)">P1: % Caixa</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1||0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P2: Bônus Fixo</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2||0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P3: Meta</span><div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3||0)}</div></div>
-          <div><span style="font-size:10px;color:var(--text3)">P4: Voucher</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i||0)+(myData.p4p||0))}</div></div>
+          <div><span style="font-size:10px;color:var(--text3)">P1: % Caixa</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1 || 0)}</div></div>
+          <div><span style="font-size:10px;color:var(--text3)">P2: Bônus Fixo</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2 || 0)}</div></div>
+          <div><span style="font-size:10px;color:var(--text3)">P3: Meta</span><div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div></div>
+          <div><span style="font-size:10px;color:var(--text3)">P4: Voucher</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div></div>
         </div>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
         <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Meta da Unidade</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${t.unitAtivacoes} ativações — ${hitGold?'👑 Meta Gold':hitSuper?'🔥 Super Meta':hitMeta?'🏅 Meta':'Não atingida'}</div>
-        <div style="font-size:11px;color:var(--text3)">Novos+Ret: ${t.unitNovosRetorno}/${cfg.minNovos} ${t.unitNovosRetorno>=cfg.minNovos?'✅':'❌'}</div>
-        <div style="font-size:11px;color:var(--text3)">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes>=cfg.minRenov?'✅':'⚠'}</div>
-        <div style="font-size:11px;color:var(--text3)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers>=cfg.minVoucher?'✅':'⚠'}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px">${t.unitAtivacoes} ativações — ${hitGold ? '👑 Meta Gold' : hitSuper ? '🔥 Super Meta' : hitMeta ? '🏅 Meta' : 'Não atingida'}</div>
+        <div style="font-size:11px;color:var(--text3)">Novos+Ret: ${t.unitNovosRetorno}/${cfg.minNovos} ${t.unitNovosRetorno >= cfg.minNovos ? '✅' : '❌'}</div>
+        <div style="font-size:11px;color:var(--text3)">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠'}</div>
+        <div style="font-size:11px;color:var(--text3)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠'}</div>
       </div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
@@ -938,22 +2023,23 @@ async function loadVendorPeriod(periodId) {
       </div>
     </div>`;
 
-  el.innerHTML = html;
-}
+      el.innerHTML = html;
+    }
 
-// ═══════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════
-function fmt(n) { return (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    // ═══════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════
+    function fmt(n) { return (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-function toast(msg, type = 'info') {
-  const container = document.getElementById('toasts');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  container.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
-}
-</script>
+    function toast(msg, type = 'info') {
+      const container = document.getElementById('toasts');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      container.appendChild(t);
+      setTimeout(() => t.remove(), 4000);
+    }
+  </script>
 </body>
+
 </html>
