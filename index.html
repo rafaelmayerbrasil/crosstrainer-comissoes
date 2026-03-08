@@ -1884,16 +1884,27 @@
     // PERIODS
     // ═══════════════════════════════════════════════════════════════
     async function loadPeriods() {
-      const snap = await db.collection('periodos').where('unitId', '==', 'cp').orderBy('year', 'desc').orderBy('month', 'desc').get();
-      const sel = document.getElementById('periodSelect');
-      sel.innerHTML = '<option value="">Selecione um período</option>';
-      snap.forEach(doc => {
-        const d = doc.data();
+      try {
+        // Simple query without orderBy to avoid composite index requirement
+        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const sel = document.getElementById('periodSelect');
         const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        sel.innerHTML += `<option value="${doc.id}">${months[d.month]} ${d.year}</option>`;
-      });
-      // Auto-select first
-      if (sel.options.length > 1) { sel.selectedIndex = 1; loadPeriod(sel.value); }
+
+        // Sort client-side (most recent first)
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+
+        sel.innerHTML = '<option value="">Selecione um período</option>';
+        docs.forEach(d => {
+          sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`;
+        });
+
+        // Auto-select first
+        if (sel.options.length > 1) { sel.selectedIndex = 1; loadPeriod(sel.value); }
+      } catch (e) {
+        toast('Erro ao carregar períodos: ' + e.message, 'error');
+      }
     }
 
     let currentPeriodId = null;
