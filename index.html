@@ -1485,84 +1485,487 @@
 
   <!-- Modal Regras da Comissão -->
   <div id="rulesModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:700px; padding:24px; max-height:85vh; overflow-y:auto;">
-      <div
-        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
-        <h3 style="font-size:18px; color:var(--orange); margin:0;">Regras da Comissão (P1 a P4)</h3>
-        <button type="button" class="close-btn" onclick="closeRulesModal()"
-          style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+    <div class="modal-content" style="max-width:760px; padding:0; max-height:90vh; overflow-y:auto;">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg, rgba(232,146,13,0.15), rgba(232,146,13,0.03)); padding:24px 28px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="font-size:20px; color:var(--orange); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">📜 Regras da Comissão</h3>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CrossTrainer — Sistema de Comissões P1 a P4</div>
+          </div>
+          <button type="button" class="close-btn" onclick="closeRulesModal()" style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+        </div>
       </div>
-      <div style="font-size:13px; color:var(--text2); line-height:1.6;">
-        <p>A comissão na CrossTrainer é dividida em 4 pilares principais (os <strong>"Ps"</strong>). Eles compõem o
-          valor total que você receberá no mês.</p>
-        <ul style="margin-left:20px; margin-bottom:16px;">
-          <li style="margin-bottom:8px"><strong>P1 (Comissão sobre o Caixa):</strong> É um percentual sobre o valor pago
-            pelo aluno. Para planos Novos e Retornos você ganha um percentual maior (ex: 5%), e para Renovações um menor
-            (ex: 2.5%). Valoriza trazer dinheiro novo!</li>
-          <li style="margin-bottom:8px"><strong>P2 (Bônus Fixo por Plano):</strong> Prêmio fixo garantido por cada
-            venda, independente do caixa. Planos longos pagam mais. <br>Exemplo: Bianual (+R$80), Anual Flex (+R$45),
-            Anual Local (+R$30).</li>
-          <li style="margin-bottom:8px"><strong>P3 (Bônus de Meta da Unidade):</strong> Bônus coletivo ativado pelo
-            sucesso da unidade. Se a unidade atingir a Meta de Ativações no mês, todo o caixa gerado por você gera um
-            bônus adicional. <br><em>Atenção ao Tripé: A unidade precisa atingir os mínimos de Renovações e Vouchers.
-              Falhar nisso pode cortar o P3 de todos em 15% ou 30%!</em></li>
-          <li style="margin-bottom:8px"><strong>P4 (Vouchers / Mês Degustação):</strong>
-            <br>- <strong>P4a (P4i - Individual):</strong> Quando um "Mês Degustação" ativado por você se torna um plano
-            cheio dentro de 45 dias, você ganha bônus extra por converter.
-            <br>- <strong>P4b (P4p - Pool da Unidade):</strong> Se a unidade bater meta, os demais cupons convertidos no
-            mês geram dinheiro para um "fundo" da unidade que é dividido por igual entre os vendedores aptos.
-          </li>
-        </ul>
-        <h4 style="color:var(--text); margin-top:16px; margin-bottom:8px;">O que NÃO entra na conta?</h4>
-        <p style="margin-bottom:16px;">Gympass (Wellhub), TotalPass, Rescisões, e Renovações Automáticas.
-          <br>Taxas, Diferenças de Plano e Avaliações Físicas geram <strong>P1</strong> (dinheiro limpo), mas não contam
-          como numeração de "Ativações".
-          <br>Além disso, qualquer lançamento originado na planilha com um <strong>valor R$ 0,00</strong> (exceto
-          vouchers/degustação) é <u>completamente ignorado</u> para não atrapalhar os relatórios.
-        </p>
-        <h4 style="color:var(--text); margin-top:16px; margin-bottom:8px;">Divisão de Vendas (Split de Comissão)</h4>
-        <p>É possível dividir uma venda em percentuais (ex: 50/50 ou 70/30) com um colega. O sistema irá ratear o valor
-          total de caixa garantindo as fatias correspondentes da comissão e também ajustará as "Ativações"
-          proporcionalmente (contando apenas meia venda para cada um no 50/50, por exemplo, não inflando a meta de P3 da
-          Unidade de forma injusta).</p>
+
+      <div style="padding:24px 28px;">
+        <!-- Intro -->
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px; margin-bottom:24px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.7;">
+            A comissão é composta por <strong style="color:var(--orange)">4 pilares</strong> independentes que se somam no final do mês. Quanto mais você vende, mais cada pilar cresce — e quando a equipe bate a meta, o P3 dispara pra todo mundo.
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+            <span style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P1 → % do Caixa</span>
+            <span style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P2 → Bônus Fixo</span>
+            <span style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--orange);">P3 → Meta Coletiva</span>
+            <span style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P4 → Voucher</span>
+          </div>
+        </div>
+
+        <!-- P1 -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--green-bg); border:1px solid var(--green); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">💵</div>
+            <div>
+              <div style="font-size:14px; font-weight:700; color:var(--text);">P1 — Comissão sobre o Caixa</div>
+              <div style="font-size:11px; color:var(--text3);">Percentual sobre cada valor pago pelo aluno</div>
+            </div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            Você ganha um percentual direto sobre o valor que o aluno pagou. O percentual varia conforme o tipo da venda:
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+              <div style="background:var(--bg); border-radius:6px; padding:10px; text-align:center;">
+                <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px;">Novo / Retorno</div>
+                <div style="font-size:20px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace;">5%</div>
+                <div style="font-size:10px; color:var(--text3);">do valor pago</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; text-align:center;">
+                <div style="font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px;">Renovação</div>
+                <div style="font-size:20px; font-weight:700; color:var(--blue); font-family:'JetBrains Mono',monospace;">2,5%</div>
+                <div style="font-size:10px; color:var(--text3);">do valor pago</div>
+              </div>
+            </div>
+            <div style="margin-top:10px; font-size:11px; color:var(--text3); font-style:italic;">
+              💡 Exemplo: Venda nova de Anual Local (R$3.108) → P1 = R$3.108 × 5% = <strong style="color:var(--green)">R$155,40</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- P2 -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--blue-bg); border:1px solid var(--blue); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">🎁</div>
+            <div>
+              <div style="font-size:14px; font-weight:700; color:var(--text);">P2 — Bônus Fixo por Contrato</div>
+              <div style="font-size:11px; color:var(--text3);">Prêmio fixo por cada plano vendido — planos longos pagam mais</div>
+            </div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            Independente do valor em caixa, cada contrato gera um bônus fixo baseado na periodicidade do plano:
+            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:10px;">
+              <div style="background:var(--bg); border-radius:6px; padding:8px 4px; text-align:center;">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase;">Bianual</div>
+                <div style="font-size:16px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace;">R$80</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:8px 4px; text-align:center;">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase;">Anual Flex</div>
+                <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace;">R$45</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:8px 4px; text-align:center;">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase;">Anual Local</div>
+                <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace;">R$30</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:8px 4px; text-align:center;">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase;">Recorrente</div>
+                <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace;">R$20</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:8px 4px; text-align:center;">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase;">Mensal</div>
+                <div style="font-size:16px; font-weight:700; color:var(--text3); font-family:'JetBrains Mono',monospace;">R$15</div>
+              </div>
+            </div>
+            <div style="margin-top:10px; font-size:11px; color:var(--text3); font-style:italic;">
+              💡 O P2 só é pago em contratos (planos). Taxas, matrículas e avulsas não geram P2.
+            </div>
+          </div>
+        </div>
+
+        <!-- P3 -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--orange-dim); border:1px solid var(--orange); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">🎯</div>
+            <div>
+              <div style="font-size:14px; font-weight:700; color:var(--text);">P3 — Bônus de Meta da Unidade</div>
+              <div style="font-size:11px; color:var(--text3);">O grande acelerador — quando a equipe bate a meta, todo mundo ganha</div>
+            </div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            Se a <strong>unidade inteira</strong> atingir a meta de ativações no mês, cada vendedor(a) recebe um bônus composto por um valor fixo + percentual sobre o caixa que gerou.
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px;">
+              <div style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--border);">
+                <div style="font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px;">🏅 Meta</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">50 ativações</div>
+                <div style="font-size:16px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace; margin-top:4px;">R$300</div>
+                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
+                <div style="font-size:9px; color:var(--text3);">Teto: R$700</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange);">
+                <div style="font-size:9px; color:var(--orange); text-transform:uppercase; letter-spacing:.5px;">🔥 Super Meta</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">57 ativações</div>
+                <div style="font-size:16px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">R$600</div>
+                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
+                <div style="font-size:9px; color:var(--text3);">Teto: R$1.000</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange-light);">
+                <div style="font-size:9px; color:var(--orange-light); text-transform:uppercase; letter-spacing:.5px;">👑 Gold</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">65 ativações</div>
+                <div style="font-size:16px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">R$900</div>
+                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
+                <div style="font-size:9px; color:var(--text3);">Teto: R$1.300</div>
+              </div>
+            </div>
+
+            <!-- Tripé -->
+            <div style="background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:12px 14px; margin-top:14px;">
+              <div style="font-size:11px; font-weight:700; color:var(--red); margin-bottom:6px;">⚠️ ATENÇÃO — O Tripé</div>
+              <div style="font-size:11px; color:var(--text2); line-height:1.6;">
+                O P3 <strong>não depende só das ativações</strong>. A unidade precisa cumprir 3 condições mínimas:
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px;">
+                  <div style="background:var(--bg); border-radius:4px; padding:6px; text-align:center; font-size:10px;">
+                    <div style="font-weight:700; color:var(--text);">Novos+Retorno</div>
+                    <div style="color:var(--text3);">mín. 18</div>
+                    <div style="color:var(--red); font-weight:700; font-size:9px;">Não bateu → ZERA P3</div>
+                  </div>
+                  <div style="background:var(--bg); border-radius:4px; padding:6px; text-align:center; font-size:10px;">
+                    <div style="font-weight:700; color:var(--text);">Renovações</div>
+                    <div style="color:var(--text3);">mín. 25</div>
+                    <div style="color:var(--yellow); font-weight:700; font-size:9px;">Não bateu → P3 × 0,70</div>
+                  </div>
+                  <div style="background:var(--bg); border-radius:4px; padding:6px; text-align:center; font-size:10px;">
+                    <div style="font-weight:700; color:var(--text);">Vouchers</div>
+                    <div style="color:var(--text3);">mín. 7</div>
+                    <div style="color:var(--yellow); font-weight:700; font-size:9px;">Não bateu → P3 × 0,85</div>
+                  </div>
+                </div>
+                <div style="font-size:10px; color:var(--text3); margin-top:6px; font-style:italic;">Se renovações E vouchers falharem juntos, o corte é cumulativo: P3 × 0,70 × 0,85 = perda de ~40%!</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- P4 -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--yellow-bg); border:1px solid var(--yellow); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">🎫</div>
+            <div>
+              <div style="font-size:14px; font-weight:700; color:var(--text);">P4 — Conversão de Voucher (Mês Degustação)</div>
+              <div style="font-size:11px; color:var(--text3);">Bônus por converter experimentadores em alunos reais</div>
+            </div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:12px;">
+                <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:6px;">P4a — Individual</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;">
+                  Quando um aluno que você colocou no "Mês Degustação" assina um plano cheio (Anual, Bianual ou Recorrente) dentro de <strong>45 dias</strong>, você ganha:
+                  <div style="font-size:18px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace; margin-top:6px; text-align:center;">R$30 por conversão</div>
+                </div>
+              </div>
+              <div style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:12px;">
+                <div style="font-size:11px; font-weight:700; color:var(--purple); margin-bottom:6px;">P4b — Pool da Unidade</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;">
+                  Se a unidade bater a meta de conversões do mês, um fundo extra é criado e dividido entre quem converteu:
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px;">
+                    <div style="text-align:center; padding:4px;">
+                      <div style="font-size:9px; color:var(--text3);">Meta (30%)</div>
+                      <div style="font-size:14px; font-weight:700; color:var(--text); font-family:'JetBrains Mono',monospace;">R$150</div>
+                    </div>
+                    <div style="text-align:center; padding:4px;">
+                      <div style="font-size:9px; color:var(--text3);">Super (37,5%)</div>
+                      <div style="font-size:14px; font-weight:700; color:var(--orange); font-family:'JetBrains Mono',monospace;">R$300</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exclusões -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--red-bg); border:1px solid var(--red); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">🚫</div>
+            <div style="font-size:14px; font-weight:700; color:var(--text);">O que NÃO entra na comissão?</div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> Gympass / Wellhub</div>
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> TotalPass</div>
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> Rescisões contratuais</div>
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> Renovações automáticas</div>
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> Valor R$0,00 (exceto voucher)</div>
+              <div style="display:flex; align-items:center; gap:6px; padding:6px; background:var(--bg); border-radius:4px;"><span style="color:var(--red);">✕</span> Vendedores não-comissionáveis</div>
+            </div>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:11px; color:var(--text3);">
+              <strong style="color:var(--text2);">Gera P1 mas NÃO conta como ativação:</strong> Taxas, Matrículas, Diferenças de Contrato, Avaliações Físicas e Aulas Avulsas. Esses itens geram dinheiro limpo (P1) mas não contam na numeração de metas.
+            </div>
+          </div>
+        </div>
+
+        <!-- Splits -->
+        <div style="margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <div style="width:36px; height:36px; background:var(--purple-bg); border:1px solid var(--purple); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">➗</div>
+            <div style="font-size:14px; font-weight:700; color:var(--text);">Divisão de Vendas (Split)</div>
+          </div>
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
+            Quando duas vendedoras participam da mesma venda, o líder pode dividir a comissão em proporções:
+            <strong>50/50</strong>, <strong>70/30</strong> ou <strong>30/70</strong>.
+            <div style="margin-top:8px; font-size:11px; color:var(--text3); font-style:italic;">
+              O sistema divide automaticamente o valor de caixa e conta meia ativação para cada uma (no 50/50), garantindo que a meta P3 da unidade não seja inflada artificialmente.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Modal Ajuda do App -->
   <div id="helpModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:700px; padding:24px; max-height:85vh; overflow-y:auto;">
-      <div
-        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
-        <h3 style="font-size:18px; color:var(--orange); margin:0;">Ajuda & Como Usar o Sistema</h3>
-        <button type="button" class="close-btn" onclick="closeHelpModal()"
-          style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+    <div class="modal-content" style="max-width:760px; padding:0; max-height:90vh; overflow-y:auto;">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg, rgba(91,155,213,0.12), rgba(91,155,213,0.02)); padding:24px 28px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 style="font-size:20px; color:var(--blue); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">❓ Central de Ajuda</h3>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">Guia completo do CrossTrainer para vendedores e administradores</div>
+          </div>
+          <button type="button" class="close-btn" onclick="closeHelpModal()" style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+        </div>
       </div>
-      <div style="font-size:13px; color:var(--text2); line-height:1.6;">
-        <h4 style="color:var(--text); margin-top:16px;">Para Vendedores</h4>
-        <ul style="margin-left:20px; margin-bottom:16px;">
-          <li><strong>Meu Painel:</strong> Assista o placar para ver a sua colocação, o seu caixa e acompanhar a barra
-            de progresso do mês.</li>
-          <li><strong>Alertas Inteligentes:</strong> Leia os alertas coloridos! Eles avisam se falta pouco para toda a
-            equipe pular para uma Super Meta (que paga muito mais) ou se as renovações estão caindo.</li>
-          <li><strong>Simulador "E se...":</strong> Antes de terminar o expediente, selecione "E se eu fechar +2 Anual
-            Local". O simulador vai prever matematicamente todos os bônus e mostrar quanto sua comissão pula
-            imediatamente!</li>
-        </ul>
-        <h4 style="color:var(--text); margin-top:16px;">Para Administradores e Líderes</h4>
-        <ul style="margin-left:20px; margin-bottom:16px;">
-          <li><strong>Indicadores Vitais:</strong> Veja na sua tela inicial um placar com o Ticket Médio da unidade, Mix
-            de Novos e Renovações para analisar se a retenção da saúde da academia está estabilizada e a conversão do
-            plano degustação.</li>
-          <li><strong>Upload de Fechamento:</strong> Todo final/início de mês, baixe o XLS do TecnoFit. Vá no menu
-            Upload e arraste o arquivo. O robô converte a base, descarta Gympass e calcula tudo instantaneamente.</li>
-          <li><strong>Tratar Exceções:</strong> Algo não calculou como queria? Clique na aba "Registros Processados" no
-            painel, pesquise o cliente e clique em "Ignorar" (lixeira vermelha) ou no Lápis para mudar a Categoria
-            daquela venda.</li>
-          <li><strong>Dividir Comissão (Split):</strong> Na mesma lista de Registros Processados, você notará que junto
-            a lixeira de exclusão, há um sinal de <strong>"Divisão (➗)" laranja</strong>. Clique ali, selecione a
-            colegada parceira e a proporção combinada. É automático!</li>
-        </ul>
+
+      <div style="padding:24px 28px;">
+
+        <!-- ═══ SEÇÃO: VENDEDORES ═══ -->
+        <div style="margin-bottom:28px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+            <span style="font-size:20px;">🛒</span>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">PARA VENDEDORES</div>
+          </div>
+
+          <!-- Meu Painel -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📊</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Painel</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Sua tela principal. Aqui você vê tudo de uma vez: sua comissão total do mês, quantas ativações fez, seu caixa gerado e sua <strong>posição no ranking</strong>. A composição P1+P2+P3+P4 aparece detalhada no card abaixo. Além disso, você acompanha como está a meta da unidade e se as condições do tripé estão sendo cumpridas.
+            </div>
+          </div>
+
+          <!-- Projeção -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📈</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Projeção de Fim de Mês</div>
+              <span style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              O sistema calcula automaticamente a projeção baseada no ritmo atual (run rate). Ele mostra quantas ativações, caixa, novos, renovações e vouchers a unidade deve fechar se continuar no mesmo ritmo — e em qual faixa de meta vocês devem terminar. Aparece tanto no dashboard do admin quanto no seu painel.
+            </div>
+          </div>
+
+          <!-- Alertas -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🔔</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Alertas Inteligentes</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Fique de olho nos alertas coloridos no topo do painel! Eles avisam quando:
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
+                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span style="color:var(--orange);">👑</span> Faltam poucas ativações para Meta Gold</div>
+                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span style="color:var(--orange);">🔥</span> A equipe está perto da Super Meta</div>
+                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span style="color:var(--yellow);">⚠️</span> Renovações abaixo do mínimo</div>
+                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span style="color:var(--yellow);">⚠️</span> Vouchers abaixo do mínimo</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulador -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🧮</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Simulador "E se..."</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Poderoso! No final do painel, selecione um tipo de plano (Anual Local, Anual Flex, Bianual etc.) e a quantidade. O simulador calcula <strong>instantaneamente</strong> quanto sua comissão aumentaria — incluindo o efeito cascata no P3 se as vendas extras fizerem a unidade pular de faixa de meta. Ótimo para se motivar antes de fechar o mês.
+            </div>
+          </div>
+
+          <!-- Conquistas -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🏆</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Conquistas (Gamificação)</div>
+              <span style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Desbloqueie badges conforme seu desempenho! As conquistas são baseadas no mês atual e no histórico. Exemplos:
+              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🎯 Fera de Vendas</span>
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">💎 Imparável</span>
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🔥 Em Chamas</span>
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">👑 Lenda</span>
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🌟 Caça-Novatos</span>
+                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🔄 Rei da Retenção</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Histórico -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📉</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Histórico</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              No final do painel, um gráfico mostra sua evolução mês a mês — comissão e ativações — junto com uma tabela de todos os meses e sua posição no ranking em cada um. Ótimo para visualizar seu crescimento.
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SEÇÃO: ADMINISTRADORES ═══ -->
+        <div style="margin-bottom:28px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+            <span style="font-size:20px;">⚙️</span>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">PARA ADMINISTRADORES</div>
+          </div>
+
+          <!-- Upload -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📤</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Upload de Fechamento</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              <strong>Passo a passo:</strong>
+              <div style="margin-top:6px; padding-left:4px;">
+                <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="color:var(--orange); font-weight:700; font-size:11px;">1.</span><span>Exporte o relatório de vendas do <strong>TecnoFit</strong> em formato .xlsx</span></div>
+                <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="color:var(--orange); font-weight:700; font-size:11px;">2.</span><span>Vá no menu <strong>Upload</strong> e arraste o arquivo (ou clique para selecionar)</span></div>
+                <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="color:var(--orange); font-weight:700; font-size:11px;">3.</span><span>O sistema detecta o mês automaticamente, classifica cada venda e mostra um <strong>preview</strong></span></div>
+                <div style="display:flex; gap:8px; margin-bottom:4px;"><span style="color:var(--orange); font-weight:700; font-size:11px;">4.</span><span>Revise o preview — você pode ignorar ou ativar registros antes de confirmar</span></div>
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; font-size:11px;">5.</span><span>Clique <strong>"Confirmar e Salvar"</strong> — tudo é calculado e salvo no banco de dados</span></div>
+              </div>
+              <div style="margin-top:8px; font-size:11px; color:var(--text3); font-style:italic;">
+                Vendedores novos encontrados no arquivo são cadastrados automaticamente como "Pendente".
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📊</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Dashboard (3 abas)</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:4px;">
+                <div style="background:var(--bg); border-radius:6px; padding:10px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Resumo Gerencial</div>
+                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Metas, projeção, indicadores (ticket médio, mix, conversão), ranking de vendedores e gráfico histórico.</div>
+                </div>
+                <div style="background:var(--bg); border-radius:6px; padding:10px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Registros Processados</div>
+                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Tabela completa de lançamentos. Busca, filtros, ordenação. Editar ✏️, Dividir ➗ e Ignorar 🗑️ registros.</div>
+                </div>
+                <div style="background:var(--bg); border-radius:6px; padding:10px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Relatório P4 (Voucher)</div>
+                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Detalhes de cada conversão: quem fez o voucher, quem converteu, prazo, plano e pool da unidade.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comparativo -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🔄</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Comparativo de Períodos</div>
+              <span style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Selecione dois meses e veja lado a lado: ativações, caixa, comissão, novos, renovações e vouchers — com a variação colorida (verde = cresceu, vermelho = caiu). Abaixo, a tabela mostra a evolução de cada vendedora entre os dois períodos.
+            </div>
+          </div>
+
+          <!-- Tratar exceções -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🔧</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Tratar Exceções e Dividir Vendas</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Na aba <strong>Registros Processados</strong> do dashboard:
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px;">
+                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
+                  <div style="font-size:16px;">✏️</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Editar</strong><br>Mudar vendedor, categoria, valor</div>
+                </div>
+                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
+                  <div style="font-size:16px;">➗</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Dividir</strong><br>Split 50/50, 70/30 ou 30/70</div>
+                </div>
+                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
+                  <div style="font-size:16px;">🗑️</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Ignorar</strong><br>Remove das comissões (reversível)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auditoria -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">📋</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Log de Auditoria</div>
+              <span style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Todas as ações no sistema são registradas: uploads, edições, exclusões, divisões, mudanças de configuração e criação de usuários. Acesse pelo menu <strong>Admin → Auditoria</strong> com filtro por tipo e busca por texto.
+            </div>
+          </div>
+
+          <!-- Multi-unidade -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🏢</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Multi-unidade</div>
+              <span style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              O sistema suporta múltiplas academias/filiais. Cada unidade tem suas próprias configurações de comissão, períodos e vendedores. Acesse <strong>Admin → Unidades</strong> para criar novas filiais ou trocar a unidade ativa. Ao criar usuários, defina a unidade correspondente.
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SEÇÃO: GERAL ═══ -->
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+            <span style="font-size:20px;">💡</span>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">DICAS GERAIS</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📱 Instalar no Celular</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Abra o sistema no Chrome do celular → toque nos 3 pontinhos → <strong>"Adicionar à tela inicial"</strong>. O app fica como um ícone igual qualquer outro app!</div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🌙 Modo Claro / Escuro</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">No rodapé da barra lateral, use o toggle 🌙/☀️ para alternar entre o tema escuro e claro. A preferência é salva automaticamente.</div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🔑 Esqueci Minha Senha</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Na tela de login, digite seu email e clique em <strong>"Esqueci minha senha"</strong>. Você receberá um email para redefinir.</div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📥 Exportar Relatório</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">No dashboard, clique no botão <strong>"Baixar Relatório XLS"</strong> para exportar o resumo do período em Excel com duas abas: resumo por vendedor e lançamentos detalhados.</div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
