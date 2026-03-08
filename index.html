@@ -7,6 +7,9 @@
   <title>CrossTrainer — Comissões</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CrossTrainer">
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -42,6 +45,32 @@
       --purple: #AB47BC;
       --purple-bg: rgba(171, 71, 188, 0.08);
       --radius: 8px
+    }
+
+    html.light {
+      --bg: #f4f4f6;
+      --surface: #ffffff;
+      --surface2: #f0f0f2;
+      --surface3: #e8e8ec;
+      --border: #d8d8de;
+      --border2: #c8c8d0;
+      --text: #1a1a2e;
+      --text2: #5a5a70;
+      --text3: #8a8a9a;
+      --orange: #D07800;
+      --orange-light: #E8920D;
+      --orange-dim: rgba(232, 146, 13, 0.06);
+      --orange-glow: rgba(232, 146, 13, 0.10);
+      --green: #2d8a2d;
+      --green-bg: rgba(45, 138, 45, 0.08);
+      --red: #cc3a1a;
+      --red-bg: rgba(204, 58, 26, 0.06);
+      --blue: #3a7dc0;
+      --blue-bg: rgba(58, 125, 192, 0.08);
+      --yellow: #c9a800;
+      --yellow-bg: rgba(201, 168, 0, 0.08);
+      --purple: #8e24aa;
+      --purple-bg: rgba(142, 36, 170, 0.08);
     }
 
     * {
@@ -1596,6 +1625,7 @@
         <div class="input-group"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••"></div>
         <button class="btn" onclick="doLogin()" id="loginBtn">Entrar</button>
         <div class="error-msg" id="loginError"></div>
+        <div class="link-btn" onclick="forgotPassword()">Esqueci minha senha</div>
       </div>
       <div style="font-size:10px;color:var(--text3);margin-top:24px;cursor:pointer" onclick="openAboutModal()">v2.0 · por Rafael Mayer Brasil</div>
     </div>
@@ -1617,6 +1647,15 @@
       <div class="sb-user">
         <div class="name" id="userName"></div>
         <div class="role" id="userRole"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;margin-bottom:4px">
+          <span style="font-size:11px;color:var(--text3)">🌙</span>
+          <label style="position:relative;width:36px;height:20px;cursor:pointer;display:block">
+            <input type="checkbox" id="themeToggle" onchange="toggleTheme()" style="display:none">
+            <span style="position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.3s"></span>
+            <span id="themeKnob" style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--orange);border-radius:50%;transition:.3s"></span>
+          </label>
+          <span style="font-size:11px;color:var(--text3)">☀️</span>
+        </div>
         <div class="logout" onclick="changePassword()" style="color:var(--text3);margin-bottom:4px">Alterar senha</div>
         <div class="logout" onclick="doLogout()">Sair</div>
       </div>
@@ -1700,6 +1739,9 @@
               <option value="admin">Administrador</option>
             </select>
           </div>
+          <div class="input-group"><label>Unidade</label>
+            <select id="newUserUnit"></select>
+          </div>
           <div style="display:flex;gap:10px;margin-top:14px">
             <button class="btn btn-sm" onclick="createUser()">Criar</button>
             <button class="btn btn-ghost btn-sm"
@@ -1711,6 +1753,56 @@
           <div class="loading">
             <div class="spinner"></div>Carregando...
           </div>
+        </div>
+      </div>
+
+      <!-- ADMIN: UNITS -->
+      <div class="page" id="page-units">
+        <div class="page-hdr">
+          <h1>Gestão de Unidades</h1>
+          <p>Crie e gerencie academias / filiais do sistema.</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px">
+          <label style="font-size:12px;color:var(--text2);font-weight:600">Unidade ativa:</label>
+          <select id="unitSwitcher" onchange="switchUnit(this.value)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif"></select>
+        </div>
+        <button class="btn btn-sm" onclick="showAddUnit()" style="margin-bottom:16px">+ Nova Unidade</button>
+        <div id="addUnitForm" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;max-width:400px">
+          <h3 style="font-size:14px;margin-bottom:14px">Nova Unidade</h3>
+          <div class="input-group"><label>ID (sigla curta, sem espaços)</label><input id="newUnitId" placeholder="ex: filial2"></div>
+          <div class="input-group"><label>Nome da Unidade</label><input id="newUnitName" placeholder="ex: CrossTrainer Filial 2"></div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-sm" onclick="createUnit()">Criar</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('addUnitForm').style.display='none'">Cancelar</button>
+          </div>
+          <div class="error-msg" id="addUnitError"></div>
+        </div>
+        <div id="unitList"></div>
+      </div>
+
+      <!-- ADMIN: AUDIT LOG -->
+      <div class="page" id="page-audit">
+        <div class="page-hdr">
+          <h1>Log de Auditoria</h1>
+          <p>Histórico de ações no sistema — quem fez o quê e quando.</p>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+          <input type="text" id="auditSearch" placeholder="🔍 Buscar por ação ou usuário..." oninput="filterAuditLog()" style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px">
+          <select id="auditTypeFilter" onchange="filterAuditLog()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px">
+            <option value="">Todos os tipos</option>
+            <option value="upload">Upload</option>
+            <option value="record_edit">Edição</option>
+            <option value="record_delete">Exclusão</option>
+            <option value="record_restore">Restauração</option>
+            <option value="record_split">Divisão</option>
+            <option value="record_add">Novo lançamento</option>
+            <option value="settings_change">Config. alterada</option>
+            <option value="user_create">Usuário criado</option>
+            <option value="period_delete">Período excluído</option>
+          </select>
+        </div>
+        <div id="auditLogContent">
+          <div class="loading"><div class="spinner"></div>Carregando...</div>
         </div>
       </div>
 
@@ -1729,6 +1821,30 @@
 
       <!-- VENDEDOR: DASHBOARD -->
       <div class="page" id="page-meu-painel">
+
+      <!-- ADMIN: COMPARATIVO -->
+      <div class="page" id="page-comparativo">
+        <div class="page-hdr">
+          <h1>Comparativo de Períodos</h1>
+          <p>Compare dois meses lado a lado para identificar tendências.</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap">
+          <div>
+            <label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px">Período A</label>
+            <select id="compSelectA" onchange="renderComparativo()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif"></select>
+          </div>
+          <div style="font-size:20px;color:var(--text3);margin-top:16px">⇄</div>
+          <div>
+            <label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px">Período B</label>
+            <select id="compSelectB" onchange="renderComparativo()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif"></select>
+          </div>
+        </div>
+        <div id="comparativoContent">
+          <div class="loading">Selecione dois períodos para comparar.</div>
+        </div>
+      </div>
+
+      <!-- VENDEDOR: DASHBOARD -->
         <div class="page-hdr">
           <h1>Meu Painel</h1>
         </div>
@@ -1773,7 +1889,29 @@
     let userProfile = null;
     let unitConfig = {};
     let currentPage = 'dashboard';
+    let currentUnitId = 'cp'; // default, overridden by user profile
     let pendingUpload = null;
+
+    // ═══════════════════════════════════════════════════════════════
+    // THEME (Dark / Light)
+    // ═══════════════════════════════════════════════════════════════
+    function initTheme() {
+      const saved = localStorage.getItem('ct_theme');
+      if (saved === 'light') {
+        document.documentElement.classList.add('light');
+        const tog = document.getElementById('themeToggle');
+        if (tog) tog.checked = true;
+        const knob = document.getElementById('themeKnob');
+        if (knob) knob.style.left = '18px';
+      }
+    }
+    function toggleTheme() {
+      const isLight = document.documentElement.classList.toggle('light');
+      localStorage.setItem('ct_theme', isLight ? 'light' : 'dark');
+      const knob = document.getElementById('themeKnob');
+      if (knob) knob.style.left = isLight ? '18px' : '2px';
+    }
+    initTheme();
 
     // ═══════════════════════════════════════════════════════════════
     // AUTH
@@ -1785,6 +1923,7 @@
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
             userProfile = doc.data();
+            currentUnitId = userProfile.unitId || 'cp';
             await loadUnitConfig();
             showApp();
           } else {
@@ -1820,6 +1959,25 @@
 
     function doLogout() { auth.signOut(); }
 
+    async function forgotPassword() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const errEl = document.getElementById('loginError');
+      if (!email) { errEl.textContent = 'Digite seu email acima e clique novamente.'; return; }
+      try {
+        await auth.sendPasswordResetEmail(email);
+        errEl.style.color = 'var(--green)';
+        errEl.textContent = '📧 Email de redefinição enviado! Verifique sua caixa de entrada.';
+        setTimeout(() => { errEl.style.color = ''; }, 5000);
+      } catch (e) {
+        const msgs = {
+          'auth/user-not-found': 'Email não encontrado no sistema.',
+          'auth/invalid-email': 'Email inválido.',
+          'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos.',
+        };
+        errEl.textContent = msgs[e.code] || 'Erro ao enviar: ' + e.message;
+      }
+    }
+
     function showLogin() {
       document.getElementById('loginPage').style.display = '';
       document.getElementById('appShell').style.display = 'none';
@@ -1831,6 +1989,7 @@
       document.getElementById('userName').textContent = userProfile.name || currentUser.email;
       document.getElementById('userRole').textContent = userProfile.role === 'admin' ? 'Administrador' : 'Vendedor(a)';
       buildSidebar();
+      initTheme();
       if (userProfile.role === 'admin') {
         navigateTo('dashboard');
         loadPeriods();
@@ -1869,9 +2028,12 @@
       if (isAdmin) {
         html += '<div class="sb-section">Gestão</div>';
         html += sbItem('dashboard', '📊', 'Dashboard');
+        html += sbItem('comparativo', '🔄', 'Comparativo');
         html += sbItem('upload', '📤', 'Upload');
         html += '<div class="sb-section">Admin</div>';
         html += sbItem('users', '👥', 'Usuários');
+        html += sbItem('units', '🏢', 'Unidades');
+        html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
       } else {
         html += '<div class="sb-section">Meu Espaço</div>';
@@ -1900,8 +2062,11 @@
 
       // Init page
       if (page === 'dashboard') loadPeriods();
+      if (page === 'comparativo') loadComparativoPeriods();
       if (page === 'settings') renderSettings();
       if (page === 'users') loadUsers();
+      if (page === 'units') loadUnits();
+      if (page === 'audit') loadAuditLog();
       if (page === 'upload') initUpload();
     }
 
@@ -1910,10 +2075,10 @@
     // ═══════════════════════════════════════════════════════════════
     async function loadUnitConfig() {
       try {
-        const doc = await db.collection('units').doc('cp').get();
+        const doc = await db.collection('units').doc(currentUnitId).get();
         if (doc.exists) unitConfig = doc.data().config || {};
         else {
-          await db.collection('units').doc('cp').set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
+          await db.collection('units').doc(currentUnitId).set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
           unitConfig = CommissionEngine.defaultConfig;
         }
       } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
@@ -1985,9 +2150,10 @@
         }
       });
       try {
-        await db.collection('units').doc('cp').update({ config: cfg });
+        await db.collection('units').doc(currentUnitId).update({ config: cfg });
         unitConfig = cfg;
         toast('Configurações salvas!', 'success');
+        logAudit('settings_change', 'Configurações de comissão atualizadas');
       } catch (e) {
         toast('Erro ao salvar: ' + e.message, 'error');
       }
@@ -2030,7 +2196,7 @@
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, pass);
         await db.collection('users').doc(cred.user.uid).set({
-          name, email, role: 'vendedor', unitId: 'cp',
+          name, email, role: 'vendedor', unitId: currentUnitId,
           status: 'ativo', autoCreated: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -2050,6 +2216,7 @@
       const email = document.getElementById('newUserEmail').value.trim();
       const pass = document.getElementById('newUserPass').value;
       const role = document.getElementById('newUserRole').value;
+      const unitId = document.getElementById('newUserUnit')?.value || currentUnitId;
       const errEl = document.getElementById('addUserError');
       errEl.textContent = '';
 
@@ -2069,7 +2236,7 @@
 
         // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
         await secondaryDb.collection('users').doc(newUid).set({
-          name, email, role, unitId: 'cp',
+          name, email, role, unitId,
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -2078,6 +2245,7 @@
         await secondaryAuth.signOut();
 
         toast(`Usuário ${name} criado com sucesso!`, 'success');
+        logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidade: ${unitId}`);
         document.getElementById('addUserForm').style.display = 'none';
         document.getElementById('newUserName').value = '';
         document.getElementById('newUserEmail').value = '';
@@ -2234,7 +2402,7 @@
           name,
           email: '',
           role: 'vendedor',
-          unitId: 'cp',
+          unitId: currentUnitId,
           status: 'pendente',
           autoCreated: true,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2368,7 +2536,7 @@
       if (!period) { toast('Selecione o mês/ano.', 'error'); return; }
 
       const [year, month] = period.split('-');
-      const periodId = `cp_${year}-${month}`;
+      const periodId = `${currentUnitId}_${year}-${month}`;
       const { rawRows, result, fileName, newVendors } = pendingUpload;
 
       try {
@@ -2379,7 +2547,7 @@
 
         // Save period summary
         await db.collection('periodos').doc(periodId).set({
-          unitId: 'cp', year: parseInt(year), month: parseInt(month),
+          unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
           fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
           uploadedBy: currentUser.uid,
           totals: result.unitTotals,
@@ -2432,6 +2600,7 @@
         }
 
         toast('Período salvo com sucesso!', 'success');
+        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         loadPeriods();
         navigateTo('dashboard');
@@ -2452,7 +2621,7 @@
     async function loadPeriods() {
       try {
         // Simple query without orderBy to avoid composite index requirement
-        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
         const sel = document.getElementById('periodSelect');
         const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -2508,6 +2677,7 @@
         // Delete period document
         await db.collection('periodos').doc(currentPeriodId).delete();
         toast(`Período "${label}" excluído.`, 'success');
+        logAudit('period_delete', `Período excluído: ${label}`);
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
@@ -2527,6 +2697,7 @@
           label: 'Ignorada (manual)'
         });
         toast('Registro ignorado. Recalculando...', 'info');
+        logAudit('record_delete', `Registro ignorado no período ${currentPeriodId}`);
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
         toast('Período recalculado!', 'success');
@@ -2550,6 +2721,7 @@
           label: cat
         });
         toast('Registro restaurado. Recalculando...', 'info');
+        logAudit('record_restore', `Registro restaurado no período ${currentPeriodId}`);
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
         toast('Período recalculado!', 'success');
@@ -2627,6 +2799,7 @@
         await batch.commit();
         closeSplitRecordModal();
         toast('Venda dividida com sucesso! Recalculando...', 'success');
+        logAudit('record_split', `Divisão: ${origData.vendedor} → ${partner} (${Math.round(ratioVal*100)}/${Math.round((1-ratioVal)*100)})`);
 
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
@@ -2685,7 +2858,7 @@
           finalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
           pYear = parseInt(parts[0], 10);
           pMonth = parseInt(parts[1], 10);
-          targetPeriodId = `cp_${pYear}-${String(pMonth).padStart(2, '0')}`;
+          targetPeriodId = `${currentUnitId}_${pYear}-${String(pMonth).padStart(2, '0')}`;
         }
       }
 
@@ -2709,7 +2882,7 @@
         const pRef = db.collection('periodos').doc(targetPeriodId);
         const pSnap = await pRef.get();
         if (!pSnap.exists && pYear && pMonth) {
-          await pRef.set({ unitId: 'cp', year: pYear, month: pMonth, totals: {}, vendorSummary: {} });
+          await pRef.set({ unitId: currentUnitId, year: pYear, month: pMonth, totals: {}, vendorSummary: {} });
         }
 
         if (id) {
@@ -2725,6 +2898,7 @@
         }
 
         closeRecordModal();
+        logAudit(id ? 'record_edit' : 'record_add', `${id ? 'Editou' : 'Novo'} lançamento: ${data.vendedor} · ${data.cliente} · R$ ${fmt(data.valorCaixa)}`);
 
         if (targetPeriodId !== currentPeriodId) {
           await recalculatePeriod(currentPeriodId);
@@ -2786,6 +2960,85 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // PROJEÇÃO DE FIM DE MÊS (RUN RATE)
+    // ═══════════════════════════════════════════════════════════════
+    function calcProjection(periodData) {
+      const t = periodData.totals;
+      const year = periodData.year;
+      const month = periodData.month;
+      if (!year || !month) return null;
+
+      const today = new Date();
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const periodStart = new Date(year, month - 1, 1);
+      const periodEnd = new Date(year, month, 0);
+
+      // If period is in the past, no projection needed
+      if (today > periodEnd) return null;
+
+      const dayElapsed = Math.max(1, Math.min(today.getDate(), daysInMonth));
+      const daysLeft = daysInMonth - dayElapsed;
+      const pctElapsed = dayElapsed / daysInMonth;
+
+      const projAtiv = Math.round(t.unitAtivacoes / pctElapsed);
+      const projCaixa = t.unitCaixa / pctElapsed;
+      const projNovos = Math.round((t.unitNovosRetorno || 0) / pctElapsed);
+      const projRenov = Math.round((t.unitRenovacoes || 0) / pctElapsed);
+      const projVouchers = Math.round((t.unitVouchers || 0) / pctElapsed);
+
+      return {
+        dayElapsed, daysLeft, daysInMonth, pctElapsed,
+        projAtiv, projCaixa, projNovos, projRenov, projVouchers,
+      };
+    }
+
+    function renderProjectionCard(proj, cfg) {
+      if (!proj) return '';
+      const pctLabel = Math.round(proj.pctElapsed * 100);
+
+      // Determine which tier the projection hits
+      let projTier = 'Abaixo da meta';
+      let tierColor = 'var(--red)';
+      if (proj.projAtiv >= cfg.metaGold) { projTier = '👑 Meta Gold'; tierColor = 'var(--orange-light)'; }
+      else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--green)'; }
+      else if (proj.projAtiv >= cfg.meta) { projTier = '🏅 Meta'; tierColor = 'var(--green)'; }
+
+      return `<div style="background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📈 Projeção de Fim de Mês</div>
+          <div style="font-size:11px;color:var(--text3)">${proj.dayElapsed} de ${proj.daysInMonth} dias (${pctLabel}%) · faltam ${proj.daysLeft} dias</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Ativações</div>
+            <div class="mono" style="font-size:18px;font-weight:700;color:${tierColor}">${proj.projAtiv}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Caixa Proj.</div>
+            <div class="mono" style="font-size:18px;font-weight:700">R$ ${fmt(proj.projCaixa)}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Novos+Ret</div>
+            <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projNovos >= cfg.minNovos ? 'var(--green)' : 'var(--red)'}">${proj.projNovos}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Renovações</div>
+            <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projRenov >= cfg.minRenov ? 'var(--green)' : 'var(--yellow)'}">${proj.projRenov}</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Vouchers</div>
+            <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projVouchers >= cfg.minVoucher ? 'var(--green)' : 'var(--yellow)'}">${proj.projVouchers}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:12px;color:var(--text2)">Projeção de faixa:</div>
+          <div style="font-size:14px;font-weight:700;color:${tierColor}">${projTier}</div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic">* Baseado no ritmo atual (run rate). Mude o ritmo, mude o resultado!</div>
+      </div>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // ADMIN DASHBOARD RENDER
     // ═══════════════════════════════════════════════════════════════
     function renderAdminDashboard(data, periodId) {
@@ -2810,8 +3063,9 @@
 
       let html = `
       <div class="admin-tabs">
-        <button class="tab-btn active" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='block';document.getElementById('tabRegistros').style.display='none';">Resumo Gerencial</button>
-        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='block';">Registros Processados</button>
+        <button class="tab-btn active" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='block';document.getElementById('tabRegistros').style.display='none';document.getElementById('tabP4').style.display='none';">Resumo Gerencial</button>
+        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='block';document.getElementById('tabP4').style.display='none';">Registros Processados</button>
+        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='none';document.getElementById('tabP4').style.display='block';">Relatório P4 (Voucher)</button>
       </div>
       
       <div id="tabResumo">
@@ -2887,6 +3141,10 @@
         </div>
       </div>`;
 
+      // ── Projeção de fim de mês ──
+      const proj = calcProjection(data);
+      html += renderProjectionCard(proj, cfg);
+
       // ── Vendor ranking cards ──
       window.currentVendorSummary = vs;
       const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
@@ -2931,6 +3189,10 @@
         </div>
         <div id="recordsTableSection"></div>
       </div> <!-- END tabRegistros -->
+
+      <div id="tabP4" style="display:none">
+        ${renderP4Report(data)}
+      </div> <!-- END tabP4 -->
       `;
 
       document.getElementById('dashboardContent').innerHTML = html;
@@ -2942,7 +3204,7 @@
 
     async function renderHistoryChart() {
       try {
-        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
         const docs = [];
         snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
         docs.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
@@ -3138,11 +3400,143 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // COMPARATIVO DE PERÍODOS
+    // ═══════════════════════════════════════════════════════════════
+    let compPeriodsCache = [];
+
+    async function loadComparativoPeriods() {
+      try {
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+        compPeriodsCache = docs;
+
+        ['compSelectA', 'compSelectB'].forEach((selId, idx) => {
+          const sel = document.getElementById(selId);
+          sel.innerHTML = '<option value="">Selecione</option>';
+          docs.forEach(d => { sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`; });
+          // Auto-select last two if available
+          if (docs.length > idx) sel.selectedIndex = idx + 1;
+        });
+        renderComparativo();
+      } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
+    }
+
+    function renderComparativo() {
+      const idA = document.getElementById('compSelectA')?.value;
+      const idB = document.getElementById('compSelectB')?.value;
+      const el = document.getElementById('comparativoContent');
+      if (!idA || !idB) { el.innerHTML = '<div class="loading">Selecione dois períodos para comparar.</div>'; return; }
+      if (idA === idB) { el.innerHTML = '<div class="loading" style="color:var(--yellow)">Selecione dois períodos diferentes.</div>'; return; }
+
+      const a = compPeriodsCache.find(d => d.id === idA);
+      const b = compPeriodsCache.find(d => d.id === idB);
+      if (!a || !b) return;
+
+      const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const labelA = `${months[a.month]}/${a.year}`;
+      const labelB = `${months[b.month]}/${b.year}`;
+      const tA = a.totals || {};
+      const tB = b.totals || {};
+      const vsA = a.vendorSummary || {};
+      const vsB = b.vendorSummary || {};
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+      const comA = Object.values(vsA).reduce((s, v) => s + (v.grandTotal || 0), 0);
+      const comB = Object.values(vsB).reduce((s, v) => s + (v.grandTotal || 0), 0);
+
+      function delta(va, vb, isCurrency) {
+        const d = (vb || 0) - (va || 0);
+        if (d === 0) return '<span style="color:var(--text3)">—</span>';
+        const sign = d > 0 ? '+' : '';
+        const color = d > 0 ? 'var(--green)' : 'var(--red)';
+        const val = isCurrency ? `R$ ${fmt(Math.abs(d))}` : Math.round(Math.abs(d));
+        return `<span style="color:${color};font-weight:700">${sign}${isCurrency ? (d > 0 ? 'R$ ' + fmt(d) : '-R$ ' + fmt(Math.abs(d))) : d}</span>`;
+      }
+
+      function row(label, va, vb, isCurrency) {
+        const fmtVal = v => isCurrency ? `R$ ${fmt(v || 0)}` : Math.round(v || 0);
+        return `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:10px 12px;color:var(--text2);font-size:13px">${label}</td>
+          <td style="padding:10px 12px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtVal(va)}</td>
+          <td style="padding:10px 12px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px">${fmtVal(vb)}</td>
+          <td style="padding:10px 12px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px">${delta(va, vb, isCurrency)}</td>
+        </tr>`;
+      }
+
+      let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:20px">
+        <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin-bottom:16px">Indicadores da Unidade</h3>
+        <div class="table-wrap"><table style="width:100%">
+          <thead><tr>
+            <th style="text-align:left;padding:8px 12px">Indicador</th>
+            <th style="text-align:right;padding:8px 12px">${labelA}</th>
+            <th style="text-align:right;padding:8px 12px">${labelB}</th>
+            <th style="text-align:right;padding:8px 12px">Variação</th>
+          </tr></thead>
+          <tbody>
+            ${row('Ativações', tA.unitAtivacoes, tB.unitAtivacoes)}
+            ${row('Caixa Total', tA.unitCaixa, tB.unitCaixa, true)}
+            ${row('Comissão Total', comA, comB, true)}
+            ${row('Novos + Retornos', tA.unitNovosRetorno, tB.unitNovosRetorno)}
+            ${row('Renovações', tA.unitRenovacoes, tB.unitRenovacoes)}
+            ${row('Vouchers', tA.unitVouchers, tB.unitVouchers)}
+          </tbody>
+        </table></div>
+      </div>`;
+
+      // ── Per-vendor comparison ──
+      const allVendors = new Set([...Object.keys(vsA), ...Object.keys(vsB)]);
+      const vendorRows = [];
+      allVendors.forEach(name => {
+        const a = vsA[name] || {};
+        const b = vsB[name] || {};
+        if (a.isNaoCom || b.isNaoCom) return;
+        vendorRows.push({ name, ativA: a.ativacoes || 0, ativB: b.ativacoes || 0, comA: a.grandTotal || 0, comB: b.grandTotal || 0, cxA: a.caixa || 0, cxB: b.caixa || 0 });
+      });
+      vendorRows.sort((a, b) => b.comB - a.comB);
+
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">
+        <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin-bottom:16px">Evolução por Vendedor(a)</h3>
+        <div class="table-wrap"><table style="width:100%">
+          <thead><tr>
+            <th style="text-align:left;padding:8px 12px">Vendedor</th>
+            <th style="text-align:right;padding:8px 12px">Comissão ${labelA}</th>
+            <th style="text-align:right;padding:8px 12px">Comissão ${labelB}</th>
+            <th style="text-align:right;padding:8px 12px">Δ Comissão</th>
+            <th style="text-align:right;padding:8px 12px">Ativ ${labelA}</th>
+            <th style="text-align:right;padding:8px 12px">Ativ ${labelB}</th>
+            <th style="text-align:right;padding:8px 12px">Δ Ativ</th>
+          </tr></thead>
+          <tbody>`;
+
+      vendorRows.forEach(v => {
+        const dCom = v.comB - v.comA;
+        const dAtiv = v.ativB - v.ativA;
+        const colorCom = dCom > 0 ? 'var(--green)' : dCom < 0 ? 'var(--red)' : 'var(--text3)';
+        const colorAtiv = dAtiv > 0 ? 'var(--green)' : dAtiv < 0 ? 'var(--red)' : 'var(--text3)';
+        html += `<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px;font-weight:600;font-size:13px">${v.name}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px">R$ ${fmt(v.comA)}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px">R$ ${fmt(v.comB)}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px;color:${colorCom};font-weight:700">${dCom > 0 ? '+' : ''}R$ ${fmt(dCom)}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px">${Math.round(v.ativA)}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px">${Math.round(v.ativB)}</td>
+          <td style="padding:8px 12px;text-align:right;font-family:'JetBrains Mono';font-size:12px;color:${colorAtiv};font-weight:700">${dAtiv > 0 ? '+' : ''}${Math.round(dAtiv)}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table></div></div>';
+      el.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // VENDOR DASHBOARD
     // ═══════════════════════════════════════════════════════════════
     async function loadVendorPeriods() {
       try {
-        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
         const sel = document.getElementById('vendorPeriodSelect');
         const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         const docs = [];
@@ -3217,6 +3611,19 @@
         <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa)}</div></div>
         <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank > 0 ? myRank + 'º' : '—'}</div><div class="s-sub">de ${ranked.length}</div></div>
       </div>`;
+
+      // ── Projeção de fim de mês (vendedor) ──
+      const projV = calcProjection(data);
+      html += renderProjectionCard(projV, cfg);
+
+      // ── Gamificação — Conquistas ──
+      const allPeriodsForBadges = [];
+      try {
+        const bSnap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
+        bSnap.forEach(doc => allPeriodsForBadges.push(doc.data()));
+      } catch (e) { /* non-critical */ }
+      const badges = calcBadges(myData, myName, allPeriodsForBadges);
+      html += renderBadgesHtml(badges);
 
       // ── Cards: composição + meta unidade ──
       html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
@@ -3372,7 +3779,7 @@
 
     async function loadVendorHistory(myName) {
       try {
-        const snap = await db.collection('periodos').where('unitId', '==', 'cp').get();
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
         const docs = [];
         snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
         docs.sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
@@ -3452,6 +3859,320 @@
       }
     }
 
+
+    // ═══════════════════════════════════════════════════════════════
+    // LOG DE AUDITORIA
+    // ═══════════════════════════════════════════════════════════════
+    async function logAudit(type, details) {
+      try {
+        await db.collection('audit_log').add({
+          type,
+          details: typeof details === 'string' ? details : JSON.stringify(details),
+          userId: currentUser?.uid || 'unknown',
+          userName: userProfile?.name || currentUser?.email || 'unknown',
+          unitId: currentUnitId,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (e) { console.warn('Audit log failed:', e); }
+    }
+
+    let auditCache = [];
+    async function loadAuditLog() {
+      const el = document.getElementById('auditLogContent');
+      if (!el) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      try {
+        const snap = await db.collection('audit_log')
+          .where('unitId', '==', currentUnitId)
+          .orderBy('timestamp', 'desc')
+          .limit(200)
+          .get();
+        auditCache = [];
+        snap.forEach(doc => auditCache.push({ id: doc.id, ...doc.data() }));
+        filterAuditLog();
+      } catch (e) {
+        el.innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px">Erro ao carregar logs: ${e.message}<br><br><span style="color:var(--text3);font-size:11px">Se for a primeira vez, o Firestore pode precisar de um índice. O erro acima deve conter um link para criá-lo.</span></div>`;
+      }
+    }
+
+    function filterAuditLog() {
+      const el = document.getElementById('auditLogContent');
+      if (!el) return;
+      const q = (document.getElementById('auditSearch')?.value || '').toLowerCase();
+      const typeFilter = document.getElementById('auditTypeFilter')?.value || '';
+
+      let filtered = auditCache.filter(a => {
+        const matchQ = !q || (a.details || '').toLowerCase().includes(q) || (a.userName || '').toLowerCase().includes(q) || (a.type || '').toLowerCase().includes(q);
+        const matchType = !typeFilter || a.type === typeFilter;
+        return matchQ && matchType;
+      });
+
+      const typeIcons = {
+        upload: '📤', record_edit: '✏️', record_delete: '🗑️', record_restore: '♻️',
+        record_split: '➗', record_add: '➕', settings_change: '⚙️',
+        user_create: '👤', period_delete: '🗑️', unit_create: '🏢',
+      };
+      const typeLabels = {
+        upload: 'Upload', record_edit: 'Edição', record_delete: 'Exclusão', record_restore: 'Restauração',
+        record_split: 'Divisão', record_add: 'Lançamento', settings_change: 'Config.',
+        user_create: 'Novo Usuário', period_delete: 'Excluir Período', unit_create: 'Nova Unidade',
+      };
+
+      if (filtered.length === 0) {
+        el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Nenhum registro de auditoria encontrado.</div>';
+        return;
+      }
+
+      let html = '<div style="display:flex;flex-direction:column;gap:6px">';
+      filtered.forEach(a => {
+        const ts = a.timestamp?.toDate ? a.timestamp.toDate().toLocaleString('pt-BR') : '—';
+        const icon = typeIcons[a.type] || '📝';
+        const label = typeLabels[a.type] || a.type;
+        html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:18px;margin-top:2px">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.5px">${label}</span>
+              <span style="font-size:10px;color:var(--text3)">${ts}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);word-break:break-word">${a.details || ''}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px">por ${a.userName}</div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GESTÃO DE UNIDADES
+    // ═══════════════════════════════════════════════════════════════
+    async function loadUnits() {
+      try {
+        const snap = await db.collection('units').get();
+        const units = [];
+        snap.forEach(doc => units.push({ id: doc.id, ...doc.data() }));
+
+        // Populate unit switcher
+        const sel = document.getElementById('unitSwitcher');
+        if (sel) {
+          sel.innerHTML = '';
+          units.forEach(u => {
+            sel.innerHTML += `<option value="${u.id}" ${u.id === currentUnitId ? 'selected' : ''}>${u.name || u.id}</option>`;
+          });
+        }
+
+        // Populate new user unit selector too
+        const userUnitSel = document.getElementById('newUserUnit');
+        if (userUnitSel) {
+          userUnitSel.innerHTML = '';
+          units.forEach(u => {
+            userUnitSel.innerHTML += `<option value="${u.id}" ${u.id === currentUnitId ? 'selected' : ''}>${u.name || u.id}</option>`;
+          });
+        }
+
+        // Render list
+        const el = document.getElementById('unitList');
+        if (!el) return;
+        el.innerHTML = units.map(u => `<div class="user-row" style="margin-bottom:8px">
+          <div class="ur-info">
+            <div class="ur-avatar" style="background:${u.id === currentUnitId ? 'var(--orange-glow)' : 'var(--surface2)'}; color:${u.id === currentUnitId ? 'var(--orange)' : 'var(--text3)'}">🏢</div>
+            <div>
+              <div class="ur-name">${u.name || u.id}</div>
+              <div class="ur-email">ID: ${u.id} · ${u.id === currentUnitId ? '✅ Ativa' : 'Inativa'}</div>
+            </div>
+          </div>
+          <div><span class="ur-role ${u.id === currentUnitId ? 'role-admin' : 'role-naocom'}">${u.id === currentUnitId ? 'Ativa' : 'Outra'}</span></div>
+        </div>`).join('');
+      } catch (e) { toast('Erro ao carregar unidades: ' + e.message, 'error'); }
+    }
+
+    function showAddUnit() { document.getElementById('addUnitForm').style.display = ''; }
+
+    async function createUnit() {
+      const id = document.getElementById('newUnitId').value.trim().toLowerCase().replace(/\s+/g, '_');
+      const name = document.getElementById('newUnitName').value.trim();
+      const errEl = document.getElementById('addUnitError');
+      errEl.textContent = '';
+      if (!id || !name) { errEl.textContent = 'Preencha todos os campos.'; return; }
+      try {
+        const existing = await db.collection('units').doc(id).get();
+        if (existing.exists) { errEl.textContent = 'Já existe uma unidade com esse ID.'; return; }
+        await db.collection('units').doc(id).set({ name, config: CommissionEngine.defaultConfig });
+        logAudit('unit_create', `Nova unidade: ${name} (${id})`);
+        toast(`Unidade "${name}" criada!`, 'success');
+        document.getElementById('addUnitForm').style.display = 'none';
+        loadUnits();
+      } catch (e) { errEl.textContent = 'Erro: ' + e.message; }
+    }
+
+    async function switchUnit(newUnitId) {
+      if (!newUnitId || newUnitId === currentUnitId) return;
+      currentUnitId = newUnitId;
+      // Update user profile with new default unit
+      try {
+        await db.collection('users').doc(currentUser.uid).update({ unitId: newUnitId });
+        userProfile.unitId = newUnitId;
+      } catch (e) { /* non-critical */ }
+      await loadUnitConfig();
+      toast(`Unidade alterada para: ${newUnitId}`, 'info');
+      loadUnits();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // RELATÓRIO DETALHADO P4 (CONVERSÃO VOUCHER)
+    // ═══════════════════════════════════════════════════════════════
+    function renderP4Report(data) {
+      const p4 = data.p4result || {};
+      const conversions = p4.conversions || [];
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+      let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px">
+        <h3 style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin-bottom:16px">🎫 Relatório Detalhado P4 — Conversão de Voucher</h3>`;
+
+      // Summary stats
+      const vouchersTotal = data.totals?.unitVouchers || 0;
+      const conversoesMes = p4.conversoesMes || 0;
+      const taxaConversao = vouchersTotal > 0 ? ((conversoesMes / vouchersTotal) * 100).toFixed(1) : '0.0';
+      const poolTier = p4.poolTier ? (p4.poolTier === 'super' ? '🔥 Super' : '🏅 Meta') : '❌ Não atingida';
+      const poolValor = p4.pool || 0;
+
+      html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Vouchers Emitidos</div>
+          <div class="mono" style="font-size:22px;font-weight:700;color:var(--yellow)">${vouchersTotal}</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Conversões</div>
+          <div class="mono" style="font-size:22px;font-weight:700;color:var(--green)">${conversoesMes}</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Taxa de Conversão</div>
+          <div class="mono" style="font-size:22px;font-weight:700;color:var(--orange-light)">${taxaConversao}%</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Pool da Unidade</div>
+          <div class="mono" style="font-size:22px;font-weight:700">R$ ${fmt(poolValor)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${poolTier}</div>
+        </div>
+      </div>`;
+
+      // Conversion detail table
+      if (conversions.length > 0) {
+        html += `<div class="table-wrap"><table style="width:100%">
+          <thead><tr>
+            <th>Vendedor(a)</th>
+            <th>Cliente</th>
+            <th>Código</th>
+            <th>Data Voucher</th>
+            <th>Data Conversão</th>
+            <th>Plano</th>
+            <th style="text-align:right">Bônus P4a</th>
+          </tr></thead><tbody>`;
+        conversions.forEach(c => {
+          html += `<tr>
+            <td style="font-weight:600">${c.vendedora}</td>
+            <td>${c.cliente || c.codigo}</td>
+            <td class="mono" style="font-size:10px;color:var(--text3)">${c.codigo}</td>
+            <td>${c.dataVoucher || '—'}</td>
+            <td>${c.dataConversao || '—'}</td>
+            <td><span class="pill pill-novo">${c.plano}</span></td>
+            <td class="currency" style="color:${c.bonus > 0 ? 'var(--green)' : 'var(--text3)'}">R$ ${fmt(c.bonus)}</td>
+          </tr>`;
+        });
+        html += '</tbody></table></div>';
+      } else {
+        html += '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhuma conversão de voucher detectada neste período.</div>';
+      }
+
+      // Pool distribution
+      const vPool = p4.vendorPool || {};
+      if (Object.keys(vPool).length > 0) {
+        html += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Distribuição do Pool (P4b)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">`;
+        Object.entries(vPool).forEach(([name, amount]) => {
+          html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 14px;font-size:12px">
+            <span style="font-weight:600">${name}</span> <span class="mono" style="color:var(--green)">R$ ${fmt(amount)}</span>
+          </div>`;
+        });
+        html += '</div></div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GAMIFICAÇÃO — BADGES / CONQUISTAS
+    // ═══════════════════════════════════════════════════════════════
+    function calcBadges(myData, myName, allPeriods) {
+      const badges = [];
+      if (!myData) return badges;
+
+      // ── Current period badges ──
+      if (myData.ativacoes >= 15) badges.push({ icon: '🎯', title: 'Fera de Vendas', desc: '15+ ativações no mês', color: 'var(--green)' });
+      if (myData.ativacoes >= 20) badges.push({ icon: '💎', title: 'Imparável', desc: '20+ ativações no mês', color: 'var(--orange-light)' });
+      if ((myData.grandTotal || 0) >= 2000) badges.push({ icon: '💰', title: 'Bolso Cheio', desc: 'R$2k+ de comissão', color: 'var(--green)' });
+      if ((myData.grandTotal || 0) >= 3000) badges.push({ icon: '🏆', title: 'Top Performer', desc: 'R$3k+ de comissão', color: 'var(--orange-light)' });
+      if ((myData.novos || 0) >= 8) badges.push({ icon: '🌟', title: 'Caça-Novatos', desc: '8+ vendas novas', color: 'var(--blue)' });
+      if ((myData.vouchers || 0) >= 5) badges.push({ icon: '🎫', title: 'Mestre do Voucher', desc: '5+ vouchers emitidos', color: 'var(--yellow)' });
+      if ((myData.renovacoes || 0) >= 8) badges.push({ icon: '🔄', title: 'Rei da Retenção', desc: '8+ renovações', color: 'var(--blue)' });
+
+      // ── Historical badges (check across periods) ──
+      if (allPeriods && allPeriods.length > 0) {
+        let consecutiveMeta = 0;
+        let maxConsecutive = 0;
+        let totalMonths = 0;
+        let top3Count = 0;
+        let firstPlaceCount = 0;
+
+        allPeriods.forEach(p => {
+          const vs = p.vendorSummary || {};
+          const myP = Object.entries(vs).find(([n]) => n.toUpperCase() === myName.toUpperCase());
+          if (!myP) return;
+          totalMonths++;
+
+          // Check if unit hit meta this month
+          const t = p.totals || {};
+          const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+          if (t.unitAtivacoes >= cfg.meta) {
+            consecutiveMeta++;
+            maxConsecutive = Math.max(maxConsecutive, consecutiveMeta);
+          } else { consecutiveMeta = 0; }
+
+          // Ranking
+          const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+          const pos = ranked.findIndex(([n]) => n.toUpperCase() === myName.toUpperCase());
+          if (pos === 0) firstPlaceCount++;
+          if (pos >= 0 && pos < 3) top3Count++;
+        });
+
+        if (maxConsecutive >= 3) badges.push({ icon: '🔥', title: 'Em Chamas', desc: '3+ meses consecutivos com meta', color: 'var(--red)' });
+        if (maxConsecutive >= 6) badges.push({ icon: '⚡', title: 'Maratonista', desc: '6+ meses consecutivos com meta', color: 'var(--orange-light)' });
+        if (firstPlaceCount >= 3) badges.push({ icon: '👑', title: 'Lenda', desc: '1º lugar 3+ vezes', color: 'var(--orange-light)' });
+        if (top3Count >= 5) badges.push({ icon: '🏅', title: 'Veterana', desc: 'Top 3 em 5+ meses', color: 'var(--green)' });
+        if (totalMonths >= 6) badges.push({ icon: '📅', title: 'Consistente', desc: '6+ meses no sistema', color: 'var(--text2)' });
+      }
+
+      return badges;
+    }
+
+    function renderBadgesHtml(badges) {
+      if (!badges || badges.length === 0) return '';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">🏆 Minhas Conquistas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${badges.map(b => `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;min-width:160px" title="${b.desc}">
+            <span style="font-size:20px">${b.icon}</span>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:${b.color}">${b.title}</div>
+              <div style="font-size:9px;color:var(--text3)">${b.desc}</div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // HELPERS
@@ -3616,6 +4337,17 @@
       } catch (e) {
         toast('Erro ao exportar: ' + e.message, 'error');
       }
+    }
+  </script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registrado:', reg.scope))
+          .catch(err => console.log('SW falhou:', err));
+      });
     }
   </script>
 </body>
