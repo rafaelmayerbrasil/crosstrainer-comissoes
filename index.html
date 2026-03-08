@@ -1198,6 +1198,7 @@
       <div class="sb-user">
         <div class="name" id="userName"></div>
         <div class="role" id="userRole"></div>
+        <div class="logout" onclick="changePassword()" style="color:var(--text3);margin-bottom:4px">Alterar senha</div>
         <div class="logout" onclick="doLogout()">Sair</div>
       </div>
     </aside>
@@ -1233,10 +1234,14 @@
           <div class="hint">Arquivo .xlsx exportado do TecnoFit</div>
           <input type="file" id="fileInput" accept=".xlsx,.xls">
         </div>
-        <div class="input-group" style="max-width:300px;margin-bottom:20px">
-          <label>Mês/Ano do período</label>
-          <input type="month" id="periodMonth" value="">
+        <div id="periodMonthGroup"
+          style="display:none;max-width:360px;margin-bottom:16px;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:8px">⚠ Mais de um mês detectado
+            no arquivo — confirme o período a salvar:</div>
+          <input type="month" id="periodMonth" value=""
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;width:100%;font-family:'DM Sans',sans-serif">
         </div>
+        <input type="hidden" id="periodMonthHidden">
         <div id="uploadPreview" style="display:none"></div>
         <div id="uploadActions" style="display:none;margin-top:16px;display:flex;gap:10px">
           <button class="btn" onclick="confirmUpload()">✅ Confirmar e Salvar</button>
@@ -1404,6 +1409,25 @@
         loadVendorPeriods();
       }
     }
+
+    async function changePassword() {
+      const newPass = prompt('Digite a nova senha (mín. 6 caracteres):');
+      if (!newPass) return;
+      if (newPass.length < 6) { toast('Senha deve ter ao menos 6 caracteres.', 'error'); return; }
+      const confirm = prompt('Confirme a nova senha:');
+      if (newPass !== confirm) { toast('As senhas não coincidem.', 'error'); return; }
+      try {
+        await auth.currentUser.updatePassword(newPass);
+        toast('Senha alterada com sucesso!', 'success');
+      } catch (e) {
+        if (e.code === 'auth/requires-recent-login') {
+          toast('Por segurança, saia e entre novamente antes de alterar a senha.', 'error');
+        } else {
+          toast('Erro ao alterar senha: ' + e.message, 'error');
+        }
+      }
+    }
+
 
     // ═══════════════════════════════════════════════════════════════
     // NAVIGATION
@@ -1674,12 +1698,24 @@
               monthCount[key] = (monthCount[key] || 0) + 1;
             }
           });
-          const detectedPeriod = Object.entries(monthCount).sort((a, b) => b[1] - a[1])[0]?.[0];
+          const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+          const sortedMonths = Object.entries(monthCount).sort((a, b) => b[1] - a[1]);
+          const detectedPeriod = sortedMonths[0]?.[0];
+          const multipleMonths = sortedMonths.length > 1;
+
           if (detectedPeriod) {
             document.getElementById('periodMonth').value = detectedPeriod;
-            const [yr, mo] = detectedPeriod.split('-');
-            const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            toast(`Período detectado automaticamente: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
+            if (multipleMonths) {
+              // Show warning panel so user can confirm/change the period
+              const group = document.getElementById('periodMonthGroup');
+              group.style.display = 'block';
+              const otherMonths = sortedMonths.slice(1).map(([k]) => { const [y, m] = k.split('-'); return `${monthNames[parseInt(m)]}/${y}`; }).join(', ');
+              group.querySelector('div').textContent = `⚠ Arquivo contém dados de mais de um mês (${sortedMonths.map(([k, c]) => { const [y, m] = k.split('-'); return `${monthNames[parseInt(m)]}: ${c} registros`; }).join(' | ')}). Confirme o período a salvar:`;
+            } else {
+              document.getElementById('periodMonthGroup').style.display = 'none';
+              const [yr, mo] = detectedPeriod.split('-');
+              toast(`Período detectado: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
+            }
           }
 
           // Process
