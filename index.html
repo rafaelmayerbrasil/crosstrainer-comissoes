@@ -1322,6 +1322,71 @@
       font-size: 13px;
       font-family: 'DM Sans', sans-serif;
     }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+
+      #printReceiptContainer,
+      #printReceiptContainer * {
+        visibility: visible;
+      }
+
+      #printReceiptContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        color: black;
+      }
+
+      .print-no-break {
+        page-break-inside: avoid;
+      }
+
+      .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        margin-top: 15px;
+        border-color: black;
+        color: black;
+      }
+
+      .print-table th,
+      .print-table td {
+        border: 1px solid #aaa;
+        padding: 6px;
+        text-align: left;
+      }
+
+      .print-table th {
+        background: #f0f0f0 !important;
+        color: black !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .print-header {
+        text-align: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+      }
+
+      .print-body {
+        font-family: Arial, sans-serif;
+        color: black;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      @page {
+        margin: 1cm;
+      }
+    }
   </style>
 </head>
 
@@ -1451,10 +1516,15 @@
     <div class="modal-content" style="max-width:750px; padding:24px;">
       <div
         style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:12px;">
-        <div>
-          <h3 id="vdModalName" style="font-size:18px; color:var(--orange); margin:0; line-height:1.2;">Nome do Vendedor
-          </h3>
-          <div id="vdModalPeriod" style="font-size:12px; color:var(--text3); margin-top:2px;">Período</div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div>
+            <h3 id="vdModalName" style="font-size:18px; color:var(--orange); margin:0; line-height:1.2;">Nome do
+              Vendedor
+            </h3>
+            <div id="vdModalPeriod" style="font-size:12px; color:var(--text3); margin-top:2px;">Período</div>
+          </div>
+          <button class="btn btn-sm" onclick="printReceiptFromModal()"
+            style="margin-top:2px; font-size:11px; padding:4px 8px; background:var(--surface2)">🖨️ Recibo</button>
         </div>
         <button type="button" class="close-btn" onclick="closeVendorDetailModal()"
           style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
@@ -2173,17 +2243,39 @@
           </div>
 
           <!-- Multi-unidade -->
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
+          <div
+            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🏢</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Multi-unidade</div>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Unidades e Gestão de Contas</div>
               <span
                 style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
               O sistema suporta múltiplas academias/filiais. Cada unidade tem suas próprias configurações de comissão,
-              períodos e vendedores. Acesse <strong>Admin → Unidades</strong> para criar novas filiais ou trocar a
-              unidade ativa. Ao criar usuários, defina a unidade correspondente.
+              períodos e vendedores. Acesse <strong>Admin → Unidades</strong> para criar ou editar a unidade
+              ativa.<br><br>
+              ✨ <strong>Dica (Para o Recibo de Pagamento):</strong> Acesse a aba <em>Gestão de Unidades</em> e clique em
+              <strong>Editar</strong> para preencher o CNPJ, Razão Social e Endereço da loja. Vá em <em>Gestão de
+                Usuários</em> e edite as vendedoras para preencher a Chave PIX e o CPF delas para configurar com sucesso
+              a emissão do Recibo!
+            </div>
+          </div>
+
+          <!-- Recibo Admin -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🖨️</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Geração de Recibos</div>
+              <span
+                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Para formalizar o pagamento de comissões mês a mês de forma assertiva e organizada, utilize o botão
+              <strong>"🖨️ Recibo"</strong>. Para emiti-lo como Gestor, acesse a aba <em>Resumo Gerencial</em>, encontre
+              o card/nome da vendedora no painel (Tabela de Rankings/Valores) e clique sobre ele. O modal de
+              detalhamento daquela vendedora será aberto, contendo o botão de emissão de Recibo no canto superior para
+              uso imediato.
             </div>
           </div>
         </div>
@@ -2498,12 +2590,18 @@
         <button class="btn btn-sm" onclick="showAddUser()" style="margin-bottom:16px">+ Novo Usuário</button>
         <div id="addUserForm"
           style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;max-width:500px">
-          <h3 style="font-size:14px;margin-bottom:14px">Novo Usuário</h3>
+          <h3 id="userFormTitle" style="font-size:14px;margin-bottom:14px">Novo Usuário</h3>
+          <input type="hidden" id="editUserId">
           <div class="input-group"><label>Nome</label><input id="newUserName" placeholder="Nome completo"></div>
           <div class="input-group"><label>Email</label><input id="newUserEmail" type="email"
               placeholder="email@exemplo.com"></div>
-          <div class="input-group"><label>Senha inicial</label><input id="newUserPass" type="text"
+          <div class="input-group" id="userPassGroup"><label>Senha inicial</label><input id="newUserPass" type="text"
               placeholder="Mín. 6 caracteres"></div>
+
+          <div class="input-group"><label>CPF (Recibo)</label><input id="newUserCpf" placeholder="000.000.000-00"></div>
+          <div class="input-group"><label>Chave PIX (Recibo)</label><input id="newUserPix"
+              placeholder="Telefone, CPF, Email..."></div>
+
           <div class="input-group"><label>Perfil</label>
             <select id="newUserRole">
               <option value="vendedor">Vendedor(a)</option>
@@ -2514,7 +2612,7 @@
             <select id="newUserUnit"></select>
           </div>
           <div style="display:flex;gap:10px;margin-top:14px">
-            <button class="btn btn-sm" onclick="createUser()">Criar</button>
+            <button class="btn btn-sm" id="btnSaveUser" onclick="saveUser()">Criar</button>
             <button class="btn btn-ghost btn-sm"
               onclick="document.getElementById('addUserForm').style.display='none'">Cancelar</button>
           </div>
@@ -2541,13 +2639,19 @@
         <button class="btn btn-sm" onclick="showAddUnit()" style="margin-bottom:16px">+ Nova Unidade</button>
         <div id="addUnitForm"
           style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;max-width:400px">
-          <h3 style="font-size:14px;margin-bottom:14px">Nova Unidade</h3>
+          <h3 id="unitFormTitle" style="font-size:14px;margin-bottom:14px">Nova Unidade</h3>
           <div class="input-group"><label>ID (sigla curta, sem espaços)</label><input id="newUnitId"
               placeholder="ex: filial2"></div>
-          <div class="input-group"><label>Nome da Unidade</label><input id="newUnitName"
+          <div class="input-group"><label>Nome Fantasia</label><input id="newUnitName"
               placeholder="ex: CrossTrainer Filial 2"></div>
+          <div class="input-group"><label>Razão Social (Recibo)</label><input id="newUnitRazao"
+              placeholder="Nome Legal LTDA"></div>
+          <div class="input-group"><label>CNPJ (Recibo)</label><input id="newUnitCnpj" placeholder="00.000.000/0001-00">
+          </div>
+          <div class="input-group"><label>Endereço (Recibo)</label><input id="newUnitEnd"
+              placeholder="Rua Exemplo, 123"></div>
           <div style="display:flex;gap:10px;margin-top:14px">
-            <button class="btn btn-sm" onclick="createUnit()">Criar</button>
+            <button class="btn btn-sm" onclick="saveUnit()">Salvar</button>
             <button class="btn btn-ghost btn-sm"
               onclick="document.getElementById('addUnitForm').style.display='none'">Cancelar</button>
           </div>
@@ -2645,6 +2749,8 @@
 
     </div>
   </div>
+
+  <div id="printReceiptContainer"></div>
 
   <!-- COMMISSION ENGINE -->
   <script src="commission.js"></script>
@@ -2975,10 +3081,11 @@
           const roleClass = isPendente ? 'role-pendente' : u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
           const roleLabel = isPendente ? 'Pendente' : u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
           return `<div class="user-row">
-          <div class="ur-info"><div class="ur-avatar">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}</div><div class="ur-email">${isPendente ? 'Cadastrado automaticamente pelo Excel — configure o acesso' : u.email}</div></div></div>
+          <div class="ur-info"><div class="ur-avatar">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}</div><div class="ur-email">${isPendente ? 'Cadastrado repassado do Excel' : u.email}</div></div></div>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="ur-role ${roleClass}">${roleLabel}</span>
             ${isPendente ? `<button class="btn btn-sm" style="background:var(--yellow);color:#000" onclick="activateUser('${u.id}','${u.name}')">Configurar acesso</button>` : ''}
+            ${!isPendente ? `<button class="btn btn-ghost btn-sm" onclick="showEditUser('${u.id}')">✏️ Editar</button>` : ''}
             ${!isPendente && u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${u.email}')">Remover</button>` : ''}
           </div>
         </div>`;
@@ -3006,12 +3113,78 @@
       }
     }
 
-    function showAddUser() { document.getElementById('addUserForm').style.display = ''; }
+    function showAddUser() {
+      document.getElementById('userFormTitle').textContent = 'Novo Usuário';
+      document.getElementById('editUserId').value = '';
+      document.getElementById('newUserName').value = '';
+      document.getElementById('newUserEmail').value = '';
+      document.getElementById('newUserEmail').disabled = false;
+      document.getElementById('newUserPass').value = '';
+      document.getElementById('userPassGroup').style.display = '';
+      document.getElementById('newUserCpf').value = '';
+      document.getElementById('newUserPix').value = '';
+      document.getElementById('btnSaveUser').textContent = 'Criar';
+      document.getElementById('addUserForm').style.display = '';
+    }
+
+    async function showEditUser(uid) {
+      document.getElementById('addUserError').textContent = '';
+      try {
+        const doc = await db.collection('users').doc(uid).get();
+        if (doc.exists) {
+          const d = doc.data();
+          document.getElementById('userFormTitle').textContent = 'Editar Usuário';
+          document.getElementById('editUserId').value = uid;
+          document.getElementById('newUserName').value = d.name || '';
+          document.getElementById('newUserEmail').value = d.email || '';
+          document.getElementById('newUserEmail').disabled = true;
+          document.getElementById('userPassGroup').style.display = 'none'; // only edit profile inside FireStore, not Firebase Auth
+
+          document.getElementById('newUserCpf').value = d.cpf || '';
+          document.getElementById('newUserPix').value = d.pix || '';
+
+          document.getElementById('newUserRole').value = d.role || 'vendedor';
+          document.getElementById('newUserUnit').value = d.unitId || currentUnitId;
+          document.getElementById('btnSaveUser').textContent = 'Salvar';
+          document.getElementById('addUserForm').style.display = '';
+        }
+      } catch (e) { console.error('Error fetching user', e); }
+    }
+
+    async function saveUser() {
+      const editId = document.getElementById('editUserId').value;
+      if (editId) {
+        await editExistingUser(editId);
+      } else {
+        await createUser();
+      }
+    }
+
+    async function editExistingUser(uid) {
+      const name = document.getElementById('newUserName').value.trim();
+      const cpf = document.getElementById('newUserCpf').value.trim();
+      const pix = document.getElementById('newUserPix').value.trim();
+      const role = document.getElementById('newUserRole').value;
+      const unitId = document.getElementById('newUserUnit').value;
+      const errEl = document.getElementById('addUserError');
+      errEl.textContent = '';
+      if (!name) { errEl.textContent = 'Preencha o nome.'; return; }
+      try {
+        await db.collection('users').doc(uid).update({ name, cpf, pix, role, unitId });
+        toast(`Usuário atualizado com sucesso!`, 'success');
+        document.getElementById('addUserForm').style.display = 'none';
+        loadUsers();
+      } catch (e) { errEl.textContent = 'Erro: ' + e.message; }
+    }
 
     async function createUser() {
       const name = document.getElementById('newUserName').value.trim();
       const email = document.getElementById('newUserEmail').value.trim();
       const pass = document.getElementById('newUserPass').value;
+
+      const cpf = document.getElementById('newUserCpf').value.trim();
+      const pix = document.getElementById('newUserPix').value.trim();
+
       const role = document.getElementById('newUserRole').value;
       const unitId = document.getElementById('newUserUnit')?.value || currentUnitId;
       const errEl = document.getElementById('addUserError');
@@ -3033,7 +3206,7 @@
 
         // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
         await secondaryDb.collection('users').doc(newUid).set({
-          name, email, role, unitId,
+          name, email, cpf, pix, role, unitId,
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -5957,25 +6130,69 @@
               <div class="ur-email">ID: ${u.id} · ${u.id === currentUnitId ? '✅ Ativa' : 'Inativa'}</div>
             </div>
           </div>
-          <div><span class="ur-role ${u.id === currentUnitId ? 'role-admin' : 'role-naocom'}">${u.id === currentUnitId ? 'Ativa' : 'Outra'}</span></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="ur-role ${u.id === currentUnitId ? 'role-admin' : 'role-naocom'}">${u.id === currentUnitId ? 'Ativa' : 'Outra'}</span>
+            <button class="btn btn-ghost btn-sm" onclick="showAddUnit('${u.id}')">✏️ Editar</button>
+          </div>
         </div>`).join('');
       } catch (e) { toast('Erro ao carregar unidades: ' + e.message, 'error'); }
     }
 
-    function showAddUnit() { document.getElementById('addUnitForm').style.display = ''; }
-
-    async function createUnit() {
-      const id = document.getElementById('newUnitId').value.trim().toLowerCase().replace(/\s+/g, '_');
-      const name = document.getElementById('newUnitName').value.trim();
+    async function showAddUnit(idToEdit = null) {
       const errEl = document.getElementById('addUnitError');
       errEl.textContent = '';
-      if (!id || !name) { errEl.textContent = 'Preencha todos os campos.'; return; }
+      if (idToEdit) {
+        document.getElementById('unitFormTitle').textContent = 'Editar Unidade';
+        document.getElementById('newUnitId').value = idToEdit;
+        document.getElementById('newUnitId').disabled = true;
+
+        try {
+          const doc = await db.collection('units').doc(idToEdit).get();
+          if (doc.exists) {
+            const d = doc.data();
+            document.getElementById('newUnitName').value = d.name || '';
+            document.getElementById('newUnitRazao').value = d.razaoSocial || '';
+            document.getElementById('newUnitCnpj').value = d.cnpj || '';
+            document.getElementById('newUnitEnd').value = d.endereco || '';
+          }
+        } catch (e) { console.error('Error fetching unit', e); }
+      } else {
+        document.getElementById('unitFormTitle').textContent = 'Nova Unidade';
+        document.getElementById('newUnitId').value = '';
+        document.getElementById('newUnitId').disabled = false;
+        document.getElementById('newUnitName').value = '';
+        document.getElementById('newUnitRazao').value = '';
+        document.getElementById('newUnitCnpj').value = '';
+        document.getElementById('newUnitEnd').value = '';
+      }
+      document.getElementById('addUnitForm').style.display = '';
+    }
+
+    async function saveUnit() {
+      const id = document.getElementById('newUnitId').value.trim().toLowerCase().replace(/\s+/g, '_');
+      const name = document.getElementById('newUnitName').value.trim();
+      const razaoSocial = document.getElementById('newUnitRazao').value.trim();
+      const cnpj = document.getElementById('newUnitCnpj').value.trim();
+      const endereco = document.getElementById('newUnitEnd').value.trim();
+      const isEdit = document.getElementById('newUnitId').disabled;
+
+      const errEl = document.getElementById('addUnitError');
+      errEl.textContent = '';
+      if (!id || !name) { errEl.textContent = 'Preencha ID e Nome Fantasia.'; return; }
       try {
-        const existing = await db.collection('units').doc(id).get();
-        if (existing.exists) { errEl.textContent = 'Já existe uma unidade com esse ID.'; return; }
-        await db.collection('units').doc(id).set({ name, config: CommissionEngine.defaultConfig });
-        logAudit('unit_create', `Nova unidade: ${name} (${id})`);
-        toast(`Unidade "${name}" criada!`, 'success');
+        if (!isEdit) {
+          const existing = await db.collection('units').doc(id).get();
+          if (existing.exists) { errEl.textContent = 'Já existe uma unidade com esse ID.'; return; }
+          await db.collection('units').doc(id).set({ name, razaoSocial, cnpj, endereco, config: CommissionEngine.defaultConfig });
+          logAudit('unit_create', `Nova unidade: ${name} (${id})`);
+          toast(`Unidade "${name}" criada!`, 'success');
+        } else {
+          await db.collection('units').doc(id).update({ name, razaoSocial, cnpj, endereco });
+          logAudit('unit_edit', `Unidade editada: ${name} (${id})`);
+          toast(`Unidade "${name}" atualizada!`, 'success');
+          // If we edited the active unit, reload config
+          if (id === currentUnitId) { await loadUnitConfig(); }
+        }
         document.getElementById('addUnitForm').style.display = 'none';
         loadUnits();
       } catch (e) { errEl.textContent = 'Erro: ' + e.message; }
@@ -6177,6 +6394,170 @@
       container.appendChild(t);
       setTimeout(() => t.remove(), 4000);
     }
+    // ═══════════════════════════════════════════════════════════════
+    // RECIBO DE PAGAMENTO (IMPRESSÃO)
+    // ═══════════════════════════════════════════════════════════════
+    async function printReceiptFromModal() {
+      const vendorName = document.getElementById('vdModalName').textContent;
+      if (vendorName && currentPeriodId) {
+        await executePrintReceipt(vendorName, currentPeriodId);
+      }
+    }
+
+    async function executePrintReceipt(vendorName, periodId, isVendorContext = false) {
+      toast('Gerando recibo...', 'info');
+
+      try {
+        let unitData = { name: currentUnitId, razaoSocial: '', cnpj: '', endereco: '' };
+        if (currentUnitId) {
+          const uDoc = await db.collection('units').doc(currentUnitId).get();
+          if (uDoc.exists) {
+            const ud = uDoc.data();
+            unitData = {
+              name: ud.name || currentUnitId,
+              razaoSocial: ud.razaoSocial || ud.name || currentUnitId,
+              cnpj: ud.cnpj || '-',
+              endereco: ud.endereco || '-'
+            };
+          }
+        }
+
+        let userData = { cpf: '-', pix: '-' };
+        const usersSnap = await db.collection('users').where('name', '==', vendorName).limit(1).get();
+        if (!usersSnap.empty) {
+          const uDoc = usersSnap.docs[0].data();
+          userData.cpf = uDoc.cpf || '-';
+          userData.pix = uDoc.pix || '-';
+        } else {
+          const usersSnapE = await db.collection('users').where('email', '==', vendorName).limit(1).get();
+          if (!usersSnapE.empty) {
+            const uDoc = usersSnapE.docs[0].data();
+            userData.cpf = uDoc.cpf || '-';
+            userData.pix = uDoc.pix || '-';
+          }
+        }
+
+        const pDoc = await db.collection('periodos').doc(periodId).get();
+        if (!pDoc.exists) throw new Error('Período não encontrado');
+        const pData = pDoc.data();
+        const vs = (pData.vendorSummary || {})[vendorName];
+        if (!vs) throw new Error('Sem comissões para este vendedor no período.');
+
+        const snap = await db.collection('periodos').doc(periodId).collection('itens').where('vendedor', '==', vendorName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+
+        items.sort((a, b) => {
+          const pA = (a.data || '').split('/'); const pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
+          return dB - dA;
+        });
+
+        const dataReferencia = pData.month && pData.year ? `${String(pData.month).padStart(2, '0')}/${pData.year}` : periodId;
+        const hojeDate = new Date().toLocaleDateString('pt-BR');
+
+        let html = `
+          <div class="print-body">
+            <div class="print-header">
+              <h2 style="margin:0; font-size:18px;">RECIBO DE COMISSÃO</h2>
+              <div style="font-size:12px; margin-top:8px;">Referência: ${dataReferencia} &nbsp;&nbsp;|&nbsp;&nbsp; Emissão: ${hojeDate}</div>
+            </div>
+            
+            <table class="print-table" style="margin-top:0;">
+              <tr>
+                <td style="width:50%; vertical-align:top;">
+                  <strong>FONTE PAGADORA (UNIDADE)</strong><br>
+                  <span style="font-size:13px; font-weight:bold;">${unitData.razaoSocial}</span><br>
+                  CNPJ: ${unitData.cnpj}<br>
+                  Endereço: ${unitData.endereco}
+                </td>
+                <td style="width:50%; vertical-align:top;">
+                  <strong>FAVORECIDO (VENDEDOR)</strong><br>
+                  <span style="font-size:13px; font-weight:bold;">${vendorName}</span><br>
+                  CPF: ${userData.cpf}<br>
+                  Chave PIX: ${userData.pix}
+                </td>
+              </tr>
+            </table>
+
+            <h3 style="font-size:14px; margin:20px 0 10px;">Resumo Financeiro</h3>
+            <table class="print-table print-no-break" style="margin-top:0;">
+              <tr><td>Comissão Base (P1)</td><td style="text-align:right;">R$ ${fmt(vs.p1)}</td></tr>
+              <tr><td>Bônus por Contrato (P2)</td><td style="text-align:right;">R$ ${fmt(vs.p2)}</td></tr>
+              <tr><td>Bônus de Qualidade/Retenção (P3)</td><td style="text-align:right;">R$ ${fmt(vs.p3)}</td></tr>
+              <tr><td>Conversão de Vouchers (P4 Individual)</td><td style="text-align:right;">R$ ${fmt(vs.p4i)}</td></tr>
+              <tr><td>Rateio Super Meta Vouchers (P4 Pool)</td><td style="text-align:right;">R$ ${fmt(vs.p4p)}</td></tr>
+              <tr>
+                <td style="font-weight:bold; font-size:13px; background:#f0f0f0;">TOTAL BRUTO A RECEBER</td>
+                <td style="font-weight:bold; font-size:13px; text-align:right; background:#f0f0f0;">R$ ${fmt(vs.grandTotal)}</td>
+              </tr>
+            </table>
+
+            <h3 style="font-size:14px; margin:30px 0 10px;">Lançamentos Base para P1</h3>
+            <table class="print-table print-no-break">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Cliente</th>
+                  <th>Item / Plano</th>
+                  <th>Tipo</th>
+                  <th style="text-align:right">% da Regra</th>
+                  <th style="text-align:right">Comissão R$</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        let hasItems = false;
+        items.forEach(r => {
+          if (r.type === 'excluded') return;
+          hasItems = true;
+          const p1pct = ((r.p1pct || 0) * 100).toFixed(1) + '%';
+          html += `<tr>
+             <td>${r.data || ''}</td>
+             <td>${r.cliente || ''}</td>
+             <td>${r.item || ''}</td>
+             <td>${r.label || r.category}</td>
+             <td style="text-align:right">${p1pct}</td>
+             <td style="text-align:right">R$ ${fmt(r.p1valor || 0)}</td>
+           </tr>`;
+        });
+        if (!hasItems) {
+          html += `<tr><td colspan="6" style="text-align:center;">Nenhum lançamento no período.</td></tr>`;
+        }
+
+        html += `
+              </tbody>
+            </table>
+
+            <div class="print-no-break" style="margin-top:60px; display:flex; justify-content:space-between;">
+              <div style="width:45%; text-align:center; border-top:1px solid #000; padding-top:10px;">
+                Assinatura do Gestor / Unidade
+              </div>
+              <div style="width:45%; text-align:center; border-top:1px solid #000; padding-top:10px;">
+                Assinatura do Vendedor
+              </div>
+            </div>
+            
+            <div style="text-align:center; margin-top:20px; font-size:9px; color:#555;">
+              Gerado pelo app CrossTrainer Comissões • Impresso em ${new Date().toLocaleString('pt-BR')}
+            </div>
+          </div>
+        `;
+
+        document.getElementById('printReceiptContainer').innerHTML = html;
+
+        setTimeout(() => {
+          window.print();
+        }, 300);
+
+      } catch (err) {
+        toast('Erro ao gerar recibo: ' + err.message, 'error');
+        console.error(err);
+      }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // VENDOR DETAILS & EXPORT
     // ═══════════════════════════════════════════════════════════════
