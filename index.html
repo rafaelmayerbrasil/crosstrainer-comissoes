@@ -1548,12 +1548,14 @@
                 0,00</td>
             </tr>
             <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:6px 0; color:var(--text3);">P2 (Bônus Fixo)</td>
+              <td style="padding:6px 0; color:var(--text3);">P2 (Bônus Fixo) <span id="vdP2_info"
+                  style="font-size:9px;color:var(--text2);margin-left:6px;"></span></td>
               <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP2">R$
                 0,00</td>
             </tr>
             <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-              <td style="padding:6px 0; color:var(--text3);">P3 (Meta Unidade)</td>
+              <td style="padding:6px 0; color:var(--text3);">P3 (Meta Unidade) <span id="vdP3_info"
+                  style="font-size:9px;color:var(--orange-light);margin-left:6px;font-weight:bold;"></span></td>
               <td style="padding:6px 0; text-align:right; font-family:'JetBrains Mono'; color:var(--text);" id="vdP3">R$
                 0,00</td>
             </tr>
@@ -2086,18 +2088,50 @@
                 quantas ativações, qual o valor de prêmio, ou quantos meses no topo são necessários para obter cada
                 selo!
               </div>
-              <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🎯 Fera de
-                  Vendas</span>
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">💎
-                  Imparável</span>
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🔥 Em
-                  Chamas</span>
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">👑 Lenda</span>
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🌟
-                  Caça-Novatos</span>
-                <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🔄 Rei da
-                  Retenção</span>
+              <div style="margin-top:12px; font-size:11px;">
+                <div style="font-weight:700; color:var(--text); margin-bottom:6px;">🥇 Conquistas do Mês Atual:</div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🎯
+                      Fera de Vendas</span> Fazer um número alvo de ativações no mês.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">💎
+                      Imparável</span> Superar um alvo ainda maior de ativações no mês.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">💰
+                      Bolso Cheio</span> Alcançar um ótimo valor de comissão no mês.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🏆
+                      Top Performer</span> Alcançar um valor de comissão excepcional no mês.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🌟
+                      Caça-Novatos</span> Trazer um número estipulado de alunos novos ou retornos.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🎫
+                      Mestre do Voucher</span> Emitir muitos meses de degustação (Vouchers).</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🔄
+                      Rei da Retenção</span> Fazer um grande número de renovações de contrato.</div>
+                </div>
+
+                <div style="font-weight:700; color:var(--text); margin-bottom:6px;">🏆 Histórico (Carreira):</div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🔥
+                      Em Chamas</span> Equipe bater a meta de ativações da unidade por vários meses consecutivos.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">⚡
+                      Maratonista</span> Equipe bater a meta da unidade por uma sequência ainda maior de meses.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">👑
+                      Lenda</span> Ficar em 1º lugar no Ranking da unidade repetidas vezes.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🏅
+                      Top Ranking</span> Ficar no Top 3 do Ranking várias vezes ao longo da carreira.</div>
+                  <div><span
+                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">📅
+                      Consistente</span> Ter vendas registradas no sistema por muitos meses seguidos.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -4138,6 +4172,8 @@
         grandTotal: v.grandTotal, ativacoes: v.ativacoes,
         novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
         caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
+        p3Tier: v.p3detail ? v.p3detail.tierLabel : '',
+        p3Motivos: v.p3detail ? v.p3detail.motivos : []
       }]));
 
       await db.collection('periodos').doc(periodId).update({
@@ -6494,11 +6530,11 @@
 
             <h3 style="font-size:14px; margin:20px 0 10px;">Resumo Financeiro</h3>
             <table class="print-table print-no-break" style="margin-top:0;">
-              <tr><td>Comissão Base (P1)</td><td style="text-align:right;">R$ ${fmt(vs.p1)}</td></tr>
-              <tr><td>Bônus por Contrato (P2)</td><td style="text-align:right;">R$ ${fmt(vs.p2)}</td></tr>
-              <tr><td>Bônus de Qualidade/Retenção (P3)</td><td style="text-align:right;">R$ ${fmt(vs.p3)}</td></tr>
-              <tr><td>Conversão de Vouchers (P4 Individual)</td><td style="text-align:right;">R$ ${fmt(vs.p4i)}</td></tr>
-              <tr><td>Rateio Super Meta Vouchers (P4 Pool)</td><td style="text-align:right;">R$ ${fmt(vs.p4p)}</td></tr>
+              <tr><td>Comissão Base (P1) <br><span style="font-size:9px;color:#555">Caixa × % Regra Vendas/Renov.</span></td><td style="text-align:right;vertical-align:bottom;">R$ ${fmt(vs.p1)}</td></tr>
+              <tr><td>Bônus por Contrato (P2) <br><span style="font-size:9px;color:#555">${Math.round(vs.novos || 0)} novos + ${Math.round(vs.renovacoes || 0)} renov.</span></td><td style="text-align:right;vertical-align:bottom;">R$ ${fmt(vs.p2)}</td></tr>
+              <tr><td>Bônus de Qualidade/Retenção (P3: Meta Unidade) <br><span style="font-size:9px;font-weight:bold;color:#333">Faixa: ${vs.p3Tier || (vs.p3 > 0 ? 'Meta' : 'Não atingida')} ${vs.p3Motivos && vs.p3Motivos.length ? '(' + vs.p3Motivos.join(', ') + ')' : ''}</span></td><td style="text-align:right;vertical-align:bottom;">R$ ${fmt(vs.p3)}</td></tr>
+              <tr><td>Conversão de Vouchers (P4 Individual) <br><span style="font-size:9px;color:#555">Premiação de vendas a partir de Voucher</span></td><td style="text-align:right;vertical-align:bottom;">R$ ${fmt(vs.p4i)}</td></tr>
+              <tr><td>Rateio Super Meta Vouchers (P4 Pool) <br><span style="font-size:9px;color:#555">Rateio da Meta de Vouchers da Unidade</span></td><td style="text-align:right;vertical-align:bottom;">R$ ${fmt(vs.p4p)}</td></tr>
               <tr>
                 <td style="font-weight:bold; font-size:13px; background:#f0f0f0;">TOTAL BRUTO A RECEBER</td>
                 <td style="font-weight:bold; font-size:13px; text-align:right; background:#f0f0f0;">R$ ${fmt(vs.grandTotal)}</td>
@@ -6520,11 +6556,13 @@
               <tbody>
         `;
 
+        let sumP1 = 0;
         let hasItems = false;
         items.forEach(r => {
           if (r.type === 'excluded') return;
           hasItems = true;
           const p1pct = ((r.p1pct || 0) * 100).toFixed(1) + '%';
+          sumP1 += (r.p1valor || 0);
           html += `<tr>
              <td>${r.data || ''}</td>
              <td>${r.cliente || ''}</td>
@@ -6536,6 +6574,11 @@
         });
         if (!hasItems) {
           html += `<tr><td colspan="6" style="text-align:center;">Nenhum lançamento no período.</td></tr>`;
+        } else {
+          html += `<tr style="font-weight:bold; background:#f0f0f0;">
+             <td colspan="5" style="text-align:right; padding:8px;">TOTAL COMISSÃO P1</td>
+             <td style="text-align:right; padding:8px;">R$ ${fmt(sumP1)}</td>
+           </tr>`;
         }
 
         html += `
@@ -6584,7 +6627,13 @@
       // Set Breakdown
       document.getElementById('vdP1').textContent = `R$ ${fmt(vs.p1)}`;
       document.getElementById('vdP2').textContent = `R$ ${fmt(vs.p2)}`;
+      const p2Info = document.getElementById('vdP2_info');
+      if (p2Info) p2Info.textContent = `(${Math.round(vs.novos || 0)} novos + ${Math.round(vs.renovacoes || 0)} renov.)`;
+
       document.getElementById('vdP3').textContent = `R$ ${fmt(vs.p3)}`;
+      const p3Info = document.getElementById('vdP3_info');
+      if (p3Info) p3Info.textContent = `- ${vs.p3Tier || (vs.p3 > 0 ? 'Meta' : 'Não atingida')}`;
+
       document.getElementById('vdP4a').textContent = `R$ ${fmt(vs.p4i)}`;
       document.getElementById('vdP4b').textContent = `R$ ${fmt(vs.p4p)}`;
       document.getElementById('vdTotal').textContent = `R$ ${fmt(vs.grandTotal)}`;
