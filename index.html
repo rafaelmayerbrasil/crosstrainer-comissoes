@@ -3331,7 +3331,7 @@
       if (!period) { toast('Selecione o mês/ano.', 'error'); return; }
 
       const [year, month] = period.split('-');
-      const periodId = `${currentUnitId}_${year} -${month} `;
+      const periodId = `${currentUnitId}_${year}-${month}`;
       const { rawRows, result, fileName, newVendors } = pendingUpload;
 
       try {
@@ -3420,7 +3420,9 @@
         loadPeriods();
         navigateTo('dashboard');
       } catch (e) {
-        toast('Erro ao salvar: ' + e.message, 'error');
+        console.error('Erro critico durante o confirmUpload:', e);
+        toast('Erro ao salvar: ' + (e.message || String(e)), 'error');
+        document.getElementById('uploadActions').style.display = 'flex';
       }
     }
 
