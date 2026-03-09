@@ -40,6 +40,18 @@ const CommissionEngine = {
     poolVoucherMinSuper: 4,
     naoComissionaveis: ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'],
     campoValor: 'auto',
+    badgeFera: 15,
+    badgeImparavel: 20,
+    badgeBolso: 2000,
+    badgeTopPerf: 3000,
+    badgeCaca: 8,
+    badgeRei: 8,
+    badgeMestre: 5,
+    badgeEmChamas: 3,
+    badgeMaratonista: 6,
+    badgeLenda: 3,
+    badgeTopRanking: 5,
+    badgeConsistente: 6,
   },
 
   // ─── Classify a row from the Excel ───

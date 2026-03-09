@@ -1874,11 +1874,12 @@
           </div>
           <div
             style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
-            Quando duas vendedoras participam da mesma venda, o líder pode dividir a comissão em proporções:
+            Quando dois ou mais vendedores(as) participam da mesma venda, o líder pode dividir a comissão em proporções:
             <strong>50/50</strong>, <strong>70/30</strong> ou <strong>30/70</strong>.
             <div style="margin-top:8px; font-size:11px; color:var(--text3); font-style:italic;">
-              O sistema divide automaticamente o valor de caixa e conta meia ativação para cada uma (no 50/50),
-              garantindo que a meta P3 da unidade não seja inflada artificialmente.
+              O sistema divide automaticamente o valor de caixa e conta a proporção exata da ativação para cada
+              vendedor(a) (ex: 0,7 para um e 0,3 para outro), garantindo que a meta P3 da unidade não seja inflada
+              artificialmente.
             </div>
           </div>
         </div>
@@ -1942,8 +1943,6 @@
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📈</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Projeção de Fim de Mês</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
               O sistema calcula automaticamente a projeção baseada no ritmo atual (run rate). Ele mostra quantas
@@ -1995,12 +1994,17 @@
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🏆</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Conquistas (Gamificação)</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Desbloqueie badges conforme seu desempenho! As conquistas são baseadas no mês atual e no histórico.
-              Exemplos:
+              Desbloqueie badges conforme seu desempenho! As conquistas são baseadas no mês atual (ex: 🎯 Fera de
+              Vendas, 💰 Bolso Cheio) ou no seu histórico a longo prazo (ex: 🔥 Em Chamas, 👑 Lenda).
+              <div
+                style="margin-top:6px; padding:8px; background:var(--bg); border-left:2px solid var(--yellow); border-radius:4px; color:var(--text3); font-size:11px;">
+                ✨ <strong>Novidade:</strong> As regras exatas e os limites de cada uma dessas conquistas agora são 100%
+                configuráveis. O Gestor da unidade pode acessar a aba <em>Configurações</em> e definir livremente
+                quantas ativações, qual o valor de prêmio, ou quantos meses no topo são necessários para obter cada
+                selo!
+              </div>
               <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
                 <span style="background:var(--bg); border-radius:4px; padding:4px 8px; font-size:10px;">🎯 Fera de
                   Vendas</span>
@@ -2115,8 +2119,6 @@
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🔄</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Comparativo de Períodos</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
               Selecione dois meses e veja lado a lado: ativações, caixa, comissão, novos, renovações e vouchers — com a
@@ -2321,6 +2323,49 @@
         <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeMetasMesModal()">Cancelar</button>
           <button type="submit" class="btn">Salvar Metas do Mês</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Edição em Massa -->
+  <div id="bulkEditModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:400px; padding:24px;">
+      <div class="modal-header">
+        <h3 style="color:var(--blue)">✏️ Editar em Massa</h3>
+        <button type="button" class="close-btn" onclick="closeBulkEditModal()">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">
+        Alterar <strong id="bulkEditCount"></strong> registros selecionados. <em>Deixe em branco o que não quiser
+          alterar.</em>
+      </p>
+      <form id="bulkEditForm" onsubmit="event.preventDefault(); saveBulkEdit()">
+        <input type="hidden" id="bulkEditIsPreview">
+        <div class="input-group">
+          <label>Categoria (Pill)</label>
+          <select id="bulkEditCat">
+            <option value="">-- Não alterar --</option>
+            <option value="novo">Novo</option>
+            <option value="renovacao">Renovação</option>
+            <option value="retorno">Retorno</option>
+            <option value="voucher">Voucher</option>
+            <option value="avulsa">Avulsa</option>
+            <option value="ignorada">Ignorada</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Vendedor</label>
+          <input type="text" id="bulkEditVend" list="listVendors_bulk" placeholder="-- Não alterar --">
+          <datalist id="listVendors_bulk"></datalist>
+        </div>
+        <div class="input-group">
+          <label>Tipo de Venda</label>
+          <input type="text" id="bulkEditTipo" list="listTipos_bulk" placeholder="-- Não alterar --">
+          <datalist id="listTipos_bulk"></datalist>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeBulkEditModal()">Cancelar</button>
+          <button type="submit" class="btn">Aplicar Alterações</button>
         </div>
       </form>
     </div>
@@ -2858,6 +2903,19 @@
         { key: 'prazoConversaoDias', label: 'Prazo (dias)', val: cfg.prazoConversaoDias },
         { key: 'poolVoucherMeta', label: 'Pool Meta R$', val: cfg.poolVoucherMeta },
         { key: 'poolVoucherSuper', label: 'Pool Super R$', val: cfg.poolVoucherSuper },
+        { section: 'Gamificação & Conquistas' },
+        { key: 'badgeFera', label: 'Fera de Vendas (Ativ.)', val: cfg.badgeFera },
+        { key: 'badgeImparavel', label: 'Imparável (Ativ.)', val: cfg.badgeImparavel },
+        { key: 'badgeBolso', label: 'Bolso Cheio (R$)', val: cfg.badgeBolso },
+        { key: 'badgeTopPerf', label: 'Top Performer (R$)', val: cfg.badgeTopPerf },
+        { key: 'badgeCaca', label: 'Caça-Novatos (Novos)', val: cfg.badgeCaca },
+        { key: 'badgeRei', label: 'Rei da Retenção (Renov.)', val: cfg.badgeRei },
+        { key: 'badgeMestre', label: 'Mestre Voucher (Vouch.)', val: cfg.badgeMestre },
+        { key: 'badgeEmChamas', label: 'Em Chamas (Meses seg.)', val: cfg.badgeEmChamas },
+        { key: 'badgeMaratonista', label: 'Maratonista (Meses seg.)', val: cfg.badgeMaratonista },
+        { key: 'badgeLenda', label: 'Lenda (Vezes 1º)', val: cfg.badgeLenda },
+        { key: 'badgeTopRanking', label: 'Top Ranking (Meses Top 3)', val: cfg.badgeTopRanking },
+        { key: 'badgeConsistente', label: 'Consistente (Meses)', val: cfg.badgeConsistente },
         { section: 'Não-Comissionáveis' },
         { key: 'naoComissionaveis', label: 'Lista (separar por vírgula)', val: (cfg.naoComissionaveis || []).join(', '), type: 'text', wide: true },
       ];
@@ -3119,6 +3177,7 @@
               <div style="display:flex;align-items:center;gap:12px">
                 <h4 style="margin:0;font-size:13px;color:var(--text2)">Revisão de Registros</h4>
                 <div style="display:flex;gap:8px;align-items:center">
+                  <button class="btn btn-sm btn-ghost" id="btnPreviewBulkEdit" style="display:none;background:var(--bg)" onclick="openBulkEditRecords(true)">✏️ Editar Selecionados</button>
                   <button class="btn btn-sm btn-ghost" id="btnPreviewBulkIgnore" style="display:none;background:var(--bg)" onclick="bulkTogglePreview(true)">🗑️ Ignorar Selecionados</button>
                   <button class="btn btn-sm btn-ghost" id="btnPreviewBulkActivate" style="display:none;background:var(--bg)" onclick="bulkTogglePreview(false)">✅ Ativar Selecionados</button>
                   <span id="previewSelectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
@@ -3244,9 +3303,11 @@
       const count = selectedPreviewKeys.size;
       const btnIgn = document.getElementById('btnPreviewBulkIgnore');
       const btnAct = document.getElementById('btnPreviewBulkActivate');
+      const btnEdt = document.getElementById('btnPreviewBulkEdit');
       const countEl = document.getElementById('previewSelectionCount');
       if (btnIgn) btnIgn.style.display = count > 0 ? '' : 'none';
       if (btnAct) btnAct.style.display = count > 0 ? '' : 'none';
+      if (btnEdt) btnEdt.style.display = count > 0 ? '' : 'none';
       if (countEl) { countEl.style.display = count > 0 ? '' : 'none'; countEl.textContent = `${count} selecionado(s)`; }
     }
 
@@ -4148,6 +4209,7 @@
           <h3 style="font-size:16px;margin:0">Tabela de Lançamentos</h3>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
+            <button class="btn btn-sm btn-ghost" id="btnBulkEdit" style="display:none" onclick="openBulkEditRecords(false)">✏️ Editar Selecionados</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkActivate" style="display:none;color:var(--green);border-color:var(--green)" onclick="bulkRestoreRecords()">✅ Ativar Selecionados</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="openBulkSplitRecords()">➗ Dividir Selecionados</button>
@@ -5109,10 +5171,12 @@
 
     function updateBulkButtons() {
       const count = selectedRecordIds.size;
+      const btnEdit = document.getElementById('btnBulkEdit');
       const btnIgnore = document.getElementById('btnBulkIgnore');
       const btnSplit = document.getElementById('btnBulkSplit');
       const btnActivate = document.getElementById('btnBulkActivate');
       const countEl = document.getElementById('selectionCount');
+      if (btnEdit) btnEdit.style.display = count > 0 ? '' : 'none';
       if (btnIgnore) btnIgnore.style.display = count > 0 ? '' : 'none';
       if (btnSplit) btnSplit.style.display = count > 0 ? '' : 'none';
       if (btnActivate) btnActivate.style.display = count > 0 ? '' : 'none';
@@ -5199,6 +5263,110 @@
         await loadPeriod(currentPeriodId);
         toast('Registros ativados e período recalculado!', 'success');
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    function openBulkEditRecords(isPreview) {
+      document.getElementById('bulkEditIsPreview').value = isPreview ? 'true' : 'false';
+      const count = isPreview ? selectedPreviewKeys.size : selectedRecordIds.size;
+      if (count === 0) return;
+      document.getElementById('bulkEditCount').textContent = count;
+      document.getElementById('bulkEditCat').value = '';
+      document.getElementById('bulkEditVend').value = '';
+      document.getElementById('bulkEditTipo').value = '';
+      document.getElementById('bulkEditModal').classList.add('open');
+    }
+
+    function closeBulkEditModal() {
+      document.getElementById('bulkEditModal').classList.remove('open');
+    }
+
+    async function saveBulkEdit() {
+      const isPreview = document.getElementById('bulkEditIsPreview').value === 'true';
+      const cat = document.getElementById('bulkEditCat').value;
+      const vend = document.getElementById('bulkEditVend').value.trim().toUpperCase();
+      const tipo = document.getElementById('bulkEditTipo').value.trim();
+
+      if (!cat && !vend && !tipo) {
+        toast('Nenhuma alteração definida.', 'info');
+        closeBulkEditModal();
+        return;
+      }
+
+      const confirmMsg = `Aplicar as alterações a ${isPreview ? selectedPreviewKeys.size : selectedRecordIds.size} registro(s)?`;
+      if (!confirm(confirmMsg)) return;
+
+      closeBulkEditModal();
+      toast('Aplicando alterações em lote...', 'info');
+
+      if (isPreview) {
+        if (!pendingUpload) return;
+
+        let procIdxsToRemove = [];
+        let exclIdxsToRemove = [];
+
+        selectedPreviewKeys.forEach(k => {
+          const [list, idxStr] = k.split('-');
+          const idx = parseInt(idxStr);
+          const r = list === 'processed' ? pendingUpload.result.processed[idx] : pendingUpload.result.excluded[idx];
+          if (r) {
+            if (cat) r.category = cat;
+            if (vend) r.vendedor = vend;
+            if (tipo) r.tipoVenda = tipo;
+
+            if (cat) {
+              if (cat === 'ignorada' && list === 'processed') {
+                procIdxsToRemove.push(idx);
+                r.label = 'Ignorada (massa)';
+                pendingUpload.result.excluded.push(r);
+              } else if (cat !== 'ignorada' && list === 'excluded') {
+                exclIdxsToRemove.push(idx);
+                r.category = CommissionEngine.mapCategory(r.item || '', r.tipoVenda || '');
+                r.label = r.category;
+                if (cat !== 'ignorada' && cat !== '') {
+                  r.category = cat;
+                  r.label = cat;
+                }
+                pendingUpload.result.processed.push(r);
+              } else if (list === 'processed') {
+                r.label = r.category;
+              }
+            }
+          }
+        });
+
+        procIdxsToRemove.sort((a, b) => b - a).forEach(i => pendingUpload.result.processed.splice(i, 1));
+        exclIdxsToRemove.sort((a, b) => b - a).forEach(i => pendingUpload.result.excluded.splice(i, 1));
+
+        refreshPreviewTotals();
+        selectedPreviewKeys.clear();
+        renderPreviewTable();
+        toast('Lançamentos em preview atualizados.', 'success');
+      } else {
+        try {
+          const batch = db.batch();
+          const itemsToUpdate = currentPeriodItems.filter(r => selectedRecordIds.has(r._docId));
+          itemsToUpdate.forEach(r => {
+            const updates = {};
+            if (cat) {
+              updates.category = cat;
+              updates.label = cat;
+              if (cat === 'ignorada') updates.type = 'excluded';
+              else updates.type = 'processed';
+            }
+            if (vend) updates.vendedor = vend;
+            if (tipo) updates.tipoVenda = tipo;
+            batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(r._docId), updates);
+          });
+          await batch.commit();
+          logAudit('record_edit', `Edição em massa de ${selectedRecordIds.size} registros no período ${currentPeriodId}`);
+          selectedRecordIds.clear();
+          await recalculatePeriod(currentPeriodId);
+          await loadPeriod(currentPeriodId);
+          toast('Registros atualizados com sucesso!', 'success');
+        } catch (e) {
+          toast('Erro ao editar em massa: ' + e.message, 'error');
+        }
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -5917,14 +6085,24 @@
       const badges = [];
       if (!myData) return badges;
 
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
       // ── Current period badges ──
-      if (myData.ativacoes >= 15) badges.push({ icon: '🎯', title: 'Fera de Vendas', desc: '15+ ativações no mês', color: 'var(--green)' });
-      if (myData.ativacoes >= 20) badges.push({ icon: '💎', title: 'Imparável', desc: '20+ ativações no mês', color: 'var(--orange-light)' });
-      if ((myData.grandTotal || 0) >= 2000) badges.push({ icon: '💰', title: 'Bolso Cheio', desc: 'R$2k+ de comissão', color: 'var(--green)' });
-      if ((myData.grandTotal || 0) >= 3000) badges.push({ icon: '🏆', title: 'Top Performer', desc: 'R$3k+ de comissão', color: 'var(--orange-light)' });
-      if ((myData.novos || 0) >= 8) badges.push({ icon: '🌟', title: 'Caça-Novatos', desc: '8+ vendas novas', color: 'var(--blue)' });
-      if ((myData.vouchers || 0) >= 5) badges.push({ icon: '🎫', title: 'Mestre do Voucher', desc: '5+ vouchers emitidos', color: 'var(--yellow)' });
-      if ((myData.renovacoes || 0) >= 8) badges.push({ icon: '🔄', title: 'Rei da Retenção', desc: '8+ renovações', color: 'var(--blue)' });
+      const bFera = cfg.badgeFera || 15;
+      const bImparavel = cfg.badgeImparavel || 20;
+      const bBolso = cfg.badgeBolso || 2000;
+      const bTopPerf = cfg.badgeTopPerf || 3000;
+      const bCaca = cfg.badgeCaca || 8;
+      const bMestre = cfg.badgeMestre || 5;
+      const bRei = cfg.badgeRei || 8;
+
+      if (myData.ativacoes >= bFera) badges.push({ icon: '🎯', title: 'Fera de Vendas', desc: `${bFera}+ ativações no mês`, color: 'var(--green)' });
+      if (myData.ativacoes >= bImparavel) badges.push({ icon: '💎', title: 'Imparável', desc: `${bImparavel}+ ativações no mês`, color: 'var(--orange-light)' });
+      if ((myData.grandTotal || 0) >= bBolso) badges.push({ icon: '💰', title: 'Bolso Cheio', desc: `R$${bBolso >= 1000 ? bBolso / 1000 + 'k' : bBolso}+ de comissão`, color: 'var(--green)' });
+      if ((myData.grandTotal || 0) >= bTopPerf) badges.push({ icon: '🏆', title: 'Top Performer', desc: `R$${bTopPerf >= 1000 ? bTopPerf / 1000 + 'k' : bTopPerf}+ de comissão`, color: 'var(--orange-light)' });
+      if ((myData.novos || 0) >= bCaca) badges.push({ icon: '🌟', title: 'Caça-Novatos', desc: `${bCaca}+ vendas novas`, color: 'var(--blue)' });
+      if ((myData.vouchers || 0) >= bMestre) badges.push({ icon: '🎫', title: 'Mestre do Voucher', desc: `${bMestre}+ vouchers emitidos`, color: 'var(--yellow)' });
+      if ((myData.renovacoes || 0) >= bRei) badges.push({ icon: '🔄', title: 'Rei da Retenção', desc: `${bRei}+ renovações`, color: 'var(--blue)' });
 
       // ── Historical badges (check across periods) ──
       if (allPeriods && allPeriods.length > 0) {
@@ -5942,7 +6120,6 @@
 
           // Check if unit hit meta this month
           const t = p.totals || {};
-          const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
           if (t.unitAtivacoes >= cfg.meta) {
             consecutiveMeta++;
             maxConsecutive = Math.max(maxConsecutive, consecutiveMeta);
@@ -5955,11 +6132,17 @@
           if (pos >= 0 && pos < 3) top3Count++;
         });
 
-        if (maxConsecutive >= 3) badges.push({ icon: '🔥', title: 'Em Chamas', desc: '3+ meses consecutivos com meta', color: 'var(--red)' });
-        if (maxConsecutive >= 6) badges.push({ icon: '⚡', title: 'Maratonista', desc: '6+ meses consecutivos com meta', color: 'var(--orange-light)' });
-        if (firstPlaceCount >= 3) badges.push({ icon: '👑', title: 'Lenda', desc: '1º lugar 3+ vezes', color: 'var(--orange-light)' });
-        if (top3Count >= 5) badges.push({ icon: '🏅', title: 'Veterana', desc: 'Top 3 em 5+ meses', color: 'var(--green)' });
-        if (totalMonths >= 6) badges.push({ icon: '📅', title: 'Consistente', desc: '6+ meses no sistema', color: 'var(--text2)' });
+        const bEmChamas = cfg.badgeEmChamas || 3;
+        const bMaratonista = cfg.badgeMaratonista || 6;
+        const bLenda = cfg.badgeLenda || 3;
+        const bTopRanking = cfg.badgeTopRanking || 5;
+        const bConsistente = cfg.badgeConsistente || 6;
+
+        if (maxConsecutive >= bEmChamas) badges.push({ icon: '🔥', title: 'Em Chamas', desc: `${bEmChamas}+ meses consecutivos com meta`, color: 'var(--red)' });
+        if (maxConsecutive >= bMaratonista) badges.push({ icon: '⚡', title: 'Maratonista', desc: `${bMaratonista}+ meses consecutivos com meta`, color: 'var(--orange-light)' });
+        if (firstPlaceCount >= bLenda) badges.push({ icon: '👑', title: 'Lenda', desc: `1º lugar ${bLenda}+ vezes`, color: 'var(--orange-light)' });
+        if (top3Count >= bTopRanking) badges.push({ icon: '🏅', title: 'Top Ranking', desc: `Top 3 em ${bTopRanking}+ meses`, color: 'var(--green)' });
+        if (totalMonths >= bConsistente) badges.push({ icon: '📅', title: 'Consistente', desc: `${bConsistente}+ meses no sistema`, color: 'var(--text2)' });
       }
 
       return badges;
