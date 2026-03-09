@@ -1189,20 +1189,26 @@
     /* ─── TABS & MODALS ─── */
     .admin-tabs {
       display: flex;
-      gap: 16px;
+      gap: 4px;
       margin-bottom: 20px;
       border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
     }
 
     .tab-btn {
       background: none;
       border: none;
       color: var(--text3);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      padding: 0 0 8px 0;
+      padding: 8px 14px;
       border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .tab-btn:hover {
@@ -1222,8 +1228,11 @@
       display: block;
     }
 
-    .sub-tab-content { }
-    .sub-tab-content[style*="display: none"] { display: none; }
+    .sub-tab-content {}
+
+    .sub-tab-content[style*="display: none"] {
+      display: none;
+    }
 
     .modal {
       display: none;
@@ -2993,7 +3002,7 @@
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>
             <div class="stat"><div class="s-label">Processados</div><div class="s-value">${result.processed.length}</div></div>
             <div class="stat"><div class="s-label">Excluídos</div><div class="s-value" style="color:var(--red)">${result.excluded.length}</div></div>
-            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(result.deferred||[]).length}</div></div>
+            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(result.deferred || []).length}</div></div>
             <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${result.unitTotals.unitAtivacoes}</div></div>
             <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(result.unitTotals.unitCaixa)}</div></div>
           </div>
@@ -3248,7 +3257,7 @@
         }
 
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred||[]).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
+        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         loadPeriods();
         navigateTo('dashboard');
@@ -3710,7 +3719,7 @@
       if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
       let html = `
-      <div class="admin-tabs" style="overflow-x:auto;flex-wrap:nowrap;gap:0;">
+      <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
         <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">P1·P2·P3·P4</button>
@@ -4697,12 +4706,12 @@
           <div style="background:var(--surface);border:1px solid var(--orange);border-radius:8px;padding:16px;text-align:center">
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">⏳ Diferidas DESTE período (pagam no futuro)</div>
             <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange)">${deferredFrom.length}</div>
-            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredFrom.reduce((s,r) => s + (r.valorCaixa||0), 0))} em caixa diferido</div>
+            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredFrom.reduce((s, r) => s + (r.valorCaixa || 0), 0))} em caixa diferido</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:16px;text-align:center">
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">📥 Recebidas DE períodos anteriores (comissão paga agora)</div>
             <div class="mono" style="font-size:24px;font-weight:700;color:var(--green)">${deferredTo.length}</div>
-            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredTo.reduce((s,r) => s + (r.valorCaixa||0), 0))} em caixa recebido</div>
+            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredTo.reduce((s, r) => s + (r.valorCaixa || 0), 0))} em caixa recebido</div>
           </div>
         </div>`;
 
@@ -4719,14 +4728,14 @@
             const [dy, dm] = (r.deferToMonth || '').split('-');
             const targetLabel = dm ? `${months[parseInt(dm)]}/${dy}` : r.deferToMonth;
             html += `<tr>
-              <td style="font-weight:600">${r.vendedor||''}</td>
-              <td>${r.data||''}</td>
-              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item||''}</td>
-              <td style="color:var(--orange)">${r.planStartDate||'—'}</td>
+              <td style="font-weight:600">${r.vendedor || ''}</td>
+              <td>${r.data || ''}</td>
+              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+              <td style="color:var(--orange)">${r.planStartDate || '—'}</td>
               <td><span class="pill pill-novo">${targetLabel}</span></td>
-              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
-              <td style="font-size:10px;color:var(--text3)">${r.deferReason||''}</td>
+              <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.deferReason || ''}</td>
             </tr>`;
           });
           html += '</tbody></table></div>';
@@ -4740,13 +4749,13 @@
             const statusColor = r.status === 'aplicado' ? 'var(--green)' : 'var(--yellow)';
             const statusLabel = r.status === 'aplicado' ? '✅ Aplicado' : '⏳ Pendente';
             html += `<tr>
-              <td style="font-weight:600">${r.vendedor||''}</td>
-              <td>${r.data||''}</td>
-              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item||''}</td>
-              <td style="color:var(--green)">${r.planStartDate||'—'}</td>
-              <td style="font-size:10px;color:var(--text3)">${r.sourcePeriodId||''}</td>
-              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+              <td style="font-weight:600">${r.vendedor || ''}</td>
+              <td>${r.data || ''}</td>
+              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+              <td style="color:var(--green)">${r.planStartDate || '—'}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.sourcePeriodId || ''}</td>
+              <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
               <td style="font-size:11px;color:${statusColor};font-weight:700">${statusLabel}</td>
             </tr>`;
           });
@@ -4765,7 +4774,7 @@
     // DASHBOARD TAB SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchDashTab(tabId, btn) {
-      const allTabs = ['tabResumo','tabRegistros','tabComissoes','tabAtivacoes','tabP4','tabExcluidos','tabRelatorio','tabDiferidos'];
+      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabP4', 'tabExcluidos', 'tabRelatorio', 'tabDiferidos'];
       allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       const target = document.getElementById(tabId);
@@ -4831,7 +4840,7 @@
       const ratioStr = prompt('Proporção para a original (0.5 = 50/50, 0.7 = 70/30):', '0.5');
       const ratio = parseFloat(ratioStr);
       if (isNaN(ratio) || ratio <= 0 || ratio >= 1) { toast('Proporção inválida.', 'error'); return; }
-      if (!confirm(`Dividir ${selectedRecordIds.size} registro(s) com ${partner.trim().toUpperCase()} (${Math.round(ratio*100)}/${Math.round((1-ratio)*100)})?`)) return;
+      if (!confirm(`Dividir ${selectedRecordIds.size} registro(s) com ${partner.trim().toUpperCase()} (${Math.round(ratio * 100)}/${Math.round((1 - ratio) * 100)})?`)) return;
       try {
         toast('Dividindo registros...', 'info');
         for (const id of selectedRecordIds) {
@@ -4881,7 +4890,7 @@
         // ── P1 Detail ──
         html += '<div id="subP1" class="sub-tab-content">';
         html += '<h3 style="font-size:14px;margin-bottom:12px;color:var(--green)">P1 — Comissão sobre o Caixa</h3>';
-        Object.entries(vendorItems).sort((a,b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
+        Object.entries(vendorItems).sort((a, b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
           const vData = vs[vName];
           if (vData?.isNaoCom) return;
           const p1Total = vItems.reduce((s, r) => s + (r.p1valor || 0), 0);
@@ -4894,12 +4903,12 @@
               <th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">%</th><th style="text-align:right">P1</th>
             </tr></thead><tbody>`;
           vItems.forEach(r => {
-            html += `<tr><td>${r.data||''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-              <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
-              <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : r.category === 'voucher' ? 'voucher' : 'outro'}">${r.label||r.category||''}</span></td>
-              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
-              <td style="text-align:right;color:var(--text3)">${((r.p1pct||0)*100).toFixed(1)}%</td>
-              <td class="currency" style="color:var(--green)">R$ ${fmt(r.p1valor||0)}</td></tr>`;
+            html += `<tr><td>${r.data || ''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+              <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+              <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : r.category === 'voucher' ? 'voucher' : 'outro'}">${r.label || r.category || ''}</span></td>
+              <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
+              <td style="text-align:right;color:var(--text3)">${((r.p1pct || 0) * 100).toFixed(1)}%</td>
+              <td class="currency" style="color:var(--green)">R$ ${fmt(r.p1valor || 0)}</td></tr>`;
           });
           html += '</tbody></table></div></div>';
         });
@@ -4908,7 +4917,7 @@
         // ── P2 Detail ──
         html += '<div id="subP2" class="sub-tab-content" style="display:none">';
         html += '<h3 style="font-size:14px;margin-bottom:12px;color:var(--blue)">P2 — Bônus Fixo por Contrato</h3>';
-        Object.entries(vendorItems).sort((a,b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
+        Object.entries(vendorItems).sort((a, b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
           const vData = vs[vName];
           if (vData?.isNaoCom) return;
           const contractItems = vItems.filter(r => (r.p2bonus || 0) > 0);
@@ -4923,8 +4932,8 @@
               <th>Data</th><th>Cliente</th><th>Plano</th><th style="text-align:right">Bônus P2</th>
             </tr></thead><tbody>`;
           contractItems.forEach(r => {
-            html += `<tr><td>${r.data||''}</td><td>${r.cliente||''}</td><td style="font-size:11px">${r.item||''}</td>
-              <td class="currency" style="color:var(--blue)">R$ ${fmt(r.p2bonus||0)}</td></tr>`;
+            html += `<tr><td>${r.data || ''}</td><td>${r.cliente || ''}</td><td style="font-size:11px">${r.item || ''}</td>
+              <td class="currency" style="color:var(--blue)">R$ ${fmt(r.p2bonus || 0)}</td></tr>`;
           });
           html += '</tbody></table></div></div>';
         });
@@ -4939,13 +4948,13 @@
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Faixa atual: <strong style="color:var(--orange-light)">${p3TierLabel}</strong> · ${t.unitAtivacoes} ativações</div>`;
         if (hitMeta) {
           html += '<div class="table-wrap"><table style="width:100%"><thead><tr><th>Vendedor(a)</th><th style="text-align:right">Caixa P3 Elegível</th><th style="text-align:right">Fixo</th><th style="text-align:right">% Caixa</th><th style="text-align:right">Multiplicador</th><th style="text-align:right">P3 Final</th></tr></thead><tbody>';
-          Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => (b[1].p3||0) - (a[1].p3||0)).forEach(([name, v]) => {
+          Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].p3 || 0) - (a[1].p3 || 0)).forEach(([name, v]) => {
             html += `<tr><td style="font-weight:600">${name}</td>
-              <td class="currency">R$ ${fmt(v.caixa||0)}</td>
+              <td class="currency">R$ ${fmt(v.caixa || 0)}</td>
               <td class="currency">${v.p3 > 0 ? 'R$ ' + fmt(t.unitAtivacoes >= cfg.metaGold ? cfg.goldFixo : t.unitAtivacoes >= cfg.superMeta ? cfg.superFixo : cfg.metaFixo) : '—'}</td>
-              <td class="currency">R$ ${fmt((v.caixa||0) * (cfg.metaPct/100))}</td>
+              <td class="currency">R$ ${fmt((v.caixa || 0) * (cfg.metaPct / 100))}</td>
               <td style="text-align:right;color:var(--text3)">×${v.p3 > 0 && (t.unitRenovacoes < cfg.minRenov || t.unitVouchers < cfg.minVoucher) ? '⚠' : '1.00'}</td>
-              <td class="currency" style="color:var(--orange-light);font-weight:700">R$ ${fmt(v.p3||0)}</td></tr>`;
+              <td class="currency" style="color:var(--orange-light);font-weight:700">R$ ${fmt(v.p3 || 0)}</td></tr>`;
           });
           html += '</tbody></table></div>';
         } else {
@@ -5001,13 +5010,13 @@
         html += '<h3 style="font-size:14px;margin-bottom:8px;color:var(--green)">✅ Contam como Ativação</h3>';
         html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">São contratos (novos, retornos, renovações) e vouchers. Cada um conta 1 ativação (ou fração se dividido).</div>';
         html += '<div class="table-wrap" style="max-height:350px"><table style="width:100%"><thead><tr><th>#</th><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th style="text-align:right">Fator</th></tr></thead><tbody>';
-        activations.sort((a,b) => (a.vendedor||'').localeCompare(b.vendedor||'')).forEach((r, i) => {
+        activations.sort((a, b) => (a.vendedor || '').localeCompare(b.vendedor || '')).forEach((r, i) => {
           const factor = r.splitAtivacao || 1;
-          html += `<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:600">${r.vendedor||''}</td><td>${r.data||''}</td>
-            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
-            <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : 'voucher'}">${r.label||r.category||''}</span></td>
-            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+          html += `<tr><td style="color:var(--text3)">${i + 1}</td><td style="font-weight:600">${r.vendedor || ''}</td><td>${r.data || ''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : 'voucher'}">${r.label || r.category || ''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
             <td style="text-align:right;color:${factor < 1 ? 'var(--yellow)' : 'var(--text)'}">${factor < 1 ? factor.toFixed(1) + ' (split)' : '1'}</td></tr>`;
         });
         html += '</tbody></table></div>';
@@ -5017,11 +5026,11 @@
         html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Geram caixa (P1) mas não entram na contagem de metas. Ex: Taxas, matrículas, avulsas, avaliações.</div>';
         html += '<div class="table-wrap" style="max-height:250px"><table style="width:100%"><thead><tr><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th>Motivo</th></tr></thead><tbody>';
         nonActivations.forEach(r => {
-          html += `<tr style="opacity:0.7"><td>${r.vendedor||''}</td><td>${r.data||''}</td>
-            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
-            <td><span class="pill pill-outro">${r.label||r.category||''}</span></td>
-            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+          html += `<tr style="opacity:0.7"><td>${r.vendedor || ''}</td><td>${r.data || ''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td><span class="pill pill-outro">${r.label || r.category || ''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
             <td style="font-size:10px;color:var(--text3)">${r.category === 'matricula' ? 'Taxa/Matrícula' : r.category === 'avulsa' ? 'Avulsa' : r.category === 'diferenca' ? 'Diferença' : r.category === 'avaliacao' ? 'Avaliação' : 'Sem contrato'}</td></tr>`;
         });
         html += '</tbody></table></div>';
@@ -5052,10 +5061,10 @@
         });
 
         // GymPass/TotalPass specific
-        const gympass = items.filter(r => (r._group === 'gympass' || (r._reason||'').includes('Gympass')));
-        const totalpass = items.filter(r => (r._group === 'totalpass' || (r._reason||'').includes('TotalPass')));
-        const permutas = items.filter(r => (r._group === 'permuta' || (r._reason||'').includes('Permuta')));
-        const renovAuto = items.filter(r => (r._reason||'').includes('automática') || (r._reason||'').includes('Renovação de recorrente'));
+        const gympass = items.filter(r => (r._group === 'gympass' || (r._reason || '').includes('Gympass')));
+        const totalpass = items.filter(r => (r._group === 'totalpass' || (r._reason || '').includes('TotalPass')));
+        const permutas = items.filter(r => (r._group === 'permuta' || (r._reason || '').includes('Permuta')));
+        const renovAuto = items.filter(r => (r._reason || '').includes('automática') || (r._reason || '').includes('Renovação de recorrente'));
 
         const gymCaixa = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
         const totalCaixa = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
@@ -5095,9 +5104,9 @@
               <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor</th><th>Motivo</th>
             </tr></thead><tbody>`;
           groupItems.forEach(r => {
-            t += `<tr><td>${r.vendedor||''}</td><td>${r.data||''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-              <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item||''}</td>
-              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td><td style="font-size:10px;color:var(--text3)">${r._reason||r.label||''}</td></tr>`;
+            t += `<tr><td>${r.vendedor || ''}</td><td>${r.data || ''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+              <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+              <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td><td style="font-size:10px;color:var(--text3)">${r._reason || r.label || ''}</td></tr>`;
           });
           t += '</tbody></table></div></div>';
           return t;
@@ -5123,7 +5132,7 @@
       const el = document.getElementById('relatorioContent');
       if (!el) return;
       const vs = data.vendorSummary || {};
-      const vendorNames = Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => a[0].localeCompare(b[0]));
+      const vendorNames = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => a[0].localeCompare(b[0]));
 
       let html = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
         <div>
@@ -5167,15 +5176,15 @@
             </div>
             <div style="text-align:right">
               <div style="font-size:10px;color:var(--text3)">TOTAL A RECEBER</div>
-              <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.grandTotal||0)}</div>
+              <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.grandTotal || 0)}</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
-            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P1</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--green)">R$ ${fmt(myData.p1||0)}</div></div>
-            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P2</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--blue)">R$ ${fmt(myData.p2||0)}</div></div>
-            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P3</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3||0)}</div></div>
-            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4i</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4i||0)}</div></div>
-            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4p</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4p||0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P1</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--green)">R$ ${fmt(myData.p1 || 0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P2</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--blue)">R$ ${fmt(myData.p2 || 0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P3</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4i</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4i || 0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4p</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4p || 0)}</div></div>
           </div>
         </div>`;
 
@@ -5188,10 +5197,10 @@
           </tr></thead><tbody>`;
 
         let sumP1 = 0, sumP2 = 0;
-        processed.sort((a,b) => {
-          const pA = (a.data||'').split('/'); const pB = (b.data||'').split('/');
-          const dA = pA.length === 3 ? new Date(pA[2],pA[1]-1,pA[0]).getTime() : 0;
-          const dB = pB.length === 3 ? new Date(pB[2],pB[1]-1,pB[0]).getTime() : 0;
+        processed.sort((a, b) => {
+          const pA = (a.data || '').split('/'); const pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
           return dB - dA;
         }).forEach(r => {
           const p1 = r.p1valor || 0;
@@ -5199,15 +5208,15 @@
           sumP1 += p1; sumP2 += p2;
           const pillCls = r.category === 'novo' ? 'pill-novo' : r.category === 'renovacao' ? 'pill-renovacao' : r.category === 'retorno' ? 'pill-retorno' : r.category === 'voucher' ? 'pill-voucher' : 'pill-outro';
           html += `<tr>
-            <td>${r.data||''}</td>
-            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
-            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item||''}</td>
-            <td><span class="pill ${pillCls}">${r.label||r.category||''}</span></td>
-            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
-            <td style="text-align:right;color:var(--text3);font-size:10px">${((r.p1pct||0)*100).toFixed(1)}%</td>
+            <td>${r.data || ''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td><span class="pill ${pillCls}">${r.label || r.category || ''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
+            <td style="text-align:right;color:var(--text3);font-size:10px">${((r.p1pct || 0) * 100).toFixed(1)}%</td>
             <td class="currency" style="color:var(--green)">R$ ${fmt(p1)}</td>
             <td class="currency" style="color:var(--blue)">R$ ${fmt(p2)}</td>
-            <td class="currency" style="font-weight:700">R$ ${fmt(p1+p2)}</td>
+            <td class="currency" style="font-weight:700">R$ ${fmt(p1 + p2)}</td>
           </tr>`;
         });
         html += `</tbody><tfoot><tr class="total-row">
@@ -5215,7 +5224,7 @@
           <td></td>
           <td class="currency" style="color:var(--green);font-weight:700">R$ ${fmt(sumP1)}</td>
           <td class="currency" style="color:var(--blue);font-weight:700">R$ ${fmt(sumP2)}</td>
-          <td class="currency" style="font-weight:700">R$ ${fmt(sumP1+sumP2)}</td>
+          <td class="currency" style="font-weight:700">R$ ${fmt(sumP1 + sumP2)}</td>
         </tr></tfoot></table></div></div>`;
 
         el.innerHTML = html;
@@ -5237,14 +5246,14 @@
         const myData = (pData?.vendorSummary || {})[vendorName] || {};
 
         const rows = [['RELATÓRIO DE COMISSÃO — ' + vendorName], [],
-          ['P1 (% Caixa)', myData.p1 || 0], ['P2 (Bônus Fixo)', myData.p2 || 0],
-          ['P3 (Meta Unidade)', myData.p3 || 0], ['P4 Individual', myData.p4i || 0],
-          ['P4 Pool', myData.p4p || 0], ['TOTAL', myData.grandTotal || 0],
-          [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa (R$)', 'P1 %', 'P1 (R$)', 'P2 (R$)', 'P1+P2 (R$)']
+        ['P1 (% Caixa)', myData.p1 || 0], ['P2 (Bônus Fixo)', myData.p2 || 0],
+        ['P3 (Meta Unidade)', myData.p3 || 0], ['P4 Individual', myData.p4i || 0],
+        ['P4 Pool', myData.p4p || 0], ['TOTAL', myData.grandTotal || 0],
+        [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa (R$)', 'P1 %', 'P1 (R$)', 'P2 (R$)', 'P1+P2 (R$)']
         ];
         processed.forEach(r => {
           rows.push([r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
-            r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
+          r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
         });
 
         const wb = XLSX.utils.book_new();
@@ -5275,22 +5284,22 @@
 
         // Summary sheet
         const summaryRows = [['Vendedor', 'P1', 'P2', 'P3', 'P4i', 'P4p', 'Total', 'Ativações', 'Caixa']];
-        Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => (b[1].grandTotal||0) - (a[1].grandTotal||0)).forEach(([name, v]) => {
-          summaryRows.push([name, v.p1||0, v.p2||0, v.p3||0, v.p4i||0, v.p4p||0, v.grandTotal||0, v.ativacoes||0, v.caixa||0]);
+        Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0)).forEach(([name, v]) => {
+          summaryRows.push([name, v.p1 || 0, v.p2 || 0, v.p3 || 0, v.p4i || 0, v.p4p || 0, v.grandTotal || 0, v.ativacoes || 0, v.caixa || 0]);
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Resumo Geral');
 
         // Per-vendor sheets
-        Object.entries(vs).filter(([n,v]) => !v.isNaoCom).forEach(([name, v]) => {
+        Object.entries(vs).filter(([n, v]) => !v.isNaoCom).forEach(([name, v]) => {
           const vendorItems = allItems.filter(r => r.vendedor === name && r.type !== 'excluded');
           const rows = [
             ['COMISSÃO — ' + name], [],
-            ['P1', v.p1||0], ['P2', v.p2||0], ['P3', v.p3||0], ['P4i', v.p4i||0], ['P4p', v.p4p||0], ['TOTAL', v.grandTotal||0],
+            ['P1', v.p1 || 0], ['P2', v.p2 || 0], ['P3', v.p3 || 0], ['P4i', v.p4i || 0], ['P4p', v.p4p || 0], ['TOTAL', v.grandTotal || 0],
             [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa', 'P1%', 'P1 R$', 'P2 R$', 'P1+P2']
           ];
           vendorItems.forEach(r => {
-            rows.push([r.data||'', r.cliente||'', r.item||'', r.label||r.category||'',
-              r.valorCaixa||0, (r.p1pct||0)*100, r.p1valor||0, r.p2bonus||0, (r.p1valor||0)+(r.p2bonus||0)]);
+            rows.push([r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
+            r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
           });
           const sheetName = name.substring(0, 31).replace(/[\\\/\?\*\[\]]/g, '');
           XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
