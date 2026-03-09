@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API calls
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crosstrainer-v2.4';
+const CACHE_NAME = 'crosstrainer-v3.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -36,36 +36,51 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch: network-first for Firebase/API, cache-first for static
+// Fetch: network-first for HTML and Firebase, cache-first for libraries
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Network-first for Firebase and Google APIs (auth, firestore)
+  // Network-first for Firebase and Google APIs
   if (url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('gstatic.com') ||
-    url.hostname.includes('firebaseio.com') ||
-    url.hostname.includes('firestore.googleapis.com') ||
-    url.hostname.includes('identitytoolkit.googleapis.com') ||
-    url.hostname.includes('securetoken.googleapis.com')) {
-    return; // Let the browser handle these normally
+      url.hostname.includes('gstatic.com') ||
+      url.hostname.includes('firebaseio.com') ||
+      url.hostname.includes('firestore.googleapis.com') ||
+      url.hostname.includes('identitytoolkit.googleapis.com') ||
+      url.hostname.includes('securetoken.googleapis.com')) {
+    return;
   }
 
-  // Cache-first for static assets (fonts, scripts, app shell)
+  // NETWORK-FIRST for HTML and JS app files (prevents stale cache!)
+  if (event.request.mode === 'navigate' ||
+      url.pathname.endsWith('.html') ||
+      url.pathname.endsWith('/') ||
+      url.pathname.endsWith('commission.js')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static libraries (CDN fonts, chart.js, xlsx.js)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Cache successful responses
         if (response.ok && response.type === 'basic') {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }

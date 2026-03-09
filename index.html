@@ -395,6 +395,17 @@
       background: var(--red)
     }
 
+    .btn-outline {
+      background: transparent;
+      color: var(--orange);
+      border: 1px solid var(--orange);
+      width: auto
+    }
+
+    .btn-outline:hover {
+      background: var(--orange-dim)
+    }
+
     .error-msg {
       color: var(--red);
       font-size: 12px;
@@ -3491,7 +3502,7 @@
 
         sel.innerHTML = '<option value="">Selecione um período</option>';
         docs.forEach(d => {
-          sel.innerHTML += `< option value = "${d.id}" > ${months[d.month]} ${d.year}</option > `;
+          sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`;
         });
 
         // Auto-select first
@@ -3842,10 +3853,10 @@
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
       // Rebuild vendorData from remaining processed items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      const unitAtivacoes = processed.filter(d => d.isActivation).length;
-      const unitNovosRetorno = processed.filter(d => d.category === 'novo' || d.category === 'retorno').length;
-      const unitRenovacoes = processed.filter(d => d.category === 'renovacao').length;
-      const unitVouchers = processed.filter(d => d.category === 'voucher').length;
+      const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
+      const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
       // Recalc P3
@@ -3957,7 +3968,14 @@
     // ADMIN DASHBOARD RENDER
     // ═══════════════════════════════════════════════════════════════
     function renderAdminDashboard(data, periodId) {
-      const t = data.totals;
+      try {
+      const t = data.totals || {};
+      // Safe defaults
+      if (t.unitAtivacoes === undefined) t.unitAtivacoes = 0;
+      if (t.unitNovosRetorno === undefined) t.unitNovosRetorno = 0;
+      if (t.unitRenovacoes === undefined) t.unitRenovacoes = 0;
+      if (t.unitVouchers === undefined) t.unitVouchers = 0;
+      if (t.unitCaixa === undefined) t.unitCaixa = 0;
       const vs = data.vendorSummary || {};
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
       const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
@@ -4158,6 +4176,11 @@
       renderExcluidosTab(periodId);
       renderRelatorioTab(data, periodId);
       renderDiferidosTab(data, periodId);
+    } catch (e) {
+      console.error('renderAdminDashboard error:', e);
+      const dc = document.getElementById('dashboardContent');
+      if (dc) dc.innerHTML = `<div style="color:var(--red);padding:20px;font-size:13px">Erro ao renderizar dashboard: ${e.message}<br><pre style="font-size:10px;color:var(--text3);margin-top:8px">${e.stack || ''}</pre></div>`;
+    }
     }
 
     async function renderHistoryChart() {
@@ -6105,13 +6128,35 @@
     }
   </script>
 
-  <!-- PWA Service Worker Registration -->
+  <!-- PWA Service Worker Registration (with auto-update) -->
   <script>
+    const APP_VERSION = '3.0';
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW registrado:', reg.scope))
+          .then(reg => {
+            console.log('SW registrado v' + APP_VERSION);
+            // Check for updates every 60s
+            setInterval(() => reg.update(), 60000);
+            // When a new SW is found, reload immediately
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'activated') {
+                    console.log('Nova versão detectada — recarregando...');
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          })
           .catch(err => console.log('SW falhou:', err));
+      });
+
+      // If controller changes (new SW activated), reload
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
       });
     }
   </script>
