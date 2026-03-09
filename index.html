@@ -4186,6 +4186,7 @@
 
     async function loadVendorPeriod(periodId) {
       if (!periodId) return;
+      window.currentVendorPeriodId = periodId;
       const doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
       const data = doc.data();
@@ -4219,6 +4220,8 @@
 
       window.currentVendorSummary = vs; // store robustly for simulator
       window.currentUnitTotals = t; // store robustly for simulator
+      window.currentVendorMyName = myName; // store for simulator
+      window.currentVendorPeriodId = data._periodId || currentPeriodId; // store for records
 
       let html = '';
 
@@ -4352,6 +4355,15 @@
         <div id="simResult" style="font-size:13px;color:var(--text2)">Ajuste os campos para simular.</div>
       </div>`;
 
+      // ── Meus Lançamentos (carregado async) ──
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📋 Meus Lançamentos</div>
+          <div style="font-size:10px;color:var(--text3)" id="vendorItemsCount"></div>
+        </div>
+        <div id="vendorItemsWrap"><div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Carregando lançamentos...</div></div>
+      </div>`;
+
       // ── Histórico pessoal (placeholder, carregado async) ──
       html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
         <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📊 Meu Histórico</div>
@@ -4360,14 +4372,15 @@
       </div>`;
 
       el.innerHTML = html;
+      updateSimulatorUI(); // trigger initial simulation
+      loadVendorItems(myName);
       loadVendorHistory(myName);
     }
 
 
     function updateSimulatorUI() {
-      // get the data straight from window.currentVendorSummary and current metadata
       const vs = window.currentVendorSummary || {};
-      const myName = Object.keys(vs).find(n => userProfile && n.toUpperCase().includes((userProfile.name || '').toUpperCase()));
+      const myName = window.currentVendorMyName;
       if (!myName || !vs[myName]) return;
 
       const myData = vs[myName];
@@ -4533,6 +4546,60 @@
       }
     }
 
+    async function loadVendorItems(myName) {
+      const wrap = document.getElementById('vendorItemsWrap');
+      const countEl = document.getElementById('vendorItemsCount');
+      if (!wrap) return;
+      const pId = window.currentVendorPeriodId;
+      if (!pId) { wrap.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Nenhum período selecionado.</div>'; return; }
+
+      try {
+        const snap = await db.collection('periodos').doc(pId).collection('itens').where('vendedor', '==', myName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+
+        // Sort by date descending
+        items.sort((a, b) => {
+          const pA = (a.data || '').split('/'); const pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1] - 1, pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1] - 1, pB[0]).getTime() : 0;
+          return dB - dA;
+        });
+
+        if (countEl) countEl.textContent = `${items.length} registros`;
+
+        if (items.length === 0) {
+          wrap.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:12px">Nenhum lançamento encontrado neste período.</div>';
+          return;
+        }
+
+        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
+
+        let tHtml = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px">' +
+          '<thead><tr style="border-bottom:1px solid var(--border)">' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Data</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Cliente</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Item</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Categoria</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2);text-align:right">Valor</th>' +
+          '</tr></thead><tbody>';
+
+        items.forEach(r => {
+          const isProc = r.type !== 'excluded';
+          tHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);opacity:${isProc ? '1' : '0.5'}" title="${isProc ? '' : 'Ignorado das comissões'}">
+            <td style="padding:8px 10px;color:var(--text3)">${r.data || ''}</td>
+            <td style="padding:8px 10px;max-width:140px;word-break:break-word;white-space:normal;color:var(--text)">${r.cliente || ''}</td>
+            <td style="padding:8px 10px;max-width:160px;word-break:break-word;white-space:normal;color:var(--text3);font-size:10px">${r.item || ''}</td>
+            <td style="padding:8px 10px"><span class="pill ${pillClass(r.category)}">${r.label || r.category || ''}</span></td>
+            <td style="padding:8px 10px;text-align:right;font-family:'JetBrains Mono';color:${isProc ? 'var(--orange-light)' : 'var(--text3)'}">R$ ${fmt(r.valorCaixa || 0)}</td>
+          </tr>`;
+        });
+        tHtml += '</tbody></table></div>';
+        wrap.innerHTML = tHtml;
+      } catch (e) {
+        wrap.innerHTML = `<div style="padding:16px;text-align:center;color:var(--red);font-size:12px">Erro ao carregar: ${e.message}</div>`;
+      }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // LOG DE AUDITORIA
