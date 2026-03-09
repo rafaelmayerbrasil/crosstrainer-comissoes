@@ -3581,7 +3581,7 @@
 
       try {
         toast('Salvando metas e recalculando...', 'info');
-        await db.collection('periodos').doc(currentPeriodId).update({ metasMensais });
+        await db.collection('periodos').doc(currentPeriodId).set({ metasMensais }, { merge: true });
         closeMetasMesModal();
         if (window.currentPeriodData) window.currentPeriodData.metasMensais = metasMensais;
         await recalculatePeriod(currentPeriodId);
@@ -3919,7 +3919,7 @@
       else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--green)'; }
       else if (proj.projAtiv >= cfg.meta) { projTier = '🏅 Meta'; tierColor = 'var(--green)'; }
 
-      return `< div style = "background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px" >
+      return `<div style="background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📈 Projeção de Fim de Mês</div>
           <div style="font-size:11px;color:var(--text3)">${proj.dayElapsed} de ${proj.daysInMonth} dias (${pctLabel}%) · faltam ${proj.daysLeft} dias</div>
@@ -3950,8 +3950,7 @@
           <div style="font-size:12px;color:var(--text2)">Projeção de faixa:</div>
           <div style="font-size:14px;font-weight:700;color:${tierColor}">${projTier}</div>
         </div>
-        <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic">* Baseado no ritmo atual (run rate). Mude o ritmo, mude o resultado!</div>
-      </div > `;
+      </div>`;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -3978,7 +3977,7 @@
       if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
       let html = `
-          < div class="admin-tabs" >
+      <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
         <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">P1·P2·P3·P4</button>
@@ -3987,9 +3986,9 @@
         <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Passes</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório Individual</button>
         <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
-      </div >
+      </div>
 
-          <div id="tabResumo">
+      <div id="tabResumo">
             `;
 
       if (alerts.length > 0) {
