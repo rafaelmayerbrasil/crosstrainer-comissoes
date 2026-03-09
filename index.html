@@ -4221,7 +4221,6 @@
       window.currentVendorSummary = vs; // store robustly for simulator
       window.currentUnitTotals = t; // store robustly for simulator
       window.currentVendorMyName = myName; // store for simulator
-      window.currentVendorPeriodId = data._periodId || currentPeriodId; // store for records
 
       let html = '';
 
@@ -4394,7 +4393,7 @@
     }
 
     function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers, qt, tipo) {
-      if (!myData || !window.CommissionEngine) return;
+      if (!myData || !CommissionEngine) return;
 
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
 
