@@ -63,14 +63,26 @@ const CommissionEngine = {
       return { ...r, excluded: true, excludeReason: 'Rescisão contratual' };
 
     if (item.includes('WELLHUB') || item.includes('GYMPASS') || tipoVenda === 'Gympass')
-      return { ...r, excluded: true, excludeReason: 'Gympass/Wellhub' };
+      return { ...r, excluded: true, excludeReason: 'Gympass/Wellhub', excludeGroup: 'gympass' };
 
     if (item.includes('TOTALPASS') || item.includes('TOTAL PASS') || tipoVenda === 'TotalPass')
-      return { ...r, excluded: true, excludeReason: 'TotalPass' };
+      return { ...r, excluded: true, excludeReason: 'TotalPass', excludeGroup: 'totalpass' };
 
-    // ── Recorrente + Renovação automática ──
-    if (item.includes('RECORRENTE') && (tipoVenda === 'Renovação' || origem.includes('RENOVAÇÃO AUTOMÁTICA') || origem.includes('RENOVACAO AUTOMATICA')))
-      return { ...r, excluded: true, excludeReason: 'Renovação automática (recorrente)' };
+    // ── Grupo Corrida — comissão é do professor, não da vendedora ──
+    if (item.includes('GRUPO') && item.includes('CORRIDA'))
+      return { ...r, excluded: true, excludeReason: 'Grupo Corrida (comissão do professor)' };
+
+    // ── Permuta — não é venda, não gera comissão, mas rastrear ──
+    if (item.includes('PERMUTA') || tipoVenda.toUpperCase().includes('PERMUTA'))
+      return { ...r, excluded: true, excludeReason: 'Permuta', excludeGroup: 'permuta' };
+
+    // ── Renovação automática (qualquer item com Origem = Renovação Automática) ──
+    if (origem.includes('RENOVAÇÃO AUTOMÁTICA') || origem.includes('RENOVACAO AUTOMATICA') || origem.includes('RENOVACAO AUTOMATICA'))
+      return { ...r, excluded: true, excludeReason: 'Renovação automática' };
+
+    // ── Recorrente + Renovação (tipo de venda) ──
+    if (item.includes('RECORRENTE') && tipoVenda.toLowerCase().includes('renova'))
+      return { ...r, excluded: true, excludeReason: 'Renovação de recorrente' };
 
     // ── Identify type ──
     const isNovo = tipoVenda.toLowerCase().includes('novo');
@@ -120,13 +132,6 @@ const CommissionEngine = {
       return r;
     }
 
-    // Grupo Corrida
-    if (item.includes('GRUPO') && item.includes('CORRIDA')) {
-      r.category = 'grupo_corrida'; r.label = 'Grupo Corrida';
-      r.isActivation = false; r.isEligibleP3 = true;
-      return r;
-    }
-
     // ── Contracts (Plans) ──
     if (item.includes('BIANUAL')) r.periodicidade = 'BIANUAL';
     else if (item.includes('ANUAL')) r.periodicidade = 'ANUAL';
@@ -161,6 +166,8 @@ const CommissionEngine = {
     const item = (itemStr || '').toUpperCase().trim();
     const tipo = (tipoVendaStr || '').toLowerCase().trim();
 
+    if (item.includes('GRUPO') && item.includes('CORRIDA')) return 'excluded';
+    if (item.includes('PERMUTA') || tipo.includes('permuta')) return 'excluded';
     if (item.includes('DEGUSTAÇÃO') || item.includes('DEGUSTACAO') || item.includes('MÊS DEGUSTAÇÃO'))
       return 'voucher';
     if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
@@ -179,6 +186,19 @@ const CommissionEngine = {
     if (tipo.includes('retorno')) return 'retorno';
     if (tipo.includes('novo')) return 'novo';
     return 'outro';
+  },
+
+  // ─── Extract plan start date from Itens field ───
+  // Pattern: "ANUAL, TREINO HIIT (02/02/2026 - 02/02/2027)" → 02/02/2026
+  parseStartDate(itemStr) {
+    const match = String(itemStr || '').match(/\((\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2})\/(\d{2})\/(\d{4})\)/);
+    if (!match) return null;
+    return {
+      startDate: new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1])),
+      startStr: `${match[1]}/${match[2]}/${match[3]}`,
+      endDate: new Date(parseInt(match[6]), parseInt(match[5]) - 1, parseInt(match[4])),
+      endStr: `${match[4]}/${match[5]}/${match[6]}`,
+    };
   },
 
   // ─── Get value from row ───
@@ -215,12 +235,24 @@ const CommissionEngine = {
 
     const processed = [];
     const excluded = [];
+    const deferred = [];
 
     rawRows.forEach((row, idx) => {
       const info = this.classifyRow(row);
 
       if (info.excluded) {
-        excluded.push({ ...row, _idx: idx, _reason: info.excludeReason });
+        const valor = this.getValor(row, cfg);
+        excluded.push({
+          _idx: idx, _reason: info.excludeReason, _group: info.excludeGroup || '',
+          vendedor: String(row['Vendedor'] || '').trim() || 'Sem Vendedor',
+          cliente: row['Cliente'] || '',
+          item: String(row['Itens'] || ''),
+          tipoVenda: String(row['Tipo de Venda'] || ''),
+          data: row['Data'] instanceof Date ? row['Data'].toLocaleDateString('pt-BR') : String(row['Data'] || ''),
+          origem: String(row['Origem'] || ''),
+          valorCaixa: valor,
+          ...info,
+        });
         return;
       }
 
@@ -270,10 +302,33 @@ const CommissionEngine = {
         p1pct, p1valor, p2bonus,
         totalP1P2: p1valor + p2bonus,
         isNaoCom,
+        planStartDate: null, planEndDate: null,
       });
+
+      // ── Deferral check: plan start > 30 days from payment → defer ──
+      const lastItem = processed[processed.length - 1];
+      const planDates = this.parseStartDate(row['Itens']);
+      if (planDates) {
+        lastItem.planStartDate = planDates.startStr;
+        lastItem.planEndDate = planDates.endStr;
+        if (dateObj && info.isActivation) {
+          const diffDays = Math.round((planDates.startDate - dateObj) / (1000 * 60 * 60 * 24));
+          if (diffDays > 30) {
+            // Remove from processed, add to deferred
+            processed.pop();
+            const deferMonth = `${planDates.startDate.getFullYear()}-${String(planDates.startDate.getMonth() + 1).padStart(2, '0')}`;
+            deferred.push({
+              ...lastItem,
+              isDeferredItem: true,
+              deferToMonth: deferMonth,
+              deferReason: `Início em ${planDates.startStr} (${diffDays}d após pgto ${dateStr})`,
+            });
+          }
+        }
+      }
     });
 
-    return { processed, excluded };
+    return { processed, excluded, deferred };
   },
 
   // ─── Deduplication ───
@@ -560,7 +615,7 @@ const CommissionEngine = {
     const { unique, dupes } = this.deduplicate(rawRows);
 
     // Process
-    const { processed, excluded } = this.processRows(unique, cfg, splits);
+    const { processed, excluded, deferred } = this.processRows(unique, cfg, splits);
 
     // Build vendor data
     const vendorData = this.buildVendorData(processed, splits, cfg);
@@ -598,7 +653,7 @@ const CommissionEngine = {
     });
 
     return {
-      processed, excluded, dupes,
+      processed, excluded, deferred, dupes,
       vendorData,
       unitTotals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
       p4result,

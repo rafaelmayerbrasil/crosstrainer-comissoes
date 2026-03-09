@@ -1222,6 +1222,9 @@
       display: block;
     }
 
+    .sub-tab-content { }
+    .sub-tab-content[style*="display: none"] { display: none; }
+
     .modal {
       display: none;
       position: fixed;
@@ -2990,6 +2993,7 @@
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>
             <div class="stat"><div class="s-label">Processados</div><div class="s-value">${result.processed.length}</div></div>
             <div class="stat"><div class="s-label">Excluídos</div><div class="s-value" style="color:var(--red)">${result.excluded.length}</div></div>
+            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(result.deferred||[]).length}</div></div>
             <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${result.unitTotals.unitAtivacoes}</div></div>
             <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(result.unitTotals.unitCaixa)}</div></div>
           </div>
@@ -3200,7 +3204,7 @@
         await batch1.commit();
 
         // Add new items in batches of 400 — filter out empty/junk rows
-        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' }))]
+        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' })), ...(result.deferred || []).map(d => ({ ...d, type: 'deferred' }))]
           .filter(d => {
             const hasContent = (d.vendedor || '').trim() || (d.cliente || '').trim() || (d.item || '').trim();
             const hasValue = (d.valorCaixa || 0) > 0;
@@ -3223,8 +3227,28 @@
           await batch.commit();
         }
 
+        // Save deferred commissions to future periods collection
+        if (result.deferred && result.deferred.length > 0) {
+          const deferBatch = db.batch();
+          result.deferred.forEach(d => {
+            const ref = db.collection('comissoes_diferidas').doc();
+            const clean = {};
+            Object.entries(d).forEach(([k, v]) => {
+              if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
+              else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
+            });
+            delete clean.dateObj;
+            clean.sourcePeriodId = periodId;
+            clean.unitId = currentUnitId;
+            clean.status = 'pendente'; // pendente → aplicado when target period is processed
+            deferBatch.set(ref, clean);
+          });
+          await deferBatch.commit();
+          if (result.deferred.length > 0) toast(`${result.deferred.length} comissão(ões) diferida(s) para meses futuros.`, 'info');
+        }
+
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · Ativações: ${result.unitTotals.unitAtivacoes}`);
+        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred||[]).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         loadPeriods();
         navigateTo('dashboard');
@@ -3686,10 +3710,15 @@
       if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
       let html = `
-      <div class="admin-tabs">
-        <button class="tab-btn active" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='block';document.getElementById('tabRegistros').style.display='none';document.getElementById('tabP4').style.display='none';">Resumo Gerencial</button>
-        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='block';document.getElementById('tabP4').style.display='none';">Registros Processados</button>
-        <button class="tab-btn" onclick="document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('tabResumo').style.display='none';document.getElementById('tabRegistros').style.display='none';document.getElementById('tabP4').style.display='block';">Relatório P4 (Voucher)</button>
+      <div class="admin-tabs" style="overflow-x:auto;flex-wrap:nowrap;gap:0;">
+        <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
+        <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
+        <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">P1·P2·P3·P4</button>
+        <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
+        <button class="tab-btn" onclick="switchDashTab('tabP4',this)">P4 Voucher</button>
+        <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Passes</button>
+        <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório Individual</button>
+        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
       </div>
       
       <div id="tabResumo">
@@ -3814,16 +3843,41 @@
       </div> <!-- END tabResumo -->
       
       <div id="tabRegistros" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
           <h3 style="font-size:16px;margin:0">Tabela de Lançamentos</h3>
-          <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar Lançamento</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
+            <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
+            <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="bulkSplitRecords()">➗ Dividir Selecionados</button>
+            <span id="selectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
+          </div>
         </div>
         <div id="recordsTableSection"></div>
       </div> <!-- END tabRegistros -->
 
+      <div id="tabComissoes" style="display:none">
+        <div id="comissoesContent"></div>
+      </div> <!-- END tabComissoes -->
+
+      <div id="tabAtivacoes" style="display:none">
+        <div id="ativacoesContent"></div>
+      </div> <!-- END tabAtivacoes -->
+
       <div id="tabP4" style="display:none">
         ${renderP4Report(data)}
       </div> <!-- END tabP4 -->
+
+      <div id="tabExcluidos" style="display:none">
+        <div id="excluidosContent"></div>
+      </div> <!-- END tabExcluidos -->
+
+      <div id="tabRelatorio" style="display:none">
+        <div id="relatorioContent"></div>
+      </div> <!-- END tabRelatorio -->
+
+      <div id="tabDiferidos" style="display:none">
+        <div id="diferidosContent"></div>
+      </div> <!-- END tabDiferidos -->
       `;
 
       document.getElementById('dashboardContent').innerHTML = html;
@@ -3831,6 +3885,11 @@
       // Render chart and records table async
       renderHistoryChart();
       renderRecordsTable(periodId);
+      renderComissoesTab(data, periodId);
+      renderAtivacoesTab(periodId);
+      renderExcluidosTab(periodId);
+      renderRelatorioTab(data, periodId);
+      renderDiferidosTab(data, periodId);
     }
 
     async function renderHistoryChart() {
@@ -3983,6 +4042,7 @@
 
       let tHtml = '<div class="table-wrap" style="max-height:500px;overflow-y:auto">' +
         '<table><thead><tr>' +
+        '<th style="width:30px"><input type="checkbox" onchange="toggleAllRecords(this)" title="Selecionar todos"></th>' +
         '<th onclick="sortRecords(\'vendedor\')" style="cursor:pointer;user-select:none">Vendedor' + sortIcon('vendedor') + '</th>' +
         '<th onclick="sortRecords(\'cliente\')" style="cursor:pointer;user-select:none">Cliente' + sortIcon('cliente') + '</th>' +
         '<th onclick="sortRecords(\'item\')" style="cursor:pointer;user-select:none">Item' + sortIcon('item') + '</th>' +
@@ -3994,12 +4054,16 @@
         '</tr></thead><tbody>';
 
       if (filtered.length === 0) {
-        tHtml += '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text3)">Nenhum registro encontrado.</td></tr>';
+        tHtml += '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">Nenhum registro encontrado.</td></tr>';
       }
+
+      selectedRecordIds.clear();
+      updateBulkButtons();
 
       filtered.forEach((r, idx) => {
         const isProc = r.type !== 'excluded';
         tHtml += '<tr style="opacity:' + (isProc ? '1' : '0.6') + '">' +
+          '<td><input type="checkbox" class="record-checkbox" data-docid="' + r._docId + '" onchange="toggleRecordSelection(\'' + r._docId + '\',this)"></td>' +
           '<td>' + (r.vendedor || '') + '</td>' +
           '<td style="max-width:160px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
           '<td style="max-width:160px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
@@ -4598,6 +4662,645 @@
       } catch (e) {
         wrap.innerHTML = `<div style="padding:16px;text-align:center;color:var(--red);font-size:12px">Erro ao carregar: ${e.message}</div>`;
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ABA: COMISSÕES DIFERIDAS
+    // ═══════════════════════════════════════════════════════════════
+    async function renderDiferidosTab(data, periodId) {
+      const el = document.getElementById('diferidosContent');
+      if (!el) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        // 1. Deferred items FROM this period (paid here, start in future)
+        const deferredFromSnap = await db.collection('periodos').doc(periodId).collection('itens').where('type', '==', 'deferred').get();
+        const deferredFrom = [];
+        deferredFromSnap.forEach(doc => deferredFrom.push(doc.data()));
+
+        // 2. Deferred items TO this period (paid before, start here)
+        const [year, month] = (periodId.replace(currentUnitId + '_', '')).split('-').map(Number);
+        const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+        let deferredTo = [];
+        try {
+          const toSnap = await db.collection('comissoes_diferidas')
+            .where('unitId', '==', currentUnitId)
+            .where('deferToMonth', '==', targetMonth)
+            .get();
+          toSnap.forEach(doc => deferredTo.push({ _docId: doc.id, ...doc.data() }));
+        } catch (e) { /* index may not exist yet */ }
+
+        const months = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const periodLabel = `${months[month]}/${year}`;
+
+        let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--orange);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">⏳ Diferidas DESTE período (pagam no futuro)</div>
+            <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange)">${deferredFrom.length}</div>
+            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredFrom.reduce((s,r) => s + (r.valorCaixa||0), 0))} em caixa diferido</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">📥 Recebidas DE períodos anteriores (comissão paga agora)</div>
+            <div class="mono" style="font-size:24px;font-weight:700;color:var(--green)">${deferredTo.length}</div>
+            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(deferredTo.reduce((s,r) => s + (r.valorCaixa||0), 0))} em caixa recebido</div>
+          </div>
+        </div>`;
+
+        // Explanation
+        html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:12px;color:var(--text2);line-height:1.7">
+          <strong style="color:var(--orange)">Regra dos 30 dias:</strong> Se um aluno pagou o plano mas a data de início é superior a 30 dias após o pagamento, a comissão é <strong>diferida</strong> para o mês de início do plano. As 3 condições para ativação válida são: <strong>1)</strong> Pagamento confirmado, <strong>2)</strong> Data de início em até 30 dias, <strong>3)</strong> Comissão calculada para aquele mês.
+        </div>`;
+
+        // Table: deferred FROM this period
+        if (deferredFrom.length > 0) {
+          html += `<h3 style="font-size:14px;margin-bottom:8px;color:var(--orange)">⏳ Comissões adiadas DESTE período</h3>`;
+          html += '<div class="table-wrap" style="max-height:300px;margin-bottom:20px"><table style="width:100%"><thead><tr><th>Vendedor</th><th>Data Pgto</th><th>Cliente</th><th>Item</th><th>Início Plano</th><th>Comissão em</th><th style="text-align:right">Caixa</th><th>Motivo</th></tr></thead><tbody>';
+          deferredFrom.forEach(r => {
+            const [dy, dm] = (r.deferToMonth || '').split('-');
+            const targetLabel = dm ? `${months[parseInt(dm)]}/${dy}` : r.deferToMonth;
+            html += `<tr>
+              <td style="font-weight:600">${r.vendedor||''}</td>
+              <td>${r.data||''}</td>
+              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item||''}</td>
+              <td style="color:var(--orange)">${r.planStartDate||'—'}</td>
+              <td><span class="pill pill-novo">${targetLabel}</span></td>
+              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.deferReason||''}</td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+        }
+
+        // Table: deferred TO this period
+        if (deferredTo.length > 0) {
+          html += `<h3 style="font-size:14px;margin-bottom:8px;color:var(--green)">📥 Comissões recebidas de períodos anteriores para ${periodLabel}</h3>`;
+          html += '<div class="table-wrap" style="max-height:300px"><table style="width:100%"><thead><tr><th>Vendedor</th><th>Data Pgto Original</th><th>Cliente</th><th>Item</th><th>Início Plano</th><th>Origem</th><th style="text-align:right">Caixa</th><th>Status</th></tr></thead><tbody>';
+          deferredTo.forEach(r => {
+            const statusColor = r.status === 'aplicado' ? 'var(--green)' : 'var(--yellow)';
+            const statusLabel = r.status === 'aplicado' ? '✅ Aplicado' : '⏳ Pendente';
+            html += `<tr>
+              <td style="font-weight:600">${r.vendedor||''}</td>
+              <td>${r.data||''}</td>
+              <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:160px;word-break:break-word;white-space:normal">${r.item||''}</td>
+              <td style="color:var(--green)">${r.planStartDate||'—'}</td>
+              <td style="font-size:10px;color:var(--text3)">${r.sourcePeriodId||''}</td>
+              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+              <td style="font-size:11px;color:${statusColor};font-weight:700">${statusLabel}</td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+        }
+
+        if (deferredFrom.length === 0 && deferredTo.length === 0) {
+          html += '<div style="padding:40px;text-align:center;color:var(--text3)">Nenhuma comissão diferida neste período.</div>';
+        }
+
+        el.innerHTML = html;
+      } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // DASHBOARD TAB SWITCHER
+    // ═══════════════════════════════════════════════════════════════
+    function switchDashTab(tabId, btn) {
+      const allTabs = ['tabResumo','tabRegistros','tabComissoes','tabAtivacoes','tabP4','tabExcluidos','tabRelatorio','tabDiferidos'];
+      allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+      document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.style.display = 'block';
+      if (btn) btn.classList.add('active');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BATCH SELECTION (REGISTROS)
+    // ═══════════════════════════════════════════════════════════════
+    let selectedRecordIds = new Set();
+
+    function toggleRecordSelection(docId, checkbox) {
+      if (checkbox.checked) selectedRecordIds.add(docId);
+      else selectedRecordIds.delete(docId);
+      updateBulkButtons();
+    }
+
+    function toggleAllRecords(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.record-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+        if (masterCheckbox.checked) selectedRecordIds.add(cb.dataset.docid);
+        else selectedRecordIds.delete(cb.dataset.docid);
+      });
+      updateBulkButtons();
+    }
+
+    function updateBulkButtons() {
+      const count = selectedRecordIds.size;
+      const btnIgnore = document.getElementById('btnBulkIgnore');
+      const btnSplit = document.getElementById('btnBulkSplit');
+      const countEl = document.getElementById('selectionCount');
+      if (btnIgnore) btnIgnore.style.display = count > 0 ? '' : 'none';
+      if (btnSplit) btnSplit.style.display = count > 0 ? '' : 'none';
+      if (countEl) { countEl.style.display = count > 0 ? '' : 'none'; countEl.textContent = `${count} selecionado(s)`; }
+    }
+
+    async function bulkIgnoreRecords() {
+      if (selectedRecordIds.size === 0 || !currentPeriodId) return;
+      if (!confirm(`Ignorar ${selectedRecordIds.size} registro(s) das comissões?`)) return;
+      try {
+        toast('Ignorando registros...', 'info');
+        const batch = db.batch();
+        selectedRecordIds.forEach(id => {
+          batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id), {
+            type: 'excluded', category: 'ignorada', label: 'Ignorada (lote)'
+          });
+        });
+        await batch.commit();
+        logAudit('record_delete', `Ignorou ${selectedRecordIds.size} registros em lote no período ${currentPeriodId}`);
+        selectedRecordIds.clear();
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Registros ignorados e período recalculado!', 'success');
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    async function bulkSplitRecords() {
+      if (selectedRecordIds.size === 0 || !currentPeriodId) return;
+      const partner = prompt('Nome da vendedora parceira para dividir:');
+      if (!partner || !partner.trim()) return;
+      const ratioStr = prompt('Proporção para a original (0.5 = 50/50, 0.7 = 70/30):', '0.5');
+      const ratio = parseFloat(ratioStr);
+      if (isNaN(ratio) || ratio <= 0 || ratio >= 1) { toast('Proporção inválida.', 'error'); return; }
+      if (!confirm(`Dividir ${selectedRecordIds.size} registro(s) com ${partner.trim().toUpperCase()} (${Math.round(ratio*100)}/${Math.round((1-ratio)*100)})?`)) return;
+      try {
+        toast('Dividindo registros...', 'info');
+        for (const id of selectedRecordIds) {
+          document.getElementById('splitDocId').value = id;
+          document.getElementById('splitOrigVendor').value = '';
+          document.getElementById('splitNewVendor').value = partner.trim().toUpperCase();
+          document.getElementById('splitRatio').value = String(ratio);
+          await saveSplitRecord();
+        }
+        selectedRecordIds.clear();
+        toast('Divisão em lote concluída!', 'success');
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ABA: COMISSÕES P1·P2·P3·P4
+    // ═══════════════════════════════════════════════════════════════
+    async function renderComissoesTab(data, periodId) {
+      const el = document.getElementById('comissoesContent');
+      if (!el) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens').where('type', '==', 'processed').get();
+        const items = [];
+        snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+
+        const vs = data.vendorSummary || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        const t = data.totals || {};
+
+        // Build per-vendor per-sale P1/P2 detail
+        const vendorItems = {};
+        items.forEach(r => {
+          const v = r.vendedor || 'Sem Vendedor';
+          if (!vendorItems[v]) vendorItems[v] = [];
+          vendorItems[v].push(r);
+        });
+
+        let html = `<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="tab-btn active" onclick="switchSubTab('subP1',this)">P1 — % Caixa</button>
+          <button class="tab-btn" onclick="switchSubTab('subP2',this)">P2 — Bônus Fixo</button>
+          <button class="tab-btn" onclick="switchSubTab('subP3',this)">P3 — Meta</button>
+          <button class="tab-btn" onclick="switchSubTab('subP4detail',this)">P4 — Voucher</button>
+        </div>`;
+
+        // ── P1 Detail ──
+        html += '<div id="subP1" class="sub-tab-content">';
+        html += '<h3 style="font-size:14px;margin-bottom:12px;color:var(--green)">P1 — Comissão sobre o Caixa</h3>';
+        Object.entries(vendorItems).sort((a,b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
+          const vData = vs[vName];
+          if (vData?.isNaoCom) return;
+          const p1Total = vItems.reduce((s, r) => s + (r.p1valor || 0), 0);
+          html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-weight:700;font-size:13px">${vName}</span>
+              <span class="mono" style="font-weight:700;color:var(--green)">Total P1: R$ ${fmt(p1Total)}</span>
+            </div>
+            <div class="table-wrap" style="max-height:200px"><table style="width:100%"><thead><tr>
+              <th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">%</th><th style="text-align:right">P1</th>
+            </tr></thead><tbody>`;
+          vItems.forEach(r => {
+            html += `<tr><td>${r.data||''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
+              <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : r.category === 'voucher' ? 'voucher' : 'outro'}">${r.label||r.category||''}</span></td>
+              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+              <td style="text-align:right;color:var(--text3)">${((r.p1pct||0)*100).toFixed(1)}%</td>
+              <td class="currency" style="color:var(--green)">R$ ${fmt(r.p1valor||0)}</td></tr>`;
+          });
+          html += '</tbody></table></div></div>';
+        });
+        html += '</div>';
+
+        // ── P2 Detail ──
+        html += '<div id="subP2" class="sub-tab-content" style="display:none">';
+        html += '<h3 style="font-size:14px;margin-bottom:12px;color:var(--blue)">P2 — Bônus Fixo por Contrato</h3>';
+        Object.entries(vendorItems).sort((a,b) => a[0].localeCompare(b[0])).forEach(([vName, vItems]) => {
+          const vData = vs[vName];
+          if (vData?.isNaoCom) return;
+          const contractItems = vItems.filter(r => (r.p2bonus || 0) > 0);
+          if (contractItems.length === 0) return;
+          const p2Total = contractItems.reduce((s, r) => s + (r.p2bonus || 0), 0);
+          html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-weight:700;font-size:13px">${vName}</span>
+              <span class="mono" style="font-weight:700;color:var(--blue)">Total P2: R$ ${fmt(p2Total)}</span>
+            </div>
+            <div class="table-wrap" style="max-height:200px"><table style="width:100%"><thead><tr>
+              <th>Data</th><th>Cliente</th><th>Plano</th><th style="text-align:right">Bônus P2</th>
+            </tr></thead><tbody>`;
+          contractItems.forEach(r => {
+            html += `<tr><td>${r.data||''}</td><td>${r.cliente||''}</td><td style="font-size:11px">${r.item||''}</td>
+              <td class="currency" style="color:var(--blue)">R$ ${fmt(r.p2bonus||0)}</td></tr>`;
+          });
+          html += '</tbody></table></div></div>';
+        });
+        html += '</div>';
+
+        // ── P3 Detail ──
+        html += '<div id="subP3" class="sub-tab-content" style="display:none">';
+        html += '<h3 style="font-size:14px;margin-bottom:12px;color:var(--orange-light)">P3 — Bônus de Meta da Unidade</h3>';
+        const hitMeta = t.unitAtivacoes >= cfg.meta;
+        const p3TierLabel = t.unitAtivacoes >= cfg.metaGold ? '👑 Gold' : t.unitAtivacoes >= cfg.superMeta ? '🔥 Super' : hitMeta ? '🏅 Meta' : '❌ Não atingida';
+        html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Faixa atual: <strong style="color:var(--orange-light)">${p3TierLabel}</strong> · ${t.unitAtivacoes} ativações</div>`;
+        if (hitMeta) {
+          html += '<div class="table-wrap"><table style="width:100%"><thead><tr><th>Vendedor(a)</th><th style="text-align:right">Caixa P3 Elegível</th><th style="text-align:right">Fixo</th><th style="text-align:right">% Caixa</th><th style="text-align:right">Multiplicador</th><th style="text-align:right">P3 Final</th></tr></thead><tbody>';
+          Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => (b[1].p3||0) - (a[1].p3||0)).forEach(([name, v]) => {
+            html += `<tr><td style="font-weight:600">${name}</td>
+              <td class="currency">R$ ${fmt(v.caixa||0)}</td>
+              <td class="currency">${v.p3 > 0 ? 'R$ ' + fmt(t.unitAtivacoes >= cfg.metaGold ? cfg.goldFixo : t.unitAtivacoes >= cfg.superMeta ? cfg.superFixo : cfg.metaFixo) : '—'}</td>
+              <td class="currency">R$ ${fmt((v.caixa||0) * (cfg.metaPct/100))}</td>
+              <td style="text-align:right;color:var(--text3)">×${v.p3 > 0 && (t.unitRenovacoes < cfg.minRenov || t.unitVouchers < cfg.minVoucher) ? '⚠' : '1.00'}</td>
+              <td class="currency" style="color:var(--orange-light);font-weight:700">R$ ${fmt(v.p3||0)}</td></tr>`;
+          });
+          html += '</tbody></table></div>';
+        } else {
+          html += '<div style="padding:20px;text-align:center;color:var(--text3)">Meta não atingida — P3 zerado para todos.</div>';
+        }
+        html += '</div></div>';
+
+        // ── P4 Detail (sub-tab) ──
+        html += '<div id="subP4detail" class="sub-tab-content" style="display:none">';
+        html += renderP4Report(data);
+        html += '</div>';
+
+        el.innerHTML = html;
+      } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    function switchSubTab(tabId, btn) {
+      document.querySelectorAll('.sub-tab-content').forEach(el => el.style.display = 'none');
+      btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.style.display = 'block';
+      btn.classList.add('active');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ABA: ATIVAÇÕES
+    // ═══════════════════════════════════════════════════════════════
+    async function renderAtivacoesTab(periodId) {
+      const el = document.getElementById('ativacoesContent');
+      if (!el) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens').get();
+        const allItems = [];
+        snap.forEach(doc => allItems.push({ _docId: doc.id, ...doc.data() }));
+
+        const activations = allItems.filter(r => r.type === 'processed' && r.isActivation);
+        const nonActivations = allItems.filter(r => r.type === 'processed' && !r.isActivation);
+
+        let html = `<div style="display:flex;gap:12px;margin-bottom:16px">
+          <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:14px 20px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Ativações Válidas</div>
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--green)">${activations.length}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Itens Processados (sem ativação)</div>
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--text3)">${nonActivations.length}</div>
+          </div>
+        </div>`;
+
+        // Activations table
+        html += '<h3 style="font-size:14px;margin-bottom:8px;color:var(--green)">✅ Contam como Ativação</h3>';
+        html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">São contratos (novos, retornos, renovações) e vouchers. Cada um conta 1 ativação (ou fração se dividido).</div>';
+        html += '<div class="table-wrap" style="max-height:350px"><table style="width:100%"><thead><tr><th>#</th><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th style="text-align:right">Fator</th></tr></thead><tbody>';
+        activations.sort((a,b) => (a.vendedor||'').localeCompare(b.vendedor||'')).forEach((r, i) => {
+          const factor = r.splitAtivacao || 1;
+          html += `<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:600">${r.vendedor||''}</td><td>${r.data||''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
+            <td><span class="pill pill-${r.category === 'novo' ? 'novo' : r.category === 'renovacao' ? 'renovacao' : r.category === 'retorno' ? 'retorno' : 'voucher'}">${r.label||r.category||''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+            <td style="text-align:right;color:${factor < 1 ? 'var(--yellow)' : 'var(--text)'}">${factor < 1 ? factor.toFixed(1) + ' (split)' : '1'}</td></tr>`;
+        });
+        html += '</tbody></table></div>';
+
+        // Non-activations
+        html += '<h3 style="font-size:14px;margin:20px 0 8px;color:var(--text3)">⛔ NÃO contam como Ativação</h3>';
+        html += '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Geram caixa (P1) mas não entram na contagem de metas. Ex: Taxas, matrículas, avulsas, avaliações.</div>';
+        html += '<div class="table-wrap" style="max-height:250px"><table style="width:100%"><thead><tr><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th>Motivo</th></tr></thead><tbody>';
+        nonActivations.forEach(r => {
+          html += `<tr style="opacity:0.7"><td>${r.vendedor||''}</td><td>${r.data||''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+            <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
+            <td><span class="pill pill-outro">${r.label||r.category||''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+            <td style="font-size:10px;color:var(--text3)">${r.category === 'matricula' ? 'Taxa/Matrícula' : r.category === 'avulsa' ? 'Avulsa' : r.category === 'diferenca' ? 'Diferença' : r.category === 'avaliacao' ? 'Avaliação' : 'Sem contrato'}</td></tr>`;
+        });
+        html += '</tbody></table></div>';
+
+        el.innerHTML = html;
+      } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ABA: EXCLUÍDOS & PASSES
+    // ═══════════════════════════════════════════════════════════════
+    async function renderExcluidosTab(periodId) {
+      const el = document.getElementById('excluidosContent');
+      if (!el) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens').where('type', '==', 'excluded').get();
+        const items = [];
+        snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+
+        // Group by reason
+        const groups = {};
+        items.forEach(r => {
+          const reason = r._reason || r.label || r.category || 'Outro';
+          if (!groups[reason]) groups[reason] = [];
+          groups[reason].push(r);
+        });
+
+        // GymPass/TotalPass specific
+        const gympass = items.filter(r => (r._group === 'gympass' || (r._reason||'').includes('Gympass')));
+        const totalpass = items.filter(r => (r._group === 'totalpass' || (r._reason||'').includes('TotalPass')));
+        const permutas = items.filter(r => (r._group === 'permuta' || (r._reason||'').includes('Permuta')));
+        const renovAuto = items.filter(r => (r._reason||'').includes('automática') || (r._reason||'').includes('Renovação de recorrente'));
+
+        const gymCaixa = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+        const totalCaixa = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+        const permutaCount = permutas.length;
+        const renovAutoCount = renovAuto.length;
+        const renovAutoCaixa = renovAuto.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+
+        let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ GymPass/Wellhub</div>
+            <div class="mono" style="font-size:18px;font-weight:700">${gympass.length} vendas</div>
+            <div class="mono" style="font-size:14px;color:var(--purple)">R$ ${fmt(gymCaixa)}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--blue);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ TotalPass</div>
+            <div class="mono" style="font-size:18px;font-weight:700">${totalpass.length} vendas</div>
+            <div class="mono" style="font-size:14px;color:var(--blue)">R$ ${fmt(totalCaixa)}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--yellow);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔄 Permutas</div>
+            <div class="mono" style="font-size:18px;font-weight:700">${permutaCount} ativas</div>
+            <div style="font-size:10px;color:var(--text3)">Não geram comissão</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--text3);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔁 Renov. Automáticas</div>
+            <div class="mono" style="font-size:18px;font-weight:700">${renovAutoCount} planos</div>
+            <div class="mono" style="font-size:14px;color:var(--text3)">R$ ${fmt(renovAutoCaixa)}</div>
+          </div>
+        </div>`;
+
+        // Detail tables for each group
+        const renderGroupTable = (title, color, groupItems) => {
+          if (groupItems.length === 0) return '';
+          let t = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
+            <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:8px">${title} (${groupItems.length})</div>
+            <div class="table-wrap" style="max-height:200px"><table style="width:100%"><thead><tr>
+              <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor</th><th>Motivo</th>
+            </tr></thead><tbody>`;
+          groupItems.forEach(r => {
+            t += `<tr><td>${r.vendedor||''}</td><td>${r.data||''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item||''}</td>
+              <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td><td style="font-size:10px;color:var(--text3)">${r._reason||r.label||''}</td></tr>`;
+          });
+          t += '</tbody></table></div></div>';
+          return t;
+        };
+
+        html += renderGroupTable('GymPass / Wellhub', 'var(--purple)', gympass);
+        html += renderGroupTable('TotalPass', 'var(--blue)', totalpass);
+        html += renderGroupTable('Permutas', 'var(--yellow)', permutas);
+        html += renderGroupTable('Renovações Automáticas / Recorrentes', 'var(--text2)', renovAuto);
+
+        // Other exclusions
+        const outros = items.filter(r => !gympass.includes(r) && !totalpass.includes(r) && !permutas.includes(r) && !renovAuto.includes(r));
+        html += renderGroupTable('Outras Exclusões', 'var(--text3)', outros);
+
+        el.innerHTML = html;
+      } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ABA: RELATÓRIO INDIVIDUAL POR VENDEDORA
+    // ═══════════════════════════════════════════════════════════════
+    async function renderRelatorioTab(data, periodId) {
+      const el = document.getElementById('relatorioContent');
+      if (!el) return;
+      const vs = data.vendorSummary || {};
+      const vendorNames = Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => a[0].localeCompare(b[0]));
+
+      let html = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <div>
+          <label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px">Vendedor(a)</label>
+          <select id="relatorioVendorSelect" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif" onchange="renderVendorReport()">
+            <option value="">Selecione</option>
+            ${vendorNames.map(([n]) => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-sm" style="margin-top:16px" onclick="exportVendorReport()">📥 Exportar Excel</button>
+        <button class="btn btn-sm btn-ghost" style="margin-top:16px" onclick="exportAllVendorsReport()">📥 Exportar Todos</button>
+      </div>
+      <div id="vendorReportDetail"></div>`;
+      el.innerHTML = html;
+    }
+
+    async function renderVendorReport() {
+      const vendorName = document.getElementById('relatorioVendorSelect')?.value;
+      const el = document.getElementById('vendorReportDetail');
+      if (!el || !vendorName || !currentPeriodId) { if (el) el.innerHTML = ''; return; }
+
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Gerando relatório...</div>';
+
+      try {
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').where('vendedor', '==', vendorName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+        const processed = items.filter(r => r.type === 'processed' || r.type !== 'excluded');
+
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        const pData = periodDoc.data();
+        const vs = pData?.vendorSummary || {};
+        const myData = vs[vendorName] || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+        let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div>
+              <div style="font-size:18px;font-weight:700;color:var(--orange)">${vendorName}</div>
+              <div style="font-size:11px;color:var(--text3)">Relatório detalhado de comissão</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:10px;color:var(--text3)">TOTAL A RECEBER</div>
+              <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.grandTotal||0)}</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P1</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--green)">R$ ${fmt(myData.p1||0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P2</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--blue)">R$ ${fmt(myData.p2||0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P3</div><div class="mono" style="font-size:14px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3||0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4i</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4i||0)}</div></div>
+            <div style="background:var(--bg);border-radius:6px;padding:10px;text-align:center"><div style="font-size:9px;color:var(--text3)">P4p</div><div class="mono" style="font-size:14px;font-weight:700">R$ ${fmt(myData.p4p||0)}</div></div>
+          </div>
+        </div>`;
+
+        // Detailed P1/P2 per sale
+        html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px">
+          <h4 style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Detalhamento por Venda (P1 + P2)</h4>
+          <div class="table-wrap" style="max-height:400px"><table style="width:100%"><thead><tr>
+            <th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th>
+            <th style="text-align:right">P1 (%)</th><th style="text-align:right">P1 (R$)</th><th style="text-align:right">P2 (R$)</th><th style="text-align:right">P1+P2</th>
+          </tr></thead><tbody>`;
+
+        let sumP1 = 0, sumP2 = 0;
+        processed.sort((a,b) => {
+          const pA = (a.data||'').split('/'); const pB = (b.data||'').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2],pA[1]-1,pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2],pB[1]-1,pB[0]).getTime() : 0;
+          return dB - dA;
+        }).forEach(r => {
+          const p1 = r.p1valor || 0;
+          const p2 = r.p2bonus || 0;
+          sumP1 += p1; sumP2 += p2;
+          const pillCls = r.category === 'novo' ? 'pill-novo' : r.category === 'renovacao' ? 'pill-renovacao' : r.category === 'retorno' ? 'pill-retorno' : r.category === 'voucher' ? 'pill-voucher' : 'pill-outro';
+          html += `<tr>
+            <td>${r.data||''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item||''}</td>
+            <td><span class="pill ${pillCls}">${r.label||r.category||''}</span></td>
+            <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+            <td style="text-align:right;color:var(--text3);font-size:10px">${((r.p1pct||0)*100).toFixed(1)}%</td>
+            <td class="currency" style="color:var(--green)">R$ ${fmt(p1)}</td>
+            <td class="currency" style="color:var(--blue)">R$ ${fmt(p2)}</td>
+            <td class="currency" style="font-weight:700">R$ ${fmt(p1+p2)}</td>
+          </tr>`;
+        });
+        html += `</tbody><tfoot><tr class="total-row">
+          <td colspan="5" style="font-weight:700">TOTAL P1 + P2</td>
+          <td></td>
+          <td class="currency" style="color:var(--green);font-weight:700">R$ ${fmt(sumP1)}</td>
+          <td class="currency" style="color:var(--blue);font-weight:700">R$ ${fmt(sumP2)}</td>
+          <td class="currency" style="font-weight:700">R$ ${fmt(sumP1+sumP2)}</td>
+        </tr></tfoot></table></div></div>`;
+
+        el.innerHTML = html;
+      } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    async function exportVendorReport() {
+      const vendorName = document.getElementById('relatorioVendorSelect')?.value;
+      if (!vendorName || !currentPeriodId) { toast('Selecione uma vendedora.', 'error'); return; }
+      try {
+        toast('Gerando relatório...', 'info');
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').where('vendedor', '==', vendorName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+        const processed = items.filter(r => r.type !== 'excluded');
+
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        const pData = periodDoc.data();
+        const myData = (pData?.vendorSummary || {})[vendorName] || {};
+
+        const rows = [['RELATÓRIO DE COMISSÃO — ' + vendorName], [],
+          ['P1 (% Caixa)', myData.p1 || 0], ['P2 (Bônus Fixo)', myData.p2 || 0],
+          ['P3 (Meta Unidade)', myData.p3 || 0], ['P4 Individual', myData.p4i || 0],
+          ['P4 Pool', myData.p4p || 0], ['TOTAL', myData.grandTotal || 0],
+          [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa (R$)', 'P1 %', 'P1 (R$)', 'P2 (R$)', 'P1+P2 (R$)']
+        ];
+        processed.forEach(r => {
+          rows.push([r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
+            r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, vendorName.substring(0, 31));
+        const sel = document.getElementById('periodSelect');
+        const pName = (sel?.options[sel.selectedIndex]?.text || currentPeriodId).replace(/\s+/g, '_');
+        XLSX.writeFile(wb, `Comissao_${vendorName}_${pName}.xlsx`);
+        toast('Relatório exportado!', 'success');
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    async function exportAllVendorsReport() {
+      if (!currentPeriodId) return;
+      try {
+        toast('Gerando relatórios de todas as vendedoras...', 'info');
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').get();
+        const allItems = [];
+        snap.forEach(doc => allItems.push(doc.data()));
+
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        const pData = periodDoc.data();
+        const vs = pData?.vendorSummary || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase());
+
+        const wb = XLSX.utils.book_new();
+
+        // Summary sheet
+        const summaryRows = [['Vendedor', 'P1', 'P2', 'P3', 'P4i', 'P4p', 'Total', 'Ativações', 'Caixa']];
+        Object.entries(vs).filter(([n,v]) => !v.isNaoCom).sort((a,b) => (b[1].grandTotal||0) - (a[1].grandTotal||0)).forEach(([name, v]) => {
+          summaryRows.push([name, v.p1||0, v.p2||0, v.p3||0, v.p4i||0, v.p4p||0, v.grandTotal||0, v.ativacoes||0, v.caixa||0]);
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Resumo Geral');
+
+        // Per-vendor sheets
+        Object.entries(vs).filter(([n,v]) => !v.isNaoCom).forEach(([name, v]) => {
+          const vendorItems = allItems.filter(r => r.vendedor === name && r.type !== 'excluded');
+          const rows = [
+            ['COMISSÃO — ' + name], [],
+            ['P1', v.p1||0], ['P2', v.p2||0], ['P3', v.p3||0], ['P4i', v.p4i||0], ['P4p', v.p4p||0], ['TOTAL', v.grandTotal||0],
+            [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa', 'P1%', 'P1 R$', 'P2 R$', 'P1+P2']
+          ];
+          vendorItems.forEach(r => {
+            rows.push([r.data||'', r.cliente||'', r.item||'', r.label||r.category||'',
+              r.valorCaixa||0, (r.p1pct||0)*100, r.p1valor||0, r.p2bonus||0, (r.p1valor||0)+(r.p2bonus||0)]);
+          });
+          const sheetName = name.substring(0, 31).replace(/[\\\/\?\*\[\]]/g, '');
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
+        });
+
+        const sel = document.getElementById('periodSelect');
+        const pName = (sel?.options[sel.selectedIndex]?.text || currentPeriodId).replace(/\s+/g, '_');
+        XLSX.writeFile(wb, `Comissoes_Individuais_${pName}.xlsx`);
+        toast('Relatório de todas as vendedoras exportado!', 'success');
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
 
     // ═══════════════════════════════════════════════════════════════
