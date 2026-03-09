@@ -5684,7 +5684,16 @@
         snap.forEach(doc => auditCache.push({ id: doc.id, ...doc.data() }));
         filterAuditLog();
       } catch (e) {
-        el.innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px">Erro ao carregar logs: ${e.message}<br><br><span style="color:var(--text3);font-size:11px">Se for a primeira vez, o Firestore pode precisar de um índice. O erro acima deve conter um link para criá-lo.</span></div>`;
+        let errorMsg = e.message;
+        // Se conter url do firebase, transforma num botão clicável
+        const urlMatch = errorMsg.match(/(https:\/\/console\.firebase\.google\.com[^\s]+)/);
+        if (urlMatch) {
+          errorMsg = errorMsg.replace(urlMatch[0], `<br><br><a href="${urlMatch[0]}" target="_blank" style="display:inline-block;background:var(--orange);color:#000;padding:8px 16px;border-radius:4px;text-decoration:none;font-weight:bold;">👉 Clique aqui para Criar o Índice no Firebase</a>`);
+        }
+        el.innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px">
+          <strong>Erro ao carregar logs:</strong><br><br>${errorMsg}<br><br>
+          <span style="color:var(--text3);font-size:11px">O Firestore exige a criação de um "Índice Composto" para cruzar os dados da unidade com a data da ação. Basta clicar no botão acima, confirmar no Firebase e aguardar ~2 minutos.</span>
+        </div>`;
       }
     }
 
