@@ -4263,15 +4263,52 @@
       const badges = calcBadges(myData, myName, allPeriodsForBadges);
       html += renderBadgesHtml(badges);
 
-      // ── Cards: composição + meta unidade ──
+      // ── Cards: composição detalhada + meta unidade ──
+      // Calculate P3 in real-time for detailed breakdown
+      const p3Detail = CommissionEngine.calcP3(t.unitAtivacoes, t.unitNovosRetorno || 0, t.unitRenovacoes || 0, t.unitVouchers || 0, myData.caixa || 0, cfg);
+      const p3TierLabel = p3Detail.tierLabel || (myData.p3 > 0 ? 'Meta' : 'Não atingida');
+      const p3Motivos = p3Detail.motivos || [];
+
       html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
-          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Composição da Comissão</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div><span style="font-size:10px;color:var(--text2)">P1: % Caixa</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1 || 0)}</div></div>
-            <div><span style="font-size:10px;color:var(--text2)">P2: Bônus Fixo</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2 || 0)}</div></div>
-            <div><span style="font-size:10px;color:var(--text2)">P3: Meta</span><div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div></div>
-            <div><span style="font-size:10px;color:var(--text2)">P4: Voucher</span><div class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div></div>
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:14px">Composição da Comissão</div>
+
+          <div style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:600;color:var(--text)">P1: % sobre Caixa</span>
+              <span class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p1 || 0)}</span>
+            </div>
+            <div style="font-size:10px;color:var(--text3)">Caixa R$ ${fmt(myData.caixa || 0)} × ${cfg.pctNovo}% (novos) / ${cfg.pctRenov}% (renov.)</div>
+          </div>
+
+          <div style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:600;color:var(--text)">P2: Bônus Fixo</span>
+              <span class="mono" style="font-size:16px;font-weight:700">R$ ${fmt(myData.p2 || 0)}</span>
+            </div>
+            <div style="font-size:10px;color:var(--text3)">${Math.round(myData.novos || 0)} novos × R$${cfg.bonusAnualLocal}-${cfg.bonusBianual} + ${Math.round(myData.renovacoes || 0)} renov.</div>
+          </div>
+
+          <div style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:600;color:var(--orange-light)">P3: Meta da Unidade</span>
+              <span class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</span>
+            </div>
+            <div style="font-size:10px;color:var(--text3)">Faixa: ${p3TierLabel} · Fixo R$${p3Detail.fixo || 0} + ${cfg.metaPct}% do caixa</div>
+            ${p3Motivos.length > 0 ? `<div style="font-size:10px;color:var(--yellow);margin-top:3px">${p3Motivos.join(' · ')}</div>` : ''}
+          </div>
+
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:600;color:var(--text)">P4: Voucher</span>
+              <span class="mono" style="font-size:16px;font-weight:700">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</span>
+            </div>
+            <div style="font-size:10px;color:var(--text3)">Individual: R$ ${fmt(myData.p4i || 0)} · Pool: R$ ${fmt(myData.p4p || 0)}</div>
+          </div>
+
+          <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:11px;font-weight:700;color:var(--orange)">TOTAL</span>
+            <span class="mono" style="font-size:20px;font-weight:700;color:var(--orange)">R$ ${fmt(myData.grandTotal || 0)}</span>
           </div>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
@@ -4328,10 +4365,9 @@
 
 
     function updateSimulatorUI() {
-      const vendorName = document.getElementById('splitNewVendor')?.value || ''; // Just safecheck
       // get the data straight from window.currentVendorSummary and current metadata
       const vs = window.currentVendorSummary || {};
-      const myName = Object.keys(vs).find(n => window.userProfile && n.toUpperCase().includes((window.userProfile.name || '').toUpperCase()));
+      const myName = Object.keys(vs).find(n => userProfile && n.toUpperCase().includes((userProfile.name || '').toUpperCase()));
       if (!myName || !vs[myName]) return;
 
       const myData = vs[myName];

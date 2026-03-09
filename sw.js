@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API calls
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crosstrainer-v2.1';
+const CACHE_NAME = 'crosstrainer-v2.2';
 const STATIC_ASSETS = [
   './',
   './index.html',
