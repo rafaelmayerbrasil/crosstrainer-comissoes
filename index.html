@@ -3012,14 +3012,22 @@
           </div>
           
           <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-              <h4 style="margin:0;font-size:13px;color:var(--text2)">Revisão de Registros</h4>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <h4 style="margin:0;font-size:13px;color:var(--text2)">Revisão de Registros</h4>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <button class="btn btn-sm btn-ghost" id="btnPreviewBulkIgnore" style="display:none;background:var(--bg)" onclick="bulkTogglePreview(true)">🗑️ Ignorar Selecionados</button>
+                  <button class="btn btn-sm btn-ghost" id="btnPreviewBulkActivate" style="display:none;background:var(--bg)" onclick="bulkTogglePreview(false)">✅ Ativar Selecionados</button>
+                  <span id="previewSelectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
+                </div>
+              </div>
               <input type="text" placeholder="🔍 Pesquisar vendedor, cliente, item..." style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:12px;width:250px" oninput="setPreviewFilter(this.value)">
             </div>
             <div id="uploadPreviewTableWrap"></div>
           </div>
         </div>`;
 
+          selectedPreviewKeys.clear();
           renderPreviewTable();
 
           toast(`Arquivo processado: ${result.processed.length} itens.`, 'success');
@@ -3052,9 +3060,75 @@
 
     let pendingPreviewSort = { col: 'vendedor', asc: true };
     let pendingPreviewFilter = '';
+    let selectedPreviewKeys = new Set(); // Stores format: "listType-index", e.g. "processed-5" or "excluded-2"
 
     function setPreviewFilter(val) {
       pendingPreviewFilter = val.toLowerCase();
+      renderPreviewTable();
+    }
+
+    function togglePreviewSelection(key, checkbox) {
+      if (checkbox.checked) selectedPreviewKeys.add(key);
+      else selectedPreviewKeys.delete(key);
+      updatePreviewBulkButtons();
+    }
+
+    function toggleAllPreview(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.preview-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+        if (masterCheckbox.checked) selectedPreviewKeys.add(cb.value);
+        else selectedPreviewKeys.delete(cb.value);
+      });
+      updatePreviewBulkButtons();
+    }
+
+    function updatePreviewBulkButtons() {
+      const count = selectedPreviewKeys.size;
+      const btnIgn = document.getElementById('btnPreviewBulkIgnore');
+      const btnAct = document.getElementById('btnPreviewBulkActivate');
+      const countEl = document.getElementById('previewSelectionCount');
+      if (btnIgn) btnIgn.style.display = count > 0 ? '' : 'none';
+      if (btnAct) btnAct.style.display = count > 0 ? '' : 'none';
+      if (countEl) { countEl.style.display = count > 0 ? '' : 'none'; countEl.textContent = `${count} selecionado(s)`; }
+    }
+
+    function bulkTogglePreview(toIgnore) {
+      if (!pendingUpload || selectedPreviewKeys.size === 0) return;
+
+      const procIdxs = [];
+      const exclIdxs = [];
+      selectedPreviewKeys.forEach(k => {
+        const [list, idxStr] = k.split('-');
+        if (list === 'processed') procIdxs.push(parseInt(idxStr));
+        else exclIdxs.push(parseInt(idxStr));
+      });
+      procIdxs.sort((a, b) => b - a);
+      exclIdxs.sort((a, b) => b - a);
+
+      if (toIgnore) {
+        procIdxs.forEach(idx => {
+          const item = pendingUpload.result.processed.splice(idx, 1)[0];
+          item.category = 'ignorada';
+          item.label = 'Ignorada (lote)';
+          pendingUpload.result.excluded.push(item);
+        });
+      } else {
+        exclIdxs.forEach(idx => {
+          const item = pendingUpload.result.excluded.splice(idx, 1)[0];
+          item.category = CommissionEngine.mapCategory(item.item || '', item.tipoVenda || '');
+          item.label = item.category;
+          pendingUpload.result.processed.push(item);
+        });
+      }
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const newResult = CommissionEngine.calculate(pendingUpload.rawRows, cfg);
+      newResult.processed = pendingUpload.result.processed;
+      newResult.excluded = pendingUpload.result.excluded;
+      pendingUpload.result = newResult;
+
+      selectedPreviewKeys.clear();
       renderPreviewTable();
     }
 
@@ -3089,6 +3163,7 @@
       newResult.excluded = pendingUpload.result.excluded;
       pendingUpload.result = newResult;
 
+      selectedPreviewKeys.clear(); // Clear selections after a single toggle disrupts indices
       renderPreviewTable();
     }
 
@@ -3135,6 +3210,7 @@
 
       let tHtml = '<div class="table-wrap" style="max-height:350px;overflow-y:auto">' +
         '<table><thead><tr>' +
+        '<th style="width:30px"><input type="checkbox" onchange="toggleAllPreview(this)" title="Selecionar todos"></th>' +
         '<th onclick="sortPreview(\'vendedor\')" style="cursor:pointer;user-select:none">Vendedor' + sortIcon('vendedor') + '</th>' +
         '<th onclick="sortPreview(\'cliente\')" style="cursor:pointer;user-select:none">Cliente' + sortIcon('cliente') + '</th>' +
         '<th onclick="sortPreview(\'item\')" style="cursor:pointer;user-select:none">Item' + sortIcon('item') + '</th>' +
@@ -3147,7 +3223,10 @@
 
       allItems.forEach(r => {
         const isProc = r._origList === 'processed';
+        const cbVal = r._origList + '-' + r._origIdx;
+        const checked = selectedPreviewKeys.has(cbVal) ? 'checked' : '';
         tHtml += '<tr style="opacity:' + (isProc ? '1' : '0.6') + '">' +
+          '<td><input type="checkbox" class="preview-checkbox" value="' + cbVal + '" onchange="togglePreviewSelection(\'' + cbVal + '\', this)" ' + checked + '></td>' +
           '<td>' + (r.vendedor || '') + '</td>' +
           '<td style="max-width:140px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
           '<td style="max-width:140px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
@@ -3165,6 +3244,7 @@
 
       tHtml += '</tbody></table></div>';
       wrap.innerHTML = tHtml;
+      updatePreviewBulkButtons();
     }
 
     async function confirmUpload() {
@@ -3857,6 +3937,7 @@
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
+            <button class="btn btn-sm btn-ghost" id="btnBulkActivate" style="display:none;color:var(--green);border-color:var(--green)" onclick="bulkRestoreRecords()">✅ Ativar Selecionados</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="bulkSplitRecords()">➗ Dividir Selecionados</button>
             <span id="selectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
           </div>
@@ -4807,9 +4888,11 @@
       const count = selectedRecordIds.size;
       const btnIgnore = document.getElementById('btnBulkIgnore');
       const btnSplit = document.getElementById('btnBulkSplit');
+      const btnActivate = document.getElementById('btnBulkActivate');
       const countEl = document.getElementById('selectionCount');
       if (btnIgnore) btnIgnore.style.display = count > 0 ? '' : 'none';
       if (btnSplit) btnSplit.style.display = count > 0 ? '' : 'none';
+      if (btnActivate) btnActivate.style.display = count > 0 ? '' : 'none';
       if (countEl) { countEl.style.display = count > 0 ? '' : 'none'; countEl.textContent = `${count} selecionado(s)`; }
     }
 
@@ -4852,6 +4935,29 @@
         }
         selectedRecordIds.clear();
         toast('Divisão em lote concluída!', 'success');
+      } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    async function bulkRestoreRecords() {
+      if (selectedRecordIds.size === 0 || !currentPeriodId) return;
+      if (!confirm(`Ativar ${selectedRecordIds.size} registro(s) ignorado(s)?`)) return;
+      try {
+        toast('Ativando registros...', 'info');
+        const batch = db.batch();
+        const items = currentPeriodItems.filter(r => selectedRecordIds.has(r._docId));
+
+        items.forEach(r => {
+          const cat = CommissionEngine.mapCategory(r.item || '', r.tipoVenda || '');
+          batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(r._docId), {
+            type: 'processed', category: cat, label: cat
+          });
+        });
+        await batch.commit();
+        logAudit('record_restore', `Ativou ${selectedRecordIds.size} registros em lote no período ${currentPeriodId}`);
+        selectedRecordIds.clear();
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Registros ativados e período recalculado!', 'success');
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
 
