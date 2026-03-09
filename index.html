@@ -1576,7 +1576,7 @@
               style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P2
               → Bônus Fixo</span>
             <span
-              style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--orange);">P3
+              style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P3
               → Meta Coletiva</span>
             <span
               style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:11px; font-weight:700; color:var(--text2);">P4
@@ -1617,9 +1617,13 @@
                 <div style="font-size:10px; color:var(--text3);">do valor pago</div>
               </div>
             </div>
-            <div style="margin-top:10px; font-size:11px; color:var(--text3); font-style:italic;">
-              💡 Exemplo: Venda nova de Anual Local (R$3.108) → P1 = R$3.108 × 5% = <strong
-                style="color:var(--green)">R$155,40</strong>
+            <div style="margin-top:10px; font-size:11px; color:var(--text3); line-height:1.5;">
+              💡 <strong>Importante:</strong> A comissão baseia-se no que <strong>efetivamente entrou no caixa do
+                mês</strong>.<br>
+              <em>Exemplo: O cliente comprou um plano de R$ 3.108, mas o que entrou no caixa agora foi somente a 1ª
+                parcela de R$ 259. A comissão incide apenas sobre esse valor real recebido: P1 = R$ 259 × 5% = <strong
+                  style="color:var(--green)">R$ 12,95</strong>. As demais parcelas dos meses seguintes continuam não
+                gerando comissão.</em>
             </div>
           </div>
         </div>
@@ -1693,36 +1697,37 @@
             style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; font-size:12px; color:var(--text2); line-height:1.7;">
             Se a <strong>unidade inteira</strong> atingir a meta de ativações no mês, cada vendedor(a) recebe um bônus
             composto por um valor fixo + percentual sobre o caixa que gerou.
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px;">
-              <div
-                style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--border);">
-                <div style="font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px;">🏅 Meta
+            <div
+              style="background:var(--bg); border-radius:6px; padding:16px; border:1px solid var(--border); margin-top:12px;">
+              <div style="font-size:12px; color:var(--text); margin-bottom:8px; font-weight:700;">Como funciona a
+                escalada?</div>
+              <div style="font-size:11px; color:var(--text2); line-height:1.6; margin-bottom:12px;">
+                As metas da unidade são reajustadas mês a mês pelo gestor. Conforme a meta principal é batida, vocês
+                ativam diferentes faixas de <strong>Prêmio Fixo</strong>. A regra é simples: bateu a meta anterior,
+                entra na próxima! Todo nível conta com +0,5% do caixa de bônus adicional.
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div
+                  style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface); border-radius:4px; border-left:3px solid var(--text3);">
+                  <div><span style="font-size:12px; margin-right:6px;">🏅</span><strong
+                      style="font-size:11px; color:var(--text)">Nível 1 (Meta)</strong></div>
+                  <div style="font-size:10px; color:var(--text2);">Prêmio Inicial <span
+                      style="color:var(--text3); margin:0 4px;">|</span> + 0,5% do caixa</div>
                 </div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
                 <div
-                  style="font-size:14px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  Prêmio Fixo</div>
-                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
-              </div>
-              <div
-                style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange);">
-                <div style="font-size:9px; color:var(--orange); text-transform:uppercase; letter-spacing:.5px;">🔥 Super
-                  Meta</div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
+                  style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface); border-radius:4px; border-left:3px solid var(--text2);">
+                  <div><span style="font-size:12px; margin-right:6px;">🔥</span><strong
+                      style="font-size:11px; color:var(--text)">Nível 2 (Super Meta)</strong></div>
+                  <div style="font-size:10px; color:var(--text2);">Prêmio Intermediário <span
+                      style="color:var(--text3); margin:0 4px;">|</span> + 0,5% do caixa</div>
+                </div>
                 <div
-                  style="font-size:14px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  Prêmio Fixo</div>
-                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
-              </div>
-              <div
-                style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange-light);">
-                <div style="font-size:9px; color:var(--orange-light); text-transform:uppercase; letter-spacing:.5px;">👑
-                  Gold</div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
-                <div
-                  style="font-size:14px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  Prêmio Fixo</div>
-                <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
+                  style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface); border-radius:4px; border-left:3px solid var(--text);">
+                  <div><span style="font-size:12px; margin-right:6px;">👑</span><strong
+                      style="font-size:11px; color:var(--text)">Nível 3 (Gold)</strong></div>
+                  <div style="font-size:10px; color:var(--text2);">Prêmio Máximo <span
+                      style="color:var(--text3); margin:0 4px;">|</span> + 0,5% do caixa</div>
+                </div>
               </div>
             </div>
             <div style="margin-top:8px; font-size:11px; color:var(--orange); font-style:italic;">
@@ -1746,12 +1751,12 @@
                   <div style="background:var(--bg); border-radius:4px; padding:6px; text-align:center; font-size:10px;">
                     <div style="font-weight:700; color:var(--text);">Renovações</div>
                     <div style="color:var(--text3);">mín. 25</div>
-                    <div style="color:var(--yellow); font-weight:700; font-size:9px;">Não bateu → P3 × 0,70</div>
+                    <div style="color:var(--red); font-weight:700; font-size:9px;">Não bateu → P3 × 0,70</div>
                   </div>
                   <div style="background:var(--bg); border-radius:4px; padding:6px; text-align:center; font-size:10px;">
                     <div style="font-weight:700; color:var(--text);">Vouchers</div>
                     <div style="color:var(--text3);">mín. 7</div>
-                    <div style="color:var(--yellow); font-weight:700; font-size:9px;">Não bateu → P3 × 0,85</div>
+                    <div style="color:var(--red); font-weight:700; font-size:9px;">Não bateu → P3 × 0,85</div>
                   </div>
                 </div>
                 <div style="font-size:10px; color:var(--text3); margin-top:6px; font-style:italic;">Se renovações E
