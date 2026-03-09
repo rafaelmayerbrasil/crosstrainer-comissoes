@@ -180,7 +180,8 @@
     }
 
     .sb-nav {
-      flex: 1
+      flex: 1;
+      overflow-y: auto;
     }
 
     .sb-item {
@@ -3540,6 +3541,8 @@
 
         const origRatio = origData.splitAtivacao || 1;
         const baseCaixa = (origData.valorCaixa || 0) / origRatio; // Retrieve true 100% value if already split once
+        const baseP1 = (origData.p1valor || 0) / origRatio;
+        const baseP2 = (origData.p2bonus || 0) / origRatio;
 
         const newOrigRatio = origRatio * ratioVal;
         const newPartnerRatio = origRatio * (1 - ratioVal);
@@ -3549,6 +3552,9 @@
         // Update original
         batch.update(origRef, {
           valorCaixa: baseCaixa * newOrigRatio,
+          p1valor: baseP1 * newOrigRatio,
+          p2bonus: baseP2 * newOrigRatio,
+          totalP1P2: (baseP1 + baseP2) * newOrigRatio,
           splitAtivacao: newOrigRatio,
           splitWith: partner,
           item: (origData.item || '') + ` (Split: ${Math.round(newOrigRatio * 100)}%)`
@@ -3560,6 +3566,9 @@
           ...origData,
           vendedor: partner,
           valorCaixa: baseCaixa * newPartnerRatio,
+          p1valor: baseP1 * newPartnerRatio,
+          p2bonus: baseP2 * newPartnerRatio,
+          totalP1P2: (baseP1 + baseP2) * newPartnerRatio,
           splitAtivacao: newPartnerRatio,
           splitWith: origData.vendedor || '',
           item: (origData.item || '') + ` (Split: ${Math.round(newPartnerRatio * 100)}%)`,
