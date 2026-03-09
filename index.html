@@ -4,12 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CrossTrainer — Comissões</title>
+  <title>CROSSTRAINER ELITE — Performance</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CrossTrainer">
+  <meta name="apple-mobile-web-app-title" content="CROSSTRAINER ELITE">
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -1627,8 +1627,9 @@
           <div>
             <h3
               style="font-size:20px; color:var(--orange); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
-              📜 Regras da Comissão</h3>
-            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CrossTrainer — Sistema de Comissões P1 a P4
+              📜 Regras da Elite</h3>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CROSSTRAINER ELITE — Performance, Metas e
+              Conquistas
             </div>
           </div>
           <button type="button" class="close-btn" onclick="closeRulesModal()"
@@ -2386,8 +2387,8 @@
           </svg>
         </div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--orange);">
-          CROSS<span style="color:var(--text)">TRAINER</span></div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Sistema de Comissões</div>
+          CROSSTRAINER <span style="color:var(--text)">ELITE</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">Performance, Metas e Conquistas.</div>
       </div>
       <div
         style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;text-align:left">
@@ -2396,7 +2397,7 @@
           Informações do App</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.8">
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Versão</span><span
-              class="mono" style="color:var(--text)">2.0.0</span></div>
+              class="mono" style="color:var(--text)">1.0.0</span></div>
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Build</span><span
               class="mono" style="color:var(--text)">2026.03</span></div>
           <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Engine</span><span
@@ -2518,8 +2519,8 @@
   <!-- LOGIN PAGE -->
   <div class="login-page" id="loginPage">
     <div class="login-box">
-      <div class="logo">CROSS<span>TRAINER</span></div>
-      <div class="sub">Sistema de Comissões</div>
+      <div class="logo">CROSSTRAINER <span>ELITE</span></div>
+      <div class="sub">Performance, Metas e Conquistas</div>
       <div id="loginForm">
         <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com">
         </div>
@@ -2528,7 +2529,7 @@
         <div class="error-msg" id="loginError"></div>
         <div class="link-btn" onclick="forgotPassword()">Esqueci minha senha</div>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:24px;cursor:pointer" onclick="openAboutModal()">v2.0 ·
+      <div style="font-size:10px;color:var(--text3);margin-top:24px;cursor:pointer" onclick="openAboutModal()">v1.0 ·
         por Rafael Mayer Brasil</div>
     </div>
   </div>
@@ -2543,7 +2544,7 @@
             <rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2" />
             <path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
           </svg></div>
-        <div class="sb-logo-text">CROSS<span>TRAINER</span></div>
+        <div class="sb-logo-text">CROSSTRAINER <span>ELITE</span></div>
       </div>
       <nav class="sb-nav" id="sidebarNav"></nav>
       <div class="sb-user">
@@ -4154,9 +4155,8 @@
       const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
-      // Recalc P3
       Object.entries(vendorData).forEach(([name, v]) => {
-        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
+        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] }; return; }
         const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
         v.p3 = p3.final; v.p3detail = p3;
       });
@@ -4173,7 +4173,7 @@
         novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
         caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
         p3Tier: v.p3detail ? v.p3detail.tierLabel : '',
-        p3Motivos: v.p3detail ? v.p3detail.motivos : []
+        p3Motivos: v.p3detail?.motivos || []
       }]));
 
       await db.collection('periodos').doc(periodId).update({
@@ -6504,6 +6504,15 @@
         const dataReferencia = pData.month && pData.year ? `${String(pData.month).padStart(2, '0')}/${pData.year}` : periodId;
         const hojeDate = new Date().toLocaleDateString('pt-BR');
 
+        // Prepare P2 items list
+        const p2Items = items.filter(r => r.type !== 'excluded' && r.p2bonus > 0);
+
+        // Prepare P4 items list
+        const p4Items = (pData.p4result?.conversions || []).filter(c => c.vendedora === vendorName);
+
+        // Prepare Unit Vouchers Log (everyone)
+        const unitVouchersLog = items.filter(r => r.type !== 'excluded' && r.category === 'voucher');
+
         let html = `
           <div class="print-body">
             <div class="print-header">
@@ -6541,6 +6550,83 @@
               </tr>
             </table>
 
+            <!-- SEÇÃO P2 -->
+            ${p2Items.length > 0 ? `
+            <h3 style="font-size:14px; margin:25px 0 10px;">Detalhamento P2 (Bônus Fixo por Contrato)</h3>
+            <table class="print-table print-no-break">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Cliente</th>
+                  <th>Plano/Contrato</th>
+                  <th style="text-align:right">Bônus P2</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${p2Items.map(r => `
+                  <tr>
+                    <td>${r.data}</td>
+                    <td>${r.cliente}</td>
+                    <td style="font-size:10px">${r.item}</td>
+                    <td style="text-align:right">R$ ${fmt(r.p2bonus)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            ` : ''}
+
+            <!-- SEÇÃO P4 -->
+            ${p4Items.length > 0 ? `
+            <h3 style="font-size:14px; margin:25px 0 10px;">Detalhamento P4 (Conversões de Voucher)</h3>
+            <table class="print-table print-no-break">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Data Voucher</th>
+                  <th>Data Venda</th>
+                  <th>Plano</th>
+                  <th style="text-align:right">Bônus P4</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${p4Items.map(c => `
+                  <tr>
+                    <td>${c.cliente}</td>
+                    <td>${c.dataVoucher}</td>
+                    <td>${c.dataConversao}</td>
+                    <td>${c.plano}</td>
+                    <td style="text-align:right">R$ ${fmt(c.bonus)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            ` : ''}
+
+            <!-- LOG DE VOUCHERS -->
+            ${unitVouchersLog.length > 0 ? `
+            <h3 style="font-size:14px; margin:25px 0 10px;">Log de Vouchers Gerados (Unidade)</h3>
+            <table class="print-table print-no-break">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Cliente</th>
+                  <th>Emissor (Vendedor)</th>
+                  <th>Descrição</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${unitVouchersLog.map(v => `
+                  <tr>
+                    <td>${v.data}</td>
+                    <td>${v.cliente}</td>
+                    <td>${v.vendedor}</td>
+                    <td style="font-size:10px">${v.item}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            ` : ''}
+
             <h3 style="font-size:14px; margin:30px 0 10px;">Lançamentos Base para P1</h3>
             <table class="print-table print-no-break">
               <thead>
@@ -6566,7 +6652,7 @@
           html += `<tr>
              <td>${r.data || ''}</td>
              <td>${r.cliente || ''}</td>
-             <td>${r.item || ''}</td>
+             <td style="font-size:10px">${r.item || ''}</td>
              <td>${r.label || r.category}</td>
              <td style="text-align:right">${p1pct}</td>
              <td style="text-align:right">R$ ${fmt(r.p1valor || 0)}</td>
