@@ -1401,6 +1401,39 @@
     </div>
   </div>
 
+  <!-- Modal Dividir Comissão em Lote -->
+  <div id="bulkSplitModal" class="modal">
+    <div class="modal-content" style="max-width:400px; padding:24px;">
+      <h3 style="margin-bottom:16px;font-size:18px;color:var(--orange)">Dividir Selecionados</h3>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">
+        Os registros selecionados serão divididos de acordo com a porcentagem que você dividir com a colega.
+      </p>
+
+      <form id="bulkSplitForm" onsubmit="event.preventDefault(); confirmBulkSplit()">
+        <div class="form-group">
+          <label>Dividir com Vendedora</label>
+          <input id="bulkSplitNewVendor" list="listVendors" required placeholder="Selecione ou digite..."
+            style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label>Como será a divisão?</label>
+          <select id="bulkSplitRatio" required
+            style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:6px; width:100%;">
+            <option value="0.5">50% / 50%</option>
+            <option value="0.7">70% Original / 30% Colega</option>
+            <option value="0.3">30% Original / 70% Colega</option>
+          </select>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeBulkSplitModal()">Cancelar</button>
+          <button type="submit" class="btn">Dividir Lote</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Detalhes do Vendedor -->
   <div id="vendorDetailModal" class="modal" style="z-index:9999;">
     <div class="modal-content" style="max-width:750px; padding:24px;">
@@ -3938,7 +3971,7 @@
             <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
             <button class="btn btn-sm btn-ghost" id="btnBulkActivate" style="display:none;color:var(--green);border-color:var(--green)" onclick="bulkRestoreRecords()">✅ Ativar Selecionados</button>
-            <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="bulkSplitRecords()">➗ Dividir Selecionados</button>
+            <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="openBulkSplitRecords()">➗ Dividir Selecionados</button>
             <span id="selectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
           </div>
         </div>
@@ -4916,16 +4949,33 @@
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
 
-    async function bulkSplitRecords() {
+    function openBulkSplitRecords() {
       if (selectedRecordIds.size === 0 || !currentPeriodId) return;
-      const partner = prompt('Nome da vendedora parceira para dividir:');
+      document.getElementById('bulkSplitNewVendor').value = '';
+      document.getElementById('bulkSplitRatio').value = '0.5';
+      document.getElementById('bulkSplitModal').classList.add('open');
+    }
+
+    function closeBulkSplitModal() {
+      document.getElementById('bulkSplitModal').classList.remove('open');
+    }
+
+    async function confirmBulkSplit() {
+      if (selectedRecordIds.size === 0 || !currentPeriodId) return;
+
+      const partner = document.getElementById('bulkSplitNewVendor').value;
       if (!partner || !partner.trim()) return;
-      const ratioStr = prompt('Proporção para a original (0.5 = 50/50, 0.7 = 70/30):', '0.5');
+
+      const ratioStr = document.getElementById('bulkSplitRatio').value;
       const ratio = parseFloat(ratioStr);
       if (isNaN(ratio) || ratio <= 0 || ratio >= 1) { toast('Proporção inválida.', 'error'); return; }
+
       if (!confirm(`Dividir ${selectedRecordIds.size} registro(s) com ${partner.trim().toUpperCase()} (${Math.round(ratio * 100)}/${Math.round((1 - ratio) * 100)})?`)) return;
+
       try {
         toast('Dividindo registros...', 'info');
+        closeBulkSplitModal();
+
         for (const id of selectedRecordIds) {
           document.getElementById('splitDocId').value = id;
           document.getElementById('splitOrigVendor').value = '';
