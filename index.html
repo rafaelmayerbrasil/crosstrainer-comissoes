@@ -1698,35 +1698,36 @@
                 style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--border);">
                 <div style="font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.5px;">🏅 Meta
                 </div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">50 ativações</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
                 <div
-                  style="font-size:16px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  R$300</div>
+                  style="font-size:14px; font-weight:700; color:var(--green); font-family:'JetBrains Mono',monospace; margin-top:4px;">
+                  Prêmio Fixo</div>
                 <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
-                <div style="font-size:9px; color:var(--text3);">Teto: R$700</div>
               </div>
               <div
                 style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange);">
                 <div style="font-size:9px; color:var(--orange); text-transform:uppercase; letter-spacing:.5px;">🔥 Super
                   Meta</div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">57 ativações</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
                 <div
-                  style="font-size:16px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  R$600</div>
+                  style="font-size:14px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
+                  Prêmio Fixo</div>
                 <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
-                <div style="font-size:9px; color:var(--text3);">Teto: R$1.000</div>
               </div>
               <div
                 style="background:var(--bg); border-radius:6px; padding:10px; text-align:center; border:1px solid var(--orange-light);">
                 <div style="font-size:9px; color:var(--orange-light); text-transform:uppercase; letter-spacing:.5px;">👑
                   Gold</div>
-                <div style="font-size:10px; color:var(--text3); margin-top:2px;">65 ativações</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:2px;">Variável / Mês</div>
                 <div
-                  style="font-size:16px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
-                  R$900</div>
+                  style="font-size:14px; font-weight:700; color:var(--orange-light); font-family:'JetBrains Mono',monospace; margin-top:4px;">
+                  Prêmio Fixo</div>
                 <div style="font-size:9px; color:var(--text3);">+ 0,5% do caixa</div>
-                <div style="font-size:9px; color:var(--text3);">Teto: R$1.300</div>
               </div>
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:var(--orange); font-style:italic;">
+              ⚠️ Os alvos de ativações e os valores dos prêmios fixos de P3 são ajustados pelo Administrador a cada mês,
+              de acordo com a meta da unidade!
             </div>
 
             <!-- Tripé -->
@@ -1923,6 +1924,10 @@
               caixa gerado e sua <strong>posição no ranking</strong>. A composição P1+P2+P3+P4 aparece detalhada no card
               abaixo. Além disso, você acompanha como está a meta da unidade e se as condições do tripé estão sendo
               cumpridas.
+              <br><br>
+              <strong>Transparência P1:</strong> Na sua lista de lançamentos, 3 colunas ajudam a auditar suas vendas:
+              "Caixa P1" (quanto entrou na conta de verdade), "% Regra" e a "Comissão R$" gasta naquela venda
+              específica.
             </div>
           </div>
 
@@ -2082,6 +2087,12 @@
                     Processados</div>
                   <div style="font-size:10px; color:var(--text3); line-height:1.5;">Tabela completa de lançamentos.
                     Busca, filtros, ordenação. Editar ✏️, Dividir ➗ e Ignorar 🗑️ registros.</div>
+                </div>
+                <div style="background:var(--bg); border-radius:6px; padding:10px; border:1px solid var(--orange);">
+                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">🎯 Configurar
+                    Metas</div>
+                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Botão ao topo da tela, permite
+                    definir manualmente o alvo (em nº de ativações e prêmio P3) para aquele mês específico.</div>
                 </div>
                 <div style="background:var(--bg); border-radius:6px; padding:10px;">
                   <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Relatório P4
@@ -3969,32 +3980,32 @@
     // ═══════════════════════════════════════════════════════════════
     function renderAdminDashboard(data, periodId) {
       try {
-      const t = data.totals || {};
-      // Safe defaults
-      if (t.unitAtivacoes === undefined) t.unitAtivacoes = 0;
-      if (t.unitNovosRetorno === undefined) t.unitNovosRetorno = 0;
-      if (t.unitRenovacoes === undefined) t.unitRenovacoes = 0;
-      if (t.unitVouchers === undefined) t.unitVouchers = 0;
-      if (t.unitCaixa === undefined) t.unitCaixa = 0;
-      const vs = data.vendorSummary || {};
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
-      const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
-      const comVendors = Object.values(vs).filter(v => !v.isNaoCom);
+        const t = data.totals || {};
+        // Safe defaults
+        if (t.unitAtivacoes === undefined) t.unitAtivacoes = 0;
+        if (t.unitNovosRetorno === undefined) t.unitNovosRetorno = 0;
+        if (t.unitRenovacoes === undefined) t.unitRenovacoes = 0;
+        if (t.unitVouchers === undefined) t.unitVouchers = 0;
+        if (t.unitCaixa === undefined) t.unitCaixa = 0;
+        const vs = data.vendorSummary || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
+        const comVendors = Object.values(vs).filter(v => !v.isNaoCom);
 
-      // Meta
-      const hitGold = t.unitAtivacoes >= cfg.metaGold;
-      const hitSuper = t.unitAtivacoes >= cfg.superMeta;
-      const hitMeta = t.unitAtivacoes >= cfg.meta;
-      const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
-      const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
+        // Meta
+        const hitGold = t.unitAtivacoes >= cfg.metaGold;
+        const hitSuper = t.unitAtivacoes >= cfg.superMeta;
+        const hitMeta = t.unitAtivacoes >= cfg.meta;
+        const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
+        const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
 
-      // ── Inconsistency alerts ──
-      const alerts = [];
-      if (t.unitVouchers === 0) alerts.push('⚠ Nenhum voucher (Mês Degustação) encontrado neste período');
-      const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
-      if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
+        // ── Inconsistency alerts ──
+        const alerts = [];
+        if (t.unitVouchers === 0) alerts.push('⚠ Nenhum voucher (Mês Degustação) encontrado neste período');
+        const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
+        if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
-      let html = `
+        let html = `
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
@@ -4009,15 +4020,15 @@
       <div id="tabResumo">
             `;
 
-      if (alerts.length > 0) {
-        html += `<div style="background:rgba(245,166,35,0.1);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:20px">
+        if (alerts.length > 0) {
+          html += `<div style="background:rgba(245,166,35,0.1);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:20px">
           <div style="font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔔 Avisos</div>
           ${alerts.map(a => `<div style="font-size:12px;color:var(--text2);margin-bottom:3px">${a}</div>`).join('')}
         </div>`;
-      }
+        }
 
-      // ── Meta panel ──
-      html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
+        // ── Meta panel ──
+        html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
               <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
               <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
                 <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
@@ -4033,12 +4044,12 @@
                 </div>
               </div></div></div>`;
 
-      // ── Stats row ──
-      const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
-      const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
-      const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
+        // ── Stats row ──
+        const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
+        const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
+        const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
 
-      html += `<div class="stats-row">
+        html += `<div class="stats-row">
               <div class="stat accent"><div class="s-label">Comissão Total</div><div class="s-value mono">R$ ${fmt(totalComissoes)}</div><div class="s-sub">P1+P2+P3+P4</div></div>
               <div class="stat"><div class="s-label">P1: % Caixa</div><div class="s-value mono">R$ ${fmt(totalP1)}</div></div>
               <div class="stat"><div class="s-label">P2: Bônus Fixo</div><div class="s-value mono">R$ ${fmt(totalP2)}</div></div>
@@ -4047,16 +4058,16 @@
               <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
             </div>`;
 
-      const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
-      const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
-      const taxaRenovacao = totalVendas > 0 ? ((t.unitRenovacoes || 0) / totalVendas * 100) : 0;
-      const convVoucher = t.unitVouchers > 0 ? ((data.p4result?.conversoesMes || 0) / t.unitVouchers * 100) : 0;
+        const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
+        const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
+        const taxaRenovacao = totalVendas > 0 ? ((t.unitRenovacoes || 0) / totalVendas * 100) : 0;
+        const convVoucher = t.unitVouchers > 0 ? ((data.p4result?.conversoesMes || 0) / t.unitVouchers * 100) : 0;
 
-      // Calculate Mix de Planos roughly based on average box values if detailed item list isn't present, 
-      // but we don't have item list here in the dashboard summary object. We will just use the available data.
-      const pctNovos = totalVendas > 0 ? ((t.unitNovosRetorno || 0) / totalVendas * 100) : 0;
+        // Calculate Mix de Planos roughly based on average box values if detailed item list isn't present, 
+        // but we don't have item list here in the dashboard summary object. We will just use the available data.
+        const pctNovos = totalVendas > 0 ? ((t.unitNovosRetorno || 0) / totalVendas * 100) : 0;
 
-      html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
               <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
                 <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
                 <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
@@ -4079,20 +4090,20 @@
               </div>
             </div>`;
 
-      // ── Projeção de fim de mês ──
-      const proj = calcProjection(data);
-      html += renderProjectionCard(proj, cfg);
+        // ── Projeção de fim de mês ──
+        const proj = calcProjection(data);
+        html += renderProjectionCard(proj, cfg);
 
-      // ── Vendor ranking cards ──
-      window.currentVendorSummary = vs;
-      const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
-      html += '<div class="vendor-grid">';
-      sorted.forEach(([name, v], i) => {
-        const rankBadge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
-        const ticketMedioVendedor = v.ativacoes > 0 ? v.caixa / v.ativacoes : 0;
-        const shareCaixa = t.unitCaixa > 0 ? (v.caixa / t.unitCaixa) * 100 : 0;
+        // ── Vendor ranking cards ──
+        window.currentVendorSummary = vs;
+        const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+        html += '<div class="vendor-grid">';
+        sorted.forEach(([name, v], i) => {
+          const rankBadge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+          const ticketMedioVendedor = v.ativacoes > 0 ? v.caixa / v.ativacoes : 0;
+          const shareCaixa = t.unitCaixa > 0 ? (v.caixa / t.unitCaixa) * 100 : 0;
 
-        html += `<div class="v-card" style="cursor:pointer" onclick="openVendorDetailModal('${name.replace(/'/g, "\\'")}')" title="Ver detalhes da comissão">
+          html += `<div class="v-card" style="cursor:pointer" onclick="openVendorDetailModal('${name.replace(/'/g, "\\'")}')" title="Ver detalhes da comissão">
               <div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
               <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
               <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:2px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border)">
@@ -4108,20 +4119,20 @@
               </div>
               <div class="vc-total"><span class="lbl">Total</span><span class="val">R$ ${fmt(v.grandTotal || 0)}</span></div>
             </div>`;
-      });
-      html += '</div>';
-
-      // ── Non-commissionable summary ──
-      const naoComVendors = Object.entries(vs).filter(([n, v]) => v.isNaoCom);
-      if (naoComVendors.length > 0) {
-        html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)">';
-        html += '<strong>Não-comissionáveis:</strong> ';
-        html += naoComVendors.map(([n, v]) => `${n} (${Math.round(v.ativacoes)} ativ, R$ ${fmt(v.caixa)} caixa)`).join(' · ');
+        });
         html += '</div>';
-      }
 
-      // ── History chart placeholder ──
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px">
+        // ── Non-commissionable summary ──
+        const naoComVendors = Object.entries(vs).filter(([n, v]) => v.isNaoCom);
+        if (naoComVendors.length > 0) {
+          html += '<div style="margin-top:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2)">';
+          html += '<strong>Não-comissionáveis:</strong> ';
+          html += naoComVendors.map(([n, v]) => `${n} (${Math.round(v.ativacoes)} ativ, R$ ${fmt(v.caixa)} caixa)`).join(' · ');
+          html += '</div>';
+        }
+
+        // ── History chart placeholder ──
+        html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px">
         <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📈 Evolução Histórica</div>
         <canvas id="historyChart" style="max-height:220px"></canvas>
       </div>
@@ -4166,21 +4177,21 @@
       </div> <!-- END tabDiferidos -->
       `;
 
-      document.getElementById('dashboardContent').innerHTML = html;
+        document.getElementById('dashboardContent').innerHTML = html;
 
-      // Render chart and records table async
-      renderHistoryChart();
-      renderRecordsTable(periodId);
-      renderComissoesTab(data, periodId);
-      renderAtivacoesTab(periodId);
-      renderExcluidosTab(periodId);
-      renderRelatorioTab(data, periodId);
-      renderDiferidosTab(data, periodId);
-    } catch (e) {
-      console.error('renderAdminDashboard error:', e);
-      const dc = document.getElementById('dashboardContent');
-      if (dc) dc.innerHTML = `<div style="color:var(--red);padding:20px;font-size:13px">Erro ao renderizar dashboard: ${e.message}<br><pre style="font-size:10px;color:var(--text3);margin-top:8px">${e.stack || ''}</pre></div>`;
-    }
+        // Render chart and records table async
+        renderHistoryChart();
+        renderRecordsTable(periodId);
+        renderComissoesTab(data, periodId);
+        renderAtivacoesTab(periodId);
+        renderExcluidosTab(periodId);
+        renderRelatorioTab(data, periodId);
+        renderDiferidosTab(data, periodId);
+      } catch (e) {
+        console.error('renderAdminDashboard error:', e);
+        const dc = document.getElementById('dashboardContent');
+        if (dc) dc.innerHTML = `<div style="color:var(--red);padding:20px;font-size:13px">Erro ao renderizar dashboard: ${e.message}<br><pre style="font-size:10px;color:var(--text3);margin-top:8px">${e.stack || ''}</pre></div>`;
+      }
     }
 
     async function renderHistoryChart() {
