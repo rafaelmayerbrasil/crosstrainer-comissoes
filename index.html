@@ -1323,6 +1323,10 @@
       font-family: 'DM Sans', sans-serif;
     }
 
+    #printReceiptContainer {
+      display: none;
+    }
+
     @media print {
       body * {
         visibility: hidden;
@@ -1334,6 +1338,7 @@
       }
 
       #printReceiptContainer {
+        display: block;
         position: absolute;
         left: 0;
         top: 0;
@@ -2016,8 +2021,14 @@
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
               O sistema calcula automaticamente a projeção baseada no ritmo atual (run rate). Ele mostra quantas
-              ativações, caixa, novos, renovações e vouchers a unidade deve fechar se continuar no mesmo ritmo — e em
-              qual faixa de meta vocês devem terminar. Aparece tanto no dashboard do admin quanto no seu painel.
+              ativações e caixa a unidade deve fechar se manter o mesmo ritmo médio diário. Ajuda a ver em qual faixa de
+              meta vocês devem terminar.
+              <br><br>
+              <strong>Como a matemática funciona?</strong><br>
+              O sistema faz a seguinte conta invisível com seus resultados: <br>
+              <code>(Valor Real Obtido Hoje ÷ Dias Já Corridos do Mês) × Total de Dias do Mês</code>
+              <br>Em resumo: <em>"Se continuarmos vendendo todo dia a mesma média que vendemos até hoje, fecharemos o
+                mês com esse valor."</em>
             </div>
           </div>
 
