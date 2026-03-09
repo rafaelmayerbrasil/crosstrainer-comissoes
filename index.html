@@ -4171,7 +4171,9 @@
         p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
         grandTotal: v.grandTotal, ativacoes: v.ativacoes,
         novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
-        caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
+        caixa: v.caixaTotal,
+        p3base: v.caixaP3Eligible || 0,
+        isNaoCom: v.isNaoCom,
         p3Tier: v.p3detail ? v.p3detail.tierLabel : '',
         p3Motivos: v.p3detail?.motivos || [],
         p3fixo: v.p3detail?.fixo || 0,
@@ -6517,6 +6519,34 @@
         // Prepare Unit Vouchers Log (everyone)
         const unitVouchersLog = items.filter(r => r.type !== 'excluded' && r.category === 'voucher');
 
+        // Totais para transparência (podem vir do vs ou do cálculo vivo)
+        const totalP2 = p2Items.reduce((s, r) => s + (r.p2bonus || 0), 0);
+        const totalP4 = p4Items.reduce((s, c) => s + (c.bonus || 0), 0);
+
+        // Reconstrução do P3 caso os campos detalhados não existam (períodos antigos)
+        let p3Calc = {
+          fixo: vs.p3fixo || 0,
+          pctValor: vs.p3pct || 0,
+          multiplier: vs.p3multiplier || 1,
+          tierLabel: vs.p3Tier || ''
+        };
+        if (vs.p3 > 0 && p3Calc.fixo === 0 && p3Calc.pctValor === 0) {
+          // Tenta reconstruir se tiver os totais da unidade
+          if (pData.unitTotals && unitConfig) {
+            const ut = pData.unitTotals;
+            const liveP3 = CommissionEngine.calcP3(
+              ut.unitAtivacoes, ut.unitNovosRetorno, ut.unitRenovacoes, ut.unitVouchers,
+              vs.p3base || vs.caixa || 0, unitConfig
+            );
+            p3Calc = {
+              fixo: liveP3.fixo,
+              pctValor: liveP3.pctValor,
+              multiplier: liveP3.multiplier,
+              tierLabel: liveP3.tierLabel
+            };
+          }
+        }
+
         let html = `
           <div class="print-body">
             <div class="print-header">
@@ -6549,10 +6579,10 @@
                 <td>
                   Bônus de Qualidade/Retenção (P3: Meta Unidade)<br>
                   <span style="font-size:9px;color:#555">
-                    Faixa: <strong>${vs.p3Tier || (vs.p3 > 0 ? 'Meta' : 'Não atingida')}</strong> 
+                    Faixa: <strong>${p3Calc.tierLabel || (vs.p3 > 0 ? 'Meta' : 'Não atingida')}</strong> 
                     ${vs.p3Motivos && vs.p3Motivos.length ? '(' + vs.p3Motivos.join(', ') + ')' : ''}<br>
-                    Cálculo: (Fixo R$ ${fmt(vs.p3fixo || 0)} + Var. R$ ${fmt(vs.p3pct || 0)}) 
-                    ${vs.p3multiplier && vs.p3multiplier !== 1 ? ' × ' + vs.p3multiplier.toFixed(2) : ''}
+                    Cálculo: (Fixo R$ ${fmt(p3Calc.fixo)} + Var. R$ ${fmt(p3Calc.pctValor)}) 
+                    ${p3Calc.multiplier && p3Calc.multiplier !== 1 ? ' × ' + p3Calc.multiplier.toFixed(2) : ''}
                     = R$ ${fmt(vs.p3)}
                   </span>
                 </td>
@@ -6591,7 +6621,7 @@
               <tfoot>
                 <tr style="font-weight:bold; background:#f5f5f5;">
                   <td colspan="3" style="text-align:right;">TOTAL BÔNUS P2</td>
-                  <td style="text-align:right;">R$ ${fmt(vs.p2)}</td>
+                  <td style="text-align:right;">R$ ${fmt(totalP2)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -6624,7 +6654,7 @@
               <tfoot>
                 <tr style="font-weight:bold; background:#f5f5f5;">
                   <td colspan="4" style="text-align:right;">TOTAL BÔNUS P4</td>
-                  <td style="text-align:right;">R$ ${fmt(vs.p4i)}</td>
+                  <td style="text-align:right;">R$ ${fmt(totalP4)}</td>
                 </tr>
               </tfoot>
             </table>
