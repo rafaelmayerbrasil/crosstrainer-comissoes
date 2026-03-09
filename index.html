@@ -2262,6 +2262,43 @@
     </div>
   </div>
 
+  <!-- Modal Metas Mensais -->
+  <div id="metasMesModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:480px; padding:24px;">
+      <div class="modal-header">
+        <h3 style="color:var(--orange)">🎯 Configurar Metas</h3>
+        <button type="button" class="close-btn" onclick="closeMetasMesModal()">&times;</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">
+        Defina metas e valores de prêmio específicos para <strong>este mês</strong> que não afetarão o histórico de
+        meses anteriores.
+      </p>
+      <form id="metasMesForm" onsubmit="event.preventDefault(); saveMetasMes()">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
+          <div class="form-group"><label>Meta (Ativações)</label><input type="number" id="mm_meta" required step="1">
+          </div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_metaFixo" required
+              step="any"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
+          <div class="form-group"><label>Super Meta</label><input type="number" id="mm_superMeta" required step="1">
+          </div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_superFixo" required
+              step="any"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div class="form-group"><label>Meta Gold</label><input type="number" id="mm_metaGold" required step="1"></div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_goldFixo" required
+              step="any"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="closeMetasMesModal()">Cancelar</button>
+          <button type="submit" class="btn">Salvar Metas do Mês</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
 
@@ -2329,6 +2366,11 @@
             <h1>Dashboard</h1>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-outline" id="btnConfigMetasMes"
+              style="display:none; padding:6px 12px; font-size:12px; align-items:center; gap:6px;"
+              onclick="openMetasMesModal()">
+              <span style="color:var(--orange)">🎯</span> Configurar Metas do Mês
+            </button>
             <button class="btn btn-outline"
               style="padding:6px 12px; font-size:12px; display:flex; align-items:center; gap:6px;"
               onclick="exportPeriodToExcel()"><span style="color:var(--green)">&#8681;</span> Baixar Relatório
@@ -3465,13 +3507,16 @@
       if (!periodId) {
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
+        document.getElementById('btnConfigMetasMes').style.display = 'none';
         return;
       }
       currentPeriodId = periodId;
       document.getElementById('btnDeletePeriod').style.display = '';
+      document.getElementById('btnConfigMetasMes').style.display = 'flex';
       const doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
       const data = doc.data();
+      window.currentPeriodData = data; // store for metas mes modal usage
       renderAdminDashboard(data, periodId);
     }
 
@@ -3501,6 +3546,50 @@
         loadPeriods();
       } catch (e) {
         toast('Erro ao excluir: ' + e.message, 'error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // METAS MENSAIS (OVERRIDE)
+    // ═══════════════════════════════════════════════════════════════
+    function openMetasMesModal() {
+      if (!currentPeriodId) return;
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((window.currentPeriodData && window.currentPeriodData.metasMensais) || {}) };
+      document.getElementById('mm_meta').value = cfg.meta;
+      document.getElementById('mm_metaFixo').value = cfg.metaFixo;
+      document.getElementById('mm_superMeta').value = cfg.superMeta;
+      document.getElementById('mm_superFixo').value = cfg.superFixo;
+      document.getElementById('mm_metaGold').value = cfg.metaGold;
+      document.getElementById('mm_goldFixo').value = cfg.goldFixo;
+      document.getElementById('metasMesModal').classList.add('open');
+    }
+
+    function closeMetasMesModal() {
+      document.getElementById('metasMesModal').classList.remove('open');
+    }
+
+    async function saveMetasMes() {
+      if (!currentPeriodId) return;
+      const metasMensais = {
+        meta: parseInt(document.getElementById('mm_meta').value) || 0,
+        metaFixo: parseFloat(document.getElementById('mm_metaFixo').value) || 0,
+        superMeta: parseInt(document.getElementById('mm_superMeta').value) || 0,
+        superFixo: parseFloat(document.getElementById('mm_superFixo').value) || 0,
+        metaGold: parseInt(document.getElementById('mm_metaGold').value) || 0,
+        goldFixo: parseFloat(document.getElementById('mm_goldFixo').value) || 0
+      };
+
+      try {
+        toast('Salvando metas e recalculando...', 'info');
+        await db.collection('periodos').doc(currentPeriodId).update({ metasMensais });
+        closeMetasMesModal();
+        if (window.currentPeriodData) window.currentPeriodData.metasMensais = metasMensais;
+        await recalculatePeriod(currentPeriodId);
+        await loadPeriod(currentPeriodId);
+        toast('Metas do mês salvas e período recalculado!', 'success');
+        logAudit('settings_change', `Metas mensais alteradas para o período ${currentPeriodId}`);
+      } catch (e) {
+        toast('Erro ao salvar metas: ' + e.message, 'error');
       }
     }
 
@@ -3743,12 +3832,14 @@
 
     async function recalculatePeriod(periodId) {
       const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const pDoc = await db.collection('periodos').doc(periodId).get();
       const processed = [];
       itemsSnap.forEach(doc => {
         const d = doc.data();
         if (d.type === 'processed') processed.push(d);
       });
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const pData = pDoc.exists ? pDoc.data() : {};
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
       // Rebuild vendorData from remaining processed items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
       const unitAtivacoes = processed.filter(d => d.isActivation).length;
@@ -3869,7 +3960,7 @@
     function renderAdminDashboard(data, periodId) {
       const t = data.totals;
       const vs = data.vendorSummary || {};
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
       const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
       const comVendors = Object.values(vs).filter(v => !v.isNaoCom);
 
@@ -4434,7 +4525,7 @@
       const data = doc.data();
       const vendorName = userProfile.name?.toUpperCase();
       const vs = data.vendorSummary || {};
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
 
       // Find vendor (case insensitive match)
       let myData = null;
@@ -4637,7 +4728,7 @@
     function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers, qt, tipo) {
       if (!myData || !CommissionEngine) return;
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((window.currentPeriodData && window.currentPeriodData.metasMensais) || {}) };
 
       // Define plan values and mapping based on the rules
       const valorMap = {
@@ -4822,17 +4913,23 @@
           '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Cliente</th>' +
           '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Item</th>' +
           '<th style="padding:8px 10px;font-weight:600;color:var(--text2)">Categoria</th>' +
-          '<th style="padding:8px 10px;font-weight:600;color:var(--text2);text-align:right">Valor</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2);text-align:right">Caixa P1</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2);text-align:right">% Regra</th>' +
+          '<th style="padding:8px 10px;font-weight:600;color:var(--text2);text-align:right">Comissão R$</th>' +
           '</tr></thead><tbody>';
 
         items.forEach(r => {
           const isProc = r.type !== 'excluded';
+          const p1pct = ((r.p1pct || 0) * 100).toFixed(1) + '%';
+          const p1val = r.p1valor || 0;
           tHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03);opacity:${isProc ? '1' : '0.5'}" title="${isProc ? '' : 'Ignorado das comissões'}">
             <td style="padding:8px 10px;color:var(--text3)">${r.data || ''}</td>
             <td style="padding:8px 10px;max-width:140px;word-break:break-word;white-space:normal;color:var(--text)">${r.cliente || ''}</td>
             <td style="padding:8px 10px;max-width:160px;word-break:break-word;white-space:normal;color:var(--text3);font-size:10px">${r.item || ''}</td>
             <td style="padding:8px 10px"><span class="pill ${pillClass(r.category)}">${r.label || r.category || ''}</span></td>
             <td style="padding:8px 10px;text-align:right;font-family:'JetBrains Mono';color:${isProc ? 'var(--orange-light)' : 'var(--text3)'}">R$ ${fmt(r.valorCaixa || 0)}</td>
+            <td style="padding:8px 10px;text-align:right;font-family:'JetBrains Mono';color:var(--text3)">${isProc ? p1pct : '—'}</td>
+            <td style="padding:8px 10px;text-align:right;font-family:'JetBrains Mono';color:${isProc ? 'var(--green)' : 'var(--text3)'};font-weight:700">R$ ${fmt(p1val)}</td>
           </tr>`;
         });
         tHtml += '</tbody></table></div>';
@@ -5080,7 +5177,7 @@
         snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
 
         const vs = data.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
         const t = data.totals || {};
 
         // Build per-vendor per-sale P1/P2 detail
@@ -5377,7 +5474,7 @@
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
         const myData = vs[vendorName] || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
 
         let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -5488,7 +5585,7 @@
         const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
         const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase());
 
         const wb = XLSX.utils.book_new();
@@ -5902,21 +5999,27 @@
           '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Cliente</th>' +
           '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Item</th>' +
           '<th style="padding:8px 12px; font-weight:600; color:var(--text2);">Cat.</th>' +
-          '<th style="padding:8px 12px; font-weight:600; color:var(--text2); text-align:right;">Valor</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2); text-align:right;">Caixa P1</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2); text-align:right;">% Regra</th>' +
+          '<th style="padding:8px 12px; font-weight:600; color:var(--text2); text-align:right;">Comissão R$</th>' +
           '</tr></thead><tbody>';
 
         if (items.length === 0) {
-          tHtml += '<tr><td colspan="5" style="padding:16px; text-align:center; color:var(--text3);">Nenhum lançamento no período.</td></tr>';
+          tHtml += '<tr><td colspan="7" style="padding:16px; text-align:center; color:var(--text3);">Nenhum lançamento no período.</td></tr>';
         }
 
         items.forEach(r => {
           const isProc = r.type !== 'excluded';
+          const p1pct = ((r.p1pct || 0) * 100).toFixed(1) + '%';
+          const p1val = r.p1valor || 0;
           tHtml += `<tr style="border-bottom:1px solid rgba(255,255,255,0.03); opacity:${isProc ? '1' : '0.5'}" title="${isProc ? '' : 'Ignorado das comissões'}">
             <td style="padding:8px 12px; color:var(--text3);">${r.data || ''}</td>
             <td style="padding:8px 12px; max-width:140px; word-break:break-word; white-space:normal; color:var(--text);">${r.cliente || ''}</td>
             <td style="padding:8px 12px; max-width:140px; word-break:break-word; white-space:normal; color:var(--text3); font-size:10px;">${r.item || ''}</td>
             <td style="padding:8px 12px;"><span class="pill ${pillClass(r.category)}">${r.label || r.category}</span></td>
             <td style="padding:8px 12px; text-align:right; font-family:'JetBrains Mono'; color:${isProc ? 'var(--orange-light)' : 'var(--text3)'};">R$ ${fmt(r.valorCaixa || 0)}</td>
+            <td style="padding:8px 12px; text-align:right; font-family:'JetBrains Mono'; color:var(--text3);">${isProc ? p1pct : '—'}</td>
+            <td style="padding:8px 12px; text-align:right; font-family:'JetBrains Mono'; color:${isProc ? 'var(--green)' : 'var(--text3)'}; font-weight:700;">R$ ${fmt(p1val)}</td>
           </tr>`;
         });
         tHtml += '</tbody></table>';
