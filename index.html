@@ -3031,7 +3031,7 @@
           prev.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${file.name}</h3>
-          <div class="stats-row">
+          <div class="stats-row" id="uploadStatsRow">
             <div class="stat"><div class="s-label">Registros</div><div class="s-value">${rawRows.length}</div></div>
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>
             <div class="stat"><div class="s-label">Processados</div><div class="s-value">${result.processed.length}</div></div>
@@ -3042,7 +3042,7 @@
           </div>
           <div style="margin-top:10px">
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:6px">Vendedores encontrados ${newVendors.length > 0 ? `— <span style="color:var(--yellow)">${newVendors.length} novo(s) serão cadastrados automaticamente</span>` : ''}</div>
-            <div>${vendorTagsHtml}</div>
+            <div id="uploadVendorTags">${vendorTagsHtml}</div>
           </div>
           
           <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:20px">
@@ -3095,6 +3095,60 @@
     let pendingPreviewSort = { col: 'vendedor', asc: true };
     let pendingPreviewFilter = '';
     let selectedPreviewKeys = new Set(); // Stores format: "listType-index", e.g. "processed-5" or "excluded-2"
+
+    function refreshPreviewTotals() {
+      if (!pendingUpload) return;
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const processed = pendingUpload.result.processed;
+
+      const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
+      const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
+      const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
+
+      Object.entries(vendorData).forEach(([name, v]) => {
+        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
+        const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
+        v.p3 = p3.final; v.p3detail = p3;
+      });
+
+      const p4result = CommissionEngine.calcP4(processed, null, cfg);
+      p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
+      Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
+      Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
+
+      pendingUpload.result.vendorData = vendorData;
+      pendingUpload.result.unitTotals = { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa };
+      pendingUpload.result.p4result = p4result;
+
+      // Update UI HTML snippet
+      const row = document.getElementById('uploadStatsRow');
+      if (row) {
+        row.innerHTML = `
+            <div class="stat"><div class="s-label">Registros</div><div class="s-value">${pendingUpload.rawRows.length}</div></div>
+            <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${pendingUpload.result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${pendingUpload.result.dupes.length}</div></div>
+            <div class="stat"><div class="s-label">Processados</div><div class="s-value">${processed.length}</div></div>
+            <div class="stat"><div class="s-label">Excluídos</div><div class="s-value" style="color:var(--red)">${pendingUpload.result.excluded.length}</div></div>
+            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(pendingUpload.result.deferred || []).length}</div></div>
+            <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${unitAtivacoes}</div></div>
+            <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(unitCaixa)}</div></div>
+        `;
+      }
+
+      const tags = document.getElementById('uploadVendorTags');
+      if (tags) {
+        const vendorNames = Object.keys(vendorData).filter(n => n !== 'Sem Vendedor');
+        const vendorTagsHtml = vendorNames.map(n => {
+          const isNew = pendingUpload.newVendors.includes(n);
+          return `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:${isNew ? 'var(--yellow-bg)' : 'var(--green-bg)'};color:${isNew ? 'var(--yellow)' : 'var(--green)'}">${n}${isNew ? ' 🆕' : ' ✅'}</span>`;
+        }).join('');
+        const semVendedorHtml = vendorData['Sem Vendedor'] && vendorData['Sem Vendedor'].caixaTotal > 0 ?
+          `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--red-bg);color:var(--red)">Sem Vendedor ⚠️</span>` : '';
+        tags.innerHTML = vendorTagsHtml + semVendedorHtml;
+      }
+    }
 
     function setPreviewFilter(val) {
       pendingPreviewFilter = val.toLowerCase();
@@ -3156,12 +3210,7 @@
         });
       }
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-      const newResult = CommissionEngine.calculate(pendingUpload.rawRows, cfg);
-      newResult.processed = pendingUpload.result.processed;
-      newResult.excluded = pendingUpload.result.excluded;
-      pendingUpload.result = newResult;
-
+      refreshPreviewTotals();
       selectedPreviewKeys.clear();
       renderPreviewTable();
     }
@@ -3191,12 +3240,7 @@
         pendingUpload.result.processed.push(item);
       }
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-      const newResult = CommissionEngine.calculate(pendingUpload.rawRows, cfg);
-      newResult.processed = pendingUpload.result.processed;
-      newResult.excluded = pendingUpload.result.excluded;
-      pendingUpload.result = newResult;
-
+      refreshPreviewTotals();
       selectedPreviewKeys.clear(); // Clear selections after a single toggle disrupts indices
       renderPreviewTable();
     }
@@ -3287,7 +3331,7 @@
       if (!period) { toast('Selecione o mês/ano.', 'error'); return; }
 
       const [year, month] = period.split('-');
-      const periodId = `${currentUnitId}_${year}-${month}`;
+      const periodId = `${currentUnitId}_${year} -${month} `;
       const { rawRows, result, fileName, newVendors } = pendingUpload;
 
       try {
@@ -3371,7 +3415,7 @@
         }
 
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
+        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes} `);
         pendingUpload = null;
         loadPeriods();
         navigateTo('dashboard');
@@ -3403,7 +3447,7 @@
 
         sel.innerHTML = '<option value="">Selecione um período</option>';
         docs.forEach(d => {
-          sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`;
+          sel.innerHTML += `< option value = "${d.id}" > ${months[d.month]} ${d.year}</option > `;
         });
 
         // Auto-select first
@@ -3433,7 +3477,7 @@
       if (!currentPeriodId) return;
       const sel = document.getElementById('periodSelect');
       const label = sel.options[sel.selectedIndex]?.text || currentPeriodId;
-      if (!confirm(`Excluir TODOS os dados do período "${label}"? Esta ação não pode ser desfeita.`)) return;
+      if (!confirm(`Excluir TODOS os dados do período "${label}" ? Esta ação não pode ser desfeita.`)) return;
       try {
         toast('Excluindo período...', 'info');
         // Delete all items subcollection
@@ -3448,7 +3492,7 @@
         // Delete period document
         await db.collection('periodos').doc(currentPeriodId).delete();
         toast(`Período "${label}" excluído.`, 'success');
-        logAudit('period_delete', `Período excluído: ${label}`);
+        logAudit('period_delete', `Período excluído: ${label} `);
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
@@ -3468,7 +3512,7 @@
           label: 'Ignorada (manual)'
         });
         toast('Registro ignorado. Recalculando...', 'info');
-        logAudit('record_delete', `Registro ignorado no período ${currentPeriodId}`);
+        logAudit('record_delete', `Registro ignorado no período ${currentPeriodId} `);
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
         toast('Período recalculado!', 'success');
@@ -3492,7 +3536,7 @@
           label: cat
         });
         toast('Registro restaurado. Recalculando...', 'info');
-        logAudit('record_restore', `Registro restaurado no período ${currentPeriodId}`);
+        logAudit('record_restore', `Registro restaurado no período ${currentPeriodId} `);
         await recalculatePeriod(currentPeriodId);
         await loadPeriod(currentPeriodId);
         toast('Período recalculado!', 'success');
@@ -3557,7 +3601,7 @@
           totalP1P2: (baseP1 + baseP2) * newOrigRatio,
           splitAtivacao: newOrigRatio,
           splitWith: partner,
-          item: (origData.item || '') + ` (Split: ${Math.round(newOrigRatio * 100)}%)`
+          item: (origData.item || '') + ` (Split: ${Math.round(newOrigRatio * 100)} %)`
         });
 
         // Create cloned split record for partner
@@ -3571,7 +3615,7 @@
           totalP1P2: (baseP1 + baseP2) * newPartnerRatio,
           splitAtivacao: newPartnerRatio,
           splitWith: origData.vendedor || '',
-          item: (origData.item || '') + ` (Split: ${Math.round(newPartnerRatio * 100)}%)`,
+          item: (origData.item || '') + ` (Split: ${Math.round(newPartnerRatio * 100)} %)`,
           originalSplitId: origRef.id // link back
         });
 
@@ -3606,7 +3650,7 @@
       let dateVal = d.data || '';
       if (dateVal.includes('/')) {
         const p = dateVal.split('/');
-        if (p.length === 3) dateVal = `${p[2]}-${p[1]}-${p[0]}`;
+        if (p.length === 3) dateVal = `${p[2]}-${p[1]} -${p[0]} `;
       }
       document.getElementById('recData').value = dateVal;
 
@@ -3634,10 +3678,10 @@
       if (rawDate && rawDate.includes('-')) {
         const parts = rawDate.split('-');
         if (parts.length === 3) {
-          finalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+          finalDate = `${parts[2]} /${parts[1]}/${parts[0]} `;
           pYear = parseInt(parts[0], 10);
           pMonth = parseInt(parts[1], 10);
-          targetPeriodId = `${currentUnitId}_${pYear}-${String(pMonth).padStart(2, '0')}`;
+          targetPeriodId = `${currentUnitId}_${pYear} -${String(pMonth).padStart(2, '0')} `;
         }
       }
 
@@ -3677,7 +3721,7 @@
         }
 
         closeRecordModal();
-        logAudit(id ? 'record_edit' : 'record_add', `${id ? 'Editou' : 'Novo'} lançamento: ${data.vendedor} · ${data.cliente} · R$ ${fmt(data.valorCaixa)}`);
+        logAudit(id ? 'record_edit' : 'record_add', `${id ? 'Editou' : 'Novo'} lançamento: ${data.vendedor} · ${data.cliente} · R$ ${fmt(data.valorCaixa)} `);
 
         if (targetPeriodId !== currentPeriodId) {
           await recalculatePeriod(currentPeriodId);
@@ -3782,7 +3826,7 @@
       else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--green)'; }
       else if (proj.projAtiv >= cfg.meta) { projTier = '🏅 Meta'; tierColor = 'var(--green)'; }
 
-      return `<div style="background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px">
+      return `< div style = "background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px" >
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
           <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📈 Projeção de Fim de Mês</div>
           <div style="font-size:11px;color:var(--text3)">${proj.dayElapsed} de ${proj.daysInMonth} dias (${pctLabel}%) · faltam ${proj.daysLeft} dias</div>
@@ -3814,7 +3858,7 @@
           <div style="font-size:14px;font-weight:700;color:${tierColor}">${projTier}</div>
         </div>
         <div style="font-size:10px;color:var(--text3);margin-top:8px;font-style:italic">* Baseado no ritmo atual (run rate). Mude o ritmo, mude o resultado!</div>
-      </div>`;
+      </div > `;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -3841,7 +3885,7 @@
       if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
       let html = `
-      <div class="admin-tabs">
+          < div class="admin-tabs" >
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
         <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">P1·P2·P3·P4</button>
@@ -3850,10 +3894,10 @@
         <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Passes</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório Individual</button>
         <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
-      </div>
-      
-      <div id="tabResumo">
-      `;
+      </div >
+
+          <div id="tabResumo">
+            `;
 
       if (alerts.length > 0) {
         html += `<div style="background:rgba(245,166,35,0.1);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:20px">
@@ -3864,20 +3908,20 @@
 
       // ── Meta panel ──
       html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
-    <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
-    <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
-    <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
-    <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
-  </div><div>
-    <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
-    <div class="tripe-grid">
-      ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
-      ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
-      ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
-      ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
-    </div>
-  </div></div></div>`;
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
+              <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
+                <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
+                <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
+                <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
+            </div><div>
+                <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
+                <div class="tripe-grid">
+                  ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
+                  ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
+                  ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
+                  ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
+                </div>
+              </div></div></div>`;
 
       // ── Stats row ──
       const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
@@ -3885,13 +3929,13 @@
       const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
 
       html += `<div class="stats-row">
-    <div class="stat accent"><div class="s-label">Comissão Total</div><div class="s-value mono">R$ ${fmt(totalComissoes)}</div><div class="s-sub">P1+P2+P3+P4</div></div>
-    <div class="stat"><div class="s-label">P1: % Caixa</div><div class="s-value mono">R$ ${fmt(totalP1)}</div></div>
-    <div class="stat"><div class="s-label">P2: Bônus Fixo</div><div class="s-value mono">R$ ${fmt(totalP2)}</div></div>
-    <div class="stat"><div class="s-label">P3: Meta</div><div class="s-value mono" style="color:var(--orange-light)">R$ ${fmt(totalP3)}</div></div>
-    <div class="stat green"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(t.unitCaixa)}</div></div>
-    <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
-  </div>`;
+              <div class="stat accent"><div class="s-label">Comissão Total</div><div class="s-value mono">R$ ${fmt(totalComissoes)}</div><div class="s-sub">P1+P2+P3+P4</div></div>
+              <div class="stat"><div class="s-label">P1: % Caixa</div><div class="s-value mono">R$ ${fmt(totalP1)}</div></div>
+              <div class="stat"><div class="s-label">P2: Bônus Fixo</div><div class="s-value mono">R$ ${fmt(totalP2)}</div></div>
+              <div class="stat"><div class="s-label">P3: Meta</div><div class="s-value mono" style="color:var(--orange-light)">R$ ${fmt(totalP3)}</div></div>
+              <div class="stat green"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(t.unitCaixa)}</div></div>
+              <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
+            </div>`;
 
       const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
       const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
@@ -3903,27 +3947,27 @@
       const pctNovos = totalVendas > 0 ? ((t.unitNovosRetorno || 0) / totalVendas * 100) : 0;
 
       html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
-          <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">Por Ativação</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Taxa de Renovação</div>
-          <div class="mono" style="font-size:20px;font-weight:700;color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} renovações vs ${t.unitNovosRetorno} novos</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Conversão Voucher</div>
-          <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange-light)">${convVoucher.toFixed(0)}%</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-          <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mix (Novos vs Renov)</div>
-          <div class="mono" style="font-size:20px;font-weight:700;color:var(--blue)">${pctNovos.toFixed(0)}% / ${taxaRenovacao.toFixed(0)}%</div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">Novos vs Renovações</div>
-        </div>
-      </div>`;
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
+                <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
+                <div style="font-size:10px;color:var(--text2);margin-top:3px">Por Ativação</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Taxa de Renovação</div>
+                <div class="mono" style="font-size:20px;font-weight:700;color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div>
+                <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} renovações vs ${t.unitNovosRetorno} novos</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Conversão Voucher</div>
+                <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange-light)">${convVoucher.toFixed(0)}%</div>
+                <div style="font-size:10px;color:var(--text2);margin-top:3px">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
+                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mix (Novos vs Renov)</div>
+                <div class="mono" style="font-size:20px;font-weight:700;color:var(--blue)">${pctNovos.toFixed(0)}% / ${taxaRenovacao.toFixed(0)}%</div>
+                <div style="font-size:10px;color:var(--text2);margin-top:3px">Novos vs Renovações</div>
+              </div>
+            </div>`;
 
       // ── Projeção de fim de mês ──
       const proj = calcProjection(data);
@@ -3939,21 +3983,21 @@
         const shareCaixa = t.unitCaixa > 0 ? (v.caixa / t.unitCaixa) * 100 : 0;
 
         html += `<div class="v-card" style="cursor:pointer" onclick="openVendorDetailModal('${name.replace(/'/g, "\\'")}')" title="Ver detalhes da comissão">
-      <div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
-      <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
-      <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:2px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border)">
-        <div>Tkt. Médio: <strong style="color:var(--text)">R$ ${fmt(ticketMedioVendedor)}</strong></div>
-        <div>Share Unidade: <strong style="color:var(--blue)">${shareCaixa.toFixed(1)}%</strong></div>
-      </div>
-      <div class="v-parts">
-        <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
-        <div class="v-part"><div class="vp-label">P2</div><div class="vp-val">R$${fmt(v.p2 || 0)}</div></div>
-        <div class="v-part"><div class="vp-label">P3</div><div class="vp-val" style="color:var(--orange-light)">R$${fmt(v.p3 || 0)}</div></div>
-        <div class="v-part"><div class="vp-label">P4i</div><div class="vp-val">R$${fmt(v.p4i || 0)}</div></div>
-        <div class="v-part"><div class="vp-label">P4p</div><div class="vp-val">R$${fmt(v.p4p || 0)}</div></div>
-      </div>
-      <div class="vc-total"><span class="lbl">Total</span><span class="val">R$ ${fmt(v.grandTotal || 0)}</span></div>
-    </div>`;
+              <div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
+              <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
+              <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:2px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border)">
+                <div>Tkt. Médio: <strong style="color:var(--text)">R$ ${fmt(ticketMedioVendedor)}</strong></div>
+                <div>Share Unidade: <strong style="color:var(--blue)">${shareCaixa.toFixed(1)}%</strong></div>
+              </div>
+              <div class="v-parts">
+                <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
+                <div class="v-part"><div class="vp-label">P2</div><div class="vp-val">R$${fmt(v.p2 || 0)}</div></div>
+                <div class="v-part"><div class="vp-label">P3</div><div class="vp-val" style="color:var(--orange-light)">R$${fmt(v.p3 || 0)}</div></div>
+                <div class="v-part"><div class="vp-label">P4i</div><div class="vp-val">R$${fmt(v.p4i || 0)}</div></div>
+                <div class="v-part"><div class="vp-label">P4p</div><div class="vp-val">R$${fmt(v.p4p || 0)}</div></div>
+              </div>
+              <div class="vc-total"><span class="lbl">Total</span><span class="val">R$ ${fmt(v.grandTotal || 0)}</span></div>
+            </div>`;
       });
       html += '</div>';
 
