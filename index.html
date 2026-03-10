@@ -3766,13 +3766,16 @@
         }, { merge: true });
 
         // Save items in batches
-        const batch1 = db.batch();
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
-        // Delete existing items first (in case of re-upload)
-        const existingItems = await itemsRef.get();
-        existingItems.forEach(doc => batch1.delete(doc.ref));
-        await batch1.commit();
+        // Delete existing items in batches of 400 (to avoid 500 limit)
+        let existingSnap = await itemsRef.limit(400).get();
+        while (!existingSnap.empty) {
+          const bDelete = db.batch();
+          existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
+          await bDelete.commit();
+          existingSnap = await itemsRef.limit(400).get();
+        }
 
         // Add new items in batches of 400 — filter out empty/junk rows
         const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' })), ...(result.deferred || []).map(d => ({ ...d, type: 'deferred' }))]
@@ -3888,20 +3891,27 @@
       const label = sel.options[sel.selectedIndex]?.text || currentPeriodId;
       if (!confirm(`Excluir TODOS os dados do período "${label}" ? Esta ação não pode ser desfeita.`)) return;
       try {
-        toast('Excluindo período...', 'info');
-        // Delete all items subcollection in chunks
+        toast('Excluindo registros do período...', 'info');
         const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
+
+        let totalExcluded = 0;
         let snap = await itemsRef.limit(400).get();
         while (!snap.empty) {
           const batch = db.batch();
-          snap.docs.forEach(d => batch.delete(d.ref));
+          snap.docs.forEach(d => {
+            batch.delete(d.ref);
+            totalExcluded++;
+          });
           await batch.commit();
+          toast(`Excluindo... ${totalExcluded} itens removidos`, 'info');
           snap = await itemsRef.limit(400).get();
         }
-        // Delete period document
+
+        toast('Excluindo documento do período...', 'info');
         await db.collection('periodos').doc(currentPeriodId).delete();
-        toast(`Período "${label}" excluído.`, 'success');
-        logAudit('period_delete', `Período excluído: ${label} `);
+
+        toast(`Período "${label}" excluído com sucesso.`, 'success');
+        logAudit('period_delete', `Período excluído: ${label}`);
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
