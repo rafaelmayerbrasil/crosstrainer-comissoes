@@ -3733,11 +3733,16 @@
             }])
           ),
           p4result: {
-            conversoesMes: result.p4result.conversoesMes,
-            vouchersAtivos45d: result.p4result.vouchersAtivos45d,
-            pool: result.p4result.pool, poolTier: result.p4result.poolTier,
+            ...result.p4result,
+            conversions: result.p4result.conversions.map(c => ({ ...c })),
+            currentVouchers: result.p4result.currentVouchers.map(v => {
+              const cv = { ...v };
+              delete cv.dateObj;
+              return cv;
+            })
           },
-        }, { merge: true });
+        },
+          { merge: true });
 
         // Save items in batches
         const batch1 = db.batch();
@@ -4225,7 +4230,14 @@
       await db.collection('periodos').doc(periodId).update({
         totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
         vendorSummary,
-        p4result: p4result
+        p4result: {
+          ...p4result,
+          currentVouchers: p4result.currentVouchers.map(v => {
+            const cv = { ...v };
+            delete cv.dateObj;
+            return cv;
+          })
+        }
       });
     }
 
