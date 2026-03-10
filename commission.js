@@ -214,18 +214,15 @@ const CommissionEngine = {
   },
 
   // ─── Get value from row ───
+  // Regra: somente "Valor Quitado/Recibo" é válido para comissão.
+  // Se não foi quitado (0 ou ausente), não gera comissão no mês.
   getValor(row, config) {
     const campo = config.campoValor;
     if (campo && campo !== 'auto') {
       const v = parseFloat(row[campo]);
       if (!isNaN(v)) return v;
     }
-    const tries = ['Valor Quitado/Recibo', 'Valor Final', 'Valor Venda'];
-    for (const f of tries) {
-      const v = parseFloat(row[f]);
-      if (!isNaN(v) && v !== 0) return v;
-    }
-    return 0;
+    return parseFloat(row['Valor Quitado/Recibo']) || 0;
   },
 
   // ─── P2: Fixed bonus ───
