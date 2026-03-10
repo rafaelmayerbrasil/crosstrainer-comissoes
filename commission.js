@@ -392,8 +392,9 @@ const CommissionEngine = {
         if (!o[sh]) o[sh] = row[idx] !== undefined ? row[idx] : '';
       });
       // Skip junk rows
-      const cod = String(o['Código'] || o['Codigo'] || '').trim();
-      if (cod.toUpperCase() === 'TOTAL' || cod.toUpperCase() === 'METAS' || cod.toUpperCase().startsWith('VOCÊ') || cod === '') continue;
+      const cod = String(o['Código'] || o['Codigo'] || '').trim().toUpperCase();
+      if (cod === 'TOTAL') break; // Desconsiderar tudo abaixo da linha de total
+      if (cod === 'METAS' || cod.startsWith('VOCÊ') || cod === '') continue;
       if (!String(o['Cliente'] || '').trim() && !String(o['Itens'] || '').trim()) continue;
       // Skip rows with no vendedor AND no client AND no item (completely empty data)
       if (!String(o['Vendedor'] || '').trim() && !String(o['Cliente'] || '').trim() && !String(o['Itens'] || '').trim()) continue;
