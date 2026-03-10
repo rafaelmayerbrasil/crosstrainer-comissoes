@@ -3889,14 +3889,14 @@
       if (!confirm(`Excluir TODOS os dados do período "${label}" ? Esta ação não pode ser desfeita.`)) return;
       try {
         toast('Excluindo período...', 'info');
-        // Delete all items subcollection
+        // Delete all items subcollection in chunks
         const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
-        let snap = await itemsRef.get();
+        let snap = await itemsRef.limit(400).get();
         while (!snap.empty) {
           const batch = db.batch();
           snap.docs.forEach(d => batch.delete(d.ref));
           await batch.commit();
-          snap = await itemsRef.get();
+          snap = await itemsRef.limit(400).get();
         }
         // Delete period document
         await db.collection('periodos').doc(currentPeriodId).delete();
