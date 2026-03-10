@@ -3326,37 +3326,45 @@
           if (rawRows.length === 0) { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
 
           // ── Auto-detect period from dates in the file ──
-          const monthCount = {};
-          rawRows.forEach(row => {
-            const dt = row['Data'];
-            let d = dt instanceof Date ? dt : null;
-            if (!d && typeof dt === 'string') {
-              const parts = dt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-              if (parts) d = new Date(parts[3], parts[2] - 1, parts[1]);
-            }
-            if (d && !isNaN(d)) {
-              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-              monthCount[key] = (monthCount[key] || 0) + 1;
-            }
-          });
+          const monthCount = CommissionEngine.detectMonths(rawRows);
           const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
           const sortedMonths = Object.entries(monthCount).sort((a, b) => b[1] - a[1]);
           const detectedPeriod = sortedMonths[0]?.[0];
           const multipleMonths = sortedMonths.length > 1;
 
+          if (multipleMonths) {
+            // BLOQUEIO IMPEDITIVO: Mais de um mês detectado
+            const monthsFound = sortedMonths.map(([k, c]) => {
+              const [y, m] = k.split('-');
+              return `${monthNames[parseInt(m)]}/${y} (${c} registros)`;
+            }).join(', ');
+
+            // UI feedback
+            document.getElementById('uploadPreview').style.display = 'none';
+            document.getElementById('uploadActions').style.display = 'none';
+            document.getElementById('periodMonthGroup').style.display = 'none';
+
+            // Alerta estilizado
+            toast(`ERRO: Múltiplos meses detectados (${monthsFound}). Corrija o arquivo Excel e suba novamente.`, 'error');
+
+            // Também mostrar no corpo da zona de upload
+            document.getElementById('uploadZone').innerHTML = `
+              <div style="color:var(--red);padding:20px">
+                <div style="font-size:40px;margin-bottom:10px">⚠️</div>
+                <h3 style="margin-bottom:8px">Múltiplos meses no mesmo arquivo</h3>
+                <p style="font-size:13px;margin-bottom:16px">Detectamos lançamentos de: <strong>${monthsFound}</strong></p>
+                <p style="font-size:12px;color:var(--text3)">Por segurança, cada arquivo deve conter apenas dados de um único mês.<br>Por favor, separe os dados, ajuste o Excel e tente novamente.</p>
+                <button class="btn btn-sm" style="margin-top:20px" onclick="initUpload()">Tentar novamente</button>
+              </div>
+            `;
+            return;
+          }
+
           if (detectedPeriod) {
             document.getElementById('periodMonth').value = detectedPeriod;
-            if (multipleMonths) {
-              // Show warning panel so user can confirm/change the period
-              const group = document.getElementById('periodMonthGroup');
-              group.style.display = 'block';
-              const otherMonths = sortedMonths.slice(1).map(([k]) => { const [y, m] = k.split('-'); return `${monthNames[parseInt(m)]}/${y}`; }).join(', ');
-              group.querySelector('div').textContent = `⚠ Arquivo contém dados de mais de um mês (${sortedMonths.map(([k, c]) => { const [y, m] = k.split('-'); return `${monthNames[parseInt(m)]}: ${c} registros`; }).join(' | ')}). Confirme o período a salvar:`;
-            } else {
-              document.getElementById('periodMonthGroup').style.display = 'none';
-              const [yr, mo] = detectedPeriod.split('-');
-              toast(`Período detectado: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
-            }
+            document.getElementById('periodMonthGroup').style.display = 'none';
+            const [yr, mo] = detectedPeriod.split('-');
+            toast(`Período detectado: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
           }
 
           // Process

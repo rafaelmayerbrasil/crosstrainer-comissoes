@@ -415,6 +415,24 @@ const CommissionEngine = {
     return rows;
   },
 
+  // ─── Detect all months present in the data ───
+  detectMonths(rows) {
+    const monthCount = {};
+    rows.forEach(row => {
+      const dt = row['Data'];
+      let d = dt instanceof Date ? dt : null;
+      if (!d && typeof dt === 'string') {
+        const parts = dt.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (parts) d = new Date(parts[3], parts[2] - 1, parts[1]);
+      }
+      if (d && !isNaN(d)) {
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthCount[key] = (monthCount[key] || 0) + 1;
+      }
+    });
+    return monthCount;
+  },
+
   // ─── Apply splits to get effective values ───
   getEffective(d, splits) {
     const split = splits[d._idx];
