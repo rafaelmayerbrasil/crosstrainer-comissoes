@@ -3895,25 +3895,36 @@
       const sel = document.getElementById('periodSelect');
       const label = sel.options[sel.selectedIndex]?.text || currentPeriodId;
       if (!confirm(`Excluir TODOS os dados do período "${label}" ? Esta ação não pode ser desfeita.`)) return;
+
+      const periodIdToDelete = currentPeriodId;
+      console.log('[deletePeriod] Iniciando:', periodIdToDelete);
+
       try {
         toast('Excluindo registros do período...', 'info');
-        const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
 
+        const itemsRef = db.collection('periodos').doc(periodIdToDelete).collection('itens');
         let totalExcluded = 0;
-        let snap = await itemsRef.limit(400).get();
-        while (!snap.empty) {
+        let iterations = 0;
+
+        while (iterations < 100) {
+          iterations++;
+          console.log(`[deletePeriod] iter ${iterations}, excluídos até agora: ${totalExcluded}`);
+
+          const snap = await itemsRef.limit(400).get();
+          console.log(`[deletePeriod] .get() → ${snap.size} docs (empty=${snap.empty})`);
+
+          if (snap.empty) break;
+
           const batch = db.batch();
-          snap.docs.forEach(d => {
-            batch.delete(d.ref);
-            totalExcluded++;
-          });
+          snap.docs.forEach(d => { batch.delete(d.ref); totalExcluded++; });
           await batch.commit();
-          if (totalExcluded % 400 === 0) toast(`Excluindo... ${totalExcluded} itens`, 'info');
-          snap = await itemsRef.limit(400).get();
+          console.log(`[deletePeriod] batch commit OK, total: ${totalExcluded}`);
+          toast(`Excluindo... ${totalExcluded} registros`, 'info');
         }
 
+        console.log('[deletePeriod] Excluindo documento principal...');
         toast('Excluindo documento do período...', 'info');
-        await db.collection('periodos').doc(currentPeriodId).delete();
+        await db.collection('periodos').doc(periodIdToDelete).delete();
 
         toast(`Período "${label}" excluído com sucesso.`, 'success');
         logAudit('period_delete', `Período excluído: ${label}`);
@@ -3922,10 +3933,10 @@
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
         loadPeriods();
       } catch (e) {
-        console.error('ERRO ao excluir período:', e);
+        console.error('[deletePeriod] ERRO:', e);
         const msg = e.message || e.code || String(e);
         toast('Erro ao excluir: ' + msg, 'error');
-        alert('Erro ao excluir período:\n' + msg + '\n\nVerifique o console do navegador (F12) para mais detalhes.');
+        alert('Erro ao excluir período:\n' + msg + '\n\nConsulte o console (F12) para mais detalhes.');
       }
     }
 
