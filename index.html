@@ -914,6 +914,12 @@
       color: var(--purple)
     }
 
+    .pill-upgrade {
+      background: var(--blue-bg);
+      border: 1px solid var(--blue);
+      color: var(--blue)
+    }
+
     .pill-outro {
       background: rgba(90, 86, 80, 0.1);
       color: var(--text2)
@@ -1431,6 +1437,7 @@
               <option value="voucher">Voucher (Mês Degustação)</option>
               <option value="avulsa">Avulsa / Diária</option>
               <option value="avulsa_renov">Avulsa_Renov</option>
+              <option value="upgrade">Upgrade de Plano</option>
               <option value="ignorada">Ignorado (Gympass/Rescisão)</option>
             </select>
           </div>
@@ -2488,6 +2495,7 @@
             <option value="retorno">Retorno</option>
             <option value="voucher">Voucher</option>
             <option value="avulsa">Avulsa</option>
+            <option value="upgrade">Upgrade</option>
             <option value="ignorada">Ignorada</option>
           </select>
         </div>
@@ -4559,6 +4567,7 @@
             <option value="retorno">Retorno</option>
             <option value="voucher">Voucher</option>
             <option value="avulsa">Avulsa</option>
+            <option value="upgrade">Upgrade</option>
             <option value="ignorada">Ignorada</option>
           </select>
         </div>
@@ -6806,7 +6815,7 @@
           return dB - dA;
         });
 
-        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
+        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa', upgrade: 'pill-upgrade' }[c] || 'pill-outro');
 
         let tHtml = '<table style="width:100%; border-collapse:collapse; text-align:left; white-space:nowrap; font-size:11px;">' +
           '<thead><tr style="background:var(--surface2); border-bottom:1px solid var(--border);">' +

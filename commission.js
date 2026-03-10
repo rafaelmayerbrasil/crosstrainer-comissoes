@@ -132,8 +132,13 @@ const CommissionEngine = {
 
     // Diferença no valor
     if (item.includes('DIFERENÇA') || item.includes('DIFERENCA')) {
-      r.category = 'diferenca'; r.label = 'Diferença de contrato';
-      r.isActivation = false; r.isEligibleP3 = true;
+      if (item.includes('VALOR DO CONTRATO ALTERADO')) {
+        r.category = 'upgrade'; r.label = 'Upgrade de Plano';
+        r.isActivation = false; r.isEligibleP3 = false; // Apenas P1 (5%)
+      } else {
+        r.category = 'diferenca'; r.label = 'Diferença de contrato';
+        r.isActivation = false; r.isEligibleP3 = true;
+      }
       return r;
     }
 
