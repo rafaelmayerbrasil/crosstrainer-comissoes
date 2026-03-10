@@ -93,8 +93,11 @@ const CommissionEngine = {
       return { ...r, excluded: true, excludeReason: 'Renovação automática' };
 
     // ── Recorrente + Renovação (tipo de venda) ──
-    if (item.includes('RECORRENTE') && tipoVenda.toLowerCase().includes('renova'))
-      return { ...r, excluded: true, excludeReason: 'Renovação de recorrente' };
+    if (item.includes('RECORRENTE') && tipoVenda.toLowerCase().includes('renova')) {
+      if (!origem.includes('BALCÃO') && !origem.includes('BALCAO')) {
+        return { ...r, excluded: true, excludeReason: 'Renovação de recorrente' };
+      }
+    }
 
     // ── Identify type ──
     const isNovo = tipoVenda.toLowerCase().includes('novo');
