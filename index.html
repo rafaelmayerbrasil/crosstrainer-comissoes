@@ -3715,13 +3715,20 @@
       const periodId = `${currentUnitId}_${year}-${month}`;
       const { rawRows, result, fileName, newVendors } = pendingUpload;
 
-      // --- NEW: Load previous month vouchers for P4 cross-month conversion ---
+      // Load previous month vouchers for P4 cross-month conversion (use uploadId filter to avoid stale items)
       let previousProcessed = [];
       try {
         const prevMonthDate = new Date(parseInt(year), parseInt(month) - 1, 0);
         const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-        const prevSnap = await db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed').get();
-        prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
+        if (prevDoc.exists) {
+          const prevUploadId = prevDoc.data().uploadId;
+          const prevQuery = prevUploadId
+            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
+            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
+          const prevSnap = await prevQuery.get();
+          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+        }
       } catch (e) { console.warn('Could not load previous period for P4:', e); }
 
       try {
@@ -3733,11 +3740,16 @@
         // Use p4result already calculated in handleFile (which included previousProcessed)
         const finalP4Result = result.p4result;
 
-        // Save period summary
+        // Generate a unique uploadId for this upload session
+        // This avoids having to delete old items — queries filter by uploadId instead
+        const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+        // Save period summary (include uploadId)
         await db.collection('periodos').doc(periodId).set({
           unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
           fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
           uploadedBy: currentUser.uid,
+          uploadId,
           totals: result.unitTotals,
           vendorSummary: Object.fromEntries(
             Object.entries(result.vendorData).map(([name, v]) => [name, {
@@ -3759,17 +3771,8 @@
           },
         }, { merge: true });
 
-        // Save items in batches
+        // Save items in batches (NO delete of old items — uploadId filters them out)
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
-
-        // Delete existing items in batches of 400 (loop until empty)
-        let existingSnap = await itemsRef.limit(400).get();
-        while (!existingSnap.empty) {
-          const bDelete = db.batch();
-          existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
-          await bDelete.commit();
-          existingSnap = await itemsRef.limit(400).get();
-        }
 
         // Add new items in batches of 400 — filter out empty/junk rows
         const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' })), ...(result.deferred || []).map(d => ({ ...d, type: 'deferred' }))]
@@ -3781,10 +3784,9 @@
           });
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
-          allItems.slice(i, i + 400).forEach((item, idx) => {
+          allItems.slice(i, i + 400).forEach(item => {
             const ref = itemsRef.doc();
-            // Clean object for Firestore (remove functions, dates)
-            const clean = {};
+            const clean = { uploadId }; // tag with uploadId for filtering
             Object.entries(item).forEach(([k, v]) => {
               if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
               else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
@@ -3897,33 +3899,10 @@
       if (!confirm(`Excluir TODOS os dados do período "${label}" ? Esta ação não pode ser desfeita.`)) return;
 
       const periodIdToDelete = currentPeriodId;
-      console.log('[deletePeriod] Iniciando:', periodIdToDelete);
-
       try {
-        toast('Excluindo registros do período...', 'info');
-
-        const itemsRef = db.collection('periodos').doc(periodIdToDelete).collection('itens');
-        let totalExcluded = 0;
-        let iterations = 0;
-
-        while (iterations < 100) {
-          iterations++;
-          console.log(`[deletePeriod] iter ${iterations}, excluídos até agora: ${totalExcluded}`);
-
-          const snap = await itemsRef.limit(400).get();
-          console.log(`[deletePeriod] .get() → ${snap.size} docs (empty=${snap.empty})`);
-
-          if (snap.empty) break;
-
-          const batch = db.batch();
-          snap.docs.forEach(d => { batch.delete(d.ref); totalExcluded++; });
-          await batch.commit();
-          console.log(`[deletePeriod] batch commit OK, total: ${totalExcluded}`);
-          toast(`Excluindo... ${totalExcluded} registros`, 'info');
-        }
-
-        console.log('[deletePeriod] Excluindo documento principal...');
-        toast('Excluindo documento do período...', 'info');
+        toast('Excluindo período...', 'info');
+        // Delete only the period DOCUMENT — items become orphaned (invisible without uploadId)
+        // This avoids expensive read operations that consume Firestore quota
         await db.collection('periodos').doc(periodIdToDelete).delete();
 
         toast(`Período "${label}" excluído com sucesso.`, 'success');
@@ -3936,7 +3915,6 @@
         console.error('[deletePeriod] ERRO:', e);
         const msg = e.message || e.code || String(e);
         toast('Erro ao excluir: ' + msg, 'error');
-        alert('Erro ao excluir período:\n' + msg + '\n\nConsulte o console (F12) para mais detalhes.');
       }
     }
 
@@ -4253,8 +4231,15 @@
         const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
         const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
         const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-        const prevSnap = await db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed').get();
-        prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
+        if (prevDoc.exists) {
+          const prevUploadId = prevDoc.data().uploadId;
+          const prevQuery = prevUploadId
+            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
+            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
+          const prevSnap = await prevQuery.get();
+          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+        }
       } catch (e) { console.warn('Could not load previous period for recalculate P4:', e); }
 
       const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
