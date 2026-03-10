@@ -591,7 +591,8 @@ const CommissionEngine = {
       );
 
       if (matchingVoucher) {
-        usedVouchers.add(matchingVoucher._idx + '_' + matchingVoucher.codigo);
+        const vKey = matchingVoucher._idx + '_' + matchingVoucher.codigo;
+        usedVouchers.add(vKey);
         const isNaoCom = naoComList.some(n => contract.vendedor.toUpperCase().includes(n));
         conversions.push({
           cliente: contract.cliente,
@@ -605,6 +606,18 @@ const CommissionEngine = {
         });
       }
     });
+
+    // NEW: List vouchers emitted in CURRENT period and check their conversion status
+    const currentVouchers = currentProcessed
+      .filter(d => d.isDegustacao && d.dateObj)
+      .map(v => {
+        const vKey = v._idx + '_' + v.codigo;
+        const isConverted = usedVouchers.has(vKey);
+        return {
+          ...v,
+          status: isConverted ? 'CONVERTIDO' : 'PENDENTE'
+        };
+      });
 
     // P4b: Pool calculation
     // Vouchers ativos nos últimos 45 dias (from end of current month)
@@ -634,6 +647,7 @@ const CommissionEngine = {
 
     return {
       conversions,
+      currentVouchers,
       vouchersAtivos45d,
       conversoesMes,
       metaVoucher, superMetaVoucher,

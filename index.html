@@ -6343,9 +6343,45 @@
         </div>
       </div>`;
 
+      // Vouchers Emitted Table
+      const currentVouchers = p4.currentVouchers || [];
+      html += `<h4 style="font-size:13px;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span>🎫 Vouchers Emitidos no Mês</span>
+        <span style="font-size:10px;background:var(--surface2);padding:2px 8px;border-radius:10px;color:var(--text3);font-weight:normal">${currentVouchers.length} total</span>
+      </h4>`;
+
+      if (currentVouchers.length > 0) {
+        html += `<div class="table-wrap" style="max-height:300px;margin-bottom:30px"><table style="width:100%">
+          <thead><tr>
+            <th>Data</th>
+            <th>Vendedor(a)</th>
+            <th>Cliente</th>
+            <th>Código</th>
+            <th style="text-align:center">Status</th>
+          </tr></thead><tbody>`;
+        currentVouchers.forEach(v => {
+          const statusCls = v.status === 'CONVERTIDO' ? 'pill-green' : 'pill-yellow';
+          html += `<tr>
+            <td>${v.data || '—'}</td>
+            <td style="font-weight:600">${v.vendedor}</td>
+            <td>${v.cliente}</td>
+            <td class="mono" style="font-size:10px;color:var(--text3)">${v.codigo}</td>
+            <td style="text-align:center"><span class="pill ${statusCls}" style="font-size:9px;font-weight:bold">${v.status}</span></td>
+          </tr>`;
+        });
+        html += '</tbody></table></div>';
+      } else {
+        html += '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;background:var(--bg);border-radius:8px;margin-bottom:30px">Nenhum voucher emitido neste período.</div>';
+      }
+
       // Conversion detail table
+      html += `<h4 style="font-size:13px;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <span>🤝 Conversões (P4a)</span>
+        <span style="font-size:10px;background:var(--surface2);padding:2px 8px;border-radius:10px;color:var(--text3);font-weight:normal">${conversions.length} conversões</span>
+      </h4>`;
+
       if (conversions.length > 0) {
-        html += `<div class="table-wrap"><table style="width:100%">
+        html += `<div class="table-wrap" style="max-height:300px"><table style="width:100%">
           <thead><tr>
             <th>Vendedor(a)</th>
             <th>Cliente</th>
@@ -6362,13 +6398,13 @@
             <td class="mono" style="font-size:10px;color:var(--text3)">${c.codigo}</td>
             <td>${c.dataVoucher || '—'}</td>
             <td>${c.dataConversao || '—'}</td>
-            <td><span class="pill pill-novo">${c.plano}</span></td>
+            <td><span class="pill pill-novo" style="font-size:10px">${c.plano}</span></td>
             <td class="currency" style="color:${c.bonus > 0 ? 'var(--green)' : 'var(--text3)'}">R$ ${fmt(c.bonus)}</td>
           </tr>`;
         });
         html += '</tbody></table></div>';
       } else {
-        html += '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Nenhuma conversão de voucher detectada neste período.</div>';
+        html += '<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;background:var(--bg);border-radius:8px">Nenhuma conversão detectada neste período.</div>';
       }
 
       // Pool distribution
