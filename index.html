@@ -1362,13 +1362,12 @@
         border-collapse: collapse;
         font-size: 11px;
         margin-top: 15px;
-        border-color: black;
         color: black;
       }
 
       .print-table th,
       .print-table td {
-        border: 1px solid #aaa;
+        border: 1px solid #333;
         padding: 6px;
         text-align: left;
       }
@@ -1383,15 +1382,15 @@
       .print-header {
         text-align: center;
         margin-bottom: 20px;
-        border-bottom: 2px solid #333;
+        border-bottom: 2px solid #000;
         padding-bottom: 10px;
       }
 
       .print-body {
         font-family: Arial, sans-serif;
         color: black;
-        max-width: 800px;
-        margin: 0 auto;
+        width: 100%;
+        margin: 0;
       }
 
       @page {
@@ -6571,7 +6570,7 @@
               <div style="font-size:12px; margin-top:8px;">Referência: ${dataReferencia} &nbsp;&nbsp;|&nbsp;&nbsp; Emissão: ${hojeDate}</div>
             </div>
             
-            <table class="print-table" style="margin-top:0;">
+            <table class="print-table">
               <tr>
                 <td style="width:50%; vertical-align:top;">
                   <strong>FONTE PAGADORA (UNIDADE)</strong><br>
