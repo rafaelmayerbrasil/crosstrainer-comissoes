@@ -3768,13 +3768,21 @@
         // Save items in batches
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
-        // Delete existing items in batches of 400 (to avoid 500 limit)
-        let existingSnap = await itemsRef.limit(400).get();
-        while (!existingSnap.empty) {
-          const bDelete = db.batch();
-          existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
-          await bDelete.commit();
-          existingSnap = await itemsRef.limit(400).get();
+        // Delete existing items in batches of 400 (to avoid 500 limit) - bypassing cache
+        try {
+          let existingSnap = await itemsRef.limit(400).get({ source: 'server' });
+          while (!existingSnap.empty) {
+            const bDelete = db.batch();
+            existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
+            await bDelete.commit();
+            existingSnap = await itemsRef.limit(400).get({ source: 'server' });
+          }
+        } catch (e) {
+          console.error('Erro ao excluir itens existentes:', e);
+          toast('Erro ao limpar itens antigos: ' + (e.message || String(e)), 'error');
+          // Decide if you want to stop the upload process here or continue
+          // For now, we'll re-throw to be caught by the main try/catch
+          throw e;
         }
 
         // Add new items in batches of 400 — filter out empty/junk rows
@@ -3895,7 +3903,8 @@
         const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
 
         let totalExcluded = 0;
-        let snap = await itemsRef.limit(400).get();
+        // Bypassing cache to ensure we see the actual state on server
+        let snap = await itemsRef.limit(400).get({ source: 'server' });
         while (!snap.empty) {
           const batch = db.batch();
           snap.docs.forEach(d => {
@@ -3904,7 +3913,7 @@
           });
           await batch.commit();
           toast(`Excluindo... ${totalExcluded} itens removidos`, 'info');
-          snap = await itemsRef.limit(400).get();
+          snap = await itemsRef.limit(400).get({ source: 'server' });
         }
 
         toast('Excluindo documento do período...', 'info');
@@ -4141,10 +4150,10 @@
       if (rawDate && rawDate.includes('-')) {
         const parts = rawDate.split('-');
         if (parts.length === 3) {
-          finalDate = `${parts[2]} /${parts[1]}/${parts[0]} `;
+          finalDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
           pYear = parseInt(parts[0], 10);
           pMonth = parseInt(parts[1], 10);
-          targetPeriodId = `${currentUnitId}_${pYear} -${String(pMonth).padStart(2, '0')} `;
+          targetPeriodId = `${currentUnitId}_${pYear}-${String(pMonth).padStart(2, '0')}`;
         }
       }
 
