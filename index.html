@@ -3730,8 +3730,8 @@
         // Auto-register new vendors found in the file
         await autoRegisterVendors(newVendors);
 
-        // Recalculate P4 properly with previous month's data
-        const finalP4Result = CommissionEngine.calcP4(result.processed, previousProcessed, result.config);
+        // Use p4result already calculated in handleFile (which included previousProcessed)
+        const finalP4Result = result.p4result;
 
         // Save period summary
         await db.collection('periodos').doc(periodId).set({
@@ -3740,26 +3740,20 @@
           uploadedBy: currentUser.uid,
           totals: result.unitTotals,
           vendorSummary: Object.fromEntries(
-            Object.entries(result.vendorData).map(([name, v]) => {
-              // Apply P4 to vendor totals in summary
-              const vConvP4i = finalP4Result.conversions.filter(c => c.vendedora === name && !c.isNaoCom).reduce((s, c) => s + (c.bonus || 0), 0);
-              const vPoolP4p = finalP4Result.vendorPool[name] || 0;
-              const newGrandTotal = v.p1total + v.p2total + v.p3 + vConvP4i + vPoolP4p;
-
-              return [name, {
-                p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: vConvP4i, p4p: vPoolP4p,
-                grandTotal: newGrandTotal, ativacoes: v.ativacoes,
-                novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
-                caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
-              }];
-            })
+            Object.entries(result.vendorData).map(([name, v]) => [name, {
+              p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
+              grandTotal: v.grandTotal, ativacoes: v.ativacoes,
+              novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
+              caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
+            }])
           ),
           p4result: {
             ...finalP4Result,
-            conversions: finalP4Result.conversions.map(c => ({ ...c })),
-            currentVouchers: finalP4Result.currentVouchers.map(v => {
+            conversions: (finalP4Result.conversions || []).map(c => ({ ...c })),
+            currentVouchers: (finalP4Result.currentVouchers || []).map(v => {
               const cv = { ...v };
               delete cv.dateObj;
+              delete cv.dateVoucherEnd;
               return cv;
             })
           },
@@ -3768,21 +3762,13 @@
         // Save items in batches
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
-        // Delete existing items in batches of 400 (to avoid 500 limit) - bypassing cache
-        try {
-          let existingSnap = await itemsRef.limit(400).get({ source: 'server' });
-          while (!existingSnap.empty) {
-            const bDelete = db.batch();
-            existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
-            await bDelete.commit();
-            existingSnap = await itemsRef.limit(400).get({ source: 'server' });
-          }
-        } catch (e) {
-          console.error('Erro ao excluir itens existentes:', e);
-          toast('Erro ao limpar itens antigos: ' + (e.message || String(e)), 'error');
-          // Decide if you want to stop the upload process here or continue
-          // For now, we'll re-throw to be caught by the main try/catch
-          throw e;
+        // Delete existing items in batches of 400 (loop until empty)
+        let existingSnap = await itemsRef.limit(400).get();
+        while (!existingSnap.empty) {
+          const bDelete = db.batch();
+          existingSnap.docs.forEach(doc => bDelete.delete(doc.ref));
+          await bDelete.commit();
+          existingSnap = await itemsRef.limit(400).get();
         }
 
         // Add new items in batches of 400 — filter out empty/junk rows
@@ -3804,6 +3790,7 @@
               else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
             });
             delete clean.dateObj;
+            delete clean.dateVoucherEnd;
             batch.set(ref, clean);
           });
           await batch.commit();
@@ -3903,8 +3890,7 @@
         const itemsRef = db.collection('periodos').doc(currentPeriodId).collection('itens');
 
         let totalExcluded = 0;
-        // Bypassing cache to ensure we see the actual state on server
-        let snap = await itemsRef.limit(400).get({ source: 'server' });
+        let snap = await itemsRef.limit(400).get();
         while (!snap.empty) {
           const batch = db.batch();
           snap.docs.forEach(d => {
@@ -3912,8 +3898,8 @@
             totalExcluded++;
           });
           await batch.commit();
-          toast(`Excluindo... ${totalExcluded} itens removidos`, 'info');
-          snap = await itemsRef.limit(400).get({ source: 'server' });
+          if (totalExcluded % 400 === 0) toast(`Excluindo... ${totalExcluded} itens`, 'info');
+          snap = await itemsRef.limit(400).get();
         }
 
         toast('Excluindo documento do período...', 'info');
