@@ -310,12 +310,15 @@ const CommissionEngine = {
         if (parts) dateObj = new Date(parts[3], parts[2] - 1, parts[1]);
       }
 
+      const dateVoucherEnd = info.isDegustacao ? this.parseStartDate(row['Itens'])?.endDate : null;
+
       processed.push({
         _idx: idx,
         codigo, cliente: row['Cliente'] || '', data: dateStr, dateObj,
         item: String(row['Itens'] || ''), tipoVenda: String(row['Tipo de Venda'] || ''),
         vendedor, origem: String(row['Origem'] || ''),
         ...info, valorCaixa: valor,
+        dateVoucherEnd,
         p1pct, p1valor, p2bonus,
         totalP1P2: p1valor + p2bonus,
         isNaoCom,
@@ -563,12 +566,31 @@ const CommissionEngine = {
     const cfg = { ...this.defaultConfig, ...config };
     const naoComList = cfg.naoComissionaveis.map(n => n.toUpperCase().trim());
 
+    const rehydrate = d => {
+      if (!d.dateObj && d.data && typeof d.data === 'string') {
+        const parts = d.data.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (parts) d.dateObj = new Date(parts[3], parts[2] - 1, parts[1]);
+      }
+      if (!d.dateVoucherEnd && d.isDegustacao && d.item) {
+        // Try to rehydrate end date from item string if missing in saved data
+        const dates = this.parseStartDate(d.item);
+        if (dates) d.dateVoucherEnd = dates.endDate;
+      } else if (d.dateVoucherEnd && !(d.dateVoucherEnd instanceof Date)) {
+        // Firestore timestamp to Date
+        if (d.dateVoucherEnd.toDate) d.dateVoucherEnd = d.dateVoucherEnd.toDate();
+        else d.dateVoucherEnd = new Date(d.dateVoucherEnd);
+      }
+      return d;
+    };
+    const curr = (currentProcessed || []).map(rehydrate);
+    const prev = (previousProcessed || []).map(rehydrate);
+
     // Find vouchers from previous period (or current)
-    const allItems = [...(previousProcessed || []), ...currentProcessed];
+    const allItems = [...prev, ...curr];
     const vouchers = allItems.filter(d => d.isDegustacao && d.dateObj);
 
     // Find conversions in current period
-    const contracts = currentProcessed.filter(d =>
+    const contracts = curr.filter(d =>
       d.isContract &&
       ['BIANUAL', 'ANUAL', 'RECORRENTE'].includes(d.periodicidade) &&
       d.dateObj &&
@@ -582,13 +604,14 @@ const CommissionEngine = {
       if (!contract.codigo) return;
 
       // Find matching voucher for same client
-      const matchingVoucher = vouchers.find(v =>
-        v.codigo === contract.codigo &&
-        !usedVouchers.has(v._idx + '_' + v.codigo) &&
-        contract.dateObj && v.dateObj &&
-        (contract.dateObj - v.dateObj) / (1000 * 60 * 60 * 24) <= cfg.prazoConversaoDias &&
-        (contract.dateObj - v.dateObj) >= 0
-      );
+      const matchingVoucher = vouchers.find(v => {
+        const baseDate = v.dateVoucherEnd || v.dateObj; // Prefer end date, fallback to emission
+        return v.codigo === contract.codigo &&
+          !usedVouchers.has(v._idx + '_' + v.codigo) &&
+          contract.dateObj && baseDate &&
+          (contract.dateObj - baseDate) / (1000 * 60 * 60 * 24) <= cfg.prazoConversaoDias &&
+          (contract.dateObj - v.dateObj) >= 0 // Contract must still be after emission
+      });
 
       if (matchingVoucher) {
         const vKey = matchingVoucher._idx + '_' + matchingVoucher.codigo;
@@ -608,7 +631,7 @@ const CommissionEngine = {
     });
 
     // NEW: List vouchers emitted in CURRENT period and check their conversion status
-    const currentVouchers = currentProcessed
+    const currentVouchers = curr
       .filter(d => d.isDegustacao && d.dateObj)
       .map(v => {
         const vKey = v._idx + '_' + v.codigo;
