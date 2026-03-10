@@ -3817,10 +3817,20 @@
         }
 
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes} `);
+        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
-        loadPeriods();
-        navigateTo('dashboard');
+        document.getElementById('uploadPreview').style.display = 'none';
+        document.getElementById('uploadActions').style.display = 'none';
+        // Navigate to dashboard and auto-select the newly uploaded period
+        await loadPeriods();
+        const sel = document.getElementById('periodSelect');
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === periodId) { sel.selectedIndex = i; break; }
+        }
+        await loadPeriod(periodId);
+        // Switch to dashboard nav tab if visible
+        const dashLink = document.querySelector('[data-page="dashboard"], [onclick*="dashboard"], nav a[href*="dashboard"]');
+        if (dashLink) dashLink.click();
       } catch (e) {
         console.error('Erro critico durante o confirmUpload:', e);
         toast('Erro ao salvar: ' + (e.message || String(e)), 'error');
@@ -3912,7 +3922,10 @@
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
         loadPeriods();
       } catch (e) {
-        toast('Erro ao excluir: ' + e.message, 'error');
+        console.error('ERRO ao excluir período:', e);
+        const msg = e.message || e.code || String(e);
+        toast('Erro ao excluir: ' + msg, 'error');
+        alert('Erro ao excluir período:\n' + msg + '\n\nVerifique o console do navegador (F12) para mais detalhes.');
       }
     }
 
