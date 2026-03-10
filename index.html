@@ -1391,6 +1391,11 @@
         color: black;
         width: 100%;
         margin: 0;
+        box-sizing: border-box;
+      }
+
+      .print-body * {
+        box-sizing: border-box;
       }
 
       @page {
@@ -3476,7 +3481,7 @@
         v.p3 = p3.final; v.p3detail = p3;
       });
 
-      const p4result = CommissionEngine.calcP4(processed, null, cfg);
+      const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
       p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
       Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
@@ -3697,6 +3702,15 @@
       const [year, month] = period.split('-');
       const periodId = `${currentUnitId}_${year}-${month}`;
       const { rawRows, result, fileName, newVendors } = pendingUpload;
+
+      // --- NEW: Load previous month vouchers for P4 cross-month conversion ---
+      let previousProcessed = [];
+      try {
+        const prevMonthDate = new Date(parseInt(year), parseInt(month) - 1, 0);
+        const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevSnap = await db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed').get();
+        prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+      } catch (e) { console.warn('Could not load previous period for P4:', e); }
 
       try {
         toast('Salvando...', 'info');
@@ -4177,7 +4191,18 @@
       });
 
       // P4
-      const p4result = CommissionEngine.calcP4(processed, null, cfg);
+      let previousProcessed = [];
+      try {
+        const [unit, yStr, mStr] = periodId.split('_')[1].split('-');
+        const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
+        const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
+        const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
+        const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevSnap = await db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed').get();
+        prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+      } catch (e) { console.warn('Could not load previous period for recalculate P4:', e); }
+
+      const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
       p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
       Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
@@ -6745,11 +6770,11 @@
               </tbody>
             </table>
 
-            <div class="print-no-break" style="margin-top:60px; display:flex; justify-content:space-between;">
-              <div style="width:45%; text-align:center; border-top:1px solid #000; padding-top:10px;">
+            <div class="print-no-break" style="margin-top:60px; display:flex; justify-content:space-between; width:100%;">
+              <div style="width:48%; text-align:center; border-top:1.5px solid #000; padding-top:10px; font-size:12px;">
                 Assinatura do Gestor / Unidade
               </div>
-              <div style="width:45%; text-align:center; border-top:1px solid #000; padding-top:10px;">
+              <div style="width:48%; text-align:center; border-top:1.5px solid #000; padding-top:10px; font-size:12px;">
                 Assinatura do Vendedor
               </div>
             </div>
