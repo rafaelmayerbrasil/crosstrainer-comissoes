@@ -70,6 +70,15 @@ const CommissionEngine = {
       isDegustacao: false,
     };
 
+    // ── PRIORITY: Aula / Pacote — regular vendor gets 5% P1, but NOT a plan unit ──
+    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
+      if (!item.includes('AULA EXPERIMENTAL') && !item.includes('EXPERIMENTAL')) {
+        r.category = 'avulsa'; r.label = 'Aula/Pacote avulso';
+        r.isActivation = false; r.isEligibleP3 = true;
+        return r;
+      }
+    }
+
     // ── Hard exclusions ──
     if (item.includes('RESCISÃO') || item.includes('RESCISAO'))
       return { ...r, excluded: true, excludeReason: 'Rescisão contratual' };
@@ -111,12 +120,7 @@ const CommissionEngine = {
       return r;
     }
 
-    // Aulas avulsas / pacotes / Qualquer item com "AULA"
-    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
-      r.category = 'avulsa'; r.label = 'Aula/Pacote avulso';
-      r.isActivation = false; r.isEligibleP3 = true;
-      return r;
-    }
+    // Aulas avulsas / pacotes handled above in PRIORITY section
 
     // Aula experimental
     if (item.includes('AULA EXPERIMENTAL') || item.includes('EXPERIMENTAL')) {
@@ -189,8 +193,9 @@ const CommissionEngine = {
     if (item.includes('PERMUTA') || tipo.includes('permuta')) return 'excluded';
     if (item.includes('DEGUSTAÇÃO') || item.includes('DEGUSTACAO') || item.includes('MÊS DEGUSTAÇÃO'))
       return 'voucher';
-    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
-      return 'avulsa';
+    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
+      if (!item.includes('AULA EXPERIMENTAL') && !item.includes('EXPERIMENTAL')) return 'avulsa';
+    }
     if (item.includes('MATRÍCULA') || item.includes('MATRICULA') || item.includes('TAXA'))
       return 'matricula';
     if (item.includes('DIFERENÇA') || item.includes('DIFERENCA'))
