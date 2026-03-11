@@ -115,7 +115,6 @@ const CommissionEngine = {
     if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
       r.category = 'avulsa'; r.label = 'Aula/Pacote avulso';
       r.isActivation = false; r.isEligibleP3 = true;
-      if (isRenovacao) r.category = 'avulsa_renov';
       return r;
     }
 
@@ -191,7 +190,7 @@ const CommissionEngine = {
     if (item.includes('DEGUSTAÇÃO') || item.includes('DEGUSTACAO') || item.includes('MÊS DEGUSTAÇÃO'))
       return 'voucher';
     if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
-      return tipo.includes('renova') ? 'avulsa_renov' : 'avulsa';
+      return 'avulsa';
     if (item.includes('MATRÍCULA') || item.includes('MATRICULA') || item.includes('TAXA'))
       return 'matricula';
     if (item.includes('DIFERENÇA') || item.includes('DIFERENCA'))
@@ -287,7 +286,7 @@ const CommissionEngine = {
       let p1pct = 0, p1valor = 0;
       if (info.isDegustacao) {
         p1valor = cfg.voucherFixo;
-      } else if (info.category === 'renovacao' || info.category === 'avulsa_renov') {
+      } else if (info.category === 'renovacao') {
         p1pct = pctRenov;
         p1valor = valor * pctRenov;
       } else {
@@ -485,7 +484,7 @@ const CommissionEngine = {
       else if (d.category === 'renovacao') v.renovacoes += ativFactor;
       else if (d.category === 'retorno') v.retornos += ativFactor;
       else if (d.category === 'voucher') v.vouchers += ativFactor;
-      else if (d.category === 'avulsa' || d.category === 'avulsa_renov') v.avulsas += ativFactor;
+      else if (d.category === 'avulsa') v.avulsas += ativFactor;
       else v.outros += ativFactor;
       v.rows.push(d);
 
@@ -503,7 +502,7 @@ const CommissionEngine = {
         else if (d.category === 'renovacao') sv.renovacoes += 0.5;
         else if (d.category === 'retorno') sv.retornos += 0.5;
         else if (d.category === 'voucher') sv.vouchers += 0.5;
-        else if (d.category === 'avulsa' || d.category === 'avulsa_renov') sv.avulsas += 0.5;
+        else if (d.category === 'avulsa') sv.avulsas += 0.5;
         else sv.outros += 0.5;
       }
     });
