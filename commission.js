@@ -282,9 +282,16 @@ const CommissionEngine = {
       const isNaoCom = naoComList.some(n => vendedor.toUpperCase().includes(n));
       const codigo = String(row['Código'] || row['Codigo'] || '').trim();
 
+      // --- New Flags & Manual Adjustments ---
+      const hasManualP1 = row.manualP1 !== undefined && row.manualP1 !== null;
+      const hasManualP2 = row.manualP2 !== undefined && row.manualP2 !== null;
+      const isCancelado = row.canceladoSemEstorno === true;
+
       // P1
       let p1pct = 0, p1valor = 0;
-      if (info.isDegustacao) {
+      if (hasManualP1) {
+        p1valor = parseFloat(row.manualP1) || 0;
+      } else if (info.isDegustacao) {
         p1valor = cfg.voucherFixo;
       } else if (info.category === 'renovacao') {
         p1pct = pctRenov;
@@ -295,10 +302,24 @@ const CommissionEngine = {
       }
 
       // P2
-      let p2bonus = info.isContract ? this.getP2Bonus(info.periodicidade, info.abrangencia, cfg) : 0;
+      let p2bonus = 0;
+      if (hasManualP2) {
+        p2bonus = parseFloat(row.manualP2) || 0;
+      } else if (isCancelado) {
+        p2bonus = 0;
+      } else if (info.isContract) {
+        p2bonus = this.getP2Bonus(info.periodicidade, info.abrangencia, cfg);
+      }
 
-      // Non-commissionable: zero P1 and P2
-      if (isNaoCom) { p1valor = 0; p2bonus = 0; }
+      // ── Contagem de Ativação (P3) ──
+      // Se cancelado, não conta como ativação para meta
+      let isActivation = info.isActivation;
+      if (isCancelado) isActivation = false;
+
+      // Non-commissionable: zero P1 and P2 (unless manual override is intentionally set? 
+      // Rule: isNaoCom typically means 0. We'll stick to that unless manual is present)
+      if (isNaoCom && !hasManualP1) p1valor = 0;
+      if (isNaoCom && !hasManualP2) p2bonus = 0;
 
       // Date
       const dt = row['Data'];
@@ -321,6 +342,10 @@ const CommissionEngine = {
         p1pct, p1valor, p2bonus,
         totalP1P2: p1valor + p2bonus,
         isNaoCom,
+        isActivation, // update with cancelado logic
+        canceladoSemEstorno: isCancelado,
+        manualP1: row.manualP1,
+        manualP2: row.manualP2,
         planStartDate: null, planEndDate: null,
       });
 
