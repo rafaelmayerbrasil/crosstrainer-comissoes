@@ -1439,9 +1439,8 @@
               <option value="renovacao">Renovação</option>
               <option value="retorno">Retorno</option>
               <option value="voucher">Voucher (Mês Degustação)</option>
-              <option value="avulsa">Avulsa / Diária</option>
-              <option value="avulsa_renov">Avulsa_Renov</option>
-              <option value="upgrade">Upgrade de Plano</option>
+               <option value="avulsa">Avulsa / Diária</option>
+               <option value="upgrade">Upgrade de Plano</option>
               <option value="ignorada">Ignorado (Gympass/Rescisão)</option>
             </select>
           </div>
@@ -5319,7 +5318,7 @@
           return;
         }
 
-        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa' }[c] || 'pill-outro');
+        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa' }[c] || 'pill-outro');
 
         let tHtml = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;white-space:nowrap;font-size:11px">' +
           '<thead><tr style="border-bottom:1px solid var(--border)">' +
@@ -6930,7 +6929,7 @@
           return dB - dA;
         });
 
-        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', avulsa_renov: 'pill-avulsa', upgrade: 'pill-upgrade' }[c] || 'pill-outro');
+        const pillClass = c => ({ novo: 'pill-novo', renovacao: 'pill-renovacao', retorno: 'pill-retorno', voucher: 'pill-voucher', avulsa: 'pill-avulsa', upgrade: 'pill-upgrade' }[c] || 'pill-outro');
 
         let tHtml = '<table style="width:100%; border-collapse:collapse; text-align:left; white-space:nowrap; font-size:11px;">' +
           '<thead><tr style="background:var(--surface2); border-bottom:1px solid var(--border);">' +

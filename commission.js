@@ -111,8 +111,8 @@ const CommissionEngine = {
       return r;
     }
 
-    // Aulas avulsas / pacotes
-    if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
+    // Aulas avulsas / pacotes / Qualquer item com "AULA"
+    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item)) {
       r.category = 'avulsa'; r.label = 'Aula/Pacote avulso';
       r.isActivation = false; r.isEligibleP3 = true;
       return r;
@@ -189,7 +189,7 @@ const CommissionEngine = {
     if (item.includes('PERMUTA') || tipo.includes('permuta')) return 'excluded';
     if (item.includes('DEGUSTAÇÃO') || item.includes('DEGUSTACAO') || item.includes('MÊS DEGUSTAÇÃO'))
       return 'voucher';
-    if (/^\d+\s*AULAS?\s*[\(\-]/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
+    if (item.includes('AULA') || item.includes('AVULSA') || item.includes('DIÁRIA') || item.includes('DIARIA') || /^\d+\s*AULAS?/.test(item) || /PACOTE\s+\d+\s*AULAS?/.test(item))
       return 'avulsa';
     if (item.includes('MATRÍCULA') || item.includes('MATRICULA') || item.includes('TAXA'))
       return 'matricula';
