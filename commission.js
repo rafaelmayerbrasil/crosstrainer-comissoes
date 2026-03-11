@@ -312,9 +312,8 @@ const CommissionEngine = {
       }
 
       // ── Contagem de Ativação (P3) ──
-      // Se cancelado, não conta como ativação para meta
+      // A regra de Cancelado Sem Estorno agora MANTÉM a ativação, portanto não vamos zerar isActivation
       let isActivation = info.isActivation;
-      if (isCancelado) isActivation = false;
 
       // Non-commissionable: zero P1 and P2 (unless manual override is intentionally set? 
       // Rule: isNaoCom typically means 0. We'll stick to that unless manual is present)

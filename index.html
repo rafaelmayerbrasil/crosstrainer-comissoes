@@ -3877,8 +3877,8 @@
         // This avoids having to delete old items — queries filter by uploadId instead
         const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-        // Save period summary (include uploadId)
-        await db.collection('periodos').doc(periodId).set({
+        // Define period object
+        const rawPeriodData = {
           unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
           fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
           uploadedBy: currentUser.uid,
@@ -3902,7 +3902,30 @@
               return cv;
             })
           },
-        }, { merge: true });
+        };
+
+        // Recursively remove undefined fields to prevent Firestore errors
+        function removeUndefinedFields(obj) {
+          const clean = {};
+          for (const [k, v] of Object.entries(obj)) {
+            if (v === undefined) { continue; }
+            if (v !== null && typeof v === 'object' && !(v instanceof Date) && !(v.constructor && v.constructor.name === 'FieldValueImpl')) {
+              if (Array.isArray(v)) {
+                clean[k] = v.map(i => typeof i === 'object' ? removeUndefinedFields(i) : (i === undefined ? null : i));
+              } else {
+                clean[k] = removeUndefinedFields(v);
+              }
+            } else {
+              clean[k] = v;
+            }
+          }
+          return clean;
+        }
+
+        const periodData = removeUndefinedFields(rawPeriodData);
+
+        // Save period summary (include uploadId)
+        await db.collection('periodos').doc(periodId).set(periodData, { merge: true });
 
         // Save items in batches (NO delete of old items — uploadId filters them out)
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
@@ -4131,10 +4154,25 @@
           category: 'ignorada',
           label: 'Ignorada (manual)'
         });
+        
+        if (globalPeriodsCache[currentPeriodId]) {
+          const item = globalPeriodsCache[currentPeriodId].find(i => i._docId === itemId);
+          if (item) {
+            item.type = 'excluded';
+            item.category = 'ignorada';
+            item.label = 'Ignorada (manual)';
+          }
+        }
+
         toast('Registro ignorado. Recalculando...', 'info');
         logAudit('record_delete', `Registro ignorado no período ${currentPeriodId} `);
         await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
+        
+        // Optimistic UI update without a full reload
+        const doc = await db.collection('periodos').doc(currentPeriodId).get();
+        if (doc.exists) renderAdminDashboard(doc.data(), currentPeriodId);
+        renderRecordsTable(currentPeriodId, false);
+        
         toast('Período recalculado!', 'success');
       } catch (e) {
         toast('Erro: ' + e.message, 'error');
@@ -4145,9 +4183,15 @@
       if (!currentPeriodId) return;
       if (!confirm('Restaurar este registro para as comissões?')) return;
       try {
-        // Obter o registro e refazer o parse da categoria baseado no nome original
-        const doc = await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).get();
-        const d = doc.data();
+        let d = null;
+        if (globalPeriodsCache[currentPeriodId]) {
+          d = globalPeriodsCache[currentPeriodId].find(i => i._docId === itemId);
+        }
+        if (!d) {
+          const doc = await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).get();
+          d = doc.data();
+        }
+
         const cat = CommissionEngine.mapCategory(d.item || '', d.tipoVenda || '');
 
         await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(itemId).update({
@@ -4155,10 +4199,24 @@
           category: cat,
           label: cat
         });
+
+        if (globalPeriodsCache[currentPeriodId]) {
+          const item = globalPeriodsCache[currentPeriodId].find(i => i._docId === itemId);
+          if (item) {
+            item.type = 'processed';
+            item.category = cat;
+            item.label = cat;
+          }
+        }
+
         toast('Registro restaurado. Recalculando...', 'info');
         logAudit('record_restore', `Registro restaurado no período ${currentPeriodId} `);
         await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
+        
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        if (periodDoc.exists) renderAdminDashboard(periodDoc.data(), currentPeriodId);
+        renderRecordsTable(currentPeriodId, false);
+        
         toast('Período recalculado!', 'success');
       } catch (e) {
         toast('Erro ao restaurar: ' + e.message, 'error');
@@ -4214,7 +4272,7 @@
         const batch = db.batch();
 
         // Update original
-        batch.update(origRef, {
+        const origUpdateData = {
           valorCaixa: baseCaixa * newOrigRatio,
           p1valor: baseP1 * newOrigRatio,
           p2bonus: baseP2 * newOrigRatio,
@@ -4222,11 +4280,12 @@
           splitAtivacao: newOrigRatio,
           splitWith: partner,
           item: (origData.item || '') + ` (Split: ${Math.round(newOrigRatio * 100)} %)`
-        });
+        };
+        batch.update(origRef, origUpdateData);
 
         // Create cloned split record for partner
         const partnerRef = db.collection('periodos').doc(currentPeriodId).collection('itens').doc();
-        batch.set(partnerRef, {
+        const newPartnerData = {
           ...origData,
           vendedor: partner,
           valorCaixa: baseCaixa * newPartnerRatio,
@@ -4237,15 +4296,25 @@
           splitWith: origData.vendedor || '',
           item: (origData.item || '') + ` (Split: ${Math.round(newPartnerRatio * 100)} %)`,
           originalSplitId: origRef.id // link back
-        });
+        };
+        batch.set(partnerRef, newPartnerData);
 
         await batch.commit();
+        
+        if (globalPeriodsCache[currentPeriodId]) {
+          const cachedOrig = globalPeriodsCache[currentPeriodId].find(i => i._docId === origId);
+          if (cachedOrig) Object.assign(cachedOrig, origUpdateData);
+          globalPeriodsCache[currentPeriodId].push({ _docId: partnerRef.id, ...newPartnerData });
+        }
+
         closeSplitRecordModal();
         toast('Venda dividida com sucesso! Recalculando...', 'success');
         logAudit('record_split', `Divisão: ${origData.vendedor} → ${partner} (${Math.round(ratioVal * 100)}/${Math.round((1 - ratioVal) * 100)})`);
 
         await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        if (periodDoc.exists) renderAdminDashboard(periodDoc.data(), currentPeriodId);
+        renderRecordsTable(currentPeriodId, false);
       } catch (err) {
         toast('Erro ao dividir: ' + err.message, 'error');
       }
@@ -4350,12 +4419,28 @@
             await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).delete();
             const newId = generateStableId(data);
             await db.collection('periodos').doc(targetPeriodId).collection('itens').doc(newId).set(data);
+            
+            if (globalPeriodsCache[currentPeriodId]) {
+              globalPeriodsCache[currentPeriodId] = globalPeriodsCache[currentPeriodId].filter(i => i._docId !== id);
+            }
+            if (globalPeriodsCache[targetPeriodId]) {
+              globalPeriodsCache[targetPeriodId].push({ _docId: newId, ...data });
+            }
           } else {
             await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).update(data);
+            if (globalPeriodsCache[currentPeriodId]) {
+              const idx = globalPeriodsCache[currentPeriodId].findIndex(i => i._docId === id);
+              if (idx > -1) {
+                globalPeriodsCache[currentPeriodId][idx] = { ...globalPeriodsCache[currentPeriodId][idx], ...data };
+              }
+            }
           }
         } else {
           const newId = generateStableId(data);
           await db.collection('periodos').doc(targetPeriodId).collection('itens').doc(newId).set(data);
+          if (globalPeriodsCache[targetPeriodId]) {
+            globalPeriodsCache[targetPeriodId].push({ _docId: newId, ...data });
+          }
         }
 
         closeRecordModal();
@@ -4366,12 +4451,16 @@
           await recalculatePeriod(targetPeriodId);
           toast('Lançamento salvo num novo período. Atualizando lista...', 'info');
           await loadPeriods();
-          // set period select to target
+          
           document.getElementById('periodSelect').value = targetPeriodId;
-          await loadPeriod(targetPeriodId);
+          const pDoc = await db.collection('periodos').doc(targetPeriodId).get();
+          if (pDoc.exists) renderAdminDashboard(pDoc.data(), targetPeriodId);
+          renderRecordsTable(targetPeriodId, false);
         } else {
           await recalculatePeriod(currentPeriodId);
-          await loadPeriod(currentPeriodId);
+          const pDoc = await db.collection('periodos').doc(currentPeriodId).get();
+          if (pDoc.exists) renderAdminDashboard(pDoc.data(), currentPeriodId);
+          renderRecordsTable(currentPeriodId, false);
           toast('Período recalculado!', 'success');
         }
       } catch (err) { toast('Erro: ' + err.message, 'error'); }
@@ -4384,18 +4473,19 @@
       const pData = pDoc.data();
       const currentUploadId = pData.uploadId;
 
-      // Filter by unitId and uploadId to avoid including junk/old rows
-      let query = db.collection('periodos').doc(periodId).collection('itens');
-      if (currentUploadId) {
-        query = query.where('uploadId', '==', currentUploadId);
+      let items = globalPeriodsCache[periodId];
+      if (!items) {
+        let query = db.collection('periodos').doc(periodId).collection('itens');
+        if (currentUploadId) {
+          query = query.where('uploadId', '==', currentUploadId);
+        }
+        const itemsSnap = await query.get();
+        items = [];
+        itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+        globalPeriodsCache[periodId] = items;
       }
       
-      const itemsSnap = await query.get();
-      const processed = [];
-      itemsSnap.forEach(doc => {
-        const d = doc.data();
-        if (d.type === 'processed') processed.push(d);
-      });
+      const processed = items.filter(d => d.type === 'processed');
 
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
       // Rebuild vendorData from remaining processed items
@@ -4451,7 +4541,7 @@
         p3multiplier: v.p3detail?.multiplier || 1
       }]));
 
-      await db.collection('periodos').doc(periodId).update({
+      const rawUpdateData = {
         totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
         vendorSummary,
         p4result: {
@@ -4462,7 +4552,27 @@
             return cv;
           })
         }
-      });
+      };
+
+      // Recursively remove undefined fields to prevent Firestore errors
+      function removeUndefinedFields(obj) {
+        const clean = {};
+        for (const [k, v] of Object.entries(obj)) {
+          if (v === undefined) { continue; }
+          if (v !== null && typeof v === 'object' && !(v instanceof Date) && !(v.constructor && v.constructor.name === 'FieldValueImpl')) {
+            if (Array.isArray(v)) {
+              clean[k] = v.map(i => typeof i === 'object' ? removeUndefinedFields(i) : (i === undefined ? null : i));
+            } else {
+              clean[k] = removeUndefinedFields(v);
+            }
+          } else {
+            clean[k] = v;
+          }
+        }
+        return clean;
+      }
+
+      await db.collection('periodos').doc(periodId).update(removeUndefinedFields(rawUpdateData));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -4751,7 +4861,9 @@
         // RESET lazy loading state for the new period
         loadedTabs = new Set();
         loadedTabs.add('tabResumo');
-        currentPeriodItems = []; // clear cache
+        
+        // Make sure currentPeriodItems points to the cache of this period
+        currentPeriodItems = globalPeriodsCache[periodId] || [];
 
         // ONLY render history chart automatically (part of Resumo)
         renderHistoryChart();
@@ -4808,6 +4920,7 @@
       } catch (e) { /* silently fail if no history */ }
     }
 
+    let globalPeriodsCache = {};
     let currentPeriodItems = [];
     let currentSortCol = 'vendedor';
     let currentSortAsc = true;
@@ -4818,7 +4931,7 @@
       container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando registros...</div>';
 
       try {
-        if (forceRefresh || currentPeriodItems.length === 0) {
+        if (forceRefresh || !globalPeriodsCache[periodId]) {
           const pDoc = await db.collection('periodos').doc(periodId).get();
           const pData = pDoc.exists ? pDoc.data() : {};
           const currentUploadId = pData.uploadId;
@@ -4829,11 +4942,13 @@
           }
 
           const itemsSnap = await query.get();
-          currentPeriodItems = [];
+          const items = [];
           itemsSnap.forEach(doc => {
-            currentPeriodItems.push({ _docId: doc.id, ...doc.data() });
+            items.push({ _docId: doc.id, ...doc.data() });
           });
+          globalPeriodsCache[periodId] = items;
         }
+        currentPeriodItems = globalPeriodsCache[periodId] || [];
       } catch (e) {
         console.error('Error loading records:', e);
       }
@@ -5733,12 +5848,23 @@
           batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id), {
             type: 'excluded', category: 'ignorada', label: 'Ignorada (lote)'
           });
+          if (globalPeriodsCache[currentPeriodId]) {
+            const item = globalPeriodsCache[currentPeriodId].find(i => i._docId === id);
+            if (item) {
+              item.type = 'excluded';
+              item.category = 'ignorada';
+              item.label = 'Ignorada (lote)';
+            }
+          }
         });
         await batch.commit();
         logAudit('record_delete', `Ignorou ${selectedRecordIds.size} registros em lote no período ${currentPeriodId}`);
         selectedRecordIds.clear();
         await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
+        
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        if (periodDoc.exists) renderAdminDashboard(periodDoc.data(), currentPeriodId);
+        renderRecordsTable(currentPeriodId, false);
         toast('Registros ignorados e período recalculado!', 'success');
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
@@ -5795,12 +5921,23 @@
           batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(r._docId), {
             type: 'processed', category: cat, label: cat
           });
+          if (globalPeriodsCache[currentPeriodId]) {
+            const item = globalPeriodsCache[currentPeriodId].find(i => i._docId === r._docId);
+            if (item) {
+              item.type = 'processed';
+              item.category = cat;
+              item.label = cat;
+            }
+          }
         });
         await batch.commit();
         logAudit('record_restore', `Ativou ${selectedRecordIds.size} registros em lote no período ${currentPeriodId}`);
         selectedRecordIds.clear();
         await recalculatePeriod(currentPeriodId);
-        await loadPeriod(currentPeriodId);
+        
+        const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+        if (periodDoc.exists) renderAdminDashboard(periodDoc.data(), currentPeriodId);
+        renderRecordsTable(currentPeriodId, false);
         toast('Registros ativados e período recalculado!', 'success');
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
@@ -5896,12 +6033,20 @@
             if (vend) updates.vendedor = vend;
             if (tipo) updates.tipoVenda = tipo;
             batch.update(db.collection('periodos').doc(currentPeriodId).collection('itens').doc(r._docId), updates);
+            
+            if (globalPeriodsCache[currentPeriodId]) {
+              const item = globalPeriodsCache[currentPeriodId].find(i => i._docId === r._docId);
+              if (item) Object.assign(item, updates);
+            }
           });
           await batch.commit();
           logAudit('record_edit', `Edição em massa de ${selectedRecordIds.size} registros no período ${currentPeriodId}`);
           selectedRecordIds.clear();
           await recalculatePeriod(currentPeriodId);
-          await loadPeriod(currentPeriodId);
+          
+          const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
+          if (periodDoc.exists) renderAdminDashboard(periodDoc.data(), currentPeriodId);
+          renderRecordsTable(currentPeriodId, false);
           toast('Registros atualizados com sucesso!', 'success');
         } catch (e) {
           toast('Erro ao editar em massa: ' + e.message, 'error');
