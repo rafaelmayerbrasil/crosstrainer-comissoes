@@ -1445,6 +1445,27 @@
             </select>
           </div>
         </div>
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <h4 style="font-size:12px; color:var(--orange); margin-bottom:12px; text-transform:uppercase;">Exceções e Ajustes (Opcional)</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+              <label>Ajustar Valor P1 (R$)</label>
+              <input id="recAjusteP1" type="number" step="0.01" placeholder="Ex: 50.00">
+              <div style="font-size:9px; color:var(--text3); margin-top:2px;">Substitui a regra original de %</div>
+            </div>
+            <div class="form-group">
+              <label>Ajustar Valor P2 (R$)</label>
+              <input id="recAjusteP2" type="number" step="0.01" placeholder="Ex: 0.00 (Zerar)">
+              <div style="font-size:9px; color:var(--text3); margin-top:2px;">Substitui o prêmio fixo</div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; text-transform:none;">
+              <input type="checkbox" id="recCancelado" style="width:16px; height:16px;">
+              Cancelar Contrato Sem Estorno (Remove P2/P3/P4, mantém P1)
+            </label>
+          </div>
+        </div>
         <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeRecordModal()">Cancelar</button>
           <button type="submit" class="btn">Salvar</button>
@@ -2589,7 +2610,7 @@
         <div class="page-hdr"
           style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <h1>Dashboard <span id="activeUnitBadge" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
+            <h1>Dashboard <span id="activeUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn btn-outline" id="btnConfigMetasMes"
@@ -2619,7 +2640,7 @@
       <!-- ADMIN: UPLOAD -->
       <div class="page" id="page-upload">
         <div class="page-hdr">
-          <h1>Upload de Arquivo</h1>
+          <h1>Upload de Arquivo <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Suba o Excel do TecnoFit para processar as comissões.</p>
         </div>
         <div class="upload-zone" id="uploadZone">
@@ -2646,7 +2667,7 @@
       <!-- ADMIN: USERS -->
       <div class="page" id="page-users">
         <div class="page-hdr">
-          <h1>Gestão de Usuários</h1>
+          <h1>Gestão de Usuários <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Cadastre, edite e remova vendedores e administradores.</p>
         </div>
         <button class="btn btn-sm" onclick="showAddUser()" style="margin-bottom:16px">+ Novo Usuário</button>
@@ -2692,7 +2713,7 @@
       <!-- ADMIN: UNITS -->
       <div class="page" id="page-units">
         <div class="page-hdr">
-          <h1>Gestão de Unidades</h1>
+          <h1>Gestão de Unidades <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Crie e gerencie academias / filiais do sistema.</p>
         </div>
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px">
@@ -2727,7 +2748,7 @@
       <!-- ADMIN: AUDIT LOG -->
       <div class="page" id="page-audit">
         <div class="page-hdr">
-          <h1>Log de Auditoria</h1>
+          <h1>Log de Auditoria <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Histórico de ações no sistema — quem fez o quê e quando.</p>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -2757,7 +2778,7 @@
       <!-- ADMIN: SETTINGS -->
       <div class="page" id="page-settings">
         <div class="page-hdr">
-          <h1>Configurações</h1>
+          <h1>Configurações <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Regras de comissão, metas e não-comissionáveis.</p>
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">
@@ -2770,7 +2791,7 @@
       <!-- ADMIN: COMPARATIVO -->
       <div class="page" id="page-comparativo">
         <div class="page-hdr">
-          <h1>Comparativo de Períodos</h1>
+          <h1>Comparativo de Períodos <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           <p>Compare dois meses lado a lado para identificar tendências.</p>
         </div>
         <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px;flex-wrap:wrap">
@@ -2798,7 +2819,7 @@
       <!-- VENDEDOR: DASHBOARD -->
       <div class="page" id="page-meu-painel">
         <div class="page-hdr">
-          <h1>Meu Painel</h1>
+          <h1>Meu Painel <span id="vendedorUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
         </div>
         <div class="period-sel">
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
@@ -3069,6 +3090,10 @@
           unitConfig = udata.config || {};
           // Update unit badges in UI
           const unitName = udata.name || 'Unidade';
+          document.querySelectorAll('.unit-badge-display').forEach(el => {
+            el.textContent = unitName;
+            el.style.display = 'inline-block';
+          });
           const bDash = document.getElementById('activeUnitBadge');
           const bVend = document.getElementById('vendedorUnitBadge');
           if (bDash) { bDash.textContent = unitName; bDash.style.display = 'inline-block'; }
@@ -3219,7 +3244,26 @@
       }
     }
 
-    function showAddUser() {
+    async function populateUserUnitsCheckboxes() {
+      const container = document.getElementById('newUserUnitsContainer');
+      container.innerHTML = '<div style="font-size:11px;color:var(--text3)">Carregando...</div>';
+      try {
+        const snap = await db.collection('units').get();
+        let html = '';
+        snap.forEach(doc => {
+          const u = doc.data();
+          html += `<label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+            <input type="checkbox" value="${doc.id}">
+            ${u.name || doc.id}
+          </label>`;
+        });
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<div style="font-size:11px;color:var(--red)">Erro ao carregar unidades.</div>';
+      }
+    }
+
+    async function showAddUser() {
       document.getElementById('userFormTitle').textContent = 'Novo Usuário';
       document.getElementById('editUserId').value = '';
       document.getElementById('newUserName').value = '';
@@ -3230,6 +3274,7 @@
       document.getElementById('newUserCpf').value = '';
       document.getElementById('newUserPix').value = '';
       document.getElementById('btnSaveUser').textContent = 'Criar';
+      await populateUserUnitsCheckboxes();
       document.getElementById('addUserForm').style.display = '';
     }
 
@@ -3249,6 +3294,8 @@
           document.getElementById('newUserCpf').value = d.cpf || '';
           document.getElementById('newUserPix').value = d.pix || '';
           document.getElementById('newUserRole').value = d.role || 'vendedor';
+
+          await populateUserUnitsCheckboxes();
 
           // Mark checkboxes for allowedUnits
           const allowed = d.allowedUnits || (d.unitId ? [d.unitId] : []);
@@ -4207,6 +4254,9 @@
     function openAddRecordModal() {
       document.getElementById('recId').value = '';
       document.getElementById('recForm').reset();
+      document.getElementById('recAjusteP1').value = '';
+      document.getElementById('recAjusteP2').value = '';
+      document.getElementById('recCancelado').checked = false;
       document.getElementById('recordModalTitle').textContent = 'Novo Lançamento';
       document.getElementById('recordModal').classList.add('open');
     }
@@ -4231,6 +4281,9 @@
       document.getElementById('recCaixa').value = d.valorCaixa || 0;
       document.getElementById('recTipo').value = d.tipoVenda || '';
       document.getElementById('recCat').value = d.category || 'novo';
+      document.getElementById('recAjusteP1').value = d.manualP1 !== undefined && d.manualP1 !== null ? d.manualP1 : '';
+      document.getElementById('recAjusteP2').value = d.manualP2 !== undefined && d.manualP2 !== null ? d.manualP2 : '';
+      document.getElementById('recCancelado').checked = d.canceladoSemEstorno === true;
       document.getElementById('recordModalTitle').textContent = 'Editar Lançamento';
       document.getElementById('recordModal').classList.add('open');
     }
@@ -4270,6 +4323,16 @@
         type: 'processed',
         isActivation: ['novo', 'retorno', 'renovacao', 'voucher'].includes(document.getElementById('recCat').value)
       };
+
+      const ajusteP1Str = document.getElementById('recAjusteP1').value;
+      if (ajusteP1Str) data.manualP1 = parseFloat(ajusteP1Str);
+      else data.manualP1 = null;
+
+      const ajusteP2Str = document.getElementById('recAjusteP2').value;
+      if (ajusteP2Str) data.manualP2 = parseFloat(ajusteP2Str);
+      else data.manualP2 = null;
+
+      data.canceladoSemEstorno = document.getElementById('recCancelado').checked;
 
       try {
         toast('Salvando...', 'info');
@@ -4886,11 +4949,17 @@
 
       filtered.forEach((r, idx) => {
         const isProc = r.type !== 'excluded';
+
+        let flags = '';
+        if (r.canceladoSemEstorno) flags += '<span title="Cancelado sem estorno (Não gera P2/P3/P4, P1 mantido)" style="display:inline-block; font-size:9px; padding:1px 4px; border-radius:3px; background:var(--red-bg); color:var(--red); margin-left:4px; font-weight:700;">CANC</span>';
+        if (r.manualP1 !== undefined && r.manualP1 !== null) flags += '<span title="Ajuste Manual P1 (R$ ' + r.manualP1 + ')" style="display:inline-block; font-size:9px; padding:1px 4px; border-radius:3px; background:var(--blue-bg); color:var(--blue); margin-left:4px; font-weight:700;">🛠️ P1</span>';
+        if (r.manualP2 !== undefined && r.manualP2 !== null) flags += '<span title="Ajuste Manual P2 (R$ ' + r.manualP2 + ')" style="display:inline-block; font-size:9px; padding:1px 4px; border-radius:3px; background:var(--orange-glow); color:var(--orange); margin-left:4px; font-weight:700;">🛠️ P2</span>';
+
         tHtml += '<tr style="opacity:' + (isProc ? '1' : '0.6') + '">' +
           '<td><input type="checkbox" class="record-checkbox" data-docid="' + r._docId + '" onchange="toggleRecordSelection(\'' + r._docId + '\',this)"></td>' +
           '<td>' + (r.vendedor || '') + '</td>' +
           '<td style="max-width:160px;word-break:break-word;white-space:normal">' + (r.cliente || '') + '</td>' +
-          '<td style="max-width:160px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + '</td>' +
+          '<td style="max-width:160px;word-break:break-word;white-space:normal;font-size:10px">' + (r.item || '') + flags + '</td>' +
           '<td><span style="font-size:9px;color:var(--text3)">' + (r.tipoVenda || '') + '</span></td>' +
           '<td>' + (r.data || '') + '</td>' +
           '<td class="currency">R$ ' + fmt(r.valorCaixa || 0) + '</td>' +
