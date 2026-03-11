@@ -3705,6 +3705,23 @@
       updatePreviewBulkButtons();
     }
 
+    function generateStableId(item) {
+      const key = [
+        (item.vendedor || '').toString().trim().toUpperCase(),
+        (item.cliente || '').toString().trim().toUpperCase(),
+        (item.data || '').toString().replace(/\//g, ''),
+        (item.item || '').toString().trim().toUpperCase(),
+        Number(item.valorCaixa || 0).toFixed(2)
+      ].join('|');
+      
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = ((hash << 5) - hash) + key.charCodeAt(i);
+        hash |= 0;
+      }
+      return 'id_' + Math.abs(hash).toString(36) + '_' + key.length;
+    }
+
     async function confirmUpload() {
       if (!pendingUpload) return;
       const period = document.getElementById('periodMonth').value;
@@ -3731,6 +3748,17 @@
       } catch (e) { console.warn('Could not load previous period for P4:', e); }
 
       try {
+        const btnActions = document.getElementById('uploadActions');
+        if (btnActions) {
+          const btnConfirm = btnActions.querySelector('button:first-child');
+          const btnCancel = btnActions.querySelector('button:last-child');
+          if (btnConfirm) {
+            btnConfirm.disabled = true;
+            btnConfirm.innerHTML = '⏳ Salvando...';
+          }
+          if (btnCancel) btnCancel.style.display = 'none';
+        }
+
         toast('Salvando...', 'info');
 
         // Auto-register new vendors found in the file
@@ -3784,7 +3812,8 @@
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
           allItems.slice(i, i + 400).forEach(item => {
-            const ref = itemsRef.doc();
+            const stableId = generateStableId(item);
+            const ref = itemsRef.doc(stableId); // DETERMINISTIC ID: UPSERT logic
             const clean = { uploadId }; // tag with uploadId for filtering
             Object.entries(item).forEach(([k, v]) => {
               if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
@@ -3792,7 +3821,7 @@
             });
             delete clean.dateObj;
             delete clean.dateVoucherEnd;
-            batch.set(ref, clean);
+            batch.set(ref, clean, { merge: true });
           });
           await batch.commit();
         }
@@ -3836,6 +3865,14 @@
         console.error('Erro critico durante o confirmUpload:', e);
         toast('Erro ao salvar: ' + (e.message || String(e)), 'error');
         document.getElementById('uploadActions').style.display = 'flex';
+        
+        const btnConfirm = document.querySelector('#uploadActions button:first-child');
+        const btnCancel = document.querySelector('#uploadActions button:last-child');
+        if (btnConfirm) {
+          btnConfirm.disabled = false;
+          btnConfirm.innerHTML = '✅ Confirmar e Salvar';
+        }
+        if (btnCancel) btnCancel.style.display = '';
       }
     }
 
@@ -3900,9 +3937,26 @@
 
       const periodIdToDelete = currentPeriodId;
       try {
-        toast('Excluindo período...', 'info');
-        // Delete only the period DOCUMENT — items become orphaned (invisible without uploadId)
-        // This avoids expensive read operations that consume Firestore quota
+        toast('Excluindo registros do período...', 'info');
+        
+        // PHYSICAL DELETE: Clean up subcollection in batches
+        const itemsRef = db.collection('periodos').doc(periodIdToDelete).collection('itens');
+        const snap = await itemsRef.get();
+        if (!snap.empty) {
+          const total = snap.size;
+          let deleted = 0;
+          for (let i = 0; i < snap.docs.length; i += 400) {
+            const batch = db.batch();
+            snap.docs.slice(i, i + 400).forEach(doc => {
+              batch.delete(doc.ref);
+              deleted++;
+            });
+            await batch.commit();
+            toast(`Limpando base... (${deleted}/${total})`, 'info');
+          }
+        }
+
+        // Delete the period DOCUMENT after cleaning items
         await db.collection('periodos').doc(periodIdToDelete).delete();
 
         toast(`Período "${label}" excluído com sucesso.`, 'success');
@@ -4172,12 +4226,14 @@
           if (targetPeriodId !== currentPeriodId) {
             // Moving to another period
             await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).delete();
-            await db.collection('periodos').doc(targetPeriodId).collection('itens').add(data);
+            const newId = generateStableId(data);
+            await db.collection('periodos').doc(targetPeriodId).collection('itens').doc(newId).set(data);
           } else {
             await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).update(data);
           }
         } else {
-          await db.collection('periodos').doc(targetPeriodId).collection('itens').add(data);
+          const newId = generateStableId(data);
+          await db.collection('periodos').doc(targetPeriodId).collection('itens').doc(newId).set(data);
         }
 
         closeRecordModal();
