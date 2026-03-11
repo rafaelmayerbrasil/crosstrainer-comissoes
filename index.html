@@ -3558,22 +3558,26 @@
 
     async function autoRegisterVendors(newVendors) {
       if (!newVendors || newVendors.length === 0) return;
-      const batch = db.batch();
-      newVendors.forEach(name => {
-        const ref = db.collection('users').doc();
-        batch.set(ref, {
-          name,
-          email: '',
-          role: 'vendedor',
-          unitId: currentUnitId,
-          status: 'pendente',
-          autoCreated: true,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      console.log('[autoRegisterVendors] Cadastrando vendedores:', newVendors);
+      
+      // Batch processing in groups of 400
+      for (let i = 0; i < newVendors.length; i += 400) {
+        const batch = db.batch();
+        newVendors.slice(i, i + 400).forEach(name => {
+          const ref = db.collection('users').doc();
+          batch.set(ref, {
+            name,
+            email: '',
+            role: 'vendedor',
+            unitId: currentUnitId,
+            status: 'pendente',
+            autoCreated: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
         });
-      });
-      await batch.commit();
-      if (newVendors.length > 0)
-        toast(`${newVendors.length} vendedor(es) novo(s) cadastrado(s) automaticamente.`, 'success');
+        await batch.commit();
+      }
+      toast(`${newVendors.length} vendedor(es) novo(s) cadastrado(s) automaticamente.`, 'success');
     }
 
     let pendingPreviewSort = { col: 'vendedor', asc: true };
@@ -3865,9 +3869,11 @@
           if (btnCancel) btnCancel.style.display = 'none';
         }
 
+        console.log('[confirmUpload] Iniciando confirmUpload para periodoId:', periodId);
         toast('Salvando...', 'info');
 
         // Auto-register new vendors found in the file
+        console.log('[confirmUpload] Registrando novos vendedores:', newVendors);
         await autoRegisterVendors(newVendors);
 
         // Use p4result already calculated in handleFile (which included previousProcessed)
@@ -3906,18 +3912,17 @@
 
         // Recursively remove undefined fields to prevent Firestore errors
         function removeUndefinedFields(obj) {
+          if (obj === null || typeof obj !== 'object') return obj;
+          if (obj instanceof Date || (obj.constructor && obj.constructor.name === 'FieldValueImpl')) return obj;
+          
+          if (Array.isArray(obj)) {
+            return obj.map(i => removeUndefinedFields(i));
+          }
+
           const clean = {};
           for (const [k, v] of Object.entries(obj)) {
             if (v === undefined) { continue; }
-            if (v !== null && typeof v === 'object' && !(v instanceof Date) && !(v.constructor && v.constructor.name === 'FieldValueImpl')) {
-              if (Array.isArray(v)) {
-                clean[k] = v.map(i => typeof i === 'object' ? removeUndefinedFields(i) : (i === undefined ? null : i));
-              } else {
-                clean[k] = removeUndefinedFields(v);
-              }
-            } else {
-              clean[k] = v;
-            }
+            clean[k] = removeUndefinedFields(v);
           }
           return clean;
         }
@@ -3925,9 +3930,11 @@
         const periodData = removeUndefinedFields(rawPeriodData);
 
         // Save period summary (include uploadId)
+        console.log('[confirmUpload] Salvando resumo do período:', periodId);
         await db.collection('periodos').doc(periodId).set(periodData, { merge: true });
 
         // Save items in batches (NO delete of old items — uploadId filters them out)
+        console.log('[confirmUpload] Salvando itens no banco...');
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
         // Add new items in batches of 400 — filter out empty/junk rows
@@ -3952,35 +3959,41 @@
             delete clean.dateVoucherEnd;
             batch.set(ref, clean, { merge: true });
           });
+          console.log(`[confirmUpload] Gravando lote de itens ${i} a ${i + 400}...`);
           await batch.commit();
         }
 
-        // Save deferred commissions to future periods collection
+        // Save deferred commissions to future periods collection in batches
         if (result.deferred && result.deferred.length > 0) {
-          const deferBatch = db.batch();
-          result.deferred.forEach(d => {
-            const ref = db.collection('comissoes_diferidas').doc();
-            const clean = {};
-            Object.entries(d).forEach(([k, v]) => {
-              if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
-              else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
+          console.log('[confirmUpload] Salvando comissões diferidas:', result.deferred.length);
+          for (let i = 0; i < result.deferred.length; i += 400) {
+            const deferBatch = db.batch();
+            result.deferred.slice(i, i + 400).forEach(d => {
+              const ref = db.collection('comissoes_diferidas').doc();
+              const clean = {};
+              Object.entries(d).forEach(([k, v]) => {
+                if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
+                else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
+              });
+              delete clean.dateObj;
+              clean.sourcePeriodId = periodId;
+              clean.unitId = currentUnitId;
+              clean.status = 'pendente';
+              deferBatch.set(ref, clean);
             });
-            delete clean.dateObj;
-            clean.sourcePeriodId = periodId;
-            clean.unitId = currentUnitId;
-            clean.status = 'pendente'; // pendente → aplicado when target period is processed
-            deferBatch.set(ref, clean);
-          });
-          await deferBatch.commit();
-          if (result.deferred.length > 0) toast(`${result.deferred.length} comissão(ões) diferida(s) para meses futuros.`, 'info');
+            await deferBatch.commit();
+          }
+          toast(`${result.deferred.length} comissão(ões) diferida(s) para meses futuros.`, 'info');
         }
 
+        console.log('[confirmUpload] Upload concluído com sucesso!');
         toast('Período salvo com sucesso!', 'success');
         logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         document.getElementById('uploadPreview').style.display = 'none';
         document.getElementById('uploadActions').style.display = 'none';
         // Navigate to dashboard and auto-select the newly uploaded period
+        console.log('[confirmUpload] Atualizando lista de períodos...');
         await loadPeriods();
         const sel = document.getElementById('periodSelect');
         for (let i = 0; i < sel.options.length; i++) {
