@@ -3873,6 +3873,7 @@
     }
 
     let currentPeriodId = null;
+    let loadedTabs = new Set(); // To track lazy loaded tabs
 
     async function loadPeriod(periodId) {
       if (!periodId) {
@@ -4199,14 +4200,25 @@
     }
 
     async function recalculatePeriod(periodId) {
-      const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      if (!periodId) return;
       const pDoc = await db.collection('periodos').doc(periodId).get();
+      if (!pDoc.exists) return;
+      const pData = pDoc.data();
+      const currentUploadId = pData.uploadId;
+
+      // Filter by unitId and uploadId to avoid including junk/old rows
+      let query = db.collection('periodos').doc(periodId).collection('itens');
+      if (currentUploadId) {
+        query = query.where('uploadId', '==', currentUploadId);
+      }
+      
+      const itemsSnap = await query.get();
       const processed = [];
       itemsSnap.forEach(doc => {
         const d = doc.data();
         if (d.type === 'processed') processed.push(d);
       });
-      const pData = pDoc.exists ? pDoc.data() : {};
+
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
       // Rebuild vendorData from remaining processed items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
@@ -4558,14 +4570,13 @@
 
         document.getElementById('dashboardContent').innerHTML = html;
 
-        // Render chart and records table async
+        // RESET lazy loading state for the new period
+        loadedTabs = new Set();
+        loadedTabs.add('tabResumo');
+        currentPeriodItems = []; // clear cache
+
+        // ONLY render history chart automatically (part of Resumo)
         renderHistoryChart();
-        renderRecordsTable(periodId);
-        renderComissoesTab(data, periodId);
-        renderAtivacoesTab(periodId);
-        renderExcluidosTab(periodId);
-        renderRelatorioTab(data, periodId);
-        renderDiferidosTab(data, periodId);
       } catch (e) {
         console.error('renderAdminDashboard error:', e);
         const dc = document.getElementById('dashboardContent');
@@ -4623,15 +4634,31 @@
     let currentSortCol = 'vendedor';
     let currentSortAsc = true;
 
-    async function renderRecordsTable(periodId) {
+    async function renderRecordsTable(periodId, forceRefresh = false) {
       const container = document.getElementById('recordsTableSection');
       if (!container) return;
       container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando registros...</div>';
 
-      const snap = await db.collection('periodos').doc(periodId).collection('itens').orderBy('vendedor').get();
-      const items = [];
-      snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-      currentPeriodItems = items;
+      try {
+        if (forceRefresh || currentPeriodItems.length === 0) {
+          const pDoc = await db.collection('periodos').doc(periodId).get();
+          const pData = pDoc.exists ? pDoc.data() : {};
+          const currentUploadId = pData.uploadId;
+
+          let query = db.collection('periodos').doc(periodId).collection('itens');
+          if (currentUploadId) {
+            query = query.where('uploadId', '==', currentUploadId);
+          }
+
+          const itemsSnap = await query.get();
+          currentPeriodItems = [];
+          itemsSnap.forEach(doc => {
+            currentPeriodItems.push({ _docId: doc.id, ...doc.data() });
+          });
+        }
+      } catch (e) {
+        console.error('Error loading records:', e);
+      }
 
       populateDatalists();
 
@@ -5459,6 +5486,22 @@
       const target = document.getElementById(tabId);
       if (target) target.style.display = 'block';
       if (btn) btn.classList.add('active');
+
+      // LAZY LOADING: Render content only if not already loaded for this session
+      if (!loadedTabs.has(tabId)) {
+        console.log('[LazyLoad] Rendering tab:', tabId);
+        const data = window.currentPeriodData;
+        const periodId = currentPeriodId;
+
+        if (tabId === 'tabRegistros') renderRecordsTable(periodId);
+        else if (tabId === 'tabComissoes') renderComissoesTab(data, periodId);
+        else if (tabId === 'tabAtivacoes') renderAtivacoesTab(periodId);
+        else if (tabId === 'tabExcluidos') renderExcluidosTab(periodId);
+        else if (tabId === 'tabRelatorio') renderRelatorioTab(data, periodId);
+        else if (tabId === 'tabDiferidos') renderDiferidosTab(data, periodId);
+
+        loadedTabs.add(tabId);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
