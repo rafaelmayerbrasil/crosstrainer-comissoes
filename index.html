@@ -2578,13 +2578,18 @@
 
     <!-- MAIN CONTENT -->
     <div class="main" id="mainContent">
+      <!-- Unidade Selector for Multi-unit users -->
+      <div id="quickUnitSelector" style="display:none; background:var(--surface); border-bottom:1px solid var(--border); padding:10px 20px; align-items:center; gap:12px;">
+        <span style="font-size:11px; color:var(--text3); font-weight:700; text-transform:uppercase;">Trocar Unidade:</span>
+        <div id="quickUnitButtons" style="display:flex; gap:8px;"></div>
+      </div>
 
       <!-- ADMIN: DASHBOARD -->
       <div class="page" id="page-dashboard">
         <div class="page-hdr"
           style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <h1>Dashboard</h1>
+            <h1>Dashboard <span id="activeUnitBadge" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn btn-outline" id="btnConfigMetasMes"
@@ -2665,8 +2670,10 @@
               <option value="admin">Administrador</option>
             </select>
           </div>
-          <div class="input-group"><label>Unidade</label>
-            <select id="newUserUnit"></select>
+          <div class="input-group"><label>Acesso às Unidades</label>
+            <div id="newUserUnitsContainer" style="display:flex; flex-direction:column; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; max-height:150px; overflow-y:auto;">
+              <!-- Checkboxes populate dynamically -->
+            </div>
           </div>
           <div style="display:flex;gap:10px;margin-top:14px">
             <button class="btn btn-sm" id="btnSaveUser" onclick="saveUser()">Criar</button>
@@ -2870,7 +2877,11 @@
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
             userProfile = doc.data();
-            currentUnitId = userProfile.unitId || 'cp';
+            const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : ['cp']);
+            // If currentUnitId is not in the allowed list, default to the first one
+            if (!allowed.includes(currentUnitId)) {
+              currentUnitId = allowed[0];
+            }
             await loadUnitConfig();
             showApp();
           } else {
@@ -2944,6 +2955,36 @@
         navigateTo('meu-painel');
         loadVendorPeriods();
       }
+      renderQuickUnitSelector();
+    }
+
+    async function renderQuickUnitSelector() {
+      const qSelector = document.getElementById('quickUnitSelector');
+      const qButtons = document.getElementById('quickUnitButtons');
+      if (!qSelector || !qButtons) return;
+
+      const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : []);
+      if (allowed.length <= 1) {
+        qSelector.style.display = 'none';
+        return;
+      }
+
+      qSelector.style.display = 'flex';
+      qButtons.innerHTML = '';
+
+      try {
+        const snap = await db.collection('units').where(firebase.firestore.FieldPath.documentId(), 'in', allowed).get();
+        snap.forEach(doc => {
+          const u = doc.data();
+          const btn = document.createElement('button');
+          btn.className = `btn btn-sm ${doc.id === currentUnitId ? '' : 'btn-ghost'}`;
+          btn.style.fontSize = '10px';
+          btn.style.padding = '4px 10px';
+          btn.textContent = u.name || doc.id;
+          btn.onclick = () => switchUnit(doc.id);
+          qButtons.appendChild(btn);
+        });
+      } catch (e) { console.error('Error rendering quick unit selector', e); }
     }
 
     async function changePassword() {
@@ -3023,8 +3064,16 @@
     async function loadUnitConfig() {
       try {
         const doc = await db.collection('units').doc(currentUnitId).get();
-        if (doc.exists) unitConfig = doc.data().config || {};
-        else {
+        if (doc.exists) {
+          const udata = doc.data();
+          unitConfig = udata.config || {};
+          // Update unit badges in UI
+          const unitName = udata.name || 'Unidade';
+          const bDash = document.getElementById('activeUnitBadge');
+          const bVend = document.getElementById('vendedorUnitBadge');
+          if (bDash) { bDash.textContent = unitName; bDash.style.display = 'inline-block'; }
+          if (bVend) { bVend.textContent = unitName; bVend.style.display = 'inline-block'; }
+        } else {
           await db.collection('units').doc(currentUnitId).set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
           unitConfig = CommissionEngine.defaultConfig;
         }
@@ -3195,13 +3244,17 @@
           document.getElementById('newUserName').value = d.name || '';
           document.getElementById('newUserEmail').value = d.email || '';
           document.getElementById('newUserEmail').disabled = true;
-          document.getElementById('userPassGroup').style.display = 'none'; // only edit profile inside FireStore, not Firebase Auth
+          document.getElementById('userPassGroup').style.display = 'none';
 
           document.getElementById('newUserCpf').value = d.cpf || '';
           document.getElementById('newUserPix').value = d.pix || '';
-
           document.getElementById('newUserRole').value = d.role || 'vendedor';
-          document.getElementById('newUserUnit').value = d.unitId || currentUnitId;
+
+          // Mark checkboxes for allowedUnits
+          const allowed = d.allowedUnits || (d.unitId ? [d.unitId] : []);
+          document.querySelectorAll('#newUserUnitsContainer input[type="checkbox"]').forEach(cb => {
+            cb.checked = allowed.includes(cb.value);
+          });
           document.getElementById('btnSaveUser').textContent = 'Salvar';
           document.getElementById('addUserForm').style.display = '';
         }
@@ -3222,12 +3275,15 @@
       const cpf = document.getElementById('newUserCpf').value.trim();
       const pix = document.getElementById('newUserPix').value.trim();
       const role = document.getElementById('newUserRole').value;
-      const unitId = document.getElementById('newUserUnit').value;
-      const errEl = document.getElementById('addUserError');
-      errEl.textContent = '';
-      if (!name) { errEl.textContent = 'Preencha o nome.'; return; }
+      const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
+      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
+      
       try {
-        await db.collection('users').doc(uid).update({ name, cpf, pix, role, unitId });
+        await db.collection('users').doc(uid).update({ 
+          name, cpf, pix, role, 
+          allowedUnits,
+          unitId: allowedUnits[0] // fallback for legacy code
+        });
         toast(`Usuário atualizado com sucesso!`, 'success');
         document.getElementById('addUserForm').style.display = 'none';
         loadUsers();
@@ -3243,11 +3299,12 @@
       const pix = document.getElementById('newUserPix').value.trim();
 
       const role = document.getElementById('newUserRole').value;
-      const unitId = document.getElementById('newUserUnit')?.value || currentUnitId;
+      const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
       const errEl = document.getElementById('addUserError');
       errEl.textContent = '';
 
       if (!name || !email || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
+      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
       if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
 
       try {
@@ -3263,7 +3320,9 @@
 
         // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
         await secondaryDb.collection('users').doc(newUid).set({
-          name, email, cpf, pix, role, unitId,
+          name, email, cpf, pix, role, 
+          allowedUnits,
+          unitId: allowedUnits[0], 
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -6349,13 +6408,15 @@
           });
         }
 
-        // Populate new user unit selector too
-        const userUnitSel = document.getElementById('newUserUnit');
-        if (userUnitSel) {
-          userUnitSel.innerHTML = '';
-          units.forEach(u => {
-            userUnitSel.innerHTML += `<option value="${u.id}" ${u.id === currentUnitId ? 'selected' : ''}>${u.name || u.id}</option>`;
-          });
+        // Populate new user units checkboxes
+        const unitsContainer = document.getElementById('newUserUnitsContainer');
+        if (unitsContainer) {
+          unitsContainer.innerHTML = units.map(u => `
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px;">
+              <input type="checkbox" value="${u.id}" ${u.id === currentUnitId ? 'checked' : ''}>
+              ${u.name || u.id}
+            </label>
+          `).join('');
         }
 
         // Render list
