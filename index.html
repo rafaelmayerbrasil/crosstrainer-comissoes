@@ -2992,29 +2992,41 @@
       const vButtons = document.getElementById('vendUnitButtons');
       if (!qSelector || !qButtons) return;
 
+      const isAdmin = userProfile && userProfile.role === 'admin';
       const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : []);
-      if (allowed.length <= 1) {
-        qSelector.style.display = 'none';
-        if (dButtons) dButtons.style.display = 'none';
-        if (vButtons) vButtons.style.display = 'none';
-        return;
-      }
-
-      qSelector.style.display = 'flex';
-      qButtons.innerHTML = '';
-      [dButtons, vButtons].forEach(cont => {
-        if (cont) {
-          cont.innerHTML = '';
-          cont.style.display = 'inline-flex';
-        }
-      });
-
+      
       try {
-        const snap = await db.collection('units').where(firebase.firestore.FieldPath.documentId(), 'in', allowed).get();
+        let snap;
+        if (isAdmin) {
+          snap = await db.collection('units').get();
+        } else {
+          if (allowed.length <= 1) {
+            qSelector.style.display = 'none';
+            if (dButtons) dButtons.style.display = 'none';
+            if (vButtons) vButtons.style.display = 'none';
+            return;
+          }
+          snap = await db.collection('units').where(firebase.firestore.FieldPath.documentId(), 'in', allowed).get();
+        }
+
+        if (snap.size <= 1 && !isAdmin) {
+          qSelector.style.display = 'none';
+          if (dButtons) dButtons.style.display = 'none';
+          if (vButtons) vButtons.style.display = 'none';
+          return;
+        }
+
+        qSelector.style.display = 'flex';
+        qButtons.innerHTML = '';
+        [dButtons, vButtons].forEach(cont => {
+          if (cont) {
+            cont.innerHTML = '';
+            cont.style.display = 'inline-flex';
+          }
+        });
+
         snap.forEach(doc => {
           const u = doc.data();
-          
-          // Button for sidebar/top selector
           const btn = document.createElement('button');
           btn.className = `btn btn-sm ${doc.id === currentUnitId ? '' : 'btn-ghost'}`;
           btn.style.fontSize = '10px';
@@ -3023,7 +3035,6 @@
           btn.onclick = () => switchUnit(doc.id);
           qButtons.appendChild(btn);
 
-          // Inline buttons for dashboards
           [dButtons, vButtons].forEach(cont => {
             if (cont) {
               const b = document.createElement('button');
@@ -6889,7 +6900,14 @@
       } catch (e) { /* non-critical */ }
       await loadUnitConfig();
       toast(`Unidade alterada para: ${newUnitId}`, 'info');
-      loadUnits();
+      
+      // Refresh context
+      renderQuickUnitSelector();
+      if (userProfile.role === 'admin') {
+        loadPeriods();
+      } else {
+        loadVendorPeriods();
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
