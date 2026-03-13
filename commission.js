@@ -249,13 +249,68 @@ const CommissionEngine = {
     return 0;
   },
 
+  // ─── Re-calculate commissions for a single item (used for edits and recalcs) ───
+  applyCommissionsToItem(item, config) {
+    const cfg = { ...this.defaultConfig, ...config };
+    const pctNovo = cfg.pctNovo / 100;
+    const pctRenov = cfg.pctRenov / 100;
+    const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase().trim());
+
+    // 1. Re-evaluate activation status using dynamic terms
+    const itemString = (item.item || '').toUpperCase();
+    const terms = cfg.planosAtivacao || this.defaultConfig.planosAtivacao;
+    item.isActivation = terms.some(t => itemString.includes(t)) || ['novo', 'retorno', 'renovacao', 'voucher'].includes(item.category);
+
+    // 2. Determine P1
+    const hasManualP1 = item.manualP1 !== undefined && item.manualP1 !== null;
+    const valor = parseFloat(item.valorCaixa) || 0;
+
+    if (hasManualP1) {
+      item.p1valor = parseFloat(item.manualP1) || 0;
+      item.p1pct = valor > 0 ? item.p1valor / valor : 0;
+    } else if (item.isDegustacao || item.category === 'voucher') {
+      item.p1valor = cfg.voucherFixo;
+      item.p1pct = 0;
+    } else if (item.category === 'renovacao') {
+      item.p1pct = pctRenov;
+      item.p1valor = valor * pctRenov;
+    } else {
+      item.p1pct = pctNovo;
+      item.p1valor = valor * pctNovo;
+    }
+
+    // 3. Determine P2
+    const hasManualP2 = item.manualP2 !== undefined && item.manualP2 !== null;
+    const isCancelado = item.canceladoSemEstorno === true;
+
+    if (hasManualP2) {
+      item.p2bonus = parseFloat(item.manualP2) || 0;
+    } else if (isCancelado) {
+      item.p2bonus = 0;
+    } else if (item.isContract) {
+      item.p2bonus = this.getP2Bonus(item.periodicidade, item.abrangencia, cfg);
+    } else {
+      item.p2bonus = 0; // Ensure it's reset if no longer a contract
+    }
+
+    // 4. Non-commissionable check
+    const vendedor = (item.vendedor || '').toUpperCase();
+    const isNaoCom = naoComList.some(n => vendedor.includes(n));
+    item.isNaoCom = isNaoCom;
+
+    if (isNaoCom) {
+      if (!hasManualP1) item.p1valor = 0;
+      if (!hasManualP2) item.p2bonus = 0;
+    }
+
+    item.totalP1P2 = (item.p1valor || 0) + (item.p2bonus || 0);
+    return item;
+  },
+
   // ─── Process all rows ───
   processRows(rawRows, config, splits = {}) {
     const cfg = { ...this.defaultConfig, ...config };
     this.currentConfig = cfg; // Store for classifyRow access
-    const pctNovo = cfg.pctNovo / 100;
-    const pctRenov = cfg.pctRenov / 100;
-    const naoComList = cfg.naoComissionaveis.map(n => n.toUpperCase().trim());
 
     const processed = [];
     const excluded = [];
@@ -263,9 +318,9 @@ const CommissionEngine = {
 
     rawRows.forEach((row, idx) => {
       const info = this.classifyRow(row);
+      const valor = this.getValor(row, cfg);
 
       if (info.excluded) {
-        const valor = this.getValor(row, cfg);
         excluded.push({
           _idx: idx, _reason: info.excludeReason, _group: info.excludeGroup || '',
           vendedor: String(row['Vendedor'] || '').trim() || 'Sem Vendedor',
@@ -280,55 +335,12 @@ const CommissionEngine = {
         return;
       }
 
-      const valor = this.getValor(row, cfg);
-      if (valor <= 0 && !info.isDegustacao) {
-        // Completely drop 0-value items from analysis
-        return;
-      }
+      if (valor <= 0 && !info.isDegustacao) return;
 
       const vendedor = String(row['Vendedor'] || '').trim() || 'Sem Vendedor';
-      const isNaoCom = naoComList.some(n => vendedor.toUpperCase().includes(n));
       const codigo = String(row['Código'] || row['Codigo'] || '').trim();
 
-      // --- New Flags & Manual Adjustments ---
-      const hasManualP1 = row.manualP1 !== undefined && row.manualP1 !== null;
-      const hasManualP2 = row.manualP2 !== undefined && row.manualP2 !== null;
-      const isCancelado = row.canceladoSemEstorno === true;
-
-      // P1
-      let p1pct = 0, p1valor = 0;
-      if (hasManualP1) {
-        p1valor = parseFloat(row.manualP1) || 0;
-      } else if (info.isDegustacao) {
-        p1valor = cfg.voucherFixo;
-      } else if (info.category === 'renovacao') {
-        p1pct = pctRenov;
-        p1valor = valor * pctRenov;
-      } else {
-        p1pct = pctNovo;
-        p1valor = valor * pctNovo;
-      }
-
-      // P2
-      let p2bonus = 0;
-      if (hasManualP2) {
-        p2bonus = parseFloat(row.manualP2) || 0;
-      } else if (isCancelado) {
-        p2bonus = 0;
-      } else if (info.isContract) {
-        p2bonus = this.getP2Bonus(info.periodicidade, info.abrangencia, cfg);
-      }
-
-      // ── Contagem de Ativação (P3) ──
-      // A regra de Cancelado Sem Estorno agora MANTÉM a ativação, portanto não vamos zerar isActivation
-      let isActivation = info.isActivation;
-
-      // Non-commissionable: zero P1 and P2 (unless manual override is intentionally set? 
-      // Rule: isNaoCom typically means 0. We'll stick to that unless manual is present)
-      if (isNaoCom && !hasManualP1) p1valor = 0;
-      if (isNaoCom && !hasManualP2) p2bonus = 0;
-
-      // Date
+      // Date normalization
       const dt = row['Data'];
       let dateStr = dt instanceof Date ? dt.toLocaleDateString('pt-BR') : String(dt || '');
       let dateObj = dt instanceof Date ? dt : null;
@@ -337,46 +349,45 @@ const CommissionEngine = {
         if (parts) dateObj = new Date(parts[3], parts[2] - 1, parts[1]);
       }
 
-      const dateVoucherEnd = info.isDegustacao ? this.parseStartDate(row['Itens'])?.endDate : null;
-
-      processed.push({
+      const item = {
         _idx: idx,
         codigo, cliente: row['Cliente'] || '', data: dateStr, dateObj,
         item: String(row['Itens'] || ''), tipoVenda: String(row['Tipo de Venda'] || ''),
         vendedor, origem: String(row['Origem'] || ''),
-        ...info, valorCaixa: valor,
-        dateVoucherEnd,
-        p1pct, p1valor, p2bonus,
-        totalP1P2: p1valor + p2bonus,
-        isNaoCom,
-        isActivation, // update with cancelado logic
-        canceladoSemEstorno: isCancelado,
+        valorCaixa: valor,
         manualP1: row.manualP1,
         manualP2: row.manualP2,
-        planStartDate: null, planEndDate: null,
-      });
+        canceladoSemEstorno: row.canceladoSemEstorno,
+        ...info
+      };
+
+      // APPLY COMMISSIONS
+      this.applyCommissionsToItem(item, cfg);
+
+      const dateVoucherEnd = info.isDegustacao ? this.parseStartDate(row['Itens'])?.endDate : null;
+      item.dateVoucherEnd = dateVoucherEnd;
 
       // ── Deferral check: plan start > 30 days from payment → defer ──
-      const lastItem = processed[processed.length - 1];
       const planDates = this.parseStartDate(row['Itens']);
       if (planDates) {
-        lastItem.planStartDate = planDates.startStr;
-        lastItem.planEndDate = planDates.endStr;
-        if (dateObj && info.isActivation) {
+        item.planStartDate = planDates.startStr;
+        item.planEndDate = planDates.endStr;
+        if (dateObj && item.isActivation) {
           const diffDays = Math.round((planDates.startDate - dateObj) / (1000 * 60 * 60 * 24));
           if (diffDays > 30) {
-            // Remove from processed, add to deferred
-            processed.pop();
             const deferMonth = `${planDates.startDate.getFullYear()}-${String(planDates.startDate.getMonth() + 1).padStart(2, '0')}`;
             deferred.push({
-              ...lastItem,
+              ...item,
               isDeferredItem: true,
               deferToMonth: deferMonth,
               deferReason: `Início em ${planDates.startStr} (${diffDays}d após pgto ${dateStr})`,
             });
+            return; // Skip adding to processed
           }
         }
       }
+
+      processed.push(item);
     });
 
     return { processed, excluded, deferred };

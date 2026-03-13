@@ -4420,9 +4420,11 @@
         valorCaixa: parseFloat(document.getElementById('recCaixa').value) || 0,
         tipoVenda: document.getElementById('recTipo').value.trim() || '',
         category: document.getElementById('recCat').value,
-        type: 'processed',
-        isActivation: ['novo', 'retorno', 'renovacao', 'voucher'].includes(document.getElementById('recCat').value)
+        type: 'processed'
       };
+
+      // NEW: Recalculate fields using CommissionEngine to ensure consistency
+      CommissionEngine.applyCommissionsToItem(data, unitConfig);
 
       const ajusteP1Str = document.getElementById('recAjusteP1').value;
       if (ajusteP1Str) data.manualP1 = parseFloat(ajusteP1Str);
@@ -4519,6 +4521,13 @@
       const processed = items.filter(d => d.type === 'processed');
 
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
+      
+      // NEW: Recalculate each item in memory to ensure global config changes (like % Novo) 
+      // or manual edits are reflected in the aggregated totals.
+      processed.forEach(item => {
+        CommissionEngine.applyCommissionsToItem(item, cfg);
+      });
+
       // Rebuild vendorData from remaining processed items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
       const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
@@ -6105,6 +6114,9 @@
         // Build per-vendor per-sale P1/P2 detail
         const vendorItems = {};
         items.forEach(r => {
+          // NEW: Recalculate each item in memory to ensure UI always shows current logic/edits
+          CommissionEngine.applyCommissionsToItem(r, cfg);
+
           const v = r.vendedor || 'Sem Vendedor';
           if (!vendorItems[v]) vendorItems[v] = [];
           vendorItems[v].push(r);
@@ -6221,6 +6233,13 @@
         const snap = await db.collection('periodos').doc(periodId).collection('itens').get();
         const allItems = [];
         snap.forEach(doc => allItems.push({ _docId: doc.id, ...doc.data() }));
+
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+
+        // NEW: Recalculate each item in memory so dynamic activation terms are used immediately
+        allItems.forEach(r => {
+          if (r.type === 'processed') CommissionEngine.applyCommissionsToItem(r, cfg);
+        });
 
         const activations = allItems.filter(r => r.type === 'processed' && r.isActivation);
         const nonActivations = allItems.filter(r => r.type === 'processed' && !r.isActivation);
@@ -6388,15 +6407,18 @@
 
       try {
         const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens').where('vendedor', '==', vendorName).get();
-        const items = [];
-        snap.forEach(doc => items.push(doc.data()));
-        const processed = items.filter(r => r.type === 'processed' || r.type !== 'excluded');
+        const vendorItems = [];
+        snap.forEach(doc => vendorItems.push(doc.data()));
+        const processed = vendorItems.filter(r => r.type === 'processed' || r.type !== 'excluded');
 
         const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
         const myData = vs[vendorName] || {};
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
+
+        // NEW: Recalculate vendor items for this report
+        processed.forEach(r => CommissionEngine.applyCommissionsToItem(r, cfg));
 
         let html = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
