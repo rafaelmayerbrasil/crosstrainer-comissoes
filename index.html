@@ -3502,14 +3502,30 @@
           const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
           const result = CommissionEngine.calculate(rawRows, cfg, {}, previousProcessed);
 
-          // ── Check which vendors are new (not yet in Firestore) ──
+          // ── Check which vendors need registration or unit update ──
           const existingSnap = await db.collection('users').get();
-          const existingNames = [];
-          existingSnap.forEach(doc => { if (doc.data().name) existingNames.push(doc.data().name.toUpperCase().trim()); });
+          const allUsers = [];
+          existingSnap.forEach(doc => allUsers.push({ id: doc.id, ...doc.data() }));
+          
           const vendorNames = Object.keys(result.vendorData).filter(n => n !== 'Sem Vendedor');
-          const newVendors = vendorNames.filter(n => !existingNames.some(e => e === n.toUpperCase().trim()));
+          const newVendors = [];
+          const usersToUpdateUnit = [];
 
-          pendingUpload = { rawRows, result, fileName: file.name, newVendors, existingNames };
+          vendorNames.forEach(vName => {
+            const normV = normalizeString(vName);
+            const found = allUsers.find(u => normalizeString(u.name) === normV);
+            
+            if (!found) {
+              newVendors.push(vName);
+            } else {
+              const allowed = found.allowedUnits || (found.unitId ? [found.unitId] : []);
+              if (!allowed.includes(currentUnitId)) {
+                usersToUpdateUnit.push({ id: found.id, name: found.name, allowedUnits: [...allowed, currentUnitId] });
+              }
+            }
+          });
+
+          pendingUpload = { rawRows, result, fileName: file.name, newVendors, usersToUpdateUnit };
 
           // Show preview
           const prev = document.getElementById('uploadPreview');
@@ -3566,28 +3582,37 @@
       reader.readAsArrayBuffer(file);
     }
 
-    async function autoRegisterVendors(newVendors) {
-      if (!newVendors || newVendors.length === 0) return;
-      console.log('[autoRegisterVendors] Cadastrando vendedores:', newVendors);
-      
-      // Batch processing in groups of 400
-      for (let i = 0; i < newVendors.length; i += 400) {
-        const batch = db.batch();
-        newVendors.slice(i, i + 400).forEach(name => {
+    async function autoRegisterVendors(newVendors, usersToUpdateUnit) {
+      const batch = db.batch();
+      let count = 0;
+
+      // 1. Create truly new vendors
+      if (newVendors && newVendors.length > 0) {
+        newVendors.forEach(name => {
           const ref = db.collection('users').doc();
           batch.set(ref, {
-            name,
-            email: '',
-            role: 'vendedor',
-            unitId: currentUnitId,
-            status: 'pendente',
-            autoCreated: true,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            name, email: '', role: 'vendedor', unitId: currentUnitId,
+            allowedUnits: [currentUnitId], status: 'pendente', autoCreated: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+          count++;
         });
-        await batch.commit();
       }
-      toast(`${newVendors.length} vendedor(es) novo(s) cadastrado(s) automaticamente.`, 'success');
+
+      // 2. Update existing vendors with new unit
+      if (usersToUpdateUnit && usersToUpdateUnit.length > 0) {
+        usersToUpdateUnit.forEach(u => {
+          batch.update(db.collection('users').doc(u.id), {
+            allowedUnits: u.allowedUnits
+          });
+          count++;
+        });
+      }
+
+      if (count > 0) {
+        await batch.commit();
+        toast(`${count} vendedor(es) atualizado(s)/cadastrado(s).`, 'success');
+      }
     }
 
     let pendingPreviewSort = { col: 'vendedor', asc: true };
@@ -3882,9 +3907,9 @@
         console.log('[confirmUpload] Iniciando confirmUpload para periodoId:', periodId);
         toast('Salvando...', 'info');
 
-        // Auto-register new vendors found in the file
-        console.log('[confirmUpload] Registrando novos vendedores:', newVendors);
-        await autoRegisterVendors(newVendors);
+        // Auto-register or update vendors found in the file
+        console.log('[confirmUpload] Registrando/Atualizando vendedores:', newVendors, pendingUpload.usersToUpdateUnit);
+        await autoRegisterVendors(newVendors, pendingUpload.usersToUpdateUnit);
 
         // Use p4result already calculated in handleFile (which included previousProcessed)
         const finalP4Result = result.p4result;
@@ -6528,16 +6553,33 @@
         const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
         const pData = periodDoc.data();
         const myData = (pData?.vendorSummary || {})[vendorName] || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
+        
+        const isMetaBatida = (pData.totals?.unitAtivacoes || 0) >= (cfg.meta || 50);
+        const refMes = (pData.month && pData.year) ? `${String(pData.month).padStart(2,'0')}/${pData.year}` : currentPeriodId;
 
         const rows = [['RELATÓRIO DE COMISSÃO — ' + vendorName], [],
+        ['Mês Referência', refMes],
         ['P1 (% Caixa)', myData.p1 || 0], ['P2 (Bônus Fixo)', myData.p2 || 0],
-        ['P3 (Meta Unidade)', myData.p3 || 0], ['P4 Individual', myData.p4i || 0],
-        ['P4 Pool', myData.p4p || 0], ['TOTAL', myData.grandTotal || 0],
-        [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa (R$)', 'P1 %', 'P1 (R$)', 'P2 (R$)', 'P1+P2 (R$)']
+        ['P3 (Meta Unidade)', myData.p3 || 0], ['Meta batida?', isMetaBatida ? 'SIM' : 'NÃO'],
+        ['P4 Individual', myData.p4i || 0], ['P4 Pool', myData.p4p || 0], 
+        ['TOTAL', myData.grandTotal || 0],
+        [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa (R$)', 'P1 %', 'P1 (R$)', 'P2 (R$)', 'P1+P2 (R$)', 'Ativação Válida?', 'Mês Ref.', 'Meta Unidade Batida?', 'P4 Individual', 'P4 Pool']
         ];
-        processed.forEach(r => {
-          rows.push([r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
-          r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
+        processed.sort((a,b) => {
+          const pA = (a.data || '').split('/'); const pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1]-1, pA[0]).getTime() : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1]-1, pB[0]).getTime() : 0;
+          return dB - dA;
+        }).forEach(r => {
+          // Extra recalculation to ensure consistency
+          CommissionEngine.applyCommissionsToItem(r, cfg);
+          rows.push([
+            r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
+            r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0),
+            r.isActivation ? 'SIM' : 'NÃO', refMes, isMetaBatida ? 'SIM' : 'NÃO',
+            myData.p4i || 0, myData.p4p || 0
+          ]);
         });
 
         const wb = XLSX.utils.book_new();
@@ -6562,14 +6604,15 @@
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
-        const naoComList = (cfg.naoComissionaveis || []).map(n => n.toUpperCase());
+        const isMetaBatida = (pData.totals?.unitAtivacoes || 0) >= (cfg.meta || 50);
+        const refMes = (pData.month && pData.year) ? `${String(pData.month).padStart(2,'0')}/${pData.year}` : currentPeriodId;
 
         const wb = XLSX.utils.book_new();
 
         // Summary sheet
-        const summaryRows = [['Vendedor', 'P1', 'P2', 'P3', 'P4i', 'P4p', 'Total', 'Ativações', 'Caixa']];
+        const summaryRows = [['RELATÓRIO GERAL — ' + refMes], [], ['Vendedor', 'P1', 'P2', 'P3', 'P4i', 'P4p', 'Total', 'Ativações', 'Caixa', 'Meta Batida?']];
         Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0)).forEach(([name, v]) => {
-          summaryRows.push([name, v.p1 || 0, v.p2 || 0, v.p3 || 0, v.p4i || 0, v.p4p || 0, v.grandTotal || 0, v.ativacoes || 0, v.caixa || 0]);
+          summaryRows.push([name, v.p1 || 0, v.p2 || 0, v.p3 || 0, v.p4i || 0, v.p4p || 0, v.grandTotal || 0, v.ativacoes || 0, v.caixa || 0, isMetaBatida ? 'SIM' : 'NÃO']);
         });
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), 'Resumo Geral');
 
@@ -6578,12 +6621,19 @@
           const vendorItems = allItems.filter(r => r.vendedor === name && r.type !== 'excluded');
           const rows = [
             ['COMISSÃO — ' + name], [],
-            ['P1', v.p1 || 0], ['P2', v.p2 || 0], ['P3', v.p3 || 0], ['P4i', v.p4i || 0], ['P4p', v.p4p || 0], ['TOTAL', v.grandTotal || 0],
-            [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa', 'P1%', 'P1 R$', 'P2 R$', 'P1+P2']
+            ['Mês Referência', refMes],
+            ['P1', v.p1 || 0], ['P2', v.p2 || 0], ['P3', v.p3 || 0], ['Meta batida?', isMetaBatida ? 'SIM' : 'NÃO'], 
+            ['P4i', v.p4i || 0], ['P4p', v.p4p || 0], ['TOTAL', v.grandTotal || 0],
+            [], ['Data', 'Cliente', 'Item', 'Categoria', 'Caixa', 'P1%', 'P1 R$', 'P2 R$', 'P1+P2', 'Ativação Válida?', 'Mês Ref.', 'Meta Batida?', 'P4 Individual', 'P4 Pool']
           ];
           vendorItems.forEach(r => {
-            rows.push([r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
-            r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0)]);
+            CommissionEngine.applyCommissionsToItem(r, cfg);
+            rows.push([
+              r.data || '', r.cliente || '', r.item || '', r.label || r.category || '',
+              r.valorCaixa || 0, (r.p1pct || 0) * 100, r.p1valor || 0, r.p2bonus || 0, (r.p1valor || 0) + (r.p2bonus || 0),
+              r.isActivation ? 'SIM' : 'NÃO', refMes, isMetaBatida ? 'SIM' : 'NÃO',
+              v.p4i || 0, v.p4p || 0
+            ]);
           });
           const sheetName = name.substring(0, 31).replace(/[\\\/\?\*\[\]]/g, '');
           XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
@@ -6592,7 +6642,7 @@
         const sel = document.getElementById('periodSelect');
         const pName = (sel?.options[sel.selectedIndex]?.text || currentPeriodId).replace(/\s+/g, '_');
         XLSX.writeFile(wb, `Comissoes_Individuais_${pName}.xlsx`);
-        toast('Relatório de todas as vendedoras exportado!', 'success');
+        toast('Relatórios individuais exportados!', 'success');
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
 

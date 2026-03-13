@@ -287,6 +287,10 @@ const CommissionEngine = {
       item.p2bonus = parseFloat(item.manualP2) || 0;
     } else if (isCancelado) {
       item.p2bonus = 0;
+      // Exception: canceled contracts still count as activation (unit goal)
+      // but they don't generate the contract bonus (P2)
+      // and their value doesn't count for the vendor's P3 percentage
+      item.isEligibleP3 = false;
     } else if (item.isContract) {
       item.p2bonus = this.getP2Bonus(item.periodicidade, item.abrangencia, cfg);
     } else {
