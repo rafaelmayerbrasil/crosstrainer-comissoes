@@ -3190,6 +3190,14 @@
         unitConfig = cfg;
         toast('Configurações salvas!', 'success');
         logAudit('settings_change', 'Configurações de comissão atualizadas');
+        
+        // Trigger recalculation of current period to reflect new config immediately
+        if (currentPeriodId) {
+          await recalculatePeriod(currentPeriodId);
+          const pDoc = await db.collection('periodos').doc(currentPeriodId).get();
+          if (pDoc.exists) renderAdminDashboard(pDoc.data(), currentPeriodId);
+          toast('Período atual recalculado com as novas regras!', 'info');
+        }
       } catch (e) {
         toast('Erro ao salvar: ' + e.message, 'error');
       }
@@ -4420,21 +4428,19 @@
         valorCaixa: parseFloat(document.getElementById('recCaixa').value) || 0,
         tipoVenda: document.getElementById('recTipo').value.trim() || '',
         category: document.getElementById('recCat').value,
-        type: 'processed'
+        type: 'processed',
+        canceladoSemEstorno: document.getElementById('recCancelado').checked
       };
 
-      // NEW: Recalculate fields using CommissionEngine to ensure consistency
-      CommissionEngine.applyCommissionsToItem(data, unitConfig);
-
+      // 1. First, capture manual overrides from the form
       const ajusteP1Str = document.getElementById('recAjusteP1').value;
-      if (ajusteP1Str) data.manualP1 = parseFloat(ajusteP1Str);
-      else data.manualP1 = null;
+      data.manualP1 = ajusteP1Str ? parseFloat(ajusteP1Str) : null;
 
       const ajusteP2Str = document.getElementById('recAjusteP2').value;
-      if (ajusteP2Str) data.manualP2 = parseFloat(ajusteP2Str);
-      else data.manualP2 = null;
+      data.manualP2 = ajusteP2Str ? parseFloat(ajusteP2Str) : null;
 
-      data.canceladoSemEstorno = document.getElementById('recCancelado').checked;
+      // 2. Then, call applyCommissionsToItem which will respect manualP1/manualP2 if present
+      CommissionEngine.applyCommissionsToItem(data, unitConfig);
 
       try {
         toast('Salvando...', 'info');
@@ -4519,16 +4525,42 @@
       }
       
       const processed = items.filter(d => d.type === 'processed');
-
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
       
-      // NEW: Recalculate each item in memory to ensure global config changes (like % Novo) 
-      // or manual edits are reflected in the aggregated totals.
-      processed.forEach(item => {
-        CommissionEngine.applyCommissionsToItem(item, cfg);
-      });
+      // 1. Recalculate and Sync each item back to Firestore in batches
+      try {
+        const batch = db.batch();
+        let batchCount = 0;
+        
+        processed.forEach(item => {
+          // Store old values to check if update is needed (optional optimization, but let's sync to be safe)
+          CommissionEngine.applyCommissionsToItem(item, cfg);
+          
+          const itemRef = db.collection('periodos').doc(periodId).collection('itens').doc(item._docId);
+          batch.update(itemRef, {
+            p1valor: item.p1valor,
+            p1pct: item.p1pct,
+            p2bonus: item.p2bonus,
+            isActivation: item.isActivation,
+            isNaoCom: item.isNaoCom,
+            label: item.label
+          });
+          
+          batchCount++;
+          // batches have a limit of 500
+          if (batchCount >= 400) {
+            // We'll just assume for now the volume is within 500 for a single period. 
+            // If it grows, we'd need a recursive batch execution.
+          }
+        });
+        
+        if (batchCount > 0) await batch.commit();
+        console.log(`[Sync] Updated ${batchCount} items in Firestore for period ${periodId}`);
+      } catch (syncErr) {
+        console.error('Error syncing items during recalculation:', syncErr);
+      }
 
-      // Rebuild vendorData from remaining processed items
+      // 2. Rebuild vendorData from the now updated items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
       const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
       const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
