@@ -2599,11 +2599,6 @@
 
     <!-- MAIN CONTENT -->
     <div class="main" id="mainContent">
-      <!-- Unidade Selector for Multi-unit users -->
-      <div id="quickUnitSelector" style="display:none; background:var(--surface); border-bottom:1px solid var(--border); padding:10px 20px; align-items:center; gap:12px;">
-        <span style="font-size:11px; color:var(--text3); font-weight:700; text-transform:uppercase;">Trocar Unidade:</span>
-        <div id="quickUnitButtons" style="display:flex; gap:8px;"></div>
-      </div>
 
       <!-- ADMIN: DASHBOARD -->
       <div class="page" id="page-dashboard">
@@ -2986,11 +2981,8 @@
     }
 
     async function renderQuickUnitSelector() {
-      const qSelector = document.getElementById('quickUnitSelector');
-      const qButtons = document.getElementById('quickUnitButtons');
       const dButtons = document.getElementById('dashUnitButtons');
       const vButtons = document.getElementById('vendUnitButtons');
-      if (!qSelector || !qButtons) return;
 
       const isAdmin = userProfile && userProfile.role === 'admin';
       const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : []);
@@ -3001,7 +2993,6 @@
           snap = await db.collection('units').get();
         } else {
           if (allowed.length <= 1) {
-            qSelector.style.display = 'none';
             if (dButtons) dButtons.style.display = 'none';
             if (vButtons) vButtons.style.display = 'none';
             return;
@@ -3010,14 +3001,11 @@
         }
 
         if (snap.size <= 1 && !isAdmin) {
-          qSelector.style.display = 'none';
           if (dButtons) dButtons.style.display = 'none';
           if (vButtons) vButtons.style.display = 'none';
           return;
         }
 
-        qSelector.style.display = 'flex';
-        qButtons.innerHTML = '';
         [dButtons, vButtons].forEach(cont => {
           if (cont) {
             cont.innerHTML = '';
@@ -3027,14 +3015,6 @@
 
         snap.forEach(doc => {
           const u = doc.data();
-          const btn = document.createElement('button');
-          btn.className = `btn btn-sm ${doc.id === currentUnitId ? '' : 'btn-ghost'}`;
-          btn.style.fontSize = '10px';
-          btn.style.padding = '4px 10px';
-          btn.textContent = u.name || doc.id;
-          btn.onclick = () => switchUnit(doc.id);
-          qButtons.appendChild(btn);
-
           [dButtons, vButtons].forEach(cont => {
             if (cont) {
               const b = document.createElement('button');
@@ -3048,7 +3028,7 @@
             }
           });
         });
-      } catch (e) { console.error('Error rendering quick unit selector', e); }
+      } catch (e) { console.error('Error rendering unit selector', e); }
     }
 
     async function changePassword() {
