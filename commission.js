@@ -52,6 +52,7 @@ const CommissionEngine = {
     badgeLenda: 3,
     badgeTopRanking: 5,
     badgeConsistente: 6,
+    planosAtivacao: ['BIANUAL', 'ANUAL', 'RECORRENTE', 'MENSAL'],
   },
 
   // ─── Classify a row from the Excel ───
@@ -156,10 +157,11 @@ const CommissionEngine = {
     }
 
     // ── Contracts (Plans) ──
-    if (item.includes('BIANUAL')) r.periodicidade = 'BIANUAL';
-    else if (item.includes('ANUAL')) r.periodicidade = 'ANUAL';
-    else if (item.includes('RECORRENTE')) r.periodicidade = 'RECORRENTE';
-    else if (item.includes('MENSAL')) r.periodicidade = 'MENSAL';
+    const termosAtivacao = (this.currentConfig?.planosAtivacao || this.defaultConfig.planosAtivacao);
+    
+    termosAtivacao.forEach(termo => {
+      if (item.includes(termo)) r.periodicidade = termo;
+    });
 
     if (item.includes('FLEX')) r.abrangencia = 'FLEX';
     else r.abrangencia = 'LOCAL';
@@ -250,6 +252,7 @@ const CommissionEngine = {
   // ─── Process all rows ───
   processRows(rawRows, config, splits = {}) {
     const cfg = { ...this.defaultConfig, ...config };
+    this.currentConfig = cfg; // Store for classifyRow access
     const pctNovo = cfg.pctNovo / 100;
     const pctRenov = cfg.pctRenov / 100;
     const naoComList = cfg.naoComissionaveis.map(n => n.toUpperCase().trim());

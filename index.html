@@ -3155,6 +3155,8 @@
         { key: 'badgeConsistente', label: 'Consistente (Meses)', val: cfg.badgeConsistente },
         { section: 'Não-Comissionáveis' },
         { key: 'naoComissionaveis', label: 'Lista (separar por vírgula)', val: (cfg.naoComissionaveis || []).join(', '), type: 'text', wide: true },
+        { section: 'Planos de Ativação' },
+        { key: 'planosAtivacao', label: 'Termos que identificam um Plano/Contrato (separar por vírgula)', val: (cfg.planosAtivacao || []).join(', '), type: 'text', wide: true },
       ];
 
       let html = '';
@@ -3177,8 +3179,8 @@
       const cfg = {};
       document.querySelectorAll('#settingsForm input').forEach(inp => {
         const key = inp.id.replace('cfg_', '');
-        if (key === 'naoComissionaveis') {
-          cfg[key] = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+        if (key === 'naoComissionaveis' || key === 'planosAtivacao') {
+          cfg[key] = inp.value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
         } else {
           cfg[key] = parseFloat(inp.value) || 0;
         }
