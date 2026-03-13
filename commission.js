@@ -640,7 +640,8 @@ const CommissionEngine = {
       d.isContract &&
       ['BIANUAL', 'ANUAL', 'RECORRENTE'].includes(d.periodicidade) &&
       d.dateObj &&
-      (d.category === 'novo' || d.category === 'retorno')
+      (d.category === 'novo' || d.category === 'retorno') &&
+      d.canceladoSemEstorno !== true
     );
 
     const conversions = [];

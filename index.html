@@ -2610,7 +2610,10 @@
         <div class="page-hdr"
           style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <h1>Dashboard <span id="activeUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
+            <h1>Dashboard 
+              <span id="activeUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span>
+              <span id="dashUnitButtons" style="margin-left:8px; display:none; gap:6px; vertical-align:middle;"></span>
+            </h1>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn btn-outline" id="btnConfigMetasMes"
@@ -2819,7 +2822,10 @@
       <!-- VENDEDOR: DASHBOARD -->
       <div class="page" id="page-meu-painel">
         <div class="page-hdr">
-          <h1>Meu Painel <span id="vendedorUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
+          <h1>Meu Painel 
+            <span id="vendedorUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span>
+            <span id="vendUnitButtons" style="margin-left:8px; display:none; gap:6px; vertical-align:middle;"></span>
+          </h1>
         </div>
         <div class="period-sel">
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
@@ -2982,21 +2988,33 @@
     async function renderQuickUnitSelector() {
       const qSelector = document.getElementById('quickUnitSelector');
       const qButtons = document.getElementById('quickUnitButtons');
+      const dButtons = document.getElementById('dashUnitButtons');
+      const vButtons = document.getElementById('vendUnitButtons');
       if (!qSelector || !qButtons) return;
 
       const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : []);
       if (allowed.length <= 1) {
         qSelector.style.display = 'none';
+        if (dButtons) dButtons.style.display = 'none';
+        if (vButtons) vButtons.style.display = 'none';
         return;
       }
 
       qSelector.style.display = 'flex';
       qButtons.innerHTML = '';
+      [dButtons, vButtons].forEach(cont => {
+        if (cont) {
+          cont.innerHTML = '';
+          cont.style.display = 'inline-flex';
+        }
+      });
 
       try {
         const snap = await db.collection('units').where(firebase.firestore.FieldPath.documentId(), 'in', allowed).get();
         snap.forEach(doc => {
           const u = doc.data();
+          
+          // Button for sidebar/top selector
           const btn = document.createElement('button');
           btn.className = `btn btn-sm ${doc.id === currentUnitId ? '' : 'btn-ghost'}`;
           btn.style.fontSize = '10px';
@@ -3004,6 +3022,20 @@
           btn.textContent = u.name || doc.id;
           btn.onclick = () => switchUnit(doc.id);
           qButtons.appendChild(btn);
+
+          // Inline buttons for dashboards
+          [dButtons, vButtons].forEach(cont => {
+            if (cont) {
+              const b = document.createElement('button');
+              b.className = `btn btn-sm ${doc.id === currentUnitId ? '' : 'btn-ghost'}`;
+              b.style.fontSize = '10px';
+              b.style.padding = '2px 8px';
+              b.style.borderRadius = '8px';
+              b.textContent = u.name || doc.id;
+              b.onclick = () => switchUnit(doc.id);
+              cont.appendChild(b);
+            }
+          });
         });
       } catch (e) { console.error('Error rendering quick unit selector', e); }
     }
