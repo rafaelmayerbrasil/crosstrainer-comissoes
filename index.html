@@ -5012,12 +5012,10 @@
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
-        <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">Comissões P1·P2·P3·P4</button>
+        <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">Comissões</button>
         <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
-        <button class="tab-btn" onclick="switchDashTab('tabP4',this)">P4 Voucher</button>
-        <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Ignorados</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
-        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Parcelados / Diferidos</button>
+        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
       </div>
 
       <div id="tabResumo">
@@ -5140,18 +5138,26 @@
       </div> <!-- END tabResumo -->
       
       <div id="tabRegistros" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <h3 style="font-size:16px;margin:0">Tabela de Lançamentos</h3>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
-            <button class="btn btn-sm btn-ghost" id="btnBulkEdit" style="display:none" onclick="openBulkEditRecords(false)">✏️ Editar Selecionados</button>
-            <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
-            <button class="btn btn-sm btn-ghost" id="btnBulkActivate" style="display:none;color:var(--green);border-color:var(--green)" onclick="bulkRestoreRecords()">✅ Ativar Selecionados</button>
-            <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="openBulkSplitRecords()">➗ Dividir Selecionados</button>
-            <span id="selectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
-          </div>
+        <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+          <button class="tab-btn active" id="subRegLancamentos" onclick="switchSubTab('subLancamentos',this)" style="font-size:12px">Lançamentos</button>
+          <button class="tab-btn" id="subRegExcluidos" onclick="switchSubTab('subExcluidos',this)" style="font-size:12px">Excluídos & Ignorados</button>
         </div>
-        <div id="recordsTableSection"></div>
+        <div id="subLancamentos">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-sm" onclick="openAddRecordModal()">+ Adicionar</button>
+              <button class="btn btn-sm btn-ghost" id="btnBulkEdit" style="display:none" onclick="openBulkEditRecords(false)">✏️ Editar Selecionados</button>
+              <button class="btn btn-sm btn-ghost" id="btnBulkIgnore" style="display:none" onclick="bulkIgnoreRecords()">🗑️ Ignorar Selecionados</button>
+              <button class="btn btn-sm btn-ghost" id="btnBulkActivate" style="display:none;color:var(--green);border-color:var(--green)" onclick="bulkRestoreRecords()">✅ Ativar Selecionados</button>
+              <button class="btn btn-sm btn-ghost" id="btnBulkSplit" style="display:none" onclick="openBulkSplitRecords()">➗ Dividir Selecionados</button>
+              <span id="selectionCount" style="font-size:11px;color:var(--text3);display:none"></span>
+            </div>
+          </div>
+          <div id="recordsTableSection"></div>
+        </div>
+        <div id="subExcluidos" style="display:none">
+          <div id="excluidosContent"></div>
+        </div>
       </div> <!-- END tabRegistros -->
 
       <div id="tabComissoes" style="display:none">
@@ -5161,14 +5167,6 @@
       <div id="tabAtivacoes" style="display:none">
         <div id="ativacoesContent"></div>
       </div> <!-- END tabAtivacoes -->
-
-      <div id="tabP4" style="display:none">
-        ${renderP4Report(data)}
-      </div> <!-- END tabP4 -->
-
-      <div id="tabExcluidos" style="display:none">
-        <div id="excluidosContent"></div>
-      </div> <!-- END tabExcluidos -->
 
       <div id="tabRelatorio" style="display:none">
         <div id="relatorioContent"></div>
@@ -6102,7 +6100,7 @@
     // DASHBOARD TAB SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchDashTab(tabId, btn) {
-      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabP4', 'tabExcluidos', 'tabRelatorio', 'tabDiferidos'];
+      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDiferidos'];
       allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       const target = document.getElementById(tabId);
@@ -6118,7 +6116,6 @@
         if (tabId === 'tabRegistros') renderRecordsTable(periodId);
         else if (tabId === 'tabComissoes') renderComissoesTab(data, periodId);
         else if (tabId === 'tabAtivacoes') renderAtivacoesTab(periodId);
-        else if (tabId === 'tabExcluidos') renderExcluidosTab(periodId);
         else if (tabId === 'tabRelatorio') renderRelatorioTab(data, periodId);
         else if (tabId === 'tabDiferidos') renderDiferidosTab(data, periodId);
 
@@ -6497,8 +6494,20 @@
     }
 
     function switchSubTab(tabId, btn) {
-      document.querySelectorAll('.sub-tab-content').forEach(el => el.style.display = 'none');
-      btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      // Determine scope: sub-tabs inside Registros vs sub-tabs inside Comissões
+      const isRegistrosSub = tabId === 'subLancamentos' || tabId === 'subExcluidos';
+      if (isRegistrosSub) {
+        ['subLancamentos', 'subExcluidos'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        document.querySelectorAll('#tabRegistros > div:first-child .tab-btn').forEach(b => b.classList.remove('active'));
+        // Lazy-load Excluídos when first opened
+        if (tabId === 'subExcluidos' && !loadedTabs.has('subExcluidos')) {
+          renderExcluidosTab(currentPeriodId);
+          loadedTabs.add('subExcluidos');
+        }
+      } else {
+        document.querySelectorAll('.sub-tab-content').forEach(el => el.style.display = 'none');
+        btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      }
       const target = document.getElementById(tabId);
       if (target) target.style.display = 'block';
       btn.classList.add('active');
