@@ -562,23 +562,24 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 24px;
-      margin-bottom: 24px
+      padding: 16px 20px;
+      margin-bottom: 20px
     }
 
     .meta-panel h3 {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       color: var(--orange);
       font-weight: 700;
-      margin-bottom: 16px
+      margin-bottom: 12px
     }
 
     .meta-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px
+      grid-template-columns: 1.2fr 1fr;
+      gap: 32px;
+      align-items: center
     }
 
     .meta-bar {
@@ -617,8 +618,8 @@
 
     .tripe-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
     }
 
     .tripe {
@@ -4826,21 +4827,27 @@
         }
 
         // ── Meta panel ──
-        html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid"><div>
-              <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--text2);font-weight:700">ATIVAÇÕES</span><span class="mono" style="font-size:26px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span></div>
-              <div class="meta-bar"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
-                <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
-                <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
-                <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
-            </div><div>
-                <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:8px">Condições</div>
+        html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid">
+              <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+                  <span style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px">ATIVAÇÕES TOTAIS</span>
+                  <span class="mono" style="font-size:32px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span>
+                </div>
+                <div class="meta-bar" style="margin-bottom:4px"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
+                  <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
+                  <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
+                  <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
+              </div>
+              <div>
+                <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Condições para a Meta</div>
                 <div class="tripe-grid">
                   ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
                   ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
                   ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
                   ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
                 </div>
-              </div></div></div>`;
+              </div>
+            </div></div>`;
 
         // ── Stats row ──
         const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
