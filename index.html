@@ -2159,173 +2159,68 @@
 
   <!-- Modal Ajuda do App -->
   <div id="helpModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:760px; padding:0; max-height:90vh; overflow-y:auto;">
+    <div class="modal-content" style="max-width:780px; padding:0; max-height:90vh; overflow-y:auto;">
+
       <!-- Header -->
-      <div
-        style="background:linear-gradient(135deg, rgba(91,155,213,0.12), rgba(91,155,213,0.02)); padding:24px 28px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px);">
+      <div style="background:linear-gradient(135deg, rgba(91,155,213,0.12), rgba(91,155,213,0.02)); padding:24px 28px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px);">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <h3
-              style="font-size:20px; color:var(--blue); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
-              ❓ Central de Ajuda</h3>
-            <div style="font-size:11px; color:var(--text3); margin-top:2px;">Guia completo do CrossTrainer para
-              vendedores e administradores</div>
+            <h3 style="font-size:20px; color:var(--blue); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">❓ Central de Ajuda</h3>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">Guia completo do CrossTrainer Elite — vendedores e administradores</div>
           </div>
-          <button type="button" class="close-btn" onclick="closeHelpModal()"
-            style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
+          <button type="button" class="close-btn" onclick="closeHelpModal()" style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
         </div>
       </div>
 
       <div style="padding:24px 28px;">
 
         <!-- ═══ SEÇÃO: VENDEDORES ═══ -->
-        <div style="margin-bottom:28px;">
-          <div
-            style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+        <div style="margin-bottom:32px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
             <span style="font-size:20px;">🛒</span>
-            <div
-              style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
-              PARA VENDEDORES</div>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">PARA VENDEDORAS</div>
           </div>
 
           <!-- Meu Painel -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📊</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Painel</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Sua tela principal. Aqui você vê tudo de uma vez: sua comissão total do mês, quantas ativações fez, seu
-              caixa gerado e sua <strong>posição no ranking</strong>. A composição P1+P2+P3+P4 aparece detalhada no card
-              abaixo. Além disso, você acompanha como está a meta da unidade e se as condições do tripé estão sendo
-              cumpridas.
+              Sua tela principal. Você vê de uma vez: comissão total do mês, ativações, caixa gerado e posição no ranking.
+              O breakdown P1+P2+P3+P4 aparece logo abaixo, e mais abaixo você acompanha as metas da unidade e se as condições estão sendo cumpridas.
               <br><br>
-              <strong>Transparência P1:</strong> Na sua lista de lançamentos, 3 colunas ajudam a auditar suas vendas:
-              "Caixa P1" (quanto entrou na conta de verdade), "% Regra" e a "Comissão R$" gasta naquela venda
-              específica.
+              <strong>Transparência nos lançamentos:</strong> na lista de vendas, três colunas ajudam a auditar cada venda: <em>Caixa P1</em> (valor que entrou), <em>% Regra</em> e <em>Comissão R$</em> gerada naquela venda específica.
             </div>
           </div>
 
           <!-- Projeção -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📈</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Projeção de Fim de Mês</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              O sistema calcula automaticamente a projeção baseada no ritmo atual (run rate). Ele mostra quantas
-              ativações e caixa a unidade deve fechar se manter o mesmo ritmo médio diário. Ajuda a ver em qual faixa de
-              meta vocês devem terminar.
+              Aparece automaticamente enquanto o mês está em andamento — some quando você visualiza meses passados.
+              Calcula o ritmo médio diário atual e projeta como a unidade vai fechar:
               <br><br>
-              <strong>Como a matemática funciona?</strong><br>
-              O sistema faz a seguinte conta invisível com seus resultados: <br>
-              <code>(Valor Real Obtido Hoje ÷ Dias Já Corridos do Mês) × Total de Dias do Mês</code>
-              <br>Em resumo: <em>"Se continuarmos vendendo todo dia a mesma média que vendemos até hoje, fecharemos o
-                mês com esse valor."</em>
-            </div>
-          </div>
-
-          <!-- Alertas -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🔔</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Alertas Inteligentes</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Fique de olho nos alertas coloridos no topo do painel! Eles avisam quando:
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
-                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span
-                    style="color:var(--orange);">👑</span> Faltam poucas ativações para Meta Gold</div>
-                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span
-                    style="color:var(--orange);">🔥</span> A equipe está perto da Super Meta</div>
-                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span
-                    style="color:var(--yellow);">⚠️</span> Renovações abaixo do mínimo</div>
-                <div style="background:var(--bg); border-radius:4px; padding:8px; font-size:11px;"><span
-                    style="color:var(--yellow);">⚠️</span> Vouchers abaixo do mínimo</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Simulador -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🧮</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Simulador "E se..."</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Poderoso! No final do painel, selecione um tipo de plano (Anual Local, Anual Flex, Bianual etc.) e a
-              quantidade. O simulador calcula <strong>instantaneamente</strong> quanto sua comissão aumentaria —
-              incluindo o efeito cascata no P3 se as vendas extras fizerem a unidade pular de faixa de meta. Ótimo para
-              se motivar antes de fechar o mês.
+              <code style="background:var(--bg);padding:3px 8px;border-radius:4px;font-size:11px;">(Resultado atual ÷ dias corridos) × total de dias do mês</code>
+              <br><br>
+              Mostra ativações, caixa, novos+retorno, renovações e vouchers projetados — cada um com cor indicando se vai atingir o mínimo necessário.
             </div>
           </div>
 
           <!-- Conquistas -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🏆</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Conquistas (Gamificação)</div>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Conquistas</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Desbloqueie badges conforme seu desempenho! As conquistas são baseadas no mês atual (ex: 🎯 Fera de
-              Vendas, 💰 Bolso Cheio) ou no seu histórico a longo prazo (ex: 🔥 Em Chamas, 👑 Lenda).
-              <div
-                style="margin-top:6px; padding:8px; background:var(--bg); border-left:2px solid var(--yellow); border-radius:4px; color:var(--text3); font-size:11px;">
-                ✨ <strong>Novidade:</strong> As regras exatas e os limites de cada uma dessas conquistas agora são 100%
-                configuráveis. O Gestor da unidade pode acessar a aba <em>Configurações</em> e definir livremente
-                quantas ativações, qual o valor de prêmio, ou quantos meses no topo são necessários para obter cada
-                selo!
-              </div>
-              <div style="margin-top:12px; font-size:11px;">
-                <div style="font-weight:700; color:var(--text); margin-bottom:6px;">🥇 Conquistas do Mês Atual:</div>
-                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🎯
-                      Fera de Vendas</span> Fazer um número alvo de ativações no mês.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">💎
-                      Imparável</span> Superar um alvo ainda maior de ativações no mês.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">💰
-                      Bolso Cheio</span> Alcançar um ótimo valor de comissão no mês.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🏆
-                      Top Performer</span> Alcançar um valor de comissão excepcional no mês.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🌟
-                      Caça-Novatos</span> Trazer um número estipulado de alunos novos ou retornos.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🎫
-                      Mestre do Voucher</span> Emitir muitos meses de degustação (Vouchers).</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🔄
-                      Rei da Retenção</span> Fazer um grande número de renovações de contrato.</div>
-                </div>
-
-                <div style="font-weight:700; color:var(--text); margin-bottom:6px;">🏆 Histórico (Carreira):</div>
-                <div style="display:flex; flex-direction:column; gap:6px;">
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🔥
-                      Em Chamas</span> Equipe bater a meta de ativações da unidade por vários meses consecutivos.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">⚡
-                      Maratonista</span> Equipe bater a meta da unidade por uma sequência ainda maior de meses.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">👑
-                      Lenda</span> Ficar em 1º lugar no Ranking da unidade repetidas vezes.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">🏅
-                      Top Ranking</span> Ficar no Top 3 do Ranking várias vezes ao longo da carreira.</div>
-                  <div><span
-                      style="background:var(--bg); border-radius:4px; padding:2px 6px; font-size:10px; margin-right:4px;">📅
-                      Consistente</span> Ter vendas registradas no sistema por muitos meses seguidos.</div>
-                </div>
-              </div>
+              Desbloqueie badges conforme seu desempenho. As conquistas do mês atual incluem: 🎯 Fera de Vendas, 💎 Imparável, 💰 Bolso Cheio, 🌟 Caça-Novatos, 🎫 Mestre do Voucher, 🔄 Rei da Retenção.
+              <br><br>
+              Conquistas de carreira: 🔥 Em Chamas, ⚡ Maratonista (sequência de meses batendo meta), 👑 Lenda e 🏅 Top Ranking (histórico de posições).
             </div>
           </div>
 
@@ -2336,225 +2231,191 @@
               <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Histórico</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              No final do painel, um gráfico mostra sua evolução mês a mês — comissão e ativações — junto com uma tabela
-              de todos os meses e sua posição no ranking em cada um. Ótimo para visualizar seu crescimento.
+              No final do painel, um gráfico mostra sua evolução mês a mês — comissão e ativações —
+              com uma tabela de todos os períodos e sua posição no ranking em cada um.
             </div>
           </div>
         </div>
 
         <!-- ═══ SEÇÃO: ADMINISTRADORES ═══ -->
-        <div style="margin-bottom:28px;">
-          <div
-            style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+        <div style="margin-bottom:32px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
             <span style="font-size:20px;">⚙️</span>
-            <div
-              style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
-              PARA ADMINISTRADORES</div>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">PARA ADMINISTRADORES</div>
+          </div>
+
+          <!-- Dashboard -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+              <span style="font-size:16px;">📊</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Dashboard — Abas de Navegação</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px;">
+              O Dashboard possui <strong>6 abas principais</strong>. Selecione o período desejado no topo antes de navegar.
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--orange);">
+                <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Resumo</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Hero card com comissão total + breakdown P1/P2/P3/P4. Indicadores operacionais (ticket médio, renovação, voucher, mix). Metas da unidade com barra de progresso. Projeção de fim de mês (só no mês atual). Ranking de vendedoras com barra de progresso individual. Gráfico histórico.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--blue);">
+                <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">Registros</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">
+                  Duas sub-abas:<br>
+                  <strong>Lançamentos</strong> — tabela completa com filtros, busca, ordenação. Ações: ✏️ Editar, ➗ Dividir, 🗑️ Ignorar, edição em massa.<br>
+                  <strong>Excluídos & Ignorados</strong> — registros fora da comissão agrupados por motivo (GymPass, TotalPass, Permutas, Renov. Automáticas). Filtro dinâmico por vendedor, cliente, item ou motivo.
+                </div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--green);">
+                <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:4px;">Comissões</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">
+                  Visão centrada na <strong>vendedora</strong>: selecione uma pelo seletor no topo e veja tudo dela em uma tela só — total a receber, P1 (todos os lançamentos com caixa e %), P2 (bônus fixo), P3 (meta e tier), P4 (vouchers emitidos e conversões) e os <strong>lançamentos excluídos da comissão</strong> dela para conferência.
+                </div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--yellow);">
+                <div style="font-size:11px; font-weight:700; color:var(--yellow); margin-bottom:4px;">Ativações</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Detalhe de todas as ativações do período com classificação por tipo (Novo, Renovação, Retorno, Voucher). Útil para conferir a contagem da meta.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--purple);">
+                <div style="font-size:11px; font-weight:700; color:var(--purple); margin-bottom:4px;">Relatório por Vendedor</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Relatório individual exportável com todos os dados de comissão para envio ou impressão. Inclui botão 🖨️ Recibo para geração do comprovante de pagamento.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--text3);">
+                <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:4px;">⏳ Diferidos</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Comissões cujo pagamento foi parcelado ou adiado para meses futuros (ex: contratos longos). Mostra o status de cada parcela diferida.</div>
+              </div>
+            </div>
           </div>
 
           <!-- Upload -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📤</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Upload de Fechamento</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
               <strong>Passo a passo:</strong>
-              <div style="margin-top:6px; padding-left:4px;">
-                <div style="display:flex; gap:8px; margin-bottom:4px;"><span
-                    style="color:var(--orange); font-weight:700; font-size:11px;">1.</span><span>Exporte o relatório de
-                    vendas do <strong>TecnoFit</strong> em formato .xlsx</span></div>
-                <div style="display:flex; gap:8px; margin-bottom:4px;"><span
-                    style="color:var(--orange); font-weight:700; font-size:11px;">2.</span><span>Vá no menu
-                    <strong>Upload</strong> e arraste o arquivo (ou clique para selecionar)</span></div>
-                <div style="display:flex; gap:8px; margin-bottom:4px;"><span
-                    style="color:var(--orange); font-weight:700; font-size:11px;">3.</span><span>O sistema detecta o mês
-                    automaticamente, classifica cada venda e mostra um <strong>preview</strong></span></div>
-                <div style="display:flex; gap:8px; margin-bottom:4px;"><span
-                    style="color:var(--orange); font-weight:700; font-size:11px;">4.</span><span>Revise o preview — você
-                    pode ignorar ou ativar registros antes de confirmar</span></div>
-                <div style="display:flex; gap:8px;"><span
-                    style="color:var(--orange); font-weight:700; font-size:11px;">5.</span><span>Clique
-                    <strong>"Confirmar e Salvar"</strong> — tudo é calculado e salvo no banco de dados</span></div>
+              <div style="margin-top:8px; padding-left:4px; display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">1.</span><span>Exporte o relatório de vendas do <strong>TecnoFit</strong> em formato .xlsx</span></div>
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">2.</span><span>Acesse o menu <strong>Upload</strong> e arraste o arquivo ou clique para selecionar</span></div>
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">3.</span><span>O sistema detecta o mês, classifica cada venda e exibe um preview</span></div>
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">4.</span><span>Revise o preview — você pode ignorar ou ativar registros antes de confirmar</span></div>
+                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">5.</span><span>Clique <strong>"Confirmar e Salvar"</strong> — tudo é calculado e salvo</span></div>
               </div>
-              <div style="margin-top:8px; font-size:11px; color:var(--text3); font-style:italic;">
-                Vendedores novos encontrados no arquivo são cadastrados automaticamente como "Pendente".
+              <div style="margin-top:10px; padding:10px; background:var(--bg); border-left:2px solid var(--orange); border-radius:4px; font-size:11px; color:var(--text3);">
+                <strong style="color:var(--text2);">🔄 Deduplicação inteligente:</strong> Se um arquivo novo contiver lançamentos que já existem na base, o sistema compara automaticamente. Se o registro existente estiver <strong>ativo</strong>, ele é mantido sem alteração. Se estiver <strong>inativo</strong> (ignorado), o novo dado substitui. Isso evita duplicatas ao reenviar um arquivo parcial.
               </div>
+              <div style="margin-top:8px; font-size:11px; color:var(--text3);">Vendedoras novas encontradas no arquivo são cadastradas automaticamente como "Pendente".</div>
             </div>
           </div>
 
-          <!-- Dashboard -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">📊</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Dashboard (3 abas)</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:4px;">
-                <div style="background:var(--bg); border-radius:6px; padding:10px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Resumo Gerencial
-                  </div>
-                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Metas, projeção, indicadores (ticket
-                    médio, mix, conversão), ranking de vendedores e gráfico histórico.</div>
-                </div>
-                <div style="background:var(--bg); border-radius:6px; padding:10px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Registros
-                    Processados</div>
-                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Tabela completa de lançamentos.
-                    Busca, filtros, ordenação. Editar ✏️, Dividir ➗ e Ignorar 🗑️ registros.</div>
-                </div>
-                <div style="background:var(--bg); border-radius:6px; padding:10px; border:1px solid var(--orange);">
-                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">🎯 Configurar
-                    Metas</div>
-                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Botão ao topo da tela, permite
-                    definir manualmente o alvo (em nº de ativações e prêmio P3) para aquele mês específico.</div>
-                </div>
-                <div style="background:var(--bg); border-radius:6px; padding:10px;">
-                  <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Relatório P4
-                    (Voucher)</div>
-                  <div style="font-size:10px; color:var(--text3); line-height:1.5;">Detalhes de cada conversão: quem fez
-                    o voucher, quem converteu, prazo, plano e pool da unidade.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Comparativo -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🔄</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Comparativo de Períodos</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Selecione dois meses e veja lado a lado: ativações, caixa, comissão, novos, renovações e vouchers — com a
-              variação colorida (verde = cresceu, vermelho = caiu). Abaixo, a tabela mostra a evolução de cada vendedora
-              entre os dois períodos.
-            </div>
-          </div>
-
-          <!-- Tratar exceções -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <!-- Exceções e Divisões -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🔧</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Tratar Exceções e Dividir Vendas</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Na aba <strong>Registros Processados</strong> do dashboard:
-              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px;">
+              Na sub-aba <strong>Registros → Lançamentos</strong>, use as ações individuais ou selecione múltiplos registros:
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px;">
                 <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
                   <div style="font-size:16px;">✏️</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Editar</strong><br>Mudar
-                    vendedor, categoria, valor</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Editar</strong><br>Vendedor, categoria, valor, período</div>
                 </div>
                 <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
                   <div style="font-size:16px;">➗</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Dividir</strong><br>Split
-                    50/50, 70/30 ou 30/70</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Dividir (Split)</strong><br>50/50, 70/30 ou 30/70 entre dois vendedores</div>
                 </div>
                 <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
                   <div style="font-size:16px;">🗑️</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Ignorar</strong><br>Remove
-                    das comissões (reversível)</div>
+                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Ignorar</strong><br>Remove da comissão (reversível)</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Configurar Metas -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🎯</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Configurar Metas do Mês</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Botão <strong>"🎯 Configurar Metas do Mês"</strong> no topo do Dashboard. Permite definir metas e prêmios P3 específicos para aquele mês sem afetar o histórico de meses anteriores. Campos: Meta, Super Meta e Meta Gold — cada um com seu prêmio fixo.
+            </div>
+          </div>
+
+          <!-- Comparativo -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🔄</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Comparativo de Períodos</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Selecione dois meses e veja lado a lado: ativações, caixa, comissão, novos, renovações e vouchers com variação colorida (verde = cresceu, vermelho = caiu). Acesse pelo menu lateral.
             </div>
           </div>
 
           <!-- Auditoria -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📋</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Log de Auditoria</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Todas as ações no sistema são registradas: uploads, edições, exclusões, divisões, mudanças de configuração
-              e criação de usuários. Acesse pelo menu <strong>Admin → Auditoria</strong> com filtro por tipo e busca por
-              texto.
+              Todas as ações do sistema são registradas: uploads, edições, exclusões, divisões, mudanças de configuração e criação de usuários. Acesse pelo menu <strong>Auditoria</strong> com filtro por tipo de ação e busca por texto.
             </div>
           </div>
 
           <!-- Multi-unidade -->
-          <div
-            style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">🏢</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Unidades e Gestão de Contas</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Múltiplas Unidades</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              O sistema suporta múltiplas academias/filiais. Cada unidade tem suas próprias configurações de comissão,
-              períodos e vendedores. Acesse <strong>Admin → Unidades</strong> para criar ou editar a unidade
-              ativa.<br><br>
-              ✨ <strong>Dica (Para o Recibo de Pagamento):</strong> Acesse a aba <em>Gestão de Unidades</em> e clique em
-              <strong>Editar</strong> para preencher o CNPJ, Razão Social e Endereço da loja. Vá em <em>Gestão de
-                Usuários</em> e edite as vendedoras para preencher a Chave PIX e o CPF delas para configurar com sucesso
-              a emissão do Recibo!
+              O sistema suporta múltiplas academias/filiais. Cada unidade tem suas próprias configurações, períodos e vendedoras. Troque de unidade pelo botão no topo — a unidade ativa fica destacada em laranja.
+              <br><br>
+              💡 <strong>Para o Recibo de Pagamento:</strong> acesse <em>Unidades</em>, edite a unidade e preencha CNPJ, Razão Social e Endereço. Em <em>Usuários</em>, edite as vendedoras e preencha CPF e Chave PIX. Feito isso, o botão 🖨️ Recibo ficará disponível.
             </div>
           </div>
 
-          <!-- Recibo Admin -->
+          <!-- Configurações e Zona de Perigo -->
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🖨️</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Geração de Recibos</div>
-              <span
-                style="font-size:9px; background:var(--green-bg); color:var(--green); padding:2px 6px; border-radius:3px; font-weight:700;">NOVO</span>
+              <span style="font-size:16px;">⚙️</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Configurações e Zona de Perigo</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Para formalizar o pagamento de comissões mês a mês de forma assertiva e organizada, utilize o botão
-              <strong>"🖨️ Recibo"</strong>. Para emiti-lo como Gestor, acesse a aba <em>Resumo Gerencial</em>, encontre
-              o card/nome da vendedora no painel (Tabela de Rankings/Valores) e clique sobre ele. O modal de
-              detalhamento daquela vendedora será aberto, contendo o botão de emissão de Recibo no canto superior para
-              uso imediato.
+              Em <strong>Configurações</strong> você define as regras de comissão (percentuais P1, prêmios P3, mínimos do tripé, termos de planos). Clique em <strong>"💾 Salvar Configurações"</strong> para aplicar.
+              <br><br>
+              No final da página de Configurações está a <strong style="color:var(--red);">⚠ Zona de Perigo</strong> — onde fica o botão de excluir período. Ele só aparece quando há um período selecionado no Dashboard e exibe claramente o <strong>nome do período</strong> e a <strong>unidade</strong> que serão excluídos antes de você confirmar. Essa ação é <strong>irreversível</strong>.
             </div>
           </div>
         </div>
 
-        <!-- ═══ SEÇÃO: GERAL ═══ -->
+        <!-- ═══ SEÇÃO: DICAS GERAIS ═══ -->
         <div>
-          <div
-            style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
             <span style="font-size:20px;">💡</span>
-            <div
-              style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
-              DICAS GERAIS</div>
+            <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">DICAS GERAIS</div>
           </div>
-
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📱 Instalar no Celular
-              </div>
-              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Abra o sistema no Chrome do celular →
-                toque nos 3 pontinhos → <strong>"Adicionar à tela inicial"</strong>. O app fica como um ícone igual
-                qualquer outro app!</div>
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📱 Instalar no Celular</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Abra no Chrome → toque nos 3 pontinhos → <strong>"Adicionar à tela inicial"</strong>. Funciona como app nativo.</div>
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🌙 Modo Claro / Escuro
-              </div>
-              <div style="font-size:11px; color:var(--text3); line-height:1.6;">No rodapé da barra lateral, use o toggle
-                🌙/☀️ para alternar entre o tema escuro e claro. A preferência é salva automaticamente.</div>
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🌙 Modo Claro / Escuro</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">No rodapé da barra lateral, use o toggle 🌙/☀️. A preferência é salva automaticamente.</div>
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🔑 Esqueci Minha Senha
-              </div>
-              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Na tela de login, digite seu email e
-                clique em <strong>"Esqueci minha senha"</strong>. Você receberá um email para redefinir.</div>
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🔑 Esqueci Minha Senha</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Na tela de login, clique em <strong>"Esqueci minha senha"</strong>. Você receberá um e-mail para redefinir.</div>
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
-              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📥 Exportar Relatório
-              </div>
-              <div style="font-size:11px; color:var(--text3); line-height:1.6;">No dashboard, clique no botão
-                <strong>"Baixar Relatório XLS"</strong> para exportar o resumo do período em Excel com duas abas: resumo
-                por vendedor e lançamentos detalhados.
-              </div>
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📥 Exportar para Excel</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Clique em <strong>"⬇ Baixar Relatório XLS"</strong> no Dashboard para exportar resumo por vendedora e lançamentos detalhados em duas abas.</div>
             </div>
           </div>
         </div>
