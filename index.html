@@ -6387,6 +6387,11 @@
         const items = [];
         snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
 
+        // Also fetch excluded items for the "what was excluded" section
+        const exclSnap = await db.collection('periodos').doc(periodId).collection('itens').where('type', '==', 'excluded').get();
+        const excludedItems = [];
+        exclSnap.forEach(doc => excludedItems.push({ _docId: doc.id, ...doc.data() }));
+
         const vs = data.vendorSummary || {};
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
         const t = data.totals || {};
@@ -6399,6 +6404,14 @@
           const v = r.vendedor || 'Sem Vendedor';
           if (!vendorItems[v]) vendorItems[v] = [];
           vendorItems[v].push(r);
+        });
+
+        // Group excluded items by vendor
+        const vendorExcluded = {};
+        excludedItems.forEach(r => {
+          const v = r.vendedor || 'Sem Vendedor';
+          if (!vendorExcluded[v]) vendorExcluded[v] = [];
+          vendorExcluded[v].push(r);
         });
 
         // Commissionable vendors sorted by name
@@ -6427,6 +6440,15 @@
           const grandTotal = vData.grandTotal || 0;
           const p1 = vData.p1 || 0, p2 = vData.p2 || 0, p3 = vData.p3 || 0;
           const p4i = vData.p4i || 0, p4p = vData.p4p || 0;
+
+          // Excluded items for this vendor
+          const vExcl = (vendorExcluded[vendorName] || []).slice().sort((a, b) => {
+            const pA = (a.data || '').split('/'), pB = (b.data || '').split('/');
+            const dA = pA.length === 3 ? new Date(pA[2], pA[1]-1, pA[0]) : 0;
+            const dB = pB.length === 3 ? new Date(pB[2], pB[1]-1, pB[0]) : 0;
+            return dB - dA;
+          });
+          const exclCaixa = vExcl.reduce((s, r) => s + (r.valorCaixa || 0), 0);
 
           // P3 tier
           const p3Tier = vData.p3Tier || (p3 > 0 ? 'Meta' : 'Não atingida');
@@ -6570,6 +6592,41 @@
                 </tr>`).join('')}</tbody>
               </table></div>` : ''}
               ${myVouchers.length === 0 && myConversions.length === 0 ? '<div style="padding:8px 0;color:var(--text3);font-size:12px">Nenhum voucher ou conversão neste período.</div>' : ''}
+            </div>
+
+            <!-- EXCLUÍDOS DA COMISSÃO -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;opacity:0.85">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${vExcl.length > 0 ? '12px' : '0'}">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text3)">🚫 Lançamentos Excluídos da Comissão</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:3px">
+                    ${vExcl.length > 0
+                      ? `${vExcl.length} lançamento(s) · R$ ${fmt(exclCaixa)} em caixa não comissionado`
+                      : 'Nenhum lançamento excluído neste período para esta vendedora.'}
+                  </div>
+                </div>
+                ${vExcl.length > 0 ? `<div class="mono" style="font-size:13px;color:var(--text3)">R$ ${fmt(exclCaixa)}</div>` : ''}
+              </div>
+              ${vExcl.length > 0 ? `
+              <div class="table-wrap" style="max-height:260px"><table style="width:100%">
+                <thead><tr>
+                  <th>Data</th><th>Cliente</th><th>Item</th><th>Motivo</th>
+                  <th style="text-align:right">Caixa</th>
+                </tr></thead>
+                <tbody>
+                ${vExcl.map(r => `<tr style="opacity:0.7">
+                  <td style="color:var(--text3)">${r.data || ''}</td>
+                  <td style="max-width:130px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+                  <td style="font-size:10px;max-width:150px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item || ''}</td>
+                  <td style="font-size:10px;color:var(--text3)">
+                    <span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap">
+                      ${r._reason || r.label || r.category || 'Excluído'}
+                    </span>
+                  </td>
+                  <td class="currency" style="color:var(--text3)">R$ ${fmt(r.valorCaixa || 0)}</td>
+                </tr>`).join('')}
+                </tbody>
+              </table></div>` : ''}
             </div>`;
         };
 
