@@ -3250,7 +3250,7 @@
             <span class="ur-role ${roleClass}">${roleLabel}</span>
             ${isPendente ? `<button class="btn btn-sm" style="background:var(--yellow);color:#000" onclick="activateUser('${u.id}','${u.name}')">Configurar acesso</button>` : ''}
             ${!isPendente ? `<button class="btn btn-ghost btn-sm" onclick="showEditUser('${u.id}')">✏️ Editar</button>` : ''}
-            ${!isPendente && u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${u.email}')">Remover</button>` : ''}
+            ${u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${isPendente ? (u.name || u.id) : u.email}')">Remover</button>` : ''}
           </div>
         </div>`;
         }).join('');
@@ -3428,8 +3428,8 @@
       }
     }
 
-    async function deleteUser(uid, email) {
-      if (!confirm(`Remover ${email}?`)) return;
+    async function deleteUser(uid, label) {
+      if (!confirm(`Remover ${label}?`)) return;
       try {
         await db.collection('users').doc(uid).delete();
         toast('Usuário removido.', 'success');
