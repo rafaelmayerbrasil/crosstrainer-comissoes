@@ -6583,6 +6583,95 @@
     // ═══════════════════════════════════════════════════════════════
     // ABA: EXCLUÍDOS & PASSES
     // ═══════════════════════════════════════════════════════════════
+    let _excluidosAllItems = []; // cached for filter reuse
+
+    function _renderExcluidosGroups(items) {
+      const gympass   = items.filter(r => r._group === 'gympass'  || (r._reason || '').includes('Gympass'));
+      const totalpass = items.filter(r => r._group === 'totalpass' || (r._reason || '').includes('TotalPass'));
+      const permutas  = items.filter(r => r._group === 'permuta'  || (r._reason || '').includes('Permuta'));
+      const renovAuto = items.filter(r => (r._reason || '').includes('automática') || (r._reason || '').includes('Renovação de recorrente'));
+      const outros    = items.filter(r => !gympass.includes(r) && !totalpass.includes(r) && !permutas.includes(r) && !renovAuto.includes(r));
+
+      const gymCaixa      = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+      const totalCaixa    = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+      const renovAutoCaixa = renovAuto.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+
+      // Summary cards
+      let html = `<div id="exclSummaryCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ GymPass/Wellhub</div>
+          <div class="mono" style="font-size:18px;font-weight:700">${gympass.length} vendas</div>
+          <div class="mono" style="font-size:14px;color:var(--purple)">R$ ${fmt(gymCaixa)}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--blue);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ TotalPass</div>
+          <div class="mono" style="font-size:18px;font-weight:700">${totalpass.length} vendas</div>
+          <div class="mono" style="font-size:14px;color:var(--blue)">R$ ${fmt(totalCaixa)}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--yellow);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔄 Permutas</div>
+          <div class="mono" style="font-size:18px;font-weight:700">${permutas.length} ativas</div>
+          <div style="font-size:10px;color:var(--text3)">Não geram comissão</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--text3);border-radius:8px;padding:16px;text-align:center">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔁 Renov. Automáticas</div>
+          <div class="mono" style="font-size:18px;font-weight:700">${renovAuto.length} planos</div>
+          <div class="mono" style="font-size:14px;color:var(--text3)">R$ ${fmt(renovAutoCaixa)}</div>
+        </div>
+      </div>`;
+
+      const renderGroupTable = (title, color, groupItems) => {
+        if (groupItems.length === 0) return '';
+        let t = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:8px">${title} <span style="font-weight:400;color:var(--text3)">(${groupItems.length})</span></div>
+          <div class="table-wrap" style="max-height:240px"><table style="width:100%"><thead><tr>
+            <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor</th><th>Motivo</th>
+          </tr></thead><tbody>`;
+        groupItems.forEach(r => {
+          t += `<tr>
+            <td>${r.vendedor || ''}</td>
+            <td>${r.data || ''}</td>
+            <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
+            <td style="font-size:10px;color:var(--text3)">${r._reason || r.label || ''}</td>
+          </tr>`;
+        });
+        t += '</tbody></table></div></div>';
+        return t;
+      };
+
+      html += renderGroupTable('GymPass / Wellhub', 'var(--purple)', gympass);
+      html += renderGroupTable('TotalPass', 'var(--blue)', totalpass);
+      html += renderGroupTable('Permutas', 'var(--yellow)', permutas);
+      html += renderGroupTable('Renovações Automáticas / Recorrentes', 'var(--text2)', renovAuto);
+      html += renderGroupTable('Outras Exclusões', 'var(--text3)', outros);
+
+      if (items.length === 0) {
+        html += `<div style="padding:32px;text-align:center;color:var(--text3);font-size:13px">Nenhum resultado encontrado para este filtro.</div>`;
+      }
+
+      return html;
+    }
+
+    function filterExcluidos(query) {
+      const q = query.trim().toLowerCase();
+      const filtered = q
+        ? _excluidosAllItems.filter(r =>
+            (r.vendedor  || '').toLowerCase().includes(q) ||
+            (r.cliente   || '').toLowerCase().includes(q) ||
+            (r.item      || '').toLowerCase().includes(q) ||
+            (r._reason   || '').toLowerCase().includes(q) ||
+            (r.data      || '').toLowerCase().includes(q))
+        : _excluidosAllItems;
+
+      // Update counter badge
+      const badge = document.getElementById('exclFilterBadge');
+      if (badge) badge.textContent = q ? `${filtered.length} de ${_excluidosAllItems.length}` : `${_excluidosAllItems.length} total`;
+
+      document.getElementById('exclGroupsWrap').innerHTML = _renderExcluidosGroups(filtered);
+    }
+
     async function renderExcluidosTab(periodId) {
       const el = document.getElementById('excluidosContent');
       if (!el) return;
@@ -6590,79 +6679,26 @@
 
       try {
         const snap = await db.collection('periodos').doc(periodId).collection('itens').where('type', '==', 'excluded').get();
-        const items = [];
-        snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+        _excluidosAllItems = [];
+        snap.forEach(doc => _excluidosAllItems.push({ _docId: doc.id, ...doc.data() }));
 
-        // Group by reason
-        const groups = {};
-        items.forEach(r => {
-          const reason = r._reason || r.label || r.category || 'Outro';
-          if (!groups[reason]) groups[reason] = [];
-          groups[reason].push(r);
-        });
-
-        // GymPass/TotalPass specific
-        const gympass = items.filter(r => (r._group === 'gympass' || (r._reason || '').includes('Gympass')));
-        const totalpass = items.filter(r => (r._group === 'totalpass' || (r._reason || '').includes('TotalPass')));
-        const permutas = items.filter(r => (r._group === 'permuta' || (r._reason || '').includes('Permuta')));
-        const renovAuto = items.filter(r => (r._reason || '').includes('automática') || (r._reason || '').includes('Renovação de recorrente'));
-
-        const gymCaixa = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
-        const totalCaixa = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
-        const permutaCount = permutas.length;
-        const renovAutoCount = renovAuto.length;
-        const renovAutoCaixa = renovAuto.reduce((s, r) => s + (r.valorCaixa || 0), 0);
-
-        let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-          <div style="background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:16px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ GymPass/Wellhub</div>
-            <div class="mono" style="font-size:18px;font-weight:700">${gympass.length} vendas</div>
-            <div class="mono" style="font-size:14px;color:var(--purple)">R$ ${fmt(gymCaixa)}</div>
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="position:relative;flex:1;min-width:200px;max-width:400px">
+              <input
+                id="exclFilterInput"
+                type="text"
+                placeholder="Filtrar por vendedor, cliente, item, motivo..."
+                oninput="filterExcluidos(this.value)"
+                style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 32px 8px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif"
+              >
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none">🔍</span>
+            </div>
+            <span id="exclFilterBadge" style="font-size:11px;color:var(--text3);white-space:nowrap">${_excluidosAllItems.length} total</span>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('exclFilterInput').value='';filterExcluidos('')">Limpar</button>
           </div>
-          <div style="background:var(--surface);border:1px solid var(--blue);border-radius:8px;padding:16px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ TotalPass</div>
-            <div class="mono" style="font-size:18px;font-weight:700">${totalpass.length} vendas</div>
-            <div class="mono" style="font-size:14px;color:var(--blue)">R$ ${fmt(totalCaixa)}</div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--yellow);border-radius:8px;padding:16px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔄 Permutas</div>
-            <div class="mono" style="font-size:18px;font-weight:700">${permutaCount} ativas</div>
-            <div style="font-size:10px;color:var(--text3)">Não geram comissão</div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--text3);border-radius:8px;padding:16px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🔁 Renov. Automáticas</div>
-            <div class="mono" style="font-size:18px;font-weight:700">${renovAutoCount} planos</div>
-            <div class="mono" style="font-size:14px;color:var(--text3)">R$ ${fmt(renovAutoCaixa)}</div>
-          </div>
-        </div>`;
-
-        // Detail tables for each group
-        const renderGroupTable = (title, color, groupItems) => {
-          if (groupItems.length === 0) return '';
-          let t = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
-            <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:8px">${title} (${groupItems.length})</div>
-            <div class="table-wrap" style="max-height:200px"><table style="width:100%"><thead><tr>
-              <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor</th><th>Motivo</th>
-            </tr></thead><tbody>`;
-          groupItems.forEach(r => {
-            t += `<tr><td>${r.vendedor || ''}</td><td>${r.data || ''}</td><td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
-              <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
-              <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td><td style="font-size:10px;color:var(--text3)">${r._reason || r.label || ''}</td></tr>`;
-          });
-          t += '</tbody></table></div></div>';
-          return t;
-        };
-
-        html += renderGroupTable('GymPass / Wellhub', 'var(--purple)', gympass);
-        html += renderGroupTable('TotalPass', 'var(--blue)', totalpass);
-        html += renderGroupTable('Permutas', 'var(--yellow)', permutas);
-        html += renderGroupTable('Renovações Automáticas / Recorrentes', 'var(--text2)', renovAuto);
-
-        // Other exclusions
-        const outros = items.filter(r => !gympass.includes(r) && !totalpass.includes(r) && !permutas.includes(r) && !renovAuto.includes(r));
-        html += renderGroupTable('Outras Exclusões', 'var(--text3)', outros);
-
-        el.innerHTML = html;
+          <div id="exclGroupsWrap">${_renderExcluidosGroups(_excluidosAllItems)}</div>
+        `;
       } catch (e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
     }
 
