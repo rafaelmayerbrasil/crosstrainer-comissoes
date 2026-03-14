@@ -216,11 +216,14 @@
 
     .sb-section {
       font-size: 10px;
+      background: var(--surface2);
+      margin: 8px 12px 4px;
+      border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      color: var(--text3);
+      color: var(--text2);
       font-weight: 700;
-      padding: 16px 20px 8px
+      padding: 6px 8px
     }
 
     .sb-user {
@@ -496,7 +499,166 @@
       display: none
     }
 
-    /* ─── STATS ROW ─── */
+    /* ─── KPI HERO CARD ─── */
+    .kpi-hero {
+      background: var(--surface);
+      border: 1px solid var(--orange);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px
+    }
+
+    .kpi-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(232,146,13,0.07), transparent);
+      pointer-events: none
+    }
+
+    .kpi-hero .kh-label {
+      font-size: 10px;
+      color: var(--orange);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      margin-bottom: 4px
+    }
+
+    .kpi-hero .kh-value {
+      font-size: 36px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--orange-light);
+      line-height: 1
+    }
+
+    .kpi-hero .kh-sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 4px
+    }
+
+    .kpi-hero .kh-breakdown {
+      display: flex;
+      gap: 20px
+    }
+
+    .kpi-hero .kh-part {
+      text-align: center
+    }
+
+    .kpi-hero .kh-part .kp-label {
+      font-size: 9px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 700;
+      margin-bottom: 3px
+    }
+
+    .kpi-hero .kh-part .kp-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace
+    }
+
+    /* ─── KPI SECTION TITLE ─── */
+    .kpi-section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text3);
+      font-weight: 700;
+      margin: 16px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .kpi-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border)
+    }
+
+    /* ─── OPERATIONAL GRID ─── */
+    .oper-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 20px
+    }
+
+    /* ─── META + PROJECTION LAYOUT ─── */
+    .meta-proj-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+      align-items: start
+    }
+
+    /* ─── VENDOR PROGRESS BAR ─── */
+    .vc-progress-wrap {
+      margin-bottom: 10px
+    }
+
+    .vc-progress-bar {
+      height: 4px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 4px
+    }
+
+    .vc-progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width .4s ease
+    }
+
+    .vc-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text3);
+      margin-top: 3px
+    }
+
+    /* ─── STATS-ROW FINANCIAL ─── */
+    .stats-row-fin {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 6px
+    }
+
+    @media(max-width:768px) {
+      .oper-grid {
+        grid-template-columns: 1fr 1fr
+      }
+      .meta-proj-layout {
+        grid-template-columns: 1fr
+      }
+      .kpi-hero .kh-breakdown {
+        gap: 12px
+      }
+      .kpi-hero .kh-value {
+        font-size: 26px
+      }
+      .stats-row-fin {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
     .stats-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -4729,7 +4891,7 @@
       };
     }
 
-    function renderProjectionCard(proj, cfg) {
+    function renderProjectionCard(proj, cfg, compact = false) {
       if (!proj) return '';
       const pctLabel = Math.round(proj.pctElapsed * 100);
 
@@ -4740,12 +4902,17 @@
       else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--green)'; }
       else if (proj.projAtiv >= cfg.meta) { projTier = '🏅 Meta'; tierColor = 'var(--green)'; }
 
-      return `<div style="background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📈 Projeção de Fim de Mês</div>
-          <div style="font-size:11px;color:var(--text3)">${proj.dayElapsed} de ${proj.daysInMonth} dias (${pctLabel}%) · faltam ${proj.daysLeft} dias</div>
+      const gridCols = compact ? 'repeat(3,1fr)' : 'repeat(5,1fr)';
+      const wrapStyle = compact
+        ? 'background:var(--surface);border:1px solid var(--orange);border-radius:10px;padding:16px;height:100%'
+        : 'background:linear-gradient(135deg, rgba(232,146,13,0.06), rgba(232,146,13,0.02));border:1px solid var(--orange);border-radius:10px;padding:20px;margin-bottom:20px';
+
+      return `<div style="${wrapStyle}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:6px">
+          <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700">📈 Projeção Fim de Mês</div>
+          <div style="font-size:10px;color:var(--text3)">${proj.dayElapsed}/${proj.daysInMonth} dias · faltam ${proj.daysLeft}d</div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:${gridCols};gap:10px;margin-bottom:14px">
           <div style="text-align:center">
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Ativações</div>
             <div class="mono" style="font-size:18px;font-weight:700;color:${tierColor}">${proj.projAtiv}</div>
@@ -4758,6 +4925,7 @@
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Novos+Ret</div>
             <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projNovos >= cfg.minNovos ? 'var(--green)' : 'var(--red)'}">${proj.projNovos}</div>
           </div>
+          ${!compact ? `
           <div style="text-align:center">
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Renovações</div>
             <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projRenov >= cfg.minRenov ? 'var(--green)' : 'var(--yellow)'}">${proj.projRenov}</div>
@@ -4765,7 +4933,7 @@
           <div style="text-align:center">
             <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Vouchers</div>
             <div class="mono" style="font-size:18px;font-weight:700;color:${proj.projVouchers >= cfg.minVoucher ? 'var(--green)' : 'var(--yellow)'}">${proj.projVouchers}</div>
-          </div>
+          </div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <div style="font-size:12px;color:var(--text2)">Projeção de faixa:</div>
@@ -4808,12 +4976,12 @@
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
-        <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">P1·P2·P3·P4</button>
+        <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">Comissões P1·P2·P3·P4</button>
         <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
         <button class="tab-btn" onclick="switchDashTab('tabP4',this)">P4 Voucher</button>
-        <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Passes</button>
-        <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório Individual</button>
-        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
+        <button class="tab-btn" onclick="switchDashTab('tabExcluidos',this)">Excluídos & Ignorados</button>
+        <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
+        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Parcelados / Diferidos</button>
       </div>
 
       <div id="tabResumo">
@@ -4826,82 +4994,74 @@
         </div>`;
         }
 
-        // ── Meta panel ──
-        html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid">
-              <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px;">
-                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-                  <span style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px">ATIVAÇÕES TOTAIS</span>
-                  <span class="mono" style="font-size:32px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span>
-                </div>
-                <div class="meta-bar" style="margin-bottom:4px"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
-                  <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
-                  <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
-                  <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
-              </div>
-              <div>
-                <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Condições para a Meta</div>
-                <div class="tripe-grid">
-                  ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
-                  ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
-                  ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
-                  ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
-                </div>
-              </div>
-            </div></div>`;
-
-        // ── Stats row ──
+        // ── Hero card + Financial group ──
         const totalP1 = Object.values(vs).reduce((s, v) => s + (v.p1 || 0), 0);
         const totalP2 = Object.values(vs).reduce((s, v) => s + (v.p2 || 0), 0);
         const totalP3 = Object.values(vs).reduce((s, v) => s + (v.p3 || 0), 0);
+        const totalP4 = Object.values(vs).reduce((s, v) => s + (v.p4i || 0) + (v.p4p || 0), 0);
 
-        html += `<div class="stats-row">
-              <div class="stat accent"><div class="s-label">Comissão Total</div><div class="s-value mono">R$ ${fmt(totalComissoes)}</div><div class="s-sub">P1+P2+P3+P4</div></div>
-              <div class="stat"><div class="s-label">P1: % Caixa</div><div class="s-value mono">R$ ${fmt(totalP1)}</div></div>
-              <div class="stat"><div class="s-label">P2: Bônus Fixo</div><div class="s-value mono">R$ ${fmt(totalP2)}</div></div>
-              <div class="stat"><div class="s-label">P3: Meta</div><div class="s-value mono" style="color:var(--orange-light)">R$ ${fmt(totalP3)}</div></div>
-              <div class="stat green"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(t.unitCaixa)}</div></div>
-              <div class="stat"><div class="s-label">Ativações</div><div class="s-value">${t.unitAtivacoes}</div></div>
-            </div>`;
+        html += `
+          <div class="kpi-hero">
+            <div>
+              <div class="kh-label">💰 Comissão Total do Período</div>
+              <div class="kh-value">R$ ${fmt(totalComissoes)}</div>
+              <div class="kh-sub">${comVendors.length} vendedor${comVendors.length !== 1 ? 'es' : ''} · ${t.unitAtivacoes} ativações · R$ ${fmt(t.unitCaixa)} caixa</div>
+            </div>
+            <div class="kh-breakdown">
+              <div class="kh-part"><div class="kp-label">P1 % Caixa</div><div class="kp-val">R$ ${fmt(totalP1)}</div></div>
+              <div class="kh-part"><div class="kp-label">P2 Fixo</div><div class="kp-val">R$ ${fmt(totalP2)}</div></div>
+              <div class="kh-part"><div class="kp-label">P3 Meta</div><div class="kp-val" style="color:var(--orange-light)">R$ ${fmt(totalP3)}</div></div>
+              <div class="kh-part"><div class="kp-label">P4 Voucher</div><div class="kp-val" style="color:var(--blue)">R$ ${fmt(totalP4)}</div></div>
+            </div>
+          </div>`;
 
+        // ── Operational KPIs ──
         const ticketMedio = t.unitAtivacoes > 0 ? t.unitCaixa / t.unitAtivacoes : 0;
         const totalVendas = (t.unitNovosRetorno || 0) + (t.unitRenovacoes || 0);
         const taxaRenovacao = totalVendas > 0 ? ((t.unitRenovacoes || 0) / totalVendas * 100) : 0;
         const convVoucher = t.unitVouchers > 0 ? ((data.p4result?.conversoesMes || 0) / t.unitVouchers * 100) : 0;
-
-        // Calculate Mix de Planos roughly based on average box values if detailed item list isn't present, 
-        // but we don't have item list here in the dashboard summary object. We will just use the available data.
         const pctNovos = totalVendas > 0 ? ((t.unitNovosRetorno || 0) / totalVendas * 100) : 0;
 
-        html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Ticket Médio</div>
-                <div class="mono" style="font-size:20px;font-weight:700">R$ ${fmt(ticketMedio)}</div>
-                <div style="font-size:10px;color:var(--text2);margin-top:3px">Por Ativação</div>
-              </div>
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Taxa de Renovação</div>
-                <div class="mono" style="font-size:20px;font-weight:700;color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div>
-                <div style="font-size:10px;color:var(--text2);margin-top:3px">${t.unitRenovacoes} renovações vs ${t.unitNovosRetorno} novos</div>
-              </div>
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Conversão Voucher</div>
-                <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange-light)">${convVoucher.toFixed(0)}%</div>
-                <div style="font-size:10px;color:var(--text2);margin-top:3px">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div>
-              </div>
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center">
-                <div style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Mix (Novos vs Renov)</div>
-                <div class="mono" style="font-size:20px;font-weight:700;color:var(--blue)">${pctNovos.toFixed(0)}% / ${taxaRenovacao.toFixed(0)}%</div>
-                <div style="font-size:10px;color:var(--text2);margin-top:3px">Novos vs Renovações</div>
-              </div>
-            </div>`;
+        html += `
+          <div class="kpi-section-title">Indicadores Operacionais</div>
+          <div class="oper-grid">
+            <div class="stat"><div class="s-label">Ticket Médio / Ativação</div><div class="s-value mono">R$ ${fmt(ticketMedio)}</div><div class="s-sub">${t.unitAtivacoes} ativações · R$ ${fmt(t.unitCaixa)} caixa</div></div>
+            <div class="stat"><div class="s-label">Taxa de Renovação</div><div class="s-value mono" style="color:${taxaRenovacao >= 40 ? 'var(--green)' : taxaRenovacao >= 25 ? 'var(--yellow)' : 'var(--red)'}">${taxaRenovacao.toFixed(1)}%</div><div class="s-sub">${t.unitRenovacoes} renov. vs ${t.unitNovosRetorno} novos+ret.</div></div>
+            <div class="stat"><div class="s-label">Conversão Voucher</div><div class="s-value mono" style="color:var(--orange-light)">${convVoucher.toFixed(0)}%</div><div class="s-sub">${data.p4result?.conversoesMes || 0} de ${t.unitVouchers} vouchers</div></div>
+            <div class="stat"><div class="s-label">Mix Novos vs Renov.</div><div class="s-value mono" style="color:var(--blue)">${pctNovos.toFixed(0)}%<span style="font-size:13px;color:var(--text3)"> / ${taxaRenovacao.toFixed(0)}%</span></div><div class="s-sub">Novos+Ret. / Renovações</div></div>
+          </div>`;
 
-        // ── Projeção de fim de mês ──
+        // ── Meta panel + Projeção lado a lado ──
         const proj = calcProjection(data);
-        html += renderProjectionCard(proj, cfg);
+        html += `<div class="meta-proj-layout">
+          <div class="meta-panel" style="margin-bottom:0"><h3>🎯 Metas da Unidade</h3><div class="meta-grid">
+            <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+                <span style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px">ATIVAÇÕES TOTAIS</span>
+                <span class="mono" style="font-size:32px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span>
+              </div>
+              <div class="meta-bar" style="margin-bottom:4px"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
+                <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
+                <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
+                <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Condições para a Meta</div>
+              <div class="tripe-grid">
+                ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
+                ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
+                ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
+                ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
+              </div>
+            </div>
+          </div></div>
+          ${proj ? renderProjectionCard(proj, cfg, true) : '<div></div>'}
+        </div>`;
 
         // ── Vendor ranking cards ──
         window.currentVendorSummary = vs;
         const sorted = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+        html += `<div class="kpi-section-title">Ranking de Vendedores</div>`;
         html += '<div class="vendor-grid">';
         sorted.forEach(([name, v], i) => {
           const rankBadge = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
@@ -4910,10 +5070,10 @@
 
           html += `<div class="v-card" style="cursor:pointer" onclick="openVendorDetailModal('${name.replace(/'/g, "\\'")}')" title="Ver detalhes da comissão">
               <div class="vc-head"><span class="rank">${rankBadge}</span><span class="vc-name">${name}</span></div>
-              <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa</div>
-              <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin-top:2px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border)">
-                <div>Tkt. Médio: <strong style="color:var(--text)">R$ ${fmt(ticketMedioVendedor)}</strong></div>
-                <div>Share Unidade: <strong style="color:var(--blue)">${shareCaixa.toFixed(1)}%</strong></div>
+              <div class="vc-ativ">${Math.round(v.ativacoes)} ativ · R$ ${fmt(v.caixa)} caixa · Tkt. Médio <strong style="color:var(--text)">R$ ${fmt(ticketMedioVendedor)}</strong> · Share <strong style="color:var(--blue)">${shareCaixa.toFixed(1)}%</strong></div>
+              <div class="vc-progress-wrap">
+                <div class="vc-progress-bar"><div class="vc-progress-fill" style="width:${Math.min((Math.round(v.ativacoes)/cfg.metaGold)*100,100)}%;background:${Math.round(v.ativacoes)>=cfg.metaGold?'var(--orange-light)':Math.round(v.ativacoes)>=cfg.meta?'var(--green)':'var(--orange)'}"></div></div>
+                <div class="vc-progress-label"><span>${Math.round(v.ativacoes)} ativ.</span><span>Meta Gold: ${cfg.metaGold}</span></div>
               </div>
               <div class="v-parts">
                 <div class="v-part"><div class="vp-label">P1</div><div class="vp-val">R$${fmt(v.p1 || 0)}</div></div>
@@ -4937,8 +5097,8 @@
         }
 
         // ── History chart placeholder ──
-        html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:24px">
-        <div style="font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:16px">📈 Evolução Histórica</div>
+        html += `<div class="kpi-section-title">Evolução Histórica</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-top:0">
         <canvas id="historyChart" style="max-height:220px"></canvas>
       </div>
       </div> <!-- END tabResumo -->
