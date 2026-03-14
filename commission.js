@@ -327,7 +327,7 @@ const CommissionEngine = {
       if (info.excluded) {
         excluded.push({
           _idx: idx, _reason: info.excludeReason, _group: info.excludeGroup || '',
-          vendedor: String(row['Vendedor'] || '').trim() || 'Sem Vendedor',
+          vendedor: String(row['Vendedor'] || '').trim().replace(/\s+/g, ' ') || 'Sem Vendedor',
           cliente: row['Cliente'] || '',
           item: String(row['Itens'] || ''),
           tipoVenda: String(row['Tipo de Venda'] || ''),
@@ -341,7 +341,7 @@ const CommissionEngine = {
 
       if (valor <= 0 && !info.isDegustacao) return;
 
-      const vendedor = String(row['Vendedor'] || '').trim() || 'Sem Vendedor';
+      const vendedor = String(row['Vendedor'] || '').trim().replace(/\s+/g, ' ') || 'Sem Vendedor';
       const codigo = String(row['Código'] || row['Codigo'] || '').trim();
 
       // Date normalization
