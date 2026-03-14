@@ -2779,7 +2779,6 @@
           style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
             <h1>Dashboard 
-              <span id="activeUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span>
               <span id="dashUnitButtons" style="margin-left:8px; display:none; gap:6px; vertical-align:middle;"></span>
             </h1>
           </div>
@@ -2798,8 +2797,6 @@
         <div class="period-sel">
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
           <select id="periodSelect" onchange="loadPeriod(this.value)"></select>
-          <button class="btn btn-danger btn-sm" onclick="deletePeriod()" id="btnDeletePeriod" style="display:none">🗑
-            Excluir período</button>
         </div>
         <div id="dashboardContent">
           <div class="loading">
@@ -2956,6 +2953,20 @@
           <div class="settings-grid" id="settingsForm"></div>
           <div style="margin-top:20px;text-align:right"><button class="btn btn-sm" onclick="saveSettings()">💾 Salvar
               Configurações</button></div>
+        </div>
+
+        <!-- Zona de Perigo -->
+        <div style="margin-top:24px;background:var(--surface);border:1px solid var(--red);border-radius:10px;padding:20px 24px">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--red);font-weight:700;margin-bottom:4px">⚠ Zona de Perigo</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Ações irreversíveis. Tenha certeza antes de prosseguir.</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--red-bg);border:1px solid rgba(224,90,58,0.2);border-radius:8px;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text)">Excluir Período Atual</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">Remove permanentemente o período selecionado no Dashboard e todos os seus lançamentos.</div>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btnDeletePeriod" onclick="deletePeriod()" style="display:none">🗑 Excluir período</button>
+            <span id="btnDeletePeriodEmpty" style="display:none;font-size:11px;color:var(--text3);font-style:italic">Nenhum período selecionado.</span>
+          </div>
         </div>
       </div>
 
@@ -4164,7 +4175,14 @@
         console.log('[confirmUpload] Salvando resumo do período:', periodId);
         await db.collection('periodos').doc(periodId).set(periodData, { merge: true });
 
-        // Save items in batches (NO delete of old items — uploadId filters them out)
+        // ── DEDUPLICATION: load existing items (id + type) for this period ──
+        console.log('[confirmUpload] Carregando itens existentes para deduplicação...');
+        const existingSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+        const existingMap = {}; // stableId → type
+        existingSnap.forEach(doc => { existingMap[doc.id] = doc.data().type || 'processed'; });
+        console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
+
+        // Save items in batches (with dedup logic)
         console.log('[confirmUpload] Salvando itens no banco...');
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
 
@@ -4176,23 +4194,39 @@
             const isDegust = d.isDegustacao === true;
             return hasContent || hasValue || isDegust;
           });
+
+        let skipped = 0, replaced = 0, added = 0;
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
           allItems.slice(i, i + 400).forEach(item => {
             const stableId = generateStableId(item);
-            const ref = itemsRef.doc(stableId); // DETERMINISTIC ID: UPSERT logic
-            const clean = { uploadId }; // tag with uploadId for filtering
+            const existingType = existingMap[stableId];
+
+            // Dedup logic:
+            // - Se já existe e está ATIVO (processed) → ignorar o novo
+            // - Se já existe e está INATIVO (excluded/deferred) → substituir pelo novo
+            // - Se não existe → adicionar normalmente
+            if (existingType === 'processed') {
+              skipped++;
+              return; // skip
+            }
+            if (existingType) replaced++; else added++;
+
+            const ref = itemsRef.doc(stableId);
+            const clean = { uploadId };
             Object.entries(item).forEach(([k, v]) => {
               if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
               else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
             });
             delete clean.dateObj;
             delete clean.dateVoucherEnd;
-            batch.set(ref, clean, { merge: true });
+            batch.set(ref, clean, { merge: false }); // merge:false para substituição limpa
           });
           console.log(`[confirmUpload] Gravando lote de itens ${i} a ${i + 400}...`);
           await batch.commit();
         }
+        console.log(`[confirmUpload] Dedup: ${added} novos, ${replaced} substituídos, ${skipped} ignorados (já ativos).`);
+        if (skipped > 0) toast(`${skipped} lançamento(s) já existiam e foram mantidos.`, 'info');
 
         // Save deferred commissions to future periods collection in batches
         if (result.deferred && result.deferred.length > 0) {
@@ -4289,11 +4323,15 @@
       if (!periodId) {
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
+        const emptyEl = document.getElementById('btnDeletePeriodEmpty');
+        if (emptyEl) emptyEl.style.display = '';
         document.getElementById('btnConfigMetasMes').style.display = 'none';
         return;
       }
       currentPeriodId = periodId;
       document.getElementById('btnDeletePeriod').style.display = '';
+      const emptyEl = document.getElementById('btnDeletePeriodEmpty');
+      if (emptyEl) emptyEl.style.display = 'none';
       document.getElementById('btnConfigMetasMes').style.display = 'flex';
       const doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
@@ -4352,6 +4390,8 @@
         logAudit('period_delete', `Período excluído: ${label}`);
         currentPeriodId = null;
         document.getElementById('btnDeletePeriod').style.display = 'none';
+        const emptyElDel = document.getElementById('btnDeletePeriodEmpty');
+        if (emptyElDel) emptyElDel.style.display = '';
         document.getElementById('dashboardContent').innerHTML = '<div class="loading">Selecione um período ou faça um upload.</div>';
         loadPeriods();
       } catch (e) {
