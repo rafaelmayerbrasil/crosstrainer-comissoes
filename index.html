@@ -2640,36 +2640,61 @@
 
   <!-- Modal Metas Mensais -->
   <div id="metasMesModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:480px; padding:24px;">
+    <div class="modal-content" style="max-width:520px; padding:24px;">
       <div class="modal-header">
-        <h3 style="color:var(--orange)">🎯 Configurar Metas</h3>
+        <h3 style="color:var(--orange)">🎯 Configurar Metas do Mês</h3>
         <button type="button" class="close-btn" onclick="closeMetasMesModal()">&times;</button>
       </div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">
-        Defina metas e valores de prêmio específicos para <strong>este mês</strong> que não afetarão o histórico de
-        meses anteriores.
+        Configurações específicas para <strong>este mês e esta unidade</strong>. Não afetam meses anteriores nem outras unidades.
       </p>
       <form id="metasMesForm" onsubmit="event.preventDefault(); saveMetasMes()">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
-          <div class="form-group"><label>Meta (Ativações)</label><input type="number" id="mm_meta" required step="1">
+
+        <!-- Metas -->
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--orange);font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          🏆 Metas de Ativações + Prêmio P3
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+          <div class="form-group"><label>Meta (ativações)</label><input type="number" id="mm_meta" required step="1" min="0"></div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_metaFixo" required step="any" min="0"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+          <div class="form-group"><label>Super Meta (ativações)</label><input type="number" id="mm_superMeta" required step="1" min="0"></div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_superFixo" required step="any" min="0"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+          <div class="form-group"><label>Meta Gold (ativações)</label><input type="number" id="mm_metaGold" required step="1" min="0"></div>
+          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_goldFixo" required step="any" min="0"></div>
+        </div>
+
+        <!-- Travas -->
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--blue);font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          🔒 Travas — Mínimos para Ativar o P3
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5">
+          Se qualquer trava não for atingida, o P3 sofre redução. Deixe igual às configurações globais para seguir o padrão da unidade.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:4px">
+          <div class="form-group">
+            <label>Mín. Novos+Retorno</label>
+            <input type="number" id="mm_minNovos" required step="1" min="0">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Alunos novos ou retorno</div>
           </div>
-          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_metaFixo" required
-              step="any"></div>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px">
-          <div class="form-group"><label>Super Meta</label><input type="number" id="mm_superMeta" required step="1">
+          <div class="form-group">
+            <label>Mín. Renovações</label>
+            <input type="number" id="mm_minRenov" required step="1" min="0">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">% das oportunidades</div>
           </div>
-          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_superFixo" required
-              step="any"></div>
+          <div class="form-group">
+            <label>Mín. Vouchers</label>
+            <input type="number" id="mm_minVoucher" required step="1" min="0">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Vouchers ativados</div>
+          </div>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <div class="form-group"><label>Meta Gold</label><input type="number" id="mm_metaGold" required step="1"></div>
-          <div class="form-group"><label>Prêmio Fixo (R$)</label><input type="number" id="mm_goldFixo" required
-              step="any"></div>
-        </div>
+
         <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeMetasMesModal()">Cancelar</button>
-          <button type="submit" class="btn">Salvar Metas do Mês</button>
+          <button type="submit" class="btn">💾 Salvar Metas do Mês</button>
         </div>
       </form>
     </div>
@@ -4664,6 +4689,9 @@
       document.getElementById('mm_superFixo').value = cfg.superFixo;
       document.getElementById('mm_metaGold').value = cfg.metaGold;
       document.getElementById('mm_goldFixo').value = cfg.goldFixo;
+      document.getElementById('mm_minNovos').value = cfg.minNovos;
+      document.getElementById('mm_minRenov').value = cfg.minRenov;
+      document.getElementById('mm_minVoucher').value = cfg.minVoucher;
       document.getElementById('metasMesModal').classList.add('open');
     }
 
@@ -4674,12 +4702,15 @@
     async function saveMetasMes() {
       if (!currentPeriodId) return;
       const metasMensais = {
-        meta: parseInt(document.getElementById('mm_meta').value) || 0,
-        metaFixo: parseFloat(document.getElementById('mm_metaFixo').value) || 0,
-        superMeta: parseInt(document.getElementById('mm_superMeta').value) || 0,
-        superFixo: parseFloat(document.getElementById('mm_superFixo').value) || 0,
-        metaGold: parseInt(document.getElementById('mm_metaGold').value) || 0,
-        goldFixo: parseFloat(document.getElementById('mm_goldFixo').value) || 0
+        meta:       parseInt(document.getElementById('mm_meta').value)       || 0,
+        metaFixo:   parseFloat(document.getElementById('mm_metaFixo').value) || 0,
+        superMeta:  parseInt(document.getElementById('mm_superMeta').value)  || 0,
+        superFixo:  parseFloat(document.getElementById('mm_superFixo').value)|| 0,
+        metaGold:   parseInt(document.getElementById('mm_metaGold').value)   || 0,
+        goldFixo:   parseFloat(document.getElementById('mm_goldFixo').value) || 0,
+        minNovos:   parseInt(document.getElementById('mm_minNovos').value)   || 0,
+        minRenov:   parseInt(document.getElementById('mm_minRenov').value)   || 0,
+        minVoucher: parseInt(document.getElementById('mm_minVoucher').value) || 0
       };
 
       try {
