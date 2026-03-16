@@ -134,7 +134,7 @@
 
     .page {
       padding: 28px 32px;
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
       display: none
     }
@@ -602,7 +602,7 @@
     /* ─── OPERATIONAL GRID ─── */
     .oper-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 10px;
       margin-bottom: 20px
     }
@@ -858,7 +858,7 @@
     /* ─── VENDOR CARDS ─── */
     .vendor-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 12px;
       margin-bottom: 24px
     }
@@ -3259,6 +3259,13 @@
     function showLogin() {
       document.getElementById('loginPage').style.display = '';
       document.getElementById('appShell').style.display = 'none';
+      // Sempre restaura o formulário de login padrão
+      const lf = document.getElementById('loginForm');
+      if (lf) lf.style.display = '';
+      const rf = document.getElementById('recoveryForm');
+      if (rf) rf.style.display = 'none';
+      const errEl = document.getElementById('loginError');
+      if (errEl) { errEl.textContent = ''; errEl.style.color = ''; }
       const nav = document.getElementById('mobileNav');
       if (nav) nav.style.display = 'none';
     }
