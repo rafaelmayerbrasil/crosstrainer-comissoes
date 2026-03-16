@@ -7454,6 +7454,8 @@
     }
 
     let _ativActiveFilter = 'all';
+    let _ativSortCol = 'data';   // default sort: data
+    let _ativSortDir = 'desc';   // desc = mais recente primeiro
 
     function filterAtivacoes(filter) {
       const all = window._ativacoesAll || [];
@@ -7471,19 +7473,8 @@
       if (filter !== undefined) _ativActiveFilter = filter;
       const activeFilter = _ativActiveFilter;
 
-      // Update card highlights
-      const cardMap = { all: 'acard-all', novos: 'acard-novos', renov: 'acard-renov', vouch: 'acard-vouch', outros: 'acard-outros', semativ: 'acard-semativ' };
-      Object.entries(cardMap).forEach(([key, id]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.opacity = (activeFilter === 'all' || activeFilter === key) ? '1' : '0.45';
-        el.style.transform = activeFilter === key ? 'scale(1.03)' : 'scale(1)';
-      });
-
-      // Determine source array
+      // Determine source arrays (totais originais para referência)
       let source = activeFilter === 'semativ' ? nonActiv : all;
-
-      // Category filter
       if (activeFilter === 'novos')  source = all.filter(r => r.category === 'novo' || r.category === 'retorno');
       if (activeFilter === 'renov')  source = all.filter(r => r.category === 'renovacao');
       if (activeFilter === 'vouch')  source = all.filter(r => r.category === 'voucher');
@@ -7496,13 +7487,47 @@
         (r.item     || '').toLowerCase().includes(q)
       ) : source;
 
+      // Update card highlights + números dinâmicos
+      const cardMap = { all: 'acard-all', novos: 'acard-novos', renov: 'acard-renov', vouch: 'acard-vouch', outros: 'acard-outros', semativ: 'acard-semativ' };
+      Object.entries(cardMap).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.opacity = (activeFilter === 'all' || activeFilter === key) ? '1' : '0.45';
+        el.style.transform = activeFilter === key ? 'scale(1.03)' : 'scale(1)';
+      });
+
+      if (q) {
+        // Com busca: atualiza números em cada card
+        const fAll      = all.filter(r => matchQ(r, q));
+        const fNovos    = fAll.filter(r => r.category === 'novo' || r.category === 'retorno');
+        const fRenov    = fAll.filter(r => r.category === 'renovacao');
+        const fVouch    = fAll.filter(r => r.category === 'voucher');
+        const fOutros   = fAll.filter(r => !['novo','retorno','renovacao','voucher'].includes(r.category));
+        const fNonActiv = nonActiv.filter(r => matchQ(r, q));
+        const sf = n => n % 1 === 0 ? n : n.toFixed(1);
+
+        const totalFilt = sumFator(fAll);
+        _updateCard('acard-all',    sf(totalFilt),   `de ${sf(sumFator(all))} ativ.`);
+        _updateCard('acard-novos',  sf(sumFator(fNovos)),  `de ${sf(sumFator(all.filter(r => r.category==='novo'||r.category==='retorno')))}`);
+        _updateCard('acard-renov',  sf(sumFator(fRenov)),  `de ${sf(sumFator(all.filter(r => r.category==='renovacao')))}`);
+        _updateCard('acard-vouch',  sf(sumFator(fVouch)),  `de ${sf(sumFator(all.filter(r => r.category==='voucher')))}`);
+        _updateCard('acard-outros', sf(sumFator(fOutros)), `de ${sf(sumFator(all.filter(r => !['novo','retorno','renovacao','voucher'].includes(r.category))))}`);
+        _updateCard('acard-semativ', fNonActiv.length, `de ${nonActiv.length}`);
+      } else {
+        // Sem busca: restaura números originais
+        const sf = n => n % 1 === 0 ? n : n.toFixed(1);
+        _updateCard('acard-all',    sf(sumFator(all)),     `${all.length} contratos`);
+        _updateCard('acard-novos',  sf(sumFator(all.filter(r=>r.category==='novo'||r.category==='retorno'))), null);
+        _updateCard('acard-renov',  sf(sumFator(all.filter(r=>r.category==='renovacao'))), null);
+        _updateCard('acard-vouch',  sf(sumFator(all.filter(r=>r.category==='voucher'))), null);
+        _updateCard('acard-outros', sf(sumFator(all.filter(r=>!['novo','retorno','renovacao','voucher'].includes(r.category)))), null);
+        _updateCard('acard-semativ', nonActiv.length, 'Geram P1');
+      }
+
       // Show/hide reset button
       if (resetBtn) resetBtn.style.display = (activeFilter !== 'all' || q) ? '' : 'none';
       if (countEl) {
-        if (!q) {
-          // Sem busca — só mostra total da categoria
-          countEl.textContent = `${source.length} registro${source.length !== 1 ? 's' : ''}`;
-        } else if (filtered.length === source.length) {
+        if (!q || filtered.length === source.length) {
           countEl.textContent = `${source.length} registro${source.length !== 1 ? 's' : ''}`;
         } else {
           countEl.textContent = `${filtered.length} de ${source.length}`;
@@ -7521,13 +7546,46 @@
         return;
       }
 
+      // Sort
+      const col = _ativSortCol;
+      const dir = _ativSortDir === 'asc' ? 1 : -1;
+      const parseDate = s => { const p=(s||'').split('/'); return p.length===3?new Date(p[2],p[1]-1,p[0]).getTime():0; };
+      const sorted = [...filtered].sort((a, b) => {
+        let va, vb;
+        if (col === 'data')      { va = parseDate(a.data);     vb = parseDate(b.data); }
+        else if (col === 'vendedor') { va = (a.vendedor||'').toLowerCase(); vb = (b.vendedor||'').toLowerCase(); return dir * va.localeCompare(vb); }
+        else if (col === 'cliente')  { va = (a.cliente||'').toLowerCase();  vb = (b.cliente||'').toLowerCase();  return dir * va.localeCompare(vb); }
+        else if (col === 'categoria'){ va = (a.category||'').toLowerCase(); vb = (b.category||'').toLowerCase(); return dir * va.localeCompare(vb); }
+        else if (col === 'caixa')    { va = a.valorCaixa||0;   vb = b.valorCaixa||0; }
+        else if (col === 'fator')    { va = a.splitAtivacao||1; vb = b.splitAtivacao||1; }
+        else { va = 0; vb = 0; }
+        return dir * (va - vb);
+      });
+
+      // Sortable TH helper
+      const thSort = (label, key, extraStyle='') => {
+        const active = col === key;
+        const arrow = active ? (dir === 1 ? ' ↑' : ' ↓') : ' ↕';
+        return `<th style="cursor:pointer;user-select:none;${active?'color:var(--orange);':''};white-space:nowrap${extraStyle?';'+extraStyle:''}" onclick="ativSort('${key}')">${label}<span style="opacity:${active?1:0.35};font-size:10px">${arrow}</span></th>`;
+      };
+
       let t = '';
       if (!isSemAtiv) {
-        t = `<h3 style="font-size:13px;margin-bottom:8px;color:var(--green)">✅ ${activeFilter === 'all' ? 'Todas as Ativações' : activeFilter === 'novos' ? 'Novos + Retorno' : activeFilter === 'renov' ? 'Renovações' : activeFilter === 'vouch' ? 'Vouchers' : 'Outros'}</h3>
+        const label = { all:'Todas as Ativações', novos:'Novos + Retorno', renov:'Renovações', vouch:'Vouchers', outros:'Outros' }[activeFilter] || 'Ativações';
+        t = `<h3 style="font-size:13px;margin-bottom:8px;color:var(--green)">✅ ${label}</h3>
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px">São contratos e vouchers. Cada um conta 1 ativação (ou fração se dividido).</div>
         <div class="table-wrap" style="max-height:420px"><table style="width:100%">
-          <thead><tr><th>#</th><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th style="text-align:right">Fator</th></tr></thead>
-          <tbody>${filtered.map((r, i) => {
+          <thead><tr>
+            <th style="color:var(--text3)">#</th>
+            ${thSort('Vendedor','vendedor')}
+            ${thSort('Data','data')}
+            ${thSort('Cliente','cliente')}
+            <th>Item</th>
+            ${thSort('Categoria','categoria')}
+            ${thSort('Caixa','caixa','text-align:right')}
+            ${thSort('Fator','fator','text-align:right')}
+          </tr></thead>
+          <tbody>${sorted.map((r, i) => {
             const factor = r.splitAtivacao || 1;
             return `<tr>
               <td style="color:var(--text3)">${i+1}</td>
@@ -7545,8 +7603,16 @@
         t = `<h3 style="font-size:13px;margin:0 0 8px;color:var(--text3)">⛔ NÃO contam como Ativação</h3>
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Geram caixa (P1) mas não entram na contagem de metas.</div>
         <div class="table-wrap" style="max-height:420px"><table style="width:100%">
-          <thead><tr><th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th>Categoria</th><th style="text-align:right">Caixa</th><th>Motivo</th></tr></thead>
-          <tbody>${filtered.map(r => `<tr style="opacity:.7">
+          <thead><tr>
+            ${thSort('Vendedor','vendedor')}
+            ${thSort('Data','data')}
+            ${thSort('Cliente','cliente')}
+            <th>Item</th>
+            <th>Categoria</th>
+            ${thSort('Caixa','caixa','text-align:right')}
+            <th>Motivo</th>
+          </tr></thead>
+          <tbody>${sorted.map(r => `<tr style="opacity:.7">
             <td>${r.vendedor||''}</td><td>${r.data||''}</td>
             <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
             <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal">${r.item||''}</td>
@@ -7558,6 +7624,39 @@
       }
 
       wrap.innerHTML = t;
+    }
+
+    function ativSort(col) {
+      if (_ativSortCol === col) {
+        _ativSortDir = _ativSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        _ativSortCol = col;
+        _ativSortDir = col === 'data' ? 'desc' : 'asc';
+      }
+      filterAtivacoes();
+    }
+
+    function matchQ(r, q) {
+      return (r.vendedor||'').toLowerCase().includes(q) ||
+             (r.cliente ||'').toLowerCase().includes(q) ||
+             (r.item    ||'').toLowerCase().includes(q);
+    }
+
+    function _updateCard(id, mainVal, subText) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // Main number: first div with mono class inside card
+      const numEl = el.querySelector('.mono');
+      if (numEl) numEl.textContent = mainVal;
+      // Sub text: last div (below the number)
+      const divs = el.querySelectorAll('div');
+      const subEl = divs[divs.length - 1];
+      if (subEl && subText !== null && subEl !== numEl) {
+        // Don't overwrite badge (✅/❌) — only update the neutral sub line
+        if (!subEl.textContent.includes('✅') && !subEl.textContent.includes('❌')) {
+          subEl.textContent = subText ?? '';
+        }
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
