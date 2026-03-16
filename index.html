@@ -3022,8 +3022,8 @@
 
       <!-- VENDEDOR: DASHBOARD -->
       <div class="page" id="page-meu-painel">
-        <div class="page-hdr">
-          <h1>Meu Painel 
+        <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <h1>Meu Painel
             <span id="vendedorUnitBadge" class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span>
             <span id="vendUnitButtons" style="margin-left:8px; display:none; gap:6px; vertical-align:middle;"></span>
           </h1>
@@ -3032,10 +3032,26 @@
           <label style="font-size:12px;color:var(--text2);font-weight:600">Período:</label>
           <select id="vendorPeriodSelect" onchange="loadVendorPeriod(this.value)"></select>
         </div>
-        <div id="vendorDashboard">
-          <div class="loading">
-            <div class="spinner"></div>Selecione um período.
+        <!-- Tabs do vendedor -->
+        <div class="admin-tabs" id="vendorTabs" style="display:none">
+          <button class="tab-btn active" onclick="switchVendorTab('vtabResumo',this)">Resumo</button>
+          <button class="tab-btn" onclick="switchVendorTab('vtabComissoes',this)">Comissões</button>
+          <button class="tab-btn" onclick="switchVendorTab('vtabAtivacoes',this)">Ativações</button>
+          <button class="tab-btn" onclick="switchVendorTab('vtabDiferidos',this)">⏳ Diferidos</button>
+        </div>
+        <div id="vtabResumo">
+          <div id="vendorDashboard">
+            <div class="loading"><div class="spinner"></div>Selecione um período.</div>
           </div>
+        </div>
+        <div id="vtabComissoes" style="display:none">
+          <div id="vendorComissoesContent"></div>
+        </div>
+        <div id="vtabAtivacoes" style="display:none">
+          <div id="vendorAtivacoesContent"></div>
+        </div>
+        <div id="vtabDiferidos" style="display:none">
+          <div id="vendorDiferidosContent"></div>
         </div>
       </div>
 
@@ -3306,16 +3322,16 @@
         // Vendedora mobile: acesso completo ao painel
         nav.innerHTML = `
           <div class="mobile-nav-item active" id="mnav-meu-painel" onclick="mobileNavTo('meu-painel')">
-            <span class="mn-icon">📊</span>Painel
+            <span class="mn-icon">📊</span>Resumo
           </div>
-          <div class="mobile-nav-item" id="mnav-comparativo" onclick="mobileNavTo('comparativo')">
-            <span class="mn-icon">📈</span>Histórico
+          <div class="mobile-nav-item" id="mnav-vtab-comissoes" onclick="mobileNavTo('meu-painel');switchVendorTab('vtabComissoes',this)">
+            <span class="mn-icon">💰</span>Comissões
+          </div>
+          <div class="mobile-nav-item" id="mnav-vtab-ativacoes" onclick="mobileNavTo('meu-painel');switchVendorTab('vtabAtivacoes',this)">
+            <span class="mn-icon">⚡</span>Ativações
           </div>
           <div class="mobile-nav-item" id="mnav-rules" onclick="openRulesModal()">
             <span class="mn-icon">📖</span>Regras
-          </div>
-          <div class="mobile-nav-item" id="mnav-help" onclick="openHelpModal()">
-            <span class="mn-icon">❓</span>Ajuda
           </div>`;
       }
     }
@@ -5827,9 +5843,24 @@
     async function loadVendorPeriod(periodId) {
       if (!periodId) return;
       window.currentVendorPeriodId = periodId;
+
+      // Show tabs and reset lazy state
+      const tabs = document.getElementById('vendorTabs');
+      if (tabs) tabs.style.display = '';
+      // Reset to Resumo tab
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === 'vtabResumo' ? '' : 'none';
+      });
+      document.querySelectorAll('#vendorTabs .tab-btn').forEach((b,i) => {
+        b.classList.toggle('active', i === 0);
+      });
+      window._vendorLoadedTabs = new Set(['vtabResumo']);
+
       const doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
       const data = doc.data();
+      window.currentVendorPeriodData = data;
       const vendorName = userProfile.name?.toUpperCase();
       const vs = data.vendorSummary || {};
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
@@ -5969,13 +6000,30 @@
       </div>`;
 
       // ── Minhas vendas ──
+      const totalAtiv = Math.round(myData.ativacoes || 0);
+      const totalVendasMix = Math.round((myData.novos || 0) + (myData.renovacoes || 0));
       html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px">
-        <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
-        <div class="grid-4col-tight">
-          <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text2)">Novos</div></div>
-          <div><div style="font-size:20px;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace">${Math.round(myData.renovacoes)}</div><div style="font-size:10px;color:var(--text2)">Renovações</div></div>
-          <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text2)">Retornos</div></div>
-          <div><div style="font-size:20px;font-weight:700;color:var(--yellow);font-family:'JetBrains Mono',monospace">${Math.round(myData.vouchers)}</div><div style="font-size:10px;color:var(--text2)">Vouchers</div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700">Minhas Vendas</div>
+          <div style="font-size:11px;color:var(--text3)">${totalAtiv} ativação${totalAtiv !== 1 ? 'ões' : ''} no total</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
+          <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:14px;text-align:center">
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--green)">${Math.round(myData.novos || 0)}</div>
+            <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Novos</div>
+          </div>
+          <div style="background:var(--blue-bg);border:1px solid var(--blue);border-radius:8px;padding:14px;text-align:center">
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--blue)">${Math.round(myData.renovacoes || 0)}</div>
+            <div style="font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Renovações</div>
+          </div>
+          <div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:8px;padding:14px;text-align:center">
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--orange-light)">${Math.round(myData.retornos || 0)}</div>
+            <div style="font-size:10px;color:var(--orange-light);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Retornos</div>
+          </div>
+          <div style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:8px;padding:14px;text-align:center">
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--yellow)">${Math.round(myData.vouchers || 0)}</div>
+            <div style="font-size:10px;color:var(--yellow);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Vouchers</div>
+          </div>
         </div>
       </div>`;
 
@@ -6254,6 +6302,323 @@
 
     // ═══════════════════════════════════════════════════════════════
     // ABA: COMISSÕES DIFERIDAS
+    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // VENDOR TABS SWITCHER
+    // ═══════════════════════════════════════════════════════════════
+    function switchVendorTab(tabId, btn) {
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.querySelectorAll('#vendorTabs .tab-btn').forEach(b => b.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.style.display = '';
+      if (btn) btn.classList.add('active');
+
+      // Lazy load
+      if (!window._vendorLoadedTabs) window._vendorLoadedTabs = new Set();
+      if (!window._vendorLoadedTabs.has(tabId)) {
+        const periodId = window.currentVendorPeriodId;
+        const myName = window.currentVendorMyName;
+        const data = window.currentVendorPeriodData;
+        if (tabId === 'vtabComissoes') renderVendorComissoesTab(periodId, myName, data);
+        else if (tabId === 'vtabAtivacoes') renderVendorAtivacoesTab(periodId, myName);
+        else if (tabId === 'vtabDiferidos') renderVendorDiferidosTab(data, periodId, myName);
+        window._vendorLoadedTabs.add(tabId);
+      }
+    }
+
+    // ── Aba Comissões (vendedora) ──
+    async function renderVendorComissoesTab(periodId, myName, data) {
+      const el = document.getElementById('vendorComissoesContent');
+      if (!el || !periodId || !myName) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens')
+          .where('vendedor', '==', myName).get();
+        const items = [];
+        snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+
+        const vs = data?.vendorSummary || {};
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const t = data?.totals || {};
+        const vData = vs[myName] || {};
+        const p4 = data?.p4result || {};
+
+        items.forEach(r => { if (r.type === 'processed') CommissionEngine.applyCommissionsToItem(r, cfg); });
+        const sortByDate = arr => arr.slice().sort((a, b) => {
+          const pA = (a.data||'').split('/'), pB = (b.data||'').split('/');
+          return (pB.length===3?new Date(pB[2],pB[1]-1,pB[0]):0) - (pA.length===3?new Date(pA[2],pA[1]-1,pA[0]):0);
+        });
+
+        const p1Items = sortByDate(items.filter(r => r.type === 'processed' && (r.p1valor||0) > 0));
+        const p2Items = sortByDate(items.filter(r => r.type === 'processed' && (r.p2bonus||0) > 0));
+        const exclItems = sortByDate(items.filter(r => r.type === 'excluded'));
+        const myVouchers = (p4.currentVouchers||[]).filter(v => (v.vendedor||'').toUpperCase() === myName.toUpperCase());
+        const myConversions = (p4.conversions||[]).filter(c => (c.vendedora||'').toUpperCase() === myName.toUpperCase());
+        const p3Tier = vData.p3Tier || (vData.p3 > 0 ? 'Meta' : 'Não atingida');
+        const p3Color = (vData.p3||0) > 0 ? 'var(--orange-light)' : 'var(--text3)';
+        const pillCls = c => ({novo:'pill-novo',renovacao:'pill-renovacao',retorno:'pill-retorno',voucher:'pill-voucher',avulsa:'pill-avulsa',upgrade:'pill-upgrade'}[c]||'pill-outro');
+
+        let html = `
+          <!-- Header total -->
+          <div style="background:var(--surface);border:1px solid var(--orange);border-radius:10px;padding:16px 20px;margin-bottom:14px">
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total a receber</div>
+            <div class="mono" style="font-size:30px;font-weight:700;color:var(--orange-light)">R$ ${fmt(vData.grandTotal||0)}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">P1 % Caixa</div><div class="mono" style="font-size:15px;font-weight:700;color:var(--green)">R$ ${fmt(vData.p1||0)}</div></div>
+              <div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">P2 Fixo</div><div class="mono" style="font-size:15px;font-weight:700;color:var(--blue)">R$ ${fmt(vData.p2||0)}</div></div>
+              <div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">P3 Meta</div><div class="mono" style="font-size:15px;font-weight:700;color:${p3Color}">R$ ${fmt(vData.p3||0)}</div><div style="font-size:9px;color:var(--text3)">${p3Tier}</div></div>
+              <div style="text-align:center"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700">P4 Voucher</div><div class="mono" style="font-size:15px;font-weight:700;color:var(--yellow)">R$ ${fmt((vData.p4i||0)+(vData.p4p||0))}</div></div>
+            </div>
+          </div>
+
+          <!-- P1 -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:700;color:var(--green)">P1 — % sobre o Caixa</div>
+              <div class="mono" style="font-size:13px;font-weight:700;color:var(--green)">R$ ${fmt(vData.p1||0)}</div>
+            </div>
+            ${p1Items.length > 0 ? `<div class="table-wrap" style="max-height:280px"><table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">%</th><th style="text-align:right">P1</th></tr></thead>
+              <tbody>${p1Items.map(r=>`<tr>
+                <td style="color:var(--text3)">${r.data||''}</td>
+                <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+                <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+                <td><span class="pill ${pillCls(r.category)}">${r.label||r.category||''}</span></td>
+                <td class="currency" style="color:var(--orange-light)">R$ ${fmt(r.valorCaixa||0)}</td>
+                <td style="text-align:right;color:var(--text3)">${((r.p1pct||0)*100).toFixed(1)}%</td>
+                <td class="currency" style="color:var(--green);font-weight:700">R$ ${fmt(r.p1valor||0)}</td>
+              </tr>`).join('')}</tbody>
+            </table></div>` : '<div style="padding:10px;color:var(--text3);font-size:12px">Nenhum lançamento P1.</div>'}
+          </div>
+
+          <!-- P2 -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <div style="font-size:12px;font-weight:700;color:var(--blue)">P2 — Bônus Fixo por Contrato</div>
+              <div class="mono" style="font-size:13px;font-weight:700;color:var(--blue)">R$ ${fmt(vData.p2||0)}</div>
+            </div>
+            ${p2Items.length > 0 ? `<div class="table-wrap" style="max-height:200px"><table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Plano</th><th>Cat.</th><th style="text-align:right">Bônus P2</th></tr></thead>
+              <tbody>${p2Items.map(r=>`<tr>
+                <td style="color:var(--text3)">${r.data||''}</td>
+                <td>${r.cliente||''}</td>
+                <td style="font-size:10px;max-width:150px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+                <td><span class="pill ${pillCls(r.category)}">${r.label||r.category||''}</span></td>
+                <td class="currency" style="color:var(--blue);font-weight:700">R$ ${fmt(r.p2bonus||0)}</td>
+              </tr>`).join('')}</tbody>
+            </table></div>` : '<div style="padding:10px;color:var(--text3);font-size:12px">Nenhum bônus P2 este período.</div>'}
+          </div>
+
+          <!-- P3 -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--orange-light)">P3 — Bônus de Meta da Unidade</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:3px">Faixa: <strong style="color:${p3Color}">${p3Tier}</strong> · ${t.unitAtivacoes} ativações na unidade</div>
+              </div>
+              <div class="mono" style="font-size:18px;font-weight:700;color:${p3Color}">R$ ${fmt(vData.p3||0)}</div>
+            </div>
+          </div>
+
+          <!-- P4 -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${myVouchers.length>0?'12px':'0'}">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--yellow)">P4 — Conversão de Voucher</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:3px">${myVouchers.length} voucher(s) · ${myConversions.length} conversão(ões)</div>
+              </div>
+              <div class="mono" style="font-size:18px;font-weight:700;color:var(--yellow)">R$ ${fmt((vData.p4i||0)+(vData.p4p||0))}</div>
+            </div>
+            ${myVouchers.length > 0 ? `<div class="table-wrap" style="max-height:160px"><table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Código</th><th style="text-align:center">Status</th></tr></thead>
+              <tbody>${myVouchers.map(v=>`<tr>
+                <td style="color:var(--text3)">${v.data||'—'}</td><td>${v.cliente||''}</td>
+                <td class="mono" style="font-size:10px;color:var(--text3)">${v.codigo||''}</td>
+                <td style="text-align:center"><span class="pill ${v.status==='CONVERTIDO'?'pill-novo':'pill-voucher'}">${v.status||'PENDENTE'}</span></td>
+              </tr>`).join('')}</tbody>
+            </table></div>` : ''}
+          </div>
+
+          <!-- Excluídos -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;opacity:.85">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${exclItems.length>0?'12px':'0'}">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--text3)">🚫 Excluídos da Comissão</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:3px">${exclItems.length > 0 ? `${exclItems.length} lançamento(s) · R$ ${fmt(exclItems.reduce((s,r)=>s+(r.valorCaixa||0),0))} não comissionado` : 'Nenhum lançamento excluído.'}</div>
+              </div>
+              ${exclItems.length>0?`<div class="mono" style="font-size:13px;color:var(--text3)">R$ ${fmt(exclItems.reduce((s,r)=>s+(r.valorCaixa||0),0))}</div>`:''}
+            </div>
+            ${exclItems.length > 0 ? `<div class="table-wrap" style="max-height:200px"><table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Motivo</th><th style="text-align:right">Caixa</th></tr></thead>
+              <tbody>${exclItems.map(r=>`<tr style="opacity:.7">
+                <td style="color:var(--text3)">${r.data||''}</td>
+                <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+                <td style="font-size:10px;max-width:130px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+                <td><span style="background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700">${r._reason||r.label||r.category||'Excluído'}</span></td>
+                <td class="currency" style="color:var(--text3)">R$ ${fmt(r.valorCaixa||0)}</td>
+              </tr>`).join('')}</tbody>
+            </table></div>` : ''}
+          </div>`;
+
+        el.innerHTML = html;
+      } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ── Aba Ativações (vendedora) ──
+    async function renderVendorAtivacoesTab(periodId, myName) {
+      const el = document.getElementById('vendorAtivacoesContent');
+      if (!el || !periodId || !myName) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens')
+          .where('vendedor', '==', myName).where('type', '==', 'processed').get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+        items.forEach(r => CommissionEngine.applyCommissionsToItem(r, cfg));
+
+        const ativ = items.filter(r => r.isActivation).sort((a,b) => {
+          const pA=(a.data||'').split('/'), pB=(b.data||'').split('/');
+          return (pB.length===3?new Date(pB[2],pB[1]-1,pB[0]):0) - (pA.length===3?new Date(pA[2],pA[1]-1,pA[0]):0);
+        });
+        const nonAtiv = items.filter(r => !r.isActivation);
+        const pillCls = c => ({novo:'pill-novo',renovacao:'pill-renovacao',retorno:'pill-retorno',voucher:'pill-voucher',avulsa:'pill-avulsa'}[c]||'pill-outro');
+
+        let html = `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:14px 20px;text-align:center;min-width:120px">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Minhas Ativações</div>
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--green)">${ativ.reduce((s,r)=>s+(r.splitAtivacao||1),0).toFixed(1).replace('.0','')}</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;text-align:center;min-width:120px">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Geram P1 (sem ativação)</div>
+            <div class="mono" style="font-size:28px;font-weight:700;color:var(--text3)">${nonAtiv.length}</div>
+          </div>
+        </div>`;
+
+        html += `<div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:8px">✅ Minhas Ativações (${ativ.length})</div>`;
+        html += `<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Contratos, renovações, retornos e vouchers — cada um conta como 1 ativação (ou fração se dividido).</div>`;
+        html += `<div class="table-wrap" style="max-height:320px;margin-bottom:20px"><table style="width:100%">
+          <thead><tr><th>#</th><th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">Fator</th></tr></thead>
+          <tbody>${ativ.map((r,i) => {
+            const factor = r.splitAtivacao||1;
+            return `<tr>
+              <td style="color:var(--text3)">${i+1}</td>
+              <td style="color:var(--text3)">${r.data||''}</td>
+              <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+              <td><span class="pill ${pillCls(r.category)}">${r.label||r.category||''}</span></td>
+              <td class="currency" style="color:var(--orange-light)">R$ ${fmt(r.valorCaixa||0)}</td>
+              <td style="text-align:right;color:${factor<1?'var(--yellow)':'var(--text)'}">${factor<1?factor.toFixed(1)+' (split)':'1'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+
+        if (nonAtiv.length > 0) {
+          html += `<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">⛔ Geram P1 mas não contam como ativação (${nonAtiv.length})</div>`;
+          html += `<div class="table-wrap" style="max-height:220px"><table style="width:100%">
+            <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th></tr></thead>
+            <tbody>${nonAtiv.map(r=>`<tr style="opacity:.7">
+              <td style="color:var(--text3)">${r.data||''}</td>
+              <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+              <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+              <td><span class="pill ${pillCls(r.category)}">${r.label||r.category||''}</span></td>
+              <td class="currency" style="color:var(--text3)">R$ ${fmt(r.valorCaixa||0)}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>`;
+        }
+
+        el.innerHTML = html;
+      } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ── Aba Diferidos (vendedora) ──
+    async function renderVendorDiferidosTab(data, periodId, myName) {
+      const el = document.getElementById('vendorDiferidosContent');
+      if (!el || !periodId || !myName) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      try {
+        const deferredFromSnap = await db.collection('periodos').doc(periodId).collection('itens')
+          .where('vendedor', '==', myName).where('type', '==', 'deferred').get();
+        const deferredFrom = [];
+        deferredFromSnap.forEach(doc => deferredFrom.push(doc.data()));
+
+        const [year, month] = (periodId.replace(currentUnitId + '_', '')).split('-').map(Number);
+        const targetMonth = `${year}-${String(month).padStart(2, '0')}`;
+        let deferredTo = [];
+        try {
+          const toSnap = await db.collection('comissoes_diferidas')
+            .where('unitId', '==', currentUnitId)
+            .where('vendedor', '==', myName)
+            .where('deferToMonth', '==', targetMonth).get();
+          toSnap.forEach(doc => deferredTo.push({ _docId: doc.id, ...doc.data() }));
+        } catch(e) {}
+
+        const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+        let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div style="background:var(--surface);border:1px solid var(--orange);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">⏳ Diferidas deste período</div>
+            <div class="mono" style="font-size:24px;font-weight:700;color:var(--orange)">${deferredFrom.length}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">Comissão paga em meses futuros</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:16px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">📥 Recebidas de períodos anteriores</div>
+            <div class="mono" style="font-size:24px;font-weight:700;color:var(--green)">${deferredTo.length}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">Comissão paga agora</div>
+          </div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.6">
+          <strong style="color:var(--orange)">Regra dos 30 dias:</strong> Se o plano começa mais de 30 dias após o pagamento, a comissão é adiada para o mês do início do plano.
+        </div>`;
+
+        if (deferredFrom.length > 0) {
+          html += `<div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px">⏳ Comissões adiadas deste período</div>`;
+          html += `<div class="table-wrap" style="max-height:260px;margin-bottom:16px"><table style="width:100%">
+            <thead><tr><th>Data Pgto</th><th>Cliente</th><th>Item</th><th>Início Plano</th><th>Comissão em</th><th style="text-align:right">Caixa</th></tr></thead>
+            <tbody>${deferredFrom.map(r => {
+              const [dy, dm] = (r.deferToMonth||'').split('-');
+              return `<tr>
+                <td style="color:var(--text3)">${r.data||''}</td>
+                <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+                <td style="font-size:10px;max-width:130px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+                <td style="color:var(--orange)">${r.planStartDate||'—'}</td>
+                <td><span class="pill pill-novo">${dm?months[parseInt(dm)]+'/'+dy:r.deferToMonth||''}</span></td>
+                <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>`;
+        }
+
+        if (deferredTo.length > 0) {
+          html += `<div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:8px">📥 Comissões recebidas de períodos anteriores</div>`;
+          html += `<div class="table-wrap" style="max-height:260px"><table style="width:100%">
+            <thead><tr><th>Data Pgto Original</th><th>Cliente</th><th>Item</th><th>Início Plano</th><th style="text-align:right">Caixa</th><th>Status</th></tr></thead>
+            <tbody>${deferredTo.map(r => {
+              const sc = r.status==='aplicado'?'var(--green)':'var(--yellow)';
+              return `<tr>
+                <td style="color:var(--text3)">${r.data||''}</td>
+                <td style="max-width:110px;word-break:break-word;white-space:normal">${r.cliente||''}</td>
+                <td style="font-size:10px;max-width:130px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item||''}</td>
+                <td style="color:var(--green)">${r.planStartDate||'—'}</td>
+                <td class="currency">R$ ${fmt(r.valorCaixa||0)}</td>
+                <td style="font-size:11px;color:${sc};font-weight:700">${r.status==='aplicado'?'✅ Aplicado':'⏳ Pendente'}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table></div>`;
+        }
+
+        if (deferredFrom.length === 0 && deferredTo.length === 0) {
+          html += '<div style="padding:40px;text-align:center;color:var(--text3)">Nenhuma comissão diferida neste período.</div>';
+        }
+
+        el.innerHTML = html;
+      } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
     // ═══════════════════════════════════════════════════════════════
     async function renderDiferidosTab(data, periodId) {
       const el = document.getElementById('diferidosContent');
