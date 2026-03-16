@@ -7497,10 +7497,15 @@
       ) : source;
 
       // Show/hide reset button
+      const grandTotal = all.length + nonActiv.length;
       if (resetBtn) resetBtn.style.display = (activeFilter !== 'all' || q) ? '' : 'none';
-      if (countEl) countEl.textContent = filtered.length !== source.length
-        ? `${filtered.length} de ${source.length} registros`
-        : `${filtered.length} registro${filtered.length !== 1 ? 's' : ''}`;
+      if (countEl) {
+        if (filtered.length === grandTotal) {
+          countEl.textContent = `${grandTotal} registros`;
+        } else {
+          countEl.textContent = `${filtered.length} de ${grandTotal} registros`;
+        }
+      }
 
       // Render table
       const wrap = document.getElementById('ativTableWrap');
