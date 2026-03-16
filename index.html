@@ -7363,16 +7363,68 @@
         const activations = allItems.filter(r => r.type === 'processed' && r.isActivation);
         const nonActivations = allItems.filter(r => r.type === 'processed' && !r.isActivation);
 
-        let html = `<div style="display:flex;gap:12px;margin-bottom:16px">
-          <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:14px 20px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Ativações Válidas</div>
-            <div class="mono" style="font-size:28px;font-weight:700;color:var(--green)">${activations.length}</div>
-          </div>
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;text-align:center">
-            <div style="font-size:10px;color:var(--text3);text-transform:uppercase">Itens Processados (sem ativação)</div>
-            <div class="mono" style="font-size:28px;font-weight:700;color:var(--text3)">${nonActivations.length}</div>
-          </div>
-        </div>`;
+        // Breakdown por categoria (contando fator de split)
+        const sumFator = arr => arr.reduce((s, r) => s + (r.splitAtivacao || 1), 0);
+        const novosRetorno = activations.filter(r => r.category === 'novo' || r.category === 'retorno');
+        const renovacoes   = activations.filter(r => r.category === 'renovacao');
+        const vouchers     = activations.filter(r => r.category === 'voucher');
+        const outros       = activations.filter(r => !['novo','retorno','renovacao','voucher'].includes(r.category));
+        const totalAtiv    = sumFator(activations);
+
+        // Verificação contra as travas
+        const periodData = window.currentPeriodData || {};
+        const cfg2 = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(periodData.metasMensais || {}) };
+        const novosOk   = sumFator(novosRetorno) >= cfg2.minNovos;
+        const renovOk   = sumFator(renovacoes)   >= cfg2.minRenov;
+        const vouchOk   = sumFator(vouchers)     >= cfg2.minVoucher;
+
+        const cardStyle = (ok, color) => `background:var(--surface);border:1px solid ${ok ? color : 'var(--border)'};border-radius:8px;padding:14px 16px;text-align:center`;
+        const badge = (ok, min) => ok
+          ? `<div style="font-size:10px;color:var(--green);margin-top:3px">✅ mín. ${min}</div>`
+          : `<div style="font-size:10px;color:var(--red);margin-top:3px">❌ mín. ${min}</div>`;
+
+        let html = `
+          <!-- Cards de breakdown -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px">
+
+            <div style="background:var(--surface);border:2px solid var(--green);border-radius:8px;padding:14px 16px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Total Ativações</div>
+              <div class="mono" style="font-size:30px;font-weight:700;color:var(--green)">${totalAtiv % 1 === 0 ? totalAtiv : totalAtiv.toFixed(1)}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">${activations.length} contratos</div>
+            </div>
+
+            <div style="${cardStyle(novosOk, 'var(--blue)')}">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Novos + Retorno</div>
+              <div class="mono" style="font-size:28px;font-weight:700;color:var(--blue)">${sumFator(novosRetorno) % 1 === 0 ? sumFator(novosRetorno) : sumFator(novosRetorno).toFixed(1)}</div>
+              ${badge(novosOk, cfg2.minNovos)}
+            </div>
+
+            <div style="${cardStyle(renovOk, 'var(--orange-light)')}">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Renovações</div>
+              <div class="mono" style="font-size:28px;font-weight:700;color:var(--orange-light)">${sumFator(renovacoes) % 1 === 0 ? sumFator(renovacoes) : sumFator(renovacoes).toFixed(1)}</div>
+              ${badge(renovOk, cfg2.minRenov)}
+            </div>
+
+            <div style="${cardStyle(vouchOk, 'var(--yellow)')}">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Vouchers</div>
+              <div class="mono" style="font-size:28px;font-weight:700;color:var(--yellow)">${sumFator(vouchers) % 1 === 0 ? sumFator(vouchers) : sumFator(vouchers).toFixed(1)}</div>
+              ${badge(vouchOk, cfg2.minVoucher)}
+            </div>
+
+            ${outros.length > 0 ? `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Outros</div>
+              <div class="mono" style="font-size:28px;font-weight:700;color:var(--text2)">${sumFator(outros) % 1 === 0 ? sumFator(outros) : sumFator(outros).toFixed(1)}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">${outros.length} itens</div>
+            </div>` : ''}
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.5px">Sem Ativação</div>
+              <div class="mono" style="font-size:28px;font-weight:700;color:var(--text3)">${nonActivations.length}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">Geram P1</div>
+            </div>
+
+          </div>`;
 
         // Activations table
         html += '<h3 style="font-size:14px;margin-bottom:8px;color:var(--green)">✅ Contam como Ativação</h3>';
