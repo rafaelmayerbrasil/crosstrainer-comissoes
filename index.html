@@ -1876,8 +1876,6 @@
             </h3>
             <div id="vdModalPeriod" style="font-size:12px; color:var(--text3); margin-top:2px;">Período</div>
           </div>
-          <button class="btn btn-sm" onclick="printReceiptFromModal()"
-            style="margin-top:2px; font-size:11px; padding:4px 8px; background:var(--surface2)">🖨️ Recibo</button>
         </div>
         <button type="button" class="close-btn" onclick="closeVendorDetailModal()"
           style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
@@ -2315,7 +2313,7 @@
 
   <!-- Modal Ajuda do App -->
   <div id="helpModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:780px; padding:0; max-height:90vh; overflow-y:auto;">
+    <div class="modal-content" style="max-width:820px; padding:0; max-height:90vh; overflow-y:auto;">
 
       <!-- Header -->
       <div style="background:linear-gradient(135deg, rgba(91,155,213,0.12), rgba(91,155,213,0.02)); padding:24px 28px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:2; backdrop-filter:blur(12px);">
@@ -2330,65 +2328,69 @@
 
       <div style="padding:24px 28px;">
 
-        <!-- ═══ SEÇÃO: VENDEDORES ═══ -->
+        <!-- ═══ SEÇÃO: VENDEDORAS ═══ -->
         <div style="margin-bottom:32px;">
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
             <span style="font-size:20px;">🛒</span>
             <div style="font-size:16px; font-weight:700; color:var(--text); font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">PARA VENDEDORAS</div>
           </div>
 
-          <!-- Meu Painel -->
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📊</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Painel</div>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Painel — Tabs disponíveis</div>
             </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Sua tela principal. Você vê de uma vez: comissão total do mês, ativações, caixa gerado e posição no ranking.
-              O breakdown P1+P2+P3+P4 aparece logo abaixo, e mais abaixo você acompanha as metas da unidade e se as condições estão sendo cumpridas.
-              <br><br>
-              <strong>Transparência nos lançamentos:</strong> na lista de vendas, três colunas ajudam a auditar cada venda: <em>Caixa P1</em> (valor que entrou), <em>% Regra</em> e <em>Comissão R$</em> gerada naquela venda específica.
+            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px;">
+              O painel da vendedora é dividido em <strong>4 abas</strong>, acessíveis pelo topo da tela (desktop) ou pela barra inferior (celular):
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--orange);">
+                <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">📊 Resumo</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Comissão total, breakdown P1/P2/P3/P4, metas da unidade, projeção de fim de mês, conquistas (badges), simulador "E se...", lançamentos do período e histórico mês a mês.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--green);">
+                <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:4px;">💰 Comissões</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão detalhada dos seus ganhos: tabela P1 (cada lançamento com % aplicado), P2 (bônus fixo por contrato), status do P3 (meta da unidade) e P4 (vouchers). Inclui lançamentos excluídos da comissão para conferência.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--blue);">
+                <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">⚡ Ativações</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Lista completa das suas ativações do período (contratos, renovações, retornos e vouchers), separando o que conta e o que não conta como ativação.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--yellow);">
+                <div style="font-size:11px; font-weight:700; color:var(--yellow); margin-bottom:4px;">⏳ Diferidos</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Mostra comissões adiadas deste período (plano com início além de 30 dias) e comissões de períodos anteriores que chegaram agora.</div>
+              </div>
             </div>
           </div>
 
-          <!-- Projeção -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">💰</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Créditos de Períodos Anteriores</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Se em algum mês foi pago a mais, o sistema gera um crédito automaticamente. Um banner <strong style="color:var(--green)">verde</strong> aparece no topo do seu painel informando o valor do crédito pendente, o número do recibo de origem e o período — esse valor será descontado no seu próximo pagamento.
+            </div>
+          </div>
+
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📈</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Projeção de Fim de Mês</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Aparece automaticamente enquanto o mês está em andamento — some quando você visualiza meses passados.
-              Calcula o ritmo médio diário atual e projeta como a unidade vai fechar:
-              <br><br>
-              <code style="background:var(--bg);padding:3px 8px;border-radius:4px;font-size:11px;">(Resultado atual ÷ dias corridos) × total de dias do mês</code>
-              <br><br>
-              Mostra ativações, caixa, novos+retorno, renovações e vouchers projetados — cada um com cor indicando se vai atingir o mínimo necessário.
+              Aparece automaticamente enquanto o mês está em andamento. Calcula o ritmo médio diário e projeta ativações, caixa, novos+retorno, renovações e vouchers — com cor indicando se vai atingir cada mínimo.
+              <br><code style="background:var(--bg);padding:3px 8px;border-radius:4px;font-size:11px;">(resultado atual ÷ dias corridos) × total de dias do mês</code>
             </div>
           </div>
 
-          <!-- Conquistas -->
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🏆</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Conquistas</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Desbloqueie badges conforme seu desempenho. As conquistas do mês atual incluem: 🎯 Fera de Vendas, 💎 Imparável, 💰 Bolso Cheio, 🌟 Caça-Novatos, 🎫 Mestre do Voucher, 🔄 Rei da Retenção.
-              <br><br>
-              Conquistas de carreira: 🔥 Em Chamas, ⚡ Maratonista (sequência de meses batendo meta), 👑 Lenda e 🏅 Top Ranking (histórico de posições).
-            </div>
-          </div>
-
-          <!-- Histórico -->
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">📉</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Meu Histórico</div>
+              <span style="font-size:16px;">🧮</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Simulador "E se..."</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              No final do painel, um gráfico mostra sua evolução mês a mês — comissão e ativações —
-              com uma tabela de todos os períodos e sua posição no ranking em cada um.
+              Simule o impacto de fechar mais contratos: escolha o tipo e a quantidade e o sistema recalcula comissão e ativações projetadas em tempo real.
             </div>
           </div>
         </div>
@@ -2402,44 +2404,77 @@
 
           <!-- Dashboard -->
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
               <span style="font-size:16px;">📊</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Dashboard — Abas de Navegação</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px;">
-              O Dashboard possui <strong>6 abas principais</strong>. Selecione o período desejado no topo antes de navegar.
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Dashboard — 6 Abas de Navegação</div>
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--orange);">
                 <div style="font-size:11px; font-weight:700; color:var(--orange); margin-bottom:4px;">Resumo</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Hero card com comissão total + breakdown P1/P2/P3/P4. Indicadores operacionais (ticket médio, renovação, voucher, mix). Metas da unidade com barra de progresso. Projeção de fim de mês (só no mês atual). Ranking de vendedoras com barra de progresso individual. Gráfico histórico.</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Hero card com comissão total + breakdown P1/P2/P3/P4. Indicadores operacionais. Metas com barra de progresso. Projeção de fim de mês (só no mês atual). Ranking de vendedoras.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--blue);">
                 <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">Registros</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">
-                  Duas sub-abas:<br>
-                  <strong>Lançamentos</strong> — tabela completa com filtros, busca, ordenação. Ações: ✏️ Editar, ➗ Dividir, 🗑️ Ignorar, edição em massa.<br>
-                  <strong>Excluídos & Ignorados</strong> — registros fora da comissão agrupados por motivo (GymPass, TotalPass, Permutas, Renov. Automáticas). Filtro dinâmico por vendedor, cliente, item ou motivo.
-                </div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;"><strong>Lançamentos:</strong> tabela com filtros, busca, ordenação. Ações: ✏️ Editar, ➗ Dividir, 🗑️ Ignorar, edição em massa.<br><strong>Excluídos & Ignorados:</strong> agrupados por motivo com filtro dinâmico.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--green);">
                 <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:4px;">Comissões</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">
-                  Visão centrada na <strong>vendedora</strong>: selecione uma pelo seletor no topo e veja tudo dela em uma tela só — total a receber, P1 (todos os lançamentos com caixa e %), P2 (bônus fixo), P3 (meta e tier), P4 (vouchers emitidos e conversões) e os <strong>lançamentos excluídos da comissão</strong> dela para conferência.
-                </div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão por vendedora: selecione pelo botão no topo. Painel com P1/P2/P3/P4 + excluídos, detalhamento de cada componente com rastreabilidade total.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--yellow);">
                 <div style="font-size:11px; font-weight:700; color:var(--yellow); margin-bottom:4px;">Ativações</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Detalhe de todas as ativações do período com classificação por tipo (Novo, Renovação, Retorno, Voucher). Útil para conferir a contagem da meta.</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Cards clicáveis por categoria com filtro + busca integrada. Ver detalhes abaixo.</div>
+              </div>
+              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--text2);">
+                <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:4px;">Relatório por Vendedor</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão individual exportável com todos os dados de comissão para análise ou impressão.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--purple);">
-                <div style="font-size:11px; font-weight:700; color:var(--purple); margin-bottom:4px;">Relatório por Vendedor</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Relatório individual exportável com todos os dados de comissão para envio ou impressão. Inclui botão 🖨️ Recibo para geração do comprovante de pagamento.</div>
+                <div style="font-size:11px; font-weight:700; color:var(--purple); margin-bottom:4px;">⏳ Diferidos</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Comissões adiadas para o futuro (regra dos 30 dias) e comissões de períodos anteriores chegando agora. Tabelas separadas com status de aplicação.</div>
               </div>
-              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--text3);">
-                <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:4px;">⏳ Diferidos</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Comissões cujo pagamento foi parcelado ou adiado para meses futuros (ex: contratos longos). Mostra o status de cada parcela diferida.</div>
+            </div>
+          </div>
+
+          <!-- Aba Ativações detalhada -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">⚡</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Aba Ativações — Filtros e Cards Interativos</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:10px;">
+              A aba de Ativações foi redesenhada com <strong>cards clicáveis</strong> que funcionam como filtros visuais:
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+              <div style="font-size:11px; color:var(--text2); line-height:1.6; padding:8px 10px; background:var(--bg); border-radius:6px;">
+                🟢 <strong>Total Ativações</strong> — mostra todas. Verde com borda destacada quando selecionado.
               </div>
+              <div style="font-size:11px; color:var(--text2); line-height:1.6; padding:8px 10px; background:var(--bg); border-radius:6px;">
+                🔵 <strong>Novos + Retorno</strong> / 🟠 <strong>Renovações</strong> / 🟡 <strong>Vouchers</strong> — clique para filtrar só aquela categoria. Cada card mostra o número atual e o <strong>mínimo configurado</strong> com indicador ✅/❌.
+              </div>
+              <div style="font-size:11px; color:var(--text2); line-height:1.6; padding:8px 10px; background:var(--bg); border-radius:6px;">
+                ⚫ <strong>Sem Ativação</strong> — lançamentos que geram P1 mas não entram na contagem de metas.
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              <strong>Busca por texto:</strong> digite vendedor, cliente ou item no campo de busca — os cards atualizam os números em tempo real mostrando <em>"X de Y"</em> registros. Filtro de card e busca funcionam juntos.<br><br>
+              <strong>Ordenação por coluna:</strong> clique no cabeçalho de qualquer coluna para ordenar (clique de novo para inverter). A coluna ativa fica destacada em laranja com seta indicativa.<br><br>
+              <strong>Botão ✕ Limpar filtro:</strong> aparece quando há algum filtro ativo e reseta tudo de uma vez.
+            </div>
+          </div>
+
+          <!-- Configurar Metas do Mês -->
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <span style="font-size:16px;">🎯</span>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Configurar Metas do Mês</div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
+              Botão no topo do Dashboard, disponível por unidade e período. Abre modal com duas seções independentes:
+              <br><br>
+              <strong>🏆 Metas:</strong> define ativações e prêmio fixo para Meta, Super Meta e Meta Gold do mês.
+              <br><br>
+              <strong>🔒 Travas:</strong> define os mínimos de Novos+Retorno, Renovações e Vouchers. Se não forem atingidos, o P3 sofre redução automática (30% e 15% respectivamente). Cada trava é <strong>independente por mês e por unidade</strong> — não afeta meses anteriores nem outras unidades.
             </div>
           </div>
 
@@ -2447,68 +2482,58 @@
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">📤</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Upload de Fechamento</div>
+              <div style="font-size:13px; font-weight:700; color:var(--text);">Upload de Relatório</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              <strong>Passo a passo:</strong>
-              <div style="margin-top:8px; padding-left:4px; display:flex; flex-direction:column; gap:4px;">
-                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">1.</span><span>Exporte o relatório de vendas do <strong>TecnoFit</strong> em formato .xlsx</span></div>
-                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">2.</span><span>Acesse o menu <strong>Upload</strong> e arraste o arquivo ou clique para selecionar</span></div>
-                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">3.</span><span>O sistema detecta o mês, classifica cada venda e exibe um preview</span></div>
-                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">4.</span><span>Revise o preview — você pode ignorar ou ativar registros antes de confirmar</span></div>
-                <div style="display:flex; gap:8px;"><span style="color:var(--orange); font-weight:700; min-width:16px;">5.</span><span>Clique <strong>"Confirmar e Salvar"</strong> — tudo é calculado e salvo</span></div>
-              </div>
-              <div style="margin-top:10px; padding:10px; background:var(--bg); border-left:2px solid var(--orange); border-radius:4px; font-size:11px; color:var(--text3);">
-                <strong style="color:var(--text2);">🔄 Deduplicação inteligente:</strong> Se um arquivo novo contiver lançamentos que já existem na base, o sistema compara automaticamente. Se o registro existente estiver <strong>ativo</strong>, ele é mantido sem alteração. Se estiver <strong>inativo</strong> (ignorado), o novo dado substitui. Isso evita duplicatas ao reenviar um arquivo parcial.
-              </div>
-              <div style="margin-top:8px; font-size:11px; color:var(--text3);">Vendedoras novas encontradas no arquivo são cadastradas automaticamente como "Pendente".</div>
+              Acesse pelo menu <strong>Upload</strong>. Faça o upload do Excel exportado do sistema da academia. O sistema processa automaticamente, detecta duplicatas (mantém o lançamento ativo se já existir) e recalcula todas as comissões.
+              <br><br>
+              Após o upload, revise os lançamentos na aba <strong>Registros → Lançamentos</strong> antes de fechar o período.
             </div>
           </div>
 
-          <!-- Exceções e Divisões -->
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🔧</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Tratar Exceções e Dividir Vendas</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Na sub-aba <strong>Registros → Lançamentos</strong>, use as ações individuais ou selecione múltiplos registros:
-              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px;">
-                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
-                  <div style="font-size:16px;">✏️</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Editar</strong><br>Vendedor, categoria, valor, período</div>
-                </div>
-                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
-                  <div style="font-size:16px;">➗</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Dividir (Split)</strong><br>50/50, 70/30 ou 30/70 entre dois vendedores</div>
-                </div>
-                <div style="background:var(--bg); border-radius:4px; padding:8px; text-align:center;">
-                  <div style="font-size:16px;">🗑️</div>
-                  <div style="font-size:10px; color:var(--text2); margin-top:2px;"><strong>Ignorar</strong><br>Remove da comissão (reversível)</div>
-                </div>
+          <!-- NOVO: Pagamentos -->
+          <div style="background:var(--surface); border:2px solid var(--orange); border-radius:8px; padding:16px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+              <span style="font-size:16px;">💳</span>
+              <div>
+                <div style="font-size:13px; font-weight:700; color:var(--orange);">Pagamentos — Controle de Recibos</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:1px;">Funcionalidade nova</div>
               </div>
             </div>
-          </div>
-
-          <!-- Configurar Metas -->
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🎯</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Configurar Metas do Mês</div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:12px;">
+              Acesse pelo menu lateral <strong>💳 Pagamentos</strong>. Aqui você gerencia todos os recibos emitidos, pagamentos registrados e créditos por ajuste. O fluxo padrão é:
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
+                <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">1</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Selecione o período</strong> no topo da página. Os cards de resumo mostram: Total Calculado, Total Pago, Pendentes e Divergências.</div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
+                <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">2</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Clique em "📄 Emitir Recibo"</strong> no canto superior direito. Um modal abre com todas as vendedoras <em>pendentes</em> do período — as já pagas não aparecem.</div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
+                <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">3</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Selecione individual ou em lote</strong> com os checkboxes. O total selecionado é calculado em tempo real.</div>
+              </div>
+              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
+                <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">4</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Clique em "📄 Emitir Recibo(s)"</strong>. Para cada vendedora selecionada: gera número sequencial global, abate créditos pendentes automaticamente e abre a impressão.</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:8px;"><strong>Status possíveis na tabela:</strong></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px;">
+              <div style="padding:8px 10px; background:var(--yellow-bg); border-radius:6px; font-size:11px; color:var(--text2);">⏳ <strong>Pendente</strong> — ainda não foi emitido recibo. Botão "📄 Emitir Recibo".</div>
+              <div style="padding:8px 10px; background:var(--green-bg); border-radius:6px; font-size:11px; color:var(--text2);">✅ <strong>Pago</strong> — recibo emitido e registrado. Botão "🖨️ Reimprimir".</div>
+              <div style="padding:8px 10px; background:var(--red-bg); border-radius:6px; font-size:11px; color:var(--text2);">🔴 <strong>Divergência</strong> — base foi alterada após o pagamento. O sistema mostra a diferença.</div>
+              <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:11px; color:var(--text2);">🔵 <strong>Crédito</strong> — valor pago a mais vira crédito automático para abater no próximo mês.</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Botão <strong>"🎯 Configurar Metas do Mês"</strong> no topo do Dashboard. Permite definir metas e prêmios P3 específicos para aquele mês sem afetar o histórico de meses anteriores. Campos: Meta, Super Meta e Meta Gold — cada um com seu prêmio fixo.
-            </div>
-          </div>
-
-          <!-- Comparativo -->
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:10px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:16px;">🔄</span>
-              <div style="font-size:13px; font-weight:700; color:var(--text);">Comparativo de Períodos</div>
-            </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Selecione dois meses e veja lado a lado: ativações, caixa, comissão, novos, renovações e vouchers com variação colorida (verde = cresceu, vermelho = caiu). Acesse pelo menu lateral.
+              <strong>Divergência detectada:</strong> se após emitir o recibo a base for recalculada e o valor mudar, aparece o botão <strong>"➕ Complementar"</strong> (falta pagar) ou <strong>"💰 Registrar Crédito"</strong> (foi pago a mais). O recibo complementar tem um banner identificando que é complementar e destaca o valor adicional.
+              <br><br>
+              <strong>Créditos na visão da vendedora:</strong> quando há crédito pendente, um banner verde aparece no topo do painel dela com o valor, número do recibo de origem e período — ela sabe exatamente o que será abatido.
+              <br><br>
+              💡 <strong>Pré-requisito para o recibo:</strong> acesse <em>Unidades</em> e preencha CNPJ, Razão Social e Endereço. Em <em>Usuários</em>, preencha CPF e Chave PIX de cada vendedora.
             </div>
           </div>
 
@@ -2519,7 +2544,7 @@
               <div style="font-size:13px; font-weight:700; color:var(--text);">Log de Auditoria</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Todas as ações do sistema são registradas: uploads, edições, exclusões, divisões, mudanças de configuração e criação de usuários. Acesse pelo menu <strong>Auditoria</strong> com filtro por tipo de ação e busca por texto.
+              Todas as ações ficam registradas: uploads, edições, exclusões, divisões, mudanças de configuração, criação de usuários e emissão de recibos. Acesse por <strong>Auditoria</strong> com filtro por tipo de ação e busca por texto.
             </div>
           </div>
 
@@ -2530,27 +2555,25 @@
               <div style="font-size:13px; font-weight:700; color:var(--text);">Múltiplas Unidades</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              O sistema suporta múltiplas academias/filiais. Cada unidade tem suas próprias configurações, períodos e vendedoras. Troque de unidade pelo botão no topo — a unidade ativa fica destacada em laranja.
-              <br><br>
-              💡 <strong>Para o Recibo de Pagamento:</strong> acesse <em>Unidades</em>, edite a unidade e preencha CNPJ, Razão Social e Endereço. Em <em>Usuários</em>, edite as vendedoras e preencha CPF e Chave PIX. Feito isso, o botão 🖨️ Recibo ficará disponível.
+              Cada unidade tem configurações, períodos e pagamentos independentes. Troque de unidade pelo botão no topo — a unidade ativa fica destacada em laranja. Metas, travas e pagamentos configurados para uma unidade <strong>não afetam as demais</strong>.
             </div>
           </div>
 
-          <!-- Configurações e Zona de Perigo -->
+          <!-- Configurações -->
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size:16px;">⚙️</span>
               <div style="font-size:13px; font-weight:700; color:var(--text);">Configurações e Zona de Perigo</div>
             </div>
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              Em <strong>Configurações</strong> você define as regras de comissão (percentuais P1, prêmios P3, mínimos do tripé, termos de planos). Clique em <strong>"💾 Salvar Configurações"</strong> para aplicar.
+              Define as regras de comissão globais da unidade: percentuais P1, prêmios e travas padrão do P3, termos dos planos. Use <strong>Configurar Metas do Mês</strong> para sobrescrever valores específicos em um período sem alterar o padrão.
               <br><br>
-              No final da página de Configurações está a <strong style="color:var(--red);">⚠ Zona de Perigo</strong> — onde fica o botão de excluir período. Ele só aparece quando há um período selecionado no Dashboard e exibe claramente o <strong>nome do período</strong> e a <strong>unidade</strong> que serão excluídos antes de você confirmar. Essa ação é <strong>irreversível</strong>.
+              No final de Configurações fica a <strong style="color:var(--red);">⚠ Zona de Perigo</strong> — o botão de excluir período só aparece quando há período selecionado no Dashboard e exibe claramente o nome e a unidade antes de confirmar. Ação <strong>irreversível</strong>.
             </div>
           </div>
         </div>
 
-        <!-- ═══ SEÇÃO: DICAS GERAIS ═══ -->
+        <!-- ═══ DICAS GERAIS ═══ -->
         <div>
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid var(--border);">
             <span style="font-size:20px;">💡</span>
@@ -2559,11 +2582,15 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
               <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📱 Instalar no Celular</div>
-              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Abra no Chrome → toque nos 3 pontinhos → <strong>"Adicionar à tela inicial"</strong>. Funciona como app nativo.</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Abra no Chrome → toque nos 3 pontinhos → <strong>"Adicionar à tela inicial"</strong>. Funciona como app nativo com navegação pelo menu inferior.</div>
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
               <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🌙 Modo Claro / Escuro</div>
               <div style="font-size:11px; color:var(--text3); line-height:1.6;">No rodapé da barra lateral, use o toggle 🌙/☀️. A preferência é salva automaticamente.</div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📱 Admin vs Vendedora no celular</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;"><strong>Admin:</strong> vê só o Dashboard no celular — gestão é feita pelo computador. <strong>Vendedora:</strong> acesso completo ao próprio painel pelo celular.</div>
             </div>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
               <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🔑 Esqueci Minha Senha</div>
@@ -2572,6 +2599,10 @@
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
               <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">📥 Exportar para Excel</div>
               <div style="font-size:11px; color:var(--text3); line-height:1.6;">Clique em <strong>"⬇ Baixar Relatório XLS"</strong> no Dashboard para exportar resumo por vendedora e lançamentos detalhados em duas abas.</div>
+            </div>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px;">
+              <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px;">🔢 Números de Recibo</div>
+              <div style="font-size:11px; color:var(--text3); line-height:1.6;">Sequenciais globais — único por recibo independente de unidade ou mês. Sempre exibidos no formato <strong>#0001</strong>.</div>
             </div>
           </div>
         </div>
@@ -2741,6 +2772,28 @@
           <button type="submit" class="btn">Aplicar Alterações</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Emitir Recibo -->
+  <div id="emitirReciboModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:520px;padding:24px;">
+      <div class="modal-header">
+        <h3 style="color:var(--orange)">📄 Emitir Recibo</h3>
+        <button type="button" class="close-btn" onclick="closeEmitirReciboModal()">&times;</button>
+      </div>
+      <div id="emitirReciboBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal Registrar Pagamento -->
+  <div id="pagModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:500px;padding:24px;">
+      <div class="modal-header">
+        <h3 id="pagModalTitle" style="color:var(--orange)">💳 Registrar Pagamento</h3>
+        <button type="button" class="close-btn" onclick="closePagModal()">&times;</button>
+      </div>
+      <div id="pagModalBody"></div>
     </div>
   </div>
 
@@ -3042,6 +3095,37 @@
         </div>
         <div id="comparativoContent">
           <div class="loading">Selecione dois períodos para comparar.</div>
+        </div>
+      </div>
+
+
+      <!-- ADMIN: PAGAMENTOS -->
+      <div class="page" id="page-pagamentos">
+        <div class="page-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h1>💳 Pagamentos</h1>
+          <button class="btn" onclick="openEmitirReciboModal()" id="btnEmitirRecibo" style="display:none">
+            📄 Emitir Recibo
+          </button>
+        </div>
+
+        <!-- Filtros -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+          <div>
+            <label style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;display:block;margin-bottom:4px">Período</label>
+            <select id="pagPeriodSelect" onchange="loadPagamentos()"
+              style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;min-width:140px"></select>
+          </div>
+          <div style="margin-top:16px">
+            <button class="btn btn-ghost btn-sm" onclick="loadPagamentos()">🔄 Atualizar</button>
+          </div>
+        </div>
+
+        <!-- Resumo cards -->
+        <div id="pagResumoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px"></div>
+
+        <!-- Tabela principal -->
+        <div id="pagListaWrap">
+          <div class="loading"><div class="spinner"></div>Selecione um período.</div>
         </div>
       </div>
 
@@ -3464,6 +3548,7 @@
         html += sbItem('units', '🏢', 'Unidades');
         html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
+        html += sbItem('pagamentos', '💳', 'Pagamentos');
         html += '<div class="sb-section">Ferramentas</div>';
         if (isOwner(currentUser?.email)) {
           html += `<div class="sb-item" onclick="openVendorPreviewSelect()"><span class="icon">👁</span>Visão Vendedor</div>`;
@@ -3486,7 +3571,7 @@
 
     // Páginas permitidas por perfil
     const VENDOR_PAGES = ['meu-painel', 'comparativo'];
-    const ADMIN_PAGES  = ['dashboard','comparativo','upload','users','units','audit','settings'];
+    const ADMIN_PAGES  = ['dashboard','comparativo','upload','users','units','audit','settings','pagamentos'];
     const ADMIN_MOBILE_PAGES = ['dashboard']; // admin mobile: só dashboard
 
     function navigateTo(page) {
@@ -3527,6 +3612,7 @@
       if (page === 'units') loadUnits();
       if (page === 'audit') loadAuditLog();
       if (page === 'upload') initUpload();
+      if (page === 'pagamentos') initPagamentos();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -5949,6 +6035,28 @@
           ${alertsHtml.join('')}
         </div>`;
       }
+
+      // ── Créditos pendentes ──
+      try {
+        const credSnap = await db.collection('creditos')
+          .where('unitId', '==', currentUnitId)
+          .where('vendedor', '==', myName)
+          .where('status', '==', 'pendente').get();
+        if (!credSnap.empty) {
+          const credList = [];
+          credSnap.forEach(doc => credList.push(doc.data()));
+          const totalCred = credList.reduce((s, c) => s + (c.valor || 0), 0);
+          html += `<div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)">
+            <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💰 Crédito de Períodos Anteriores</div>
+            <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px">R$ ${fmt(totalCred)} será abatido no seu próximo pagamento</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              ${credList.map(c => `<div style="font-size:11px;color:var(--text3)">
+                Recibo ${c.reciboOrigemNum ? `<strong>#${String(c.reciboOrigemNum).padStart(4,'0')}</strong>` : ''} · ${c.periodoOrigem || ''} · R$ ${fmt(c.valor)} ${c.obs ? `— ${c.obs}` : ''}
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }
+      } catch(e) { /* créditos não críticos */ }
 
       // ── Stats row ──
       html += `<div class="stats-row">
@@ -8510,6 +8618,13 @@
         const dataReferencia = pData.month && pData.year ? `${String(pData.month).padStart(2, '0')}/${pData.year}` : periodId;
         const hojeDate = new Date().toLocaleDateString('pt-BR');
 
+        // Dados de pagamento (se vier do módulo de pagamentos)
+        const pag = window._pagamentoImpressao || null;
+        const isComplementar = pag?.tipo === 'complementar';
+        const reciboNumFmt = pag?.reciboNum ? `#${String(pag.reciboNum).padStart(4,'0')}` : '';
+        const creditosAplicados = pag?.creditosAplicados || [];
+        const totalCreditoAplicado = creditosAplicados.reduce((s, c) => s + (c.valor || 0), 0);
+
         // Prepare P2 items list
         const p2Items = items.filter(r => r.type !== 'excluded' && r.p2bonus > 0);
 
@@ -8550,8 +8665,10 @@
         let html = `
           <div class="print-body">
             <div class="print-header">
-              <h2 style="margin:0; font-size:18px;">RECIBO DE COMISSÃO</h2>
-              <div style="font-size:12px; margin-top:8px;">Referência: ${dataReferencia} &nbsp;&nbsp;|&nbsp;&nbsp; Emissão: ${hojeDate}</div>
+              <h2 style="margin:0; font-size:18px;">RECIBO DE COMISSÃO${isComplementar ? ' — COMPLEMENTAR' : ''}</h2>
+              ${reciboNumFmt ? `<div style="font-size:14px;font-weight:bold;margin-top:4px">Recibo ${reciboNumFmt}</div>` : ''}
+              <div style="font-size:12px; margin-top:8px;">Referência: ${dataReferencia} &nbsp;&nbsp;|&nbsp;&nbsp; Emissão: ${hojeDate}${pag?.dataPagamento ? ` &nbsp;&nbsp;|&nbsp;&nbsp; Data Pgto: ${pag.dataPagamento}` : ''}</div>
+              ${isComplementar ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:6px 10px;margin-top:8px;font-size:11px;color:#856404">⚠ Este recibo é <strong>complementar</strong> ao pagamento principal do período ${dataReferencia}. Refere-se à diferença apurada após ajuste.</div>` : ''}
             </div>
             
             <table class="print-table">
@@ -8594,6 +8711,20 @@
                 <td style="font-weight:bold; font-size:13px; background:#f0f0f0;">TOTAL BRUTO A RECEBER</td>
                 <td style="font-weight:bold; font-size:13px; text-align:right; background:#f0f0f0;">R$ ${fmt(vs.grandTotal)}</td>
               </tr>
+              ${totalCreditoAplicado > 0 ? `
+              <tr style="background:#e8f5e9;">
+                <td style="color:#2e7d32;">(-) Crédito de períodos anteriores <br><span style="font-size:9px">${creditosAplicados.map(c=>`#${String(c.reciboOrigemNum||'').padStart(4,'0')} (${c.periodoOrigem||''}): R$ ${fmt(c.valor)}`).join(' · ')}</span></td>
+                <td style="text-align:right;color:#2e7d32;font-weight:700;">−R$ ${fmt(totalCreditoAplicado)}</td>
+              </tr>
+              <tr style="background:#e8f5e9;">
+                <td style="font-weight:bold;color:#2e7d32;">TOTAL LÍQUIDO A RECEBER</td>
+                <td style="font-weight:bold;text-align:right;color:#2e7d32;">R$ ${fmt(vs.grandTotal - totalCreditoAplicado)}</td>
+              </tr>` : ''}
+              ${pag ? `
+              <tr style="background:#e3f2fd;">
+                <td style="font-weight:bold;font-size:14px;color:#1565c0;">VALOR EFETIVAMENTE PAGO${isComplementar ? ' (COMPLEMENTO)' : ''}</td>
+                <td style="font-weight:bold;font-size:14px;text-align:right;color:#1565c0;">R$ ${fmt(pag.valorPago || 0)}</td>
+              </tr>` : ''}
             </table>
 
             <!-- SEÇÃO P2 -->
@@ -8847,6 +8978,572 @@
     function closeVendorDetailModal() {
       document.getElementById('vendorDetailModal').classList.remove('open');
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MÓDULO DE PAGAMENTOS
+    // ═══════════════════════════════════════════════════════════════
+
+    async function initPagamentos() {
+      // Popula select de períodos
+      const sel = document.getElementById('pagPeriodSelect');
+      if (!sel) return;
+      try {
+        const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
+        const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const docs = [];
+        snap.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+        docs.sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+        sel.innerHTML = '<option value="">Selecione</option>';
+        docs.forEach(d => { sel.innerHTML += `<option value="${d.id}">${months[d.month]} ${d.year}</option>`; });
+        if (docs.length > 0) { sel.value = docs[0].id; loadPagamentos(); }
+      } catch(e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
+    }
+
+    async function loadPagamentos() {
+      const periodId = document.getElementById('pagPeriodSelect')?.value;
+      const wrap = document.getElementById('pagListaWrap');
+      const cardsEl = document.getElementById('pagResumoCards');
+      const btnEmitir = document.getElementById('btnEmitirRecibo');
+      if (!periodId) {
+        if (wrap) wrap.innerHTML = '<div class="loading">Selecione um período.</div>';
+        if (btnEmitir) btnEmitir.style.display = 'none';
+        return;
+      }
+      if (wrap) wrap.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      if (btnEmitir) btnEmitir.style.display = '';
+
+      try {
+        // Dados do período
+        const pDoc = await db.collection('periodos').doc(periodId).get();
+        if (!pDoc.exists) { wrap.innerHTML = '<div style="color:var(--red);padding:20px">Período não encontrado.</div>'; return; }
+        const pData = pDoc.data();
+        const vs = pData.vendorSummary || {};
+        const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const periodLabel = `${months[pData.month]} ${pData.year}`;
+
+        // Pagamentos já registrados neste período
+        const pagSnap = await db.collection('pagamentos')
+          .where('unitId', '==', currentUnitId)
+          .where('periodId', '==', periodId)
+          .get();
+        const pagMap = {}; // vendedor → [pagamentos]
+        pagSnap.forEach(doc => {
+          const d = { id: doc.id, ...doc.data() };
+          if (!pagMap[d.vendedor]) pagMap[d.vendedor] = [];
+          pagMap[d.vendedor].push(d);
+        });
+
+        // Créditos de períodos anteriores pendentes
+        const creditoSnap = await db.collection('creditos')
+          .where('unitId', '==', currentUnitId)
+          .where('status', '==', 'pendente')
+          .get();
+        const creditoMap = {}; // vendedor → credito
+        creditoSnap.forEach(doc => {
+          const d = { id: doc.id, ...doc.data() };
+          if (!creditoMap[d.vendedor]) creditoMap[d.vendedor] = [];
+          creditoMap[d.vendedor].push(d);
+        });
+
+        // Vendedores comissionáveis
+        const vendors = Object.entries(vs)
+          .filter(([n, v]) => !v.isNaoCom)
+          .sort((a, b) => a[0].localeCompare(b[0]));
+
+        // Resumo cards
+        let totalCalc = 0, totalPago = 0, pendentes = 0, pagos = 0, divergencias = 0;
+        vendors.forEach(([name, vd]) => {
+          totalCalc += vd.grandTotal || 0;
+          const pags = pagMap[name] || [];
+          const ultimoPag = pags.sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0))[0];
+          if (!ultimoPag) { pendentes++; }
+          else if (ultimoPag.status === 'pago') {
+            pagos++;
+            totalPago += ultimoPag.valorPago || 0;
+            // Verifica divergência
+            const calc = vd.grandTotal || 0;
+            const pago = ultimoPag.valorPago || 0;
+            const credito = (creditoMap[name] || []).reduce((s, c) => s + (c.valor || 0), 0);
+            if (Math.abs((calc - credito) - pago) > 0.01) divergencias++;
+          }
+        });
+
+        if (cardsEl) {
+          cardsEl.innerHTML = `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">Total Calculado</div>
+              <div class="mono" style="font-size:22px;font-weight:700;color:var(--orange-light)">R$ ${fmt(totalCalc)}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--green);border-radius:8px;padding:14px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">Total Pago</div>
+              <div class="mono" style="font-size:22px;font-weight:700;color:var(--green)">R$ ${fmt(totalPago)}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--yellow);border-radius:8px;padding:14px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">Pendentes</div>
+              <div class="mono" style="font-size:22px;font-weight:700;color:var(--yellow)">${pendentes}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid ${divergencias > 0 ? 'var(--red)' : 'var(--border)'};border-radius:8px;padding:14px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">Divergências</div>
+              <div class="mono" style="font-size:22px;font-weight:700;color:${divergencias > 0 ? 'var(--red)' : 'var(--text3)'}">${divergencias}</div>
+            </div>`;
+        }
+
+        // Tabela de vendedores
+        let html = `<div class="table-wrap"><table style="width:100%">
+          <thead><tr>
+            <th>Vendedor(a)</th>
+            <th style="text-align:right">Calculado</th>
+            <th style="text-align:right">Crédito Anterior</th>
+            <th style="text-align:right">A Pagar</th>
+            <th style="text-align:right">Pago</th>
+            <th>Data Pgto</th>
+            <th>Recibo Nº</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr></thead><tbody>`;
+
+        vendors.forEach(([name, vd]) => {
+          const pags = (pagMap[name] || []).sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+          const ultimoPag = pags[0];
+          const calc = vd.grandTotal || 0;
+          const creditos = creditoMap[name] || [];
+          const totalCredito = creditos.reduce((s, c) => s + (c.valor || 0), 0);
+          const aPagar = Math.max(0, calc - totalCredito);
+
+          let status, statusHtml, acoes;
+
+          if (!ultimoPag) {
+            status = 'pendente';
+            statusHtml = `<span style="background:var(--yellow-bg);color:var(--yellow);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">⏳ PENDENTE</span>`;
+            acoes = `<button class="btn btn-sm" onclick="openEmitirReciboModal('${name.replace(/'/g,"\\'")}')">📄 Emitir Recibo</button>`;
+          } else {
+            const pago = ultimoPag.valorPago || 0;
+            const diff = (calc - totalCredito) - pago;
+            if (Math.abs(diff) > 0.01) {
+              status = 'divergencia';
+              const tipo = diff > 0 ? `⬆ Falta R$ ${fmt(diff)}` : `⬇ Sobra R$ ${fmt(Math.abs(diff))}`;
+              statusHtml = `<span style="background:var(--red-bg);color:var(--red);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">🔴 DIVERGÊNCIA</span><div style="font-size:10px;color:var(--red);margin-top:2px">${tipo}</div>`;
+              acoes = `<button class="btn btn-sm btn-outline" onclick="openComplementar('${name.replace(/'/g,"\\'")}','${periodId}','${periodLabel}',${diff})">${diff > 0 ? '➕ Complementar' : '💰 Registrar Crédito'}</button>`;
+            } else {
+              status = 'pago';
+              statusHtml = `<span style="background:var(--green-bg);color:var(--green);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">✅ PAGO</span>`;
+              acoes = `<button class="btn btn-ghost btn-sm" onclick="imprimirReciboPagamento('${name.replace(/'/g,"\\'")}','${periodId}','${ultimoPag.id}')">🖨️ Reimprimir</button>`;
+            }
+          }
+
+          const dataPgto = ultimoPag?.dataPagamento || '—';
+          const reciboNum = ultimoPag?.reciboNum ? `#${String(ultimoPag.reciboNum).padStart(4,'0')}` : '—';
+          const pago = ultimoPag?.valorPago;
+
+          html += `<tr>
+            <td style="font-weight:600">${name}</td>
+            <td class="currency">R$ ${fmt(calc)}</td>
+            <td class="currency" style="color:${totalCredito > 0 ? 'var(--green)' : 'var(--text3)'}">
+              ${totalCredito > 0 ? `<span title="${creditos.map(c=>`#${String(c.reciboOrigemNum||'').padStart(4,'0')} (${c.periodoOrigem||''}): R$ ${fmt(c.valor)}`).join(', ')}">−R$ ${fmt(totalCredito)} ℹ️</span>` : '—'}
+            </td>
+            <td class="currency" style="font-weight:700;color:var(--orange-light)">R$ ${fmt(aPagar)}</td>
+            <td class="currency" style="color:${pago ? 'var(--green)' : 'var(--text3)'}">${pago ? 'R$ ' + fmt(pago) : '—'}</td>
+            <td style="color:var(--text3)">${dataPgto}</td>
+            <td class="mono" style="font-size:11px;color:var(--text3)">${reciboNum}</td>
+            <td>${statusHtml}</td>
+            <td>${acoes}</td>
+          </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        wrap.innerHTML = html;
+
+      } catch(e) {
+        wrap.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`;
+        console.error(e);
+      }
+    }
+
+    async function openEmitirReciboModal(vendedorPreSelecionado = null) {
+      const periodId = document.getElementById('pagPeriodSelect')?.value;
+      if (!periodId) { toast('Selecione um período primeiro.', 'info'); return; }
+
+      // Carrega vendedores pendentes do período
+      const pDoc = await db.collection('periodos').doc(periodId).get();
+      const pData = pDoc.exists ? pDoc.data() : {};
+      const vs = pData.vendorSummary || {};
+      const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      const periodLabel = `${months[pData.month]} ${pData.year}`;
+
+      // Pega pagamentos já registrados
+      const pagSnap = await db.collection('pagamentos')
+        .where('unitId', '==', currentUnitId)
+        .where('periodId', '==', periodId)
+        .where('status', '==', 'pago').get();
+      const jaPagei = new Set();
+      pagSnap.forEach(doc => jaPagei.add(doc.data().vendedor));
+
+      const todos = Object.entries(vs)
+        .filter(([n, v]) => !v.isNaoCom)
+        .sort((a, b) => a[0].localeCompare(b[0]));
+      const pendentes = todos.filter(([n]) => !jaPagei.has(n));
+
+      if (pendentes.length === 0) {
+        toast('Todos os vendedores já foram pagos neste período.', 'info');
+        return;
+      }
+
+      // Armazena dados para uso no confirmar
+      window._emitirReciboData = { periodId, periodLabel, todos, pData };
+
+      const rows = pendentes.map(([name, vd]) => `
+        <tr>
+          <td style="padding:8px 4px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" class="recibo-check" value="${name.replace(/"/g,'&quot;')}"
+                ${vendedorPreSelecionado === name ? 'checked' : ''}
+                onchange="updateEmitirReciboTotal()"
+                style="width:16px;height:16px;accent-color:var(--orange)">
+              <span style="font-weight:600;font-size:13px">${name}</span>
+            </label>
+          </td>
+          <td class="currency" style="padding:8px 4px;font-size:13px">R$ ${fmt(vd.grandTotal || 0)}</td>
+        </tr>`).join('');
+
+      document.getElementById('emitirReciboBody').innerHTML = `
+        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
+          Período: <strong>${periodLabel}</strong> · Unidade: <strong>${currentUnitId}</strong>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-ghost btn-sm" onclick="selecionarTodosRecibo(true)">Selecionar todos</button>
+          <button class="btn btn-ghost btn-sm" onclick="selecionarTodosRecibo(false)">Desmarcar todos</button>
+        </div>
+
+        <div class="table-wrap" style="max-height:260px;margin-bottom:14px">
+          <table style="width:100%">
+            <thead><tr><th>Vendedor(a)</th><th style="text-align:right">Valor Calculado</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:var(--text2)">Selecionados: <span id="reciboSelCount">0</span></span>
+            <span style="font-size:13px;font-weight:700;color:var(--orange)">Total: <span id="reciboSelTotal" class="mono">R$ 0,00</span></span>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button class="btn btn-ghost" onclick="closeEmitirReciboModal()">Cancelar</button>
+          <button class="btn" id="btnConfirmarEmitir" onclick="confirmarEmissaoRecibos()" disabled>
+            📄 Emitir Recibo(s)
+          </button>
+        </div>
+        <div class="error-msg" id="emitirReciboError"></div>`;
+
+      document.getElementById('emitirReciboModal').classList.add('open');
+      updateEmitirReciboTotal();
+    }
+
+    function closeEmitirReciboModal() {
+      document.getElementById('emitirReciboModal').classList.remove('open');
+    }
+
+    function selecionarTodosRecibo(sel) {
+      document.querySelectorAll('.recibo-check').forEach(cb => cb.checked = sel);
+      updateEmitirReciboTotal();
+    }
+
+    function updateEmitirReciboTotal() {
+      const data = window._emitirReciboData;
+      if (!data) return;
+      const checked = [...document.querySelectorAll('.recibo-check:checked')].map(cb => cb.value);
+      const vs = data.pData.vendorSummary || {};
+      const total = checked.reduce((s, n) => s + ((vs[n] || {}).grandTotal || 0), 0);
+      const countEl = document.getElementById('reciboSelCount');
+      const totalEl = document.getElementById('reciboSelTotal');
+      const btnEl = document.getElementById('btnConfirmarEmitir');
+      if (countEl) countEl.textContent = checked.length;
+      if (totalEl) totalEl.textContent = `R$ ${fmt(total)}`;
+      if (btnEl) btnEl.disabled = checked.length === 0;
+    }
+
+    async function confirmarEmissaoRecibos() {
+      const data = window._emitirReciboData;
+      if (!data) return;
+      const selecionados = [...document.querySelectorAll('.recibo-check:checked')].map(cb => cb.value);
+      if (selecionados.length === 0) return;
+
+      const btnEl = document.getElementById('btnConfirmarEmitir');
+      const errEl = document.getElementById('emitirReciboError');
+      btnEl.disabled = true;
+      btnEl.textContent = 'Processando...';
+
+      try {
+        for (const vendedor of selecionados) {
+          const vs = data.pData.vendorSummary || {};
+          const vd = vs[vendedor] || {};
+          const calc = vd.grandTotal || 0;
+
+          // Busca créditos pendentes
+          const creditoSnap = await db.collection('creditos')
+            .where('unitId', '==', currentUnitId)
+            .where('vendedor', '==', vendedor)
+            .where('status', '==', 'pendente').get();
+          const creditos = [];
+          creditoSnap.forEach(doc => creditos.push({ id: doc.id, ...doc.data() }));
+          const totalCredito = creditos.reduce((s, c) => s + (c.valor || 0), 0);
+          const aPagar = Math.max(0, calc - totalCredito);
+
+          const reciboNum = await getNextReciboNum();
+
+          // Registra pagamento com status "recibo_emitido"
+          const pagRef = await db.collection('pagamentos').add({
+            unitId: currentUnitId,
+            periodId: data.periodId,
+            periodLabel: data.periodLabel,
+            vendedor,
+            valorCalculado: calc,
+            valorCredito: totalCredito,
+            valorPago: aPagar,
+            dataPagamento: new Date().toLocaleDateString('pt-BR'),
+            obs: 'Recibo emitido',
+            reciboNum,
+            status: 'pago',
+            tipo: 'normal',
+            creditosAplicados: creditos.map(c => ({ id: c.id, valor: c.valor, reciboOrigemNum: c.reciboOrigemNum, periodoOrigem: c.periodoOrigem })),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
+          });
+
+          // Marca créditos como aplicados
+          if (creditos.length > 0) {
+            const batch = db.batch();
+            creditos.forEach(c => batch.update(db.collection('creditos').doc(c.id), {
+              status: 'aplicado',
+              aplicadoEmPagamento: pagRef.id,
+              aplicadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            }));
+            await batch.commit();
+          }
+
+          logAudit('recibo_emitido', `Recibo #${String(reciboNum).padStart(4,'0')} emitido: ${vendedor} · ${data.periodLabel} · R$ ${fmt(aPagar)}`);
+
+          // Imprime
+          window._pagamentoImpressao = { reciboNum, valorPago: aPagar, tipo: 'normal', creditosAplicados: creditos.map(c => ({ id: c.id, valor: c.valor, reciboOrigemNum: c.reciboOrigemNum, periodoOrigem: c.periodoOrigem })) };
+          await executePrintReceipt(vendedor, data.periodId);
+          window._pagamentoImpressao = null;
+
+          // Pequena pausa entre impressões em lote
+          if (selecionados.length > 1) await new Promise(r => setTimeout(r, 800));
+        }
+
+        toast(`${selecionados.length} recibo(s) emitido(s) com sucesso!`, 'success');
+        closeEmitirReciboModal();
+        loadPagamentos();
+      } catch(e) {
+        errEl.textContent = 'Erro: ' + e.message;
+        btnEl.disabled = false;
+        btnEl.textContent = '📄 Emitir Recibo(s)';
+      }
+    }
+
+    async function getNextReciboNum() {
+      const ref = db.collection('contadores').doc('reciboNum');
+      return db.runTransaction(async t => {
+        const doc = await t.get(ref);
+        const next = (doc.exists ? (doc.data().ultimo || 0) : 0) + 1;
+        t.set(ref, { ultimo: next }, { merge: true });
+        return next;
+      });
+    }
+
+    function openRegistrarPagamento(vendedor, periodId, periodLabel) {
+      const pDoc = window.currentPeriodData;
+      const vs = pDoc?.vendorSummary || {};
+      const vd = vs[vendedor] || {};
+      const calc = vd.grandTotal || 0;
+      document.getElementById('pagModalTitle').textContent = '💳 Registrar Pagamento';
+      document.getElementById('pagModalBody').innerHTML = `
+        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2)">
+          <strong>${vendedor}</strong> · ${periodLabel}
+        </div>
+        <div class="form-group">
+          <label>Valor Calculado pelo Sistema</label>
+          <input type="text" value="R$ ${fmt(calc)}" disabled style="opacity:.6;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Valor Efetivamente Pago (R$)</label>
+          <input type="number" id="pagValorPago" value="${calc.toFixed(2)}" step="0.01" min="0"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace">
+        </div>
+        <div class="form-group">
+          <label>Data do Pagamento</label>
+          <input type="date" id="pagData" value="${new Date().toISOString().split('T')[0]}"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+        <div class="form-group">
+          <label>Observação (opcional)</label>
+          <input type="text" id="pagObs" placeholder="ex: PIX realizado"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="closePagModal()">Cancelar</button>
+          <button class="btn" onclick="confirmarPagamento('${vendedor.replace(/'/g,"\\'")}','${periodId}','${periodLabel}',${calc})">💾 Confirmar Pagamento</button>
+        </div>
+        <div class="error-msg" id="pagModalError"></div>`;
+      document.getElementById('pagModal').classList.add('open');
+    }
+
+    async function confirmarPagamento(vendedor, periodId, periodLabel, valorCalc) {
+      const valorPago = parseFloat(document.getElementById('pagValorPago').value) || 0;
+      const dataPagamento = document.getElementById('pagData').value;
+      const obs = document.getElementById('pagObs').value.trim();
+      const errEl = document.getElementById('pagModalError');
+      if (!valorPago || !dataPagamento) { errEl.textContent = 'Preencha valor e data.'; return; }
+
+      try {
+        errEl.textContent = '';
+        const reciboNum = await getNextReciboNum();
+
+        // Busca créditos pendentes para abater
+        const creditoSnap = await db.collection('creditos')
+          .where('unitId', '==', currentUnitId)
+          .where('vendedor', '==', vendedor)
+          .where('status', '==', 'pendente').get();
+        const creditos = [];
+        creditoSnap.forEach(doc => creditos.push({ id: doc.id, ...doc.data() }));
+        const totalCredito = creditos.reduce((s, c) => s + (c.valor || 0), 0);
+
+        // Salva pagamento
+        const pagRef = await db.collection('pagamentos').add({
+          unitId: currentUnitId,
+          periodId,
+          periodLabel,
+          vendedor,
+          valorCalculado: valorCalc,
+          valorCredito: totalCredito,
+          valorPago,
+          dataPagamento,
+          obs,
+          reciboNum,
+          status: 'pago',
+          tipo: 'normal',
+          creditosAplicados: creditos.map(c => ({ id: c.id, valor: c.valor, reciboOrigemNum: c.reciboOrigemNum, periodoOrigem: c.periodoOrigem })),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: currentUser.uid
+        });
+
+        // Marca créditos como aplicados
+        const batch = db.batch();
+        creditos.forEach(c => batch.update(db.collection('creditos').doc(c.id), { status: 'aplicado', aplicadoEmPagamento: pagRef.id, aplicadoEm: firebase.firestore.FieldValue.serverTimestamp() }));
+        if (creditos.length > 0) await batch.commit();
+
+        // Se pagou a mais → gera crédito para próximo período
+        const diff = valorPago - (valorCalc - totalCredito);
+        if (diff > 0.01) {
+          await db.collection('creditos').add({
+            unitId: currentUnitId,
+            vendedor,
+            valor: diff,
+            reciboOrigemNum: reciboNum,
+            periodoOrigem: periodLabel,
+            periodoOrigemId: periodId,
+            pagamentoOrigemId: pagRef.id,
+            status: 'pendente',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          toast(`Pagamento registrado! Crédito de R$ ${fmt(diff)} gerado para ${vendedor}.`, 'success');
+        } else {
+          toast(`Pagamento #${String(reciboNum).padStart(4,'0')} registrado com sucesso!`, 'success');
+        }
+
+        logAudit('pagamento', `Pagamento registrado: ${vendedor} · ${periodLabel} · R$ ${fmt(valorPago)} · Recibo #${String(reciboNum).padStart(4,'0')}`);
+        closePagModal();
+        loadPagamentos();
+
+        // Abre impressão do recibo automaticamente
+        await imprimirReciboPagamento(vendedor, periodId, pagRef.id);
+
+      } catch(e) { document.getElementById('pagModalError').textContent = 'Erro: ' + e.message; }
+    }
+
+    function openComplementar(vendedor, periodId, periodLabel, diff) {
+      const tipo = diff > 0 ? 'complementar' : 'credito';
+      document.getElementById('pagModalTitle').textContent = diff > 0 ? '➕ Pagamento Complementar' : '💰 Registrar Crédito';
+      document.getElementById('pagModalBody').innerHTML = `
+        <div style="background:${diff > 0 ? 'var(--orange-dim)' : 'var(--green-bg)'};border:1px solid ${diff > 0 ? 'var(--orange)' : 'var(--green)'};border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+          <strong>${vendedor}</strong> · ${periodLabel}<br>
+          <span style="color:var(--text2)">Divergência detectada: ${diff > 0 ? `Falta pagar R$ ${fmt(diff)}` : `Valor pago a mais: R$ ${fmt(Math.abs(diff))}`}</span>
+        </div>
+        ${diff > 0 ? `
+        <div class="form-group">
+          <label>Valor do Complemento (R$)</label>
+          <input type="number" id="pagValorPago" value="${Math.abs(diff).toFixed(2)}" step="0.01" min="0"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace">
+        </div>
+        <div class="form-group">
+          <label>Data do Pagamento</label>
+          <input type="date" id="pagData" value="${new Date().toISOString().split('T')[0]}"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px">
+        </div>` : `
+        <p style="font-size:12px;color:var(--text2);margin-bottom:16px">
+          R$ ${fmt(Math.abs(diff))} será registrado como <strong>crédito</strong> para abater no próximo pagamento de <strong>${vendedor}</strong>.
+        </p>`}
+        <div class="form-group">
+          <label>Observação</label>
+          <input type="text" id="pagObs" placeholder="Motivo do ajuste..."
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="closePagModal()">Cancelar</button>
+          <button class="btn" onclick="confirmarComplementar('${vendedor.replace(/'/g,"\\'")}','${periodId}','${periodLabel}',${diff})">${diff > 0 ? '💾 Confirmar Complemento' : '💰 Registrar Crédito'}</button>
+        </div>
+        <div class="error-msg" id="pagModalError"></div>`;
+      document.getElementById('pagModal').classList.add('open');
+    }
+
+    async function confirmarComplementar(vendedor, periodId, periodLabel, diff) {
+      const obs = document.getElementById('pagObs')?.value.trim() || '';
+      const errEl = document.getElementById('pagModalError');
+      try {
+        const reciboNum = await getNextReciboNum();
+        if (diff > 0) {
+          // Complementar — paga a diferença
+          const valorPago = parseFloat(document.getElementById('pagValorPago').value) || 0;
+          const dataPagamento = document.getElementById('pagData').value;
+          await db.collection('pagamentos').add({
+            unitId: currentUnitId, periodId, periodLabel, vendedor,
+            valorCalculado: diff, valorCredito: 0, valorPago,
+            dataPagamento, obs, reciboNum, status: 'pago', tipo: 'complementar',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser.uid
+          });
+          toast(`Complemento #${String(reciboNum).padStart(4,'0')} registrado!`, 'success');
+        } else {
+          // Crédito
+          await db.collection('creditos').add({
+            unitId: currentUnitId, vendedor, valor: Math.abs(diff),
+            reciboOrigemNum: reciboNum, periodoOrigem: periodLabel, periodoOrigemId: periodId,
+            obs, status: 'pendente', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          toast(`Crédito de R$ ${fmt(Math.abs(diff))} registrado para ${vendedor}!`, 'success');
+        }
+        logAudit('pagamento_ajuste', `Ajuste ${diff > 0 ? 'complementar' : 'crédito'}: ${vendedor} · ${periodLabel} · R$ ${fmt(Math.abs(diff))}`);
+        closePagModal();
+        loadPagamentos();
+      } catch(e) { errEl.textContent = 'Erro: ' + e.message; }
+    }
+
+    async function imprimirReciboPagamento(vendorName, periodId, pagamentoId) {
+      try {
+        toast('Gerando recibo...', 'info');
+        const pagDoc = await db.collection('pagamentos').doc(pagamentoId).get();
+        const pagData = pagDoc.exists ? pagDoc.data() : null;
+
+        // Usa o executePrintReceipt existente com dados extras de pagamento injetados
+        window._pagamentoImpressao = pagData;
+        await executePrintReceipt(vendorName, periodId);
+        window._pagamentoImpressao = null;
+      } catch(e) { toast('Erro ao imprimir: ' + e.message, 'error'); }
+    }
+
+    function closePagModal() { document.getElementById('pagModal').classList.remove('open'); }
 
     function openRulesModal() { document.getElementById('rulesModal').classList.add('open'); }
     function closeRulesModal() { document.getElementById('rulesModal').classList.remove('open'); }
