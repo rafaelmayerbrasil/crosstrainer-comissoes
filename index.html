@@ -647,10 +647,16 @@
         grid-template-columns: 1fr 1fr
       }
       .kpi-hero .kh-breakdown {
-        gap: 12px
+        gap: 0
+      }
+      .kpi-hero .kh-part {
+        padding: 0 8px
       }
       .kpi-hero .kh-value {
-        font-size: 26px
+        font-size: 28px
+      }
+      .kpi-hero .kh-sub {
+        font-size: 10px
       }
       .stats-row-fin {
         grid-template-columns: 1fr 1fr
@@ -1313,41 +1319,191 @@
     }
 
     /* ─── RESPONSIVE ─── */
+    /* ─── MOBILE NAV BAR ─── */
+    .mobile-nav {
+      display: none
+    }
+
     @media(max-width:768px) {
+      /* Sidebar sempre escondida no mobile */
       .sidebar {
-        transform: translateX(-240px)
+        transform: translateX(-240px) !important
       }
-
-      .sidebar.open {
-        transform: translateX(0)
-      }
-
-      .main {
-        margin-left: 0 !important
-      }
-
       .menu-toggle {
-        display: flex
+        display: none !important
       }
-
+      .main {
+        margin-left: 0 !important;
+        padding-bottom: 72px /* espaço para a nav bar */
+      }
       .page {
-        padding: 16px
+        padding: 12px 14px
       }
 
-      .vendor-grid {
-        grid-template-columns: 1fr
+      /* Page header mobile: empilha verticalmente, botões menores */
+      .page-hdr {
+        margin-bottom: 12px
+      }
+      .page-hdr h1 {
+        font-size: 20px
+      }
+
+      /* Bottom nav bar */
+      .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        height: 62px;
+        padding: 0 4px;
+        padding-bottom: env(safe-area-inset-bottom)
+      }
+      .mobile-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        cursor: pointer;
+        padding: 8px 4px;
+        border-radius: 8px;
+        transition: background .15s;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+        color: var(--text3)
+      }
+      .mobile-nav-item:active {
+        background: var(--surface2)
+      }
+      .mobile-nav-item.active {
+        color: var(--orange)
+      }
+      .mobile-nav-item .mn-icon {
+        font-size: 20px;
+        line-height: 1
+      }
+
+      /* Dashboard tabs: scroll horizontal */
+      .admin-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+        scrollbar-width: none
+      }
+      .admin-tabs::-webkit-scrollbar { display: none }
+      .tab-btn {
+        font-size: 11px;
+        padding: 8px 10px;
+        white-space: nowrap
+      }
+
+      /* Grids de 4 colunas inline → 2x2 no mobile */
+      .grid-4col {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px
+      }
+      .grid-4col-tight {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        text-align: center
+      }
+
+      @media(max-width:768px) {
+        .grid-4col {
+          grid-template-columns: 1fr 1fr
+        }
+        .grid-4col-tight {
+          grid-template-columns: 1fr 1fr
+        }
+        /* Simulador: compacto no mobile mas visível para vendedora */
+        #simuladorCard .sim-row {
+          flex-direction: column;
+          gap: 8px
+        }
+        /* Tabs do dashboard com fonte menor para caber */
+        .admin-tabs .tab-btn {
+          font-size: 11px;
+          padding: 7px 9px
+        }
+        /* Esconde botões admin-only no mobile */
+        .admin-only-desktop {
+          display: none !important
+        }
       }
 
       .v-parts {
-        grid-template-columns: repeat(3, 1fr)
+        grid-template-columns: repeat(5, 1fr)
       }
-
       .meta-grid {
         grid-template-columns: 1fr
       }
-
       .stats-row {
         grid-template-columns: 1fr 1fr
+      }
+      .oper-grid {
+        grid-template-columns: 1fr 1fr
+      }
+      .tripe-grid {
+        grid-template-columns: 1fr 1fr
+      }
+
+      /* KPI hero: breakdown vira scroll horizontal */
+      .kpi-hero .kh-breakdown {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none
+      }
+      .kpi-hero .kh-part {
+        min-width: 80px;
+        flex-shrink: 0;
+        padding: 0 10px
+      }
+      .kpi-hero .kh-value {
+        font-size: 28px
+      }
+
+      /* Projeção: 3 colunas no mobile */
+      .proj-grid-mobile {
+        grid-template-columns: repeat(3, 1fr) !important
+      }
+
+      /* Vendor page: composição em coluna única */
+      .vendor-comp-grid {
+        grid-template-columns: 1fr !important
+      }
+
+      /* Page header menor */
+      .page-hdr h1 {
+        font-size: 22px
+      }
+
+      /* Period selector mais compacto */
+      .period-sel {
+        flex-wrap: nowrap;
+        overflow-x: auto
+      }
+      .period-sel select {
+        min-width: 120px
+      }
+
+      /* Tabelas: scroll horizontal */
+      .table-wrap {
+        max-height: 260px
+      }
+
+      /* Esconder header do dashboard no mobile (já tem bottom nav) */
+      .page-hdr {
+        margin-bottom: 16px
       }
     }
 
@@ -2563,27 +2719,17 @@
     </div>
   </div>
 
-  <!-- Modal Visão Vendedor (Preview) -->
-  <div id="vendorPreviewModal" class="modal" style="z-index:9999;">
-    <div class="modal-content" style="max-width:900px;padding:0;max-height:92vh;overflow-y:auto;">
-      <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--surface);z-index:2">
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--orange)">👁 Visão Vendedor</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Simulando o painel de: <strong id="vpreviewName" style="color:var(--text)">—</strong> · Período: <strong id="vpreviewPeriod" style="color:var(--text)">—</strong></div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select id="vpreviewVendorSel" onchange="loadVendorPreview()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif"></select>
-          <button class="close-btn" onclick="closeVendorPreviewModal()" style="font-size:24px;color:var(--text2)">&times;</button>
-        </div>
-      </div>
-      <div id="vpreviewContent" style="padding:20px 24px">
-        <div class="loading"><div class="spinner"></div>Selecione uma vendedora acima.</div>
-      </div>
-    </div>
-  </div>
-
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
+
+  <!-- VENDOR PREVIEW BANNER (só visível no modo imersivo) -->
+  <div id="vendorPreviewBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--orange);color:#000;padding:8px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,0.3)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span>👁</span>
+      <span>MODO PREVIEW — você está vendo como <span id="previewBannerName" style="text-decoration:underline"></span> vê o app</span>
+    </div>
+    <button onclick="exitVendorPreviewMode()" style="background:#000;color:var(--orange);border:none;border-radius:4px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✕ Sair do Preview</button>
+  </div>
 
   <!-- MOBILE MENU -->
   <button class="menu-toggle" id="menuToggle"
@@ -2650,7 +2796,7 @@
               <span id="dashUnitButtons" style="margin-left:8px; display:none; gap:6px; vertical-align:middle;"></span>
             </h1>
           </div>
-          <div style="display:flex; gap:8px; align-items:center;">
+          <div style="display:flex; gap:8px; align-items:center;" class="admin-only-desktop">
             <button class="btn btn-outline" id="btnConfigMetasMes"
               style="display:none; padding:6px 12px; font-size:12px; align-items:center; gap:6px;"
               onclick="openMetasMesModal()">
@@ -2896,6 +3042,9 @@
     </div>
   </div>
 
+  <!-- MOBILE BOTTOM NAV (só mobile, preenchida via JS) -->
+  <nav class="mobile-nav" id="mobileNav"></nav>
+
   <div id="printReceiptContainer"></div>
 
   <!-- COMMISSION ENGINE -->
@@ -3110,6 +3259,8 @@
     function showLogin() {
       document.getElementById('loginPage').style.display = '';
       document.getElementById('appShell').style.display = 'none';
+      const nav = document.getElementById('mobileNav');
+      if (nav) nav.style.display = 'none';
     }
 
     function showApp() {
@@ -3118,6 +3269,7 @@
       document.getElementById('userName').textContent = userProfile.name || currentUser.email;
       document.getElementById('userRole').textContent = userProfile.role === 'admin' ? 'Administrador' : 'Vendedor(a)';
       buildSidebar();
+      buildMobileNav();
       initTheme();
       if (userProfile.role === 'admin') {
         navigateTo('dashboard');
@@ -3127,6 +3279,54 @@
         loadVendorPeriods();
       }
       renderQuickUnitSelector();
+    }
+
+    function buildMobileNav() {
+      const nav = document.getElementById('mobileNav');
+      if (!nav) return;
+      const isAdmin = userProfile.role === 'admin';
+
+      if (isAdmin) {
+        // Admin mobile: só Dashboard para acompanhamento
+        nav.innerHTML = `
+          <div class="mobile-nav-item active" id="mnav-dashboard" onclick="mobileNavTo('dashboard')">
+            <span class="mn-icon">📊</span>Dashboard
+          </div>
+          <div class="mobile-nav-item" id="mnav-help" onclick="openHelpModal()">
+            <span class="mn-icon">❓</span>Ajuda
+          </div>`;
+      } else {
+        // Vendedora mobile: acesso completo ao painel
+        nav.innerHTML = `
+          <div class="mobile-nav-item active" id="mnav-meu-painel" onclick="mobileNavTo('meu-painel')">
+            <span class="mn-icon">📊</span>Painel
+          </div>
+          <div class="mobile-nav-item" id="mnav-comparativo" onclick="mobileNavTo('comparativo')">
+            <span class="mn-icon">📈</span>Histórico
+          </div>
+          <div class="mobile-nav-item" id="mnav-rules" onclick="openRulesModal()">
+            <span class="mn-icon">📖</span>Regras
+          </div>
+          <div class="mobile-nav-item" id="mnav-help" onclick="openHelpModal()">
+            <span class="mn-icon">❓</span>Ajuda
+          </div>`;
+      }
+    }
+
+    function mobileNavTo(page) {
+      const isMobile = window.innerWidth <= 768;
+      const isAdmin = userProfile?.role === 'admin';
+
+      // Admin mobile: só pode acessar dashboard
+      if (isMobile && isAdmin && page !== 'dashboard') {
+        toast('Gestão disponível apenas no computador.', 'info');
+        return;
+      }
+
+      document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+      const activeBtn = document.getElementById('mnav-' + page);
+      if (activeBtn) activeBtn.classList.add('active');
+      navigateTo(page);
     }
 
     async function renderQuickUnitSelector() {
@@ -3217,7 +3417,9 @@
         html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
         html += '<div class="sb-section">Ferramentas</div>';
-        html += `<div class="sb-item" onclick="openVendorPreviewModal()"><span class="icon">👁</span>Visão Vendedor</div>`;
+        if (isOwner(currentUser?.email)) {
+          html += `<div class="sb-item" onclick="openVendorPreviewSelect()"><span class="icon">👁</span>Visão Vendedor</div>`;
+        }
       } else {
         html += '<div class="sb-section">Meu Espaço</div>';
         html += sbItem('meu-painel', '📊', 'Meu Painel');
@@ -3234,7 +3436,30 @@
       return `<div class="sb-item ${currentPage === page ? 'active' : ''}" onclick="navigateTo('${page}')"><span class="icon">${icon}</span>${label}</div>`;
     }
 
+    // Páginas permitidas por perfil
+    const VENDOR_PAGES = ['meu-painel', 'comparativo'];
+    const ADMIN_PAGES  = ['dashboard','comparativo','upload','users','units','audit','settings'];
+    const ADMIN_MOBILE_PAGES = ['dashboard']; // admin mobile: só dashboard
+
     function navigateTo(page) {
+      // Guard: admin mobile só pode ver dashboard
+      const isMobile = window.innerWidth <= 768;
+      if (userProfile && userProfile.role === 'admin' && isMobile && !userProfile._previewMode) {
+        if (!ADMIN_MOBILE_PAGES.includes(page)) {
+          page = 'dashboard';
+        }
+      }
+
+      // Guard: vendedora só pode acessar seu painel
+      if (userProfile && userProfile.role !== 'admin' && !userProfile._previewMode) {
+        if (!VENDOR_PAGES.includes(page)) {
+          console.warn(`[ACL] Acesso negado a "${page}" para perfil vendedor.`);
+          page = 'meu-painel';
+        }
+      }
+        }
+      }
+
       currentPage = page;
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const el = document.getElementById('page-' + page);
@@ -3242,6 +3467,11 @@
       document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
       document.querySelectorAll('.sb-item').forEach(i => { if (i.onclick?.toString().includes(page)) i.classList.add('active'); });
       document.querySelector('.sidebar')?.classList.remove('open');
+
+      // Sync bottom nav active state
+      document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+      const mnavBtn = document.getElementById('mnav-' + page);
+      if (mnavBtn) mnavBtn.classList.add('active');
 
       // Init page
       if (page === 'dashboard') loadPeriods();
@@ -4965,7 +5195,7 @@
             </div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px" class="proj-grid-mobile">
           <div style="background:var(--bg);border-radius:6px;padding:10px 8px;text-align:center">
             <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px">Ativações</div>
             <div class="mono" style="font-size:20px;font-weight:700;color:${tierColor}">${proj.projAtiv}</div>
@@ -5623,9 +5853,15 @@
       const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
       const myRank = ranked.findIndex(([n]) => n === myName) + 1;
 
-      window.currentVendorSummary = vs; // store robustly for simulator
-      window.currentUnitTotals = t; // store robustly for simulator
-      window.currentVendorMyName = myName; // store for simulator
+      // Store para o simulador — vendedoras só têm acesso aos próprios dados
+      if (userProfile.role === 'admin' || userProfile._previewMode) {
+        window.currentVendorSummary = vs;
+      } else {
+        // Vendedora só vê os próprios dados no window (sem nomes das colegas)
+        window.currentVendorSummary = { [myName]: myData };
+      }
+      window.currentUnitTotals = t;
+      window.currentVendorMyName = myName;
 
       let html = '';
 
@@ -5676,7 +5912,7 @@
       const p3TierLabel = p3Detail.tierLabel || (myData.p3 > 0 ? 'Meta' : 'Não atingida');
       const p3Motivos = p3Detail.motivos || [];
 
-      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px" class="vendor-comp-grid">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:14px">Composição da Comissão</div>
 
@@ -5730,7 +5966,7 @@
       // ── Minhas vendas ──
       html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px">
         <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Minhas Vendas</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+        <div class="grid-4col-tight">
           <div><div style="font-size:20px;font-weight:700;color:var(--green);font-family:'JetBrains Mono',monospace">${Math.round(myData.novos)}</div><div style="font-size:10px;color:var(--text2)">Novos</div></div>
           <div><div style="font-size:20px;font-weight:700;color:var(--blue);font-family:'JetBrains Mono',monospace">${Math.round(myData.renovacoes)}</div><div style="font-size:10px;color:var(--text2)">Renovações</div></div>
           <div><div style="font-size:20px;font-weight:700;color:var(--orange);font-family:'JetBrains Mono',monospace">${Math.round(myData.retornos)}</div><div style="font-size:10px;color:var(--text2)">Retornos</div></div>
@@ -5741,13 +5977,13 @@
       // ── Simulador "E se..." ──
       html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px" id="simuladorCard">
         <div style="font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">🧮 Simulador "E se..."</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <div class="sim-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
           <span style="font-size:13px;color:var(--text2)">Se eu fechar mais</span>
           <input id="simQt" type="number" min="0" max="50" value="5" 
             style="width:60px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:14px;font-weight:700;padding:6px 10px;text-align:center"
             oninput="updateSimulatorUI()">
           <select id="simTipo"
-            style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px;flex:1"
+            style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:13px;padding:6px 10px;flex:1;min-width:0"
             onchange="updateSimulatorUI()">
             <option value="ANUAL_LOCAL">Anual Local (R$3.108)</option>
             <option value="ANUAL_FLEX">Anual Flex (R$3.348)</option>
@@ -6787,7 +7023,7 @@
       const renovAutoCaixa = renovAuto.reduce((s, r) => s + (r.valorCaixa || 0), 0);
 
       // Summary cards
-      let html = `<div id="exclSummaryCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      let html = `<div id="exclSummaryCards" class="grid-4col" style="margin-bottom:20px">
         <div style="background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:16px;text-align:center">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ GymPass/Wellhub</div>
           <div class="mono" style="font-size:18px;font-weight:700">${gympass.length} vendas</div>
@@ -7346,7 +7582,7 @@
       const poolTier = p4.poolTier ? (p4.poolTier === 'super' ? '🔥 Super' : '🏅 Meta') : '❌ Não atingida';
       const poolValor = p4.pool || 0;
 
-      html += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      html += `<div class="grid-4col" style="margin-bottom:20px">
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Vouchers Emitidos</div>
           <div class="mono" style="font-size:22px;font-weight:700;color:var(--yellow)">${vouchersTotal}</div>
@@ -7966,175 +8202,112 @@
     function closeAboutModal() { document.getElementById('aboutModal').classList.remove('open'); }
 
     // ═══════════════════════════════════════════════════════════════
-    // VISÃO VENDEDOR (ADMIN PREVIEW)
+    // VISÃO VENDEDOR — MODO IMERSIVO (só DESENVOLVEDOR)
     // ═══════════════════════════════════════════════════════════════
-    async function openVendorPreviewModal() {
-      if (!currentPeriodId) {
+    let _vendorPreviewActive = false;
+    let _vendorPreviewOriginalProfile = null;
+
+    async function openVendorPreviewSelect() {
+      if (!isOwner(currentUser?.email)) return;
+      if (!currentPeriodId && !window.currentVendorPeriodId) {
         toast('Selecione um período no Dashboard primeiro.', 'info');
         return;
       }
-      const modal = document.getElementById('vendorPreviewModal');
-      modal.classList.add('open');
 
-      // Populate vendor selector from current period's vendor summary
+      // Build vendor list from the current period's summary
       const data = window.currentPeriodData;
       const vs = data?.vendorSummary || {};
-      const sel = document.getElementById('vpreviewVendorSel');
       const vendors = Object.keys(vs).filter(n => !vs[n].isNaoCom).sort();
 
       if (vendors.length === 0) {
-        document.getElementById('vpreviewContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Nenhuma vendedora comissionável neste período.</div>';
+        toast('Nenhuma vendedora comissionável encontrada. Selecione um período no Dashboard.', 'info');
         return;
       }
 
-      sel.innerHTML = vendors.map(n => `<option value="${n}">${n.split(' ')[0]}</option>`).join('');
-      sel.value = vendors[0];
-      await loadVendorPreview();
+      // Show a small picker dialog
+      const sel = document.createElement('div');
+      sel.id = 'vendorPickerOverlay';
+      sel.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center';
+      sel.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:320px;max-width:400px">
+          <div style="font-size:14px;font-weight:700;color:var(--orange);margin-bottom:4px">👁 Visão Vendedor</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:16px">Selecione a vendedora para simular o painel dela completo.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+            ${vendors.map(name => {
+              const vd = vs[name] || {};
+              return `<button onclick="enterVendorPreviewMode('${name.replace(/'/g,"\\'")}');document.getElementById('vendorPickerOverlay').remove()"
+                style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;cursor:pointer;width:100%;text-align:left;transition:border-color .15s"
+                onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+                <span style="font-size:13px;font-weight:600;color:var(--text)">${name}</span>
+                <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--orange-light)">R$ ${fmt(vd.grandTotal || 0)}</span>
+              </button>`;
+            }).join('')}
+          </div>
+          <button onclick="document.getElementById('vendorPickerOverlay').remove()" class="btn btn-ghost btn-sm" style="width:100%">Cancelar</button>
+        </div>`;
+      document.body.appendChild(sel);
     }
 
-    async function loadVendorPreview() {
-      const vendorName = document.getElementById('vpreviewVendorSel').value;
-      if (!vendorName || !currentPeriodId) return;
+    async function enterVendorPreviewMode(vendorName) {
+      if (!isOwner(currentUser?.email)) return;
 
-      document.getElementById('vpreviewName').textContent = vendorName;
-      const selPeriod = document.getElementById('periodSelect');
-      document.getElementById('vpreviewPeriod').textContent = selPeriod?.options[selPeriod.selectedIndex]?.text || currentPeriodId;
+      // Save original profile
+      _vendorPreviewOriginalProfile = { ...userProfile };
+      _vendorPreviewActive = true;
 
-      const content = document.getElementById('vpreviewContent');
-      content.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      // Temporarily impersonate the vendor
+      userProfile = {
+        ...(userProfile),
+        name: vendorName,
+        role: 'vendedor',
+        _previewMode: true
+      };
 
-      try {
-        const data = window.currentPeriodData;
-        const vs = data?.vendorSummary || {};
-        const myData = vs[vendorName];
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
-        const t = data?.totals || {};
+      // Show banner
+      const banner = document.getElementById('vendorPreviewBanner');
+      document.getElementById('previewBannerName').textContent = vendorName;
+      banner.style.display = 'flex';
 
-        if (!myData) {
-          content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Dados não encontrados para esta vendedora.</div>';
-          return;
-        }
+      // Push main content down to make room for banner
+      document.getElementById('mainContent').style.paddingTop = '40px';
+      document.getElementById('sidebar').style.paddingTop = '40px';
 
-        // Fetch vendor items
-        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens')
-          .where('vendedor', '==', vendorName).get();
-        const items = [];
-        snap.forEach(doc => items.push(doc.data()));
-        items.sort((a, b) => {
-          const pA = (a.data || '').split('/'), pB = (b.data || '').split('/');
-          const dA = pA.length === 3 ? new Date(pA[2], pA[1]-1, pA[0]) : 0;
-          const dB = pB.length === 3 ? new Date(pB[2], pB[1]-1, pB[0]) : 0;
-          return dB - dA;
-        });
+      // Rebuild sidebar as vendor
+      buildSidebar();
+      buildMobileNav();
 
-        const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
-        const myRank = ranked.findIndex(([n]) => n === vendorName) + 1;
-        const p4 = data?.p4result || {};
-        const myVouchers = (p4.currentVouchers || []).filter(v => (v.vendedor || '').toUpperCase() === vendorName.toUpperCase());
-        const processedItems = items.filter(r => r.type !== 'excluded');
-        const pillCls = c => ({ novo:'pill-novo', renovacao:'pill-renovacao', retorno:'pill-retorno', voucher:'pill-voucher', avulsa:'pill-avulsa', upgrade:'pill-upgrade' }[c] || 'pill-outro');
+      // Navigate to vendor panel
+      navigateTo('meu-painel');
+      loadVendorPeriods();
 
-        // Build vendor view HTML (mirrors what a vendedor sees)
-        let html = `
-          <!-- Banner de modo preview -->
-          <div style="background:rgba(232,146,13,0.1);border:1px solid var(--orange);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--orange)">
-            👁 <strong>Modo Preview:</strong> você está vendo o app como <strong>${vendorName}</strong> veria. Nenhuma ação afeta dados reais.
-          </div>
+      toast(`👁 Entrando como ${vendorName.split(' ')[0]}...`, 'info');
+    }
 
-          <!-- Stats -->
-          <div class="stats-row" style="margin-bottom:16px">
-            <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
-            <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes || 0)}</div></div>
-            <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa || 0)}</div></div>
-            <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank}º</div><div class="s-sub">de ${ranked.length}</div></div>
-          </div>
+    function exitVendorPreviewMode() {
+      if (!_vendorPreviewOriginalProfile) return;
 
-          <!-- P breakdown -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P1 % Caixa</div>
-              <div class="mono" style="font-size:16px;font-weight:700;color:var(--green)">R$ ${fmt(myData.p1 || 0)}</div>
-            </div>
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P2 Fixo</div>
-              <div class="mono" style="font-size:16px;font-weight:700;color:var(--blue)">R$ ${fmt(myData.p2 || 0)}</div>
-            </div>
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P3 Meta</div>
-              <div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div>
-              <div style="font-size:9px;color:var(--text3);margin-top:2px">${myData.p3Tier || '—'}</div>
-            </div>
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P4 Voucher</div>
-              <div class="mono" style="font-size:16px;font-weight:700;color:var(--yellow)">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div>
-            </div>
-          </div>
+      _vendorPreviewActive = false;
+      userProfile = _vendorPreviewOriginalProfile;
+      _vendorPreviewOriginalProfile = null;
 
-          <!-- Meta unidade -->
-          <div class="meta-panel" style="margin-bottom:16px">
-            <h3>🎯 Metas da Unidade</h3>
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-              <div style="font-size:13px;color:var(--text2)">
-                ${t.unitAtivacoes} ativações · Meta: ${cfg.meta} · Super: ${cfg.superMeta} · Gold: ${cfg.metaGold}
-              </div>
-              <div class="mono" style="font-size:20px;font-weight:700;color:${t.unitAtivacoes >= cfg.metaGold ? 'var(--orange-light)' : t.unitAtivacoes >= cfg.meta ? 'var(--green)' : 'var(--text)'}">
-                ${t.unitAtivacoes >= cfg.metaGold ? '👑 Meta Gold' : t.unitAtivacoes >= cfg.superMeta ? '🔥 Super Meta' : t.unitAtivacoes >= cfg.meta ? '🏅 Meta' : '⏳ Em andamento'}
-              </div>
-            </div>
-            <div class="meta-bar" style="margin-top:10px">
-              <div class="meta-bar-fill" style="width:${Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105)}%;background:${t.unitAtivacoes >= cfg.metaGold ? 'var(--orange-light)' : t.unitAtivacoes >= cfg.meta ? 'var(--green)' : 'var(--orange)'}"></div>
-              <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
-              <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
-              <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div>
-            </div>
-          </div>
+      // Hide banner and reset padding
+      document.getElementById('vendorPreviewBanner').style.display = 'none';
+      document.getElementById('mainContent').style.paddingTop = '';
+      document.getElementById('sidebar').style.paddingTop = '';
 
-          <!-- Projeção -->
-          ${renderProjectionCard(calcProjection(data), cfg)}
+      // Rebuild sidebar as admin
+      buildSidebar();
+      buildMobileNav();
 
-          <!-- Lançamentos -->
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px">Meus Lançamentos (${processedItems.length})</div>
-          <div class="table-wrap" style="max-height:300px;margin-bottom:16px">
-            <table style="width:100%">
-              <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">%</th><th style="text-align:right">P1</th></tr></thead>
-              <tbody>
-                ${processedItems.map(r => `<tr>
-                  <td style="color:var(--text3)">${r.data || ''}</td>
-                  <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
-                  <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item || ''}</td>
-                  <td><span class="pill ${pillCls(r.category)}">${r.label || r.category || ''}</span></td>
-                  <td class="currency" style="color:var(--orange-light)">R$ ${fmt(r.valorCaixa || 0)}</td>
-                  <td style="text-align:right;color:var(--text3)">${((r.p1pct || 0)*100).toFixed(1)}%</td>
-                  <td class="currency" style="color:var(--green);font-weight:700">R$ ${fmt(r.p1valor || 0)}</td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
+      // Go back to dashboard
+      navigateTo('dashboard');
+      loadPeriods();
 
-          <!-- Vouchers -->
-          ${myVouchers.length > 0 ? `
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px">Meus Vouchers (${myVouchers.length})</div>
-          <div class="table-wrap" style="max-height:160px">
-            <table style="width:100%">
-              <thead><tr><th>Data</th><th>Cliente</th><th>Código</th><th style="text-align:center">Status</th></tr></thead>
-              <tbody>${myVouchers.map(v => `<tr>
-                <td style="color:var(--text3)">${v.data || '—'}</td>
-                <td>${v.cliente || ''}</td>
-                <td class="mono" style="font-size:10px;color:var(--text3)">${v.codigo || ''}</td>
-                <td style="text-align:center"><span class="pill ${v.status === 'CONVERTIDO' ? 'pill-novo' : 'pill-voucher'}">${v.status || 'PENDENTE'}</span></td>
-              </tr>`).join('')}</tbody>
-            </table>
-          </div>` : ''}
-        `;
-
-        content.innerHTML = html;
-      } catch (e) {
-        content.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`;
-      }
+      toast('Saindo do modo preview — voltando ao painel admin.', 'info');
     }
 
     function closeVendorPreviewModal() {
-      document.getElementById('vendorPreviewModal').classList.remove('open');
+      document.getElementById('vendorPreviewModal')?.classList.remove('open');
     }
 
     async function exportPeriodToExcel() {
