@@ -2923,6 +2923,14 @@
     // ═══════════════════════════════════════════════════════════════
     let currentUser = null;
     let userProfile = null;
+
+    // ─── DONO DO SISTEMA ───────────────────────────────────────────
+    // Este e-mail nunca pode ser removido por ninguém, incluindo admins.
+    const OWNER_EMAIL = 'abluir@gmail.com';
+    const isOwner = (emailOrUser) => {
+      const e = typeof emailOrUser === 'string' ? emailOrUser : (emailOrUser?.email || '');
+      return e.toLowerCase() === OWNER_EMAIL.toLowerCase();
+    };
     let unitConfig = {};
     let currentPage = 'dashboard';
     let currentUnitId = 'cp'; // default, overridden by user profile
@@ -2960,15 +2968,15 @@
           if (doc.exists) {
             userProfile = doc.data();
             const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : ['cp']);
-            // If currentUnitId is not in the allowed list, default to the first one
             if (!allowed.includes(currentUnitId)) {
               currentUnitId = allowed[0];
             }
             await loadUnitConfig();
             showApp();
           } else {
-            toast('Usuário não encontrado no sistema.', 'error');
-            auth.signOut();
+            // Auth account exists but no Firestore profile — show recovery form
+            auth.signOut(); // sign out first so onAuthStateChanged won't loop
+            showProfileRecovery(user.email);
           }
         } catch (e) {
           toast('Erro ao carregar perfil: ' + e.message, 'error');
@@ -2979,6 +2987,87 @@
         showLogin();
       }
     });
+
+    function showProfileRecovery(email) {
+      document.getElementById('loginPage').style.display = '';
+      document.getElementById('appShell').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('loginError').textContent = '';
+
+      const recoveryHtml = `
+        <div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:16px;margin-bottom:16px;text-align:left">
+          <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠ Perfil não encontrado</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.6">
+            O login de <strong>${email}</strong> existe, mas o perfil foi removido do sistema.<br>
+            Preencha abaixo para recriar seu acesso.
+          </div>
+        </div>
+        <div class="input-group"><label>Seu Nome</label><input id="recoveryName" placeholder="Nome completo" value="Rafael Mayer Brasil"></div>
+        <div class="input-group"><label>Email</label><input type="email" id="recoveryEmail" value="${email}" disabled style="opacity:.6"></div>
+        <div class="input-group"><label>Senha atual</label><input type="password" id="recoveryPass" placeholder="Sua senha de login"></div>
+        <div class="input-group">
+          <label>Perfil</label>
+          <select id="recoveryRole">
+            <option value="admin" selected>Administrador</option>
+            <option value="vendedor">Vendedor(a)</option>
+          </select>
+        </div>
+        <button class="btn" onclick="doProfileRecovery('${email}')">✅ Recriar Perfil e Entrar</button>
+        <div class="error-msg" id="recoveryError"></div>
+        <div class="link-btn" onclick="document.getElementById('loginForm').style.display='';document.getElementById('recoveryForm').style.display='none'">← Voltar ao login</div>
+      `;
+
+      let recDiv = document.getElementById('recoveryForm');
+      if (!recDiv) {
+        recDiv = document.createElement('div');
+        recDiv.id = 'recoveryForm';
+        document.getElementById('loginBox') ? document.getElementById('loginBox').appendChild(recDiv) : document.querySelector('.login-box').appendChild(recDiv);
+      }
+      recDiv.innerHTML = recoveryHtml;
+      recDiv.style.display = '';
+    }
+
+    async function doProfileRecovery(email) {
+      const name = document.getElementById('recoveryName').value.trim();
+      const pass = document.getElementById('recoveryPass').value;
+      const role = document.getElementById('recoveryRole').value;
+      const errEl = document.getElementById('recoveryError');
+      errEl.textContent = '';
+
+      if (!name || !pass) { errEl.textContent = 'Preencha nome e senha.'; return; }
+
+      try {
+        // Re-authenticate
+        const cred = await auth.signInWithEmailAndPassword(email, pass);
+        const uid = cred.user.uid;
+
+        // Fetch existing units to assign access
+        const unitsSnap = await db.collection('units').get();
+        const allUnitIds = [];
+        unitsSnap.forEach(d => allUnitIds.push(d.id));
+
+        // Create Firestore profile
+        await db.collection('users').doc(uid).set({
+          name,
+          email,
+          role,
+          allowedUnits: allUnitIds,
+          unitId: allUnitIds[0] || 'cp',
+          status: 'ativo',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        toast(`Perfil de ${name} recriado com sucesso!`, 'success');
+        // onAuthStateChanged will trigger and call showApp()
+      } catch (e) {
+        const msgs = {
+          'auth/wrong-password': 'Senha incorreta.',
+          'auth/invalid-email': 'Email inválido.',
+          'auth/user-not-found': 'Usuário não encontrado no Auth.',
+        };
+        errEl.textContent = msgs[e.code] || e.message;
+      }
+    }
 
     async function doLogin() {
       const email = document.getElementById('loginEmail').value.trim();
@@ -3306,13 +3395,14 @@
           const isNaoCom = !isPendente && naoComList.some(n => (u.name || '').toUpperCase().includes(n));
           const roleClass = isPendente ? 'role-pendente' : u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
           const roleLabel = isPendente ? 'Pendente' : u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
+          const isUserOwner = isOwner(u.email || '');
           return `<div class="user-row">
-          <div class="ur-info"><div class="ur-avatar">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}</div><div class="ur-email">${isPendente ? 'Cadastrado repassado do Excel' : u.email}</div></div></div>
+          <div class="ur-info"><div class="ur-avatar" style="${isUserOwner ? 'background:var(--orange-glow);color:var(--orange);border:1px solid var(--orange)' : ''}">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}${isUserOwner ? ' <span style="font-size:9px;background:var(--orange-glow);color:var(--orange);padding:1px 6px;border-radius:3px;font-weight:700;letter-spacing:.5px;vertical-align:middle">DESENVOLVEDOR</span>' : ''}</div><div class="ur-email">${isPendente ? 'Cadastrado repassado do Excel' : u.email}</div></div></div>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="ur-role ${roleClass}">${roleLabel}</span>
             ${isPendente ? `<button class="btn btn-sm" style="background:var(--yellow);color:#000" onclick="activateUser('${u.id}','${u.name}')">Configurar acesso</button>` : ''}
             ${!isPendente ? `<button class="btn btn-ghost btn-sm" onclick="showEditUser('${u.id}')">✏️ Editar</button>` : ''}
-            ${u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${isPendente ? (u.name || u.id) : u.email}')">Remover</button>` : ''}
+            ${!isUserOwner && u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${isPendente ? (u.name || u.id) : u.email}')">Remover</button>` : ''}
           </div>
         </div>`;
         }).join('');
@@ -3502,10 +3592,19 @@
     }
 
     async function deleteUser(uid, label) {
-      if (!confirm(`Remover ${label}?\n\nAtenção: o acesso de login do usuário no Firebase Auth NÃO é removido automaticamente. Se precisar reutilizar o mesmo e-mail, use "Reativar conta" ao invés de criar do zero.`)) return;
+      // Busca o email do usuário para verificar se é o dono
+      try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists && isOwner(userDoc.data().email)) {
+          toast('Este usuário é o dono do sistema e não pode ser removido.', 'error');
+          return;
+        }
+      } catch (e) { /* segue */ }
+
+      if (!confirm(`Remover ${label}?\n\nAtenção: o acesso de login no Firebase Auth NÃO é removido automaticamente. Se precisar reutilizar o mesmo e-mail, use a recuperação de perfil no login.`)) return;
       try {
         await db.collection('users').doc(uid).delete();
-        toast('Usuário removido do sistema. Para liberar o e-mail, use "Reativar" ou entre em contato com o suporte.', 'info');
+        toast('Usuário removido do sistema.', 'info');
         loadUsers();
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
