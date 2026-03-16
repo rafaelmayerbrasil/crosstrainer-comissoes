@@ -2497,43 +2497,55 @@
               <span style="font-size:16px;">💳</span>
               <div>
                 <div style="font-size:13px; font-weight:700; color:var(--orange);">Pagamentos — Controle de Recibos</div>
-                <div style="font-size:10px; color:var(--text3); margin-top:1px;">Funcionalidade nova</div>
+                <div style="font-size:10px; color:var(--text3); margin-top:1px;">Emissão → Confirmação → Créditos automáticos</div>
               </div>
             </div>
+
             <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:12px;">
-              Acesse pelo menu lateral <strong>💳 Pagamentos</strong>. Aqui você gerencia todos os recibos emitidos, pagamentos registrados e créditos por ajuste. O fluxo padrão é:
+              Acesse pelo menu lateral <strong>💳 Pagamentos</strong>. O fluxo tem <strong>duas etapas separadas</strong>: primeiro emite o recibo (para a vendedora assinar), depois confirma o pagamento quando efetivamente transferir.
             </div>
-            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+
+            <!-- Fluxo passo a passo -->
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
               <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
                 <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">1</div>
-                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Selecione o período</strong> no topo da página. Os cards de resumo mostram: Total Calculado, Total Pago, Pendentes e Divergências.</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Selecione o período</strong>. Os cards mostram: Total Calculado, Total Pago, Pendentes e Divergências.</div>
               </div>
               <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
                 <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">2</div>
-                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Clique em "📄 Emitir Recibo"</strong> no canto superior direito. Um modal abre com todas as vendedoras <em>pendentes</em> do período — as já pagas não aparecem.</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Clique em "📄 Emitir Recibo"</strong>. Selecione as vendedoras (individual ou em lote). O sistema gera o número sequencial, salva o recibo como <em>aguardando pagamento</em> e abre a impressão.</div>
               </div>
               <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
                 <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">3</div>
-                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Selecione individual ou em lote</strong> com os checkboxes. O total selecionado é calculado em tempo real.</div>
-              </div>
-              <div style="display:flex; align-items:flex-start; gap:10px; padding:10px; background:var(--bg); border-radius:6px;">
-                <div style="background:var(--orange);color:#000;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px">4</div>
-                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Clique em "📄 Emitir Recibo(s)"</strong>. Para cada vendedora selecionada: gera número sequencial global, abate créditos pendentes automaticamente e abre a impressão.</div>
+                <div style="font-size:11px; color:var(--text2); line-height:1.6;"><strong>Após realizar o pagamento</strong>, volte à página e clique em <strong>"✅ Confirmar Pgto"</strong>. Informe a data e uma observação — o sistema aplica os créditos e fecha o recibo como pago.</div>
               </div>
             </div>
-            <div style="font-size:12px; color:var(--text2); line-height:1.7; margin-bottom:8px;"><strong>Status possíveis na tabela:</strong></div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px;">
-              <div style="padding:8px 10px; background:var(--yellow-bg); border-radius:6px; font-size:11px; color:var(--text2);">⏳ <strong>Pendente</strong> — ainda não foi emitido recibo. Botão "📄 Emitir Recibo".</div>
-              <div style="padding:8px 10px; background:var(--green-bg); border-radius:6px; font-size:11px; color:var(--text2);">✅ <strong>Pago</strong> — recibo emitido e registrado. Botão "🖨️ Reimprimir".</div>
-              <div style="padding:8px 10px; background:var(--red-bg); border-radius:6px; font-size:11px; color:var(--text2);">🔴 <strong>Divergência</strong> — base foi alterada após o pagamento. O sistema mostra a diferença.</div>
-              <div style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; font-size:11px; color:var(--text2);">🔵 <strong>Crédito</strong> — valor pago a mais vira crédito automático para abater no próximo mês.</div>
+
+            <!-- Status -->
+            <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px;">Status possíveis</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:14px;">
+              <div style="padding:8px 10px; background:var(--yellow-bg); border-radius:6px; font-size:11px; color:var(--text2);">⏳ <strong>Pendente</strong> — nenhum recibo emitido ainda.</div>
+              <div style="padding:8px 10px; background:var(--blue-bg); border-radius:6px; font-size:11px; color:var(--text2);">📄 <strong>Recibo Emitido</strong> — aguardando confirmação do pagamento.</div>
+              <div style="padding:8px 10px; background:var(--green-bg); border-radius:6px; font-size:11px; color:var(--text2);">✅ <strong>Pago</strong> — pagamento confirmado. Botão "🖨️ Reimprimir".</div>
+              <div style="padding:8px 10px; background:var(--surface2); border-radius:6px; font-size:11px; color:var(--text2);">🚫 <strong>Cancelado</strong> — recibo anulado. Pode emitir um novo.</div>
+              <div style="padding:8px 10px; background:#fff3cd; border-radius:6px; font-size:11px; color:#856404;">⚠️ <strong>Divergência (pré-pgto)</strong> — base mudou após emitir, antes de pagar. Cancele e reemita.</div>
+              <div style="padding:8px 10px; background:var(--red-bg); border-radius:6px; font-size:11px; color:var(--text2);">🔴 <strong>Divergência (pós-pgto)</strong> — base mudou depois de pago → Complementar ou Crédito.</div>
             </div>
+
+            <!-- Cancelamento -->
+            <div style="background:var(--bg); border-left:3px solid var(--yellow); border-radius:0 6px 6px 0; padding:10px 12px; margin-bottom:10px; font-size:11px; color:var(--text2); line-height:1.6;">
+              <strong>❌ Cancelar Recibo:</strong> se o recibo foi emitido mas ainda não pago, você pode cancelá-lo a qualquer momento. O número fica marcado como cancelado no histórico. Após cancelar, o botão "📄 Novo Recibo" reaparece com o valor atualizado.
+            </div>
+
+            <!-- Divergência pré-pagamento -->
+            <div style="background:var(--bg); border-left:3px solid #ffc107; border-radius:0 6px 6px 0; padding:10px 12px; margin-bottom:10px; font-size:11px; color:var(--text2); line-height:1.6;">
+              <strong>⚠️ Divergência pré-pagamento:</strong> se a base for recalculada depois da emissão do recibo e antes de confirmar o pagamento, o sistema detecta automaticamente e mostra o valor do recibo vs. o valor atual. Nesse caso o botão "✅ Confirmar" some — você só pode <strong>cancelar e reemitir</strong> com o valor correto.
+            </div>
+
+            <!-- Créditos -->
             <div style="font-size:12px; color:var(--text2); line-height:1.7;">
-              <strong>Divergência detectada:</strong> se após emitir o recibo a base for recalculada e o valor mudar, aparece o botão <strong>"➕ Complementar"</strong> (falta pagar) ou <strong>"💰 Registrar Crédito"</strong> (foi pago a mais). O recibo complementar tem um banner identificando que é complementar e destaca o valor adicional.
-              <br><br>
-              <strong>Créditos na visão da vendedora:</strong> quando há crédito pendente, um banner verde aparece no topo do painel dela com o valor, número do recibo de origem e período — ela sabe exatamente o que será abatido.
-              <br><br>
-              💡 <strong>Pré-requisito para o recibo:</strong> acesse <em>Unidades</em> e preencha CNPJ, Razão Social e Endereço. Em <em>Usuários</em>, preencha CPF e Chave PIX de cada vendedora.
+              <strong>Créditos automáticos:</strong> os créditos de períodos anteriores são abatidos automaticamente no recibo. Se ao confirmar o pagamento o valor calculado for menor que o do recibo (base reduziu após emissão), a diferença vira crédito para o próximo mês. A vendedora vê esse crédito no próprio painel com referência ao recibo de origem.<br><br>
+              💡 <strong>Pré-requisito:</strong> em <em>Unidades</em> preencha CNPJ, Razão Social e Endereço. Em <em>Usuários</em> preencha CPF e Chave PIX de cada vendedora.
             </div>
           </div>
 
@@ -9114,10 +9126,51 @@
           let status, statusHtml, acoes;
 
           if (!ultimoPag) {
+            // Nunca teve recibo
             status = 'pendente';
             statusHtml = `<span style="background:var(--yellow-bg);color:var(--yellow);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">⏳ PENDENTE</span>`;
             acoes = `<button class="btn btn-sm" onclick="openEmitirReciboModal('${name.replace(/'/g,"\\'")}')">📄 Emitir Recibo</button>`;
+
+          } else if (ultimoPag.status === 'recibo_emitido') {
+            // Recibo emitido, aguardando confirmação de pagamento
+            const valorRecibo = ultimoPag.valorPago || 0;
+            const valorAtual = aPagar;
+            const diverge = Math.abs(valorAtual - valorRecibo) > 0.01;
+
+            if (diverge) {
+              // Base mudou após emissão → alerta de divergência pré-pagamento
+              status = 'divergencia_pre';
+              const diff = valorAtual - valorRecibo;
+              statusHtml = `
+                <span style="background:#fff3cd;color:#856404;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">⚠️ DIVERGÊNCIA</span>
+                <div style="font-size:10px;color:#856404;margin-top:3px;line-height:1.4">
+                  Recibo: R$ ${fmt(valorRecibo)}<br>
+                  Atual: R$ ${fmt(valorAtual)}<br>
+                  <strong>${diff > 0 ? '↑ Aumentou' : '↓ Reduziu'} R$ ${fmt(Math.abs(diff))}</strong>
+                </div>`;
+              acoes = `<div style="display:flex;flex-direction:column;gap:4px">
+                <button class="btn btn-sm" style="background:var(--red);color:#fff;border-color:var(--red)" onclick="cancelarRecibo('${name.replace(/'/g,"\\'")}','${ultimoPag.id}','${periodId}')">❌ Cancelar e Reemitir</button>
+              </div>`;
+            } else {
+              // Valor OK — aguardando pagamento
+              status = 'recibo_emitido';
+              statusHtml = `<span style="background:var(--blue-bg);color:var(--blue);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">📄 RECIBO EMITIDO</span>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Aguardando pagamento</div>`;
+              acoes = `<div style="display:flex;flex-direction:column;gap:4px">
+                <button class="btn btn-sm" onclick="confirmarPagamentoModal('${name.replace(/'/g,"\\'")}','${ultimoPag.id}','${periodId}','${periodLabel}',${valorRecibo})">✅ Confirmar Pgto</button>
+                <button class="btn btn-ghost btn-sm" onclick="cancelarRecibo('${name.replace(/'/g,"\\'")}','${ultimoPag.id}','${periodId}')">❌ Cancelar Recibo</button>
+              </div>`;
+            }
+
+          } else if (ultimoPag.status === 'cancelado') {
+            // Recibo cancelado — pode reemitir
+            status = 'cancelado';
+            statusHtml = `<span style="background:var(--surface2);color:var(--text3);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">🚫 CANCELADO</span>
+              <div style="font-size:10px;color:var(--text3);margin-top:2px">Recibo #${String(ultimoPag.reciboNum).padStart(4,'0')}</div>`;
+            acoes = `<button class="btn btn-sm" onclick="openEmitirReciboModal('${name.replace(/'/g,"\\'")}')">📄 Novo Recibo</button>`;
+
           } else {
+            // Pago — verifica divergência pós-pagamento
             const pago = ultimoPag.valorPago || 0;
             const diff = (calc - totalCredito) - pago;
             if (Math.abs(diff) > 0.01) {
@@ -9127,7 +9180,8 @@
               acoes = `<button class="btn btn-sm btn-outline" onclick="openComplementar('${name.replace(/'/g,"\\'")}','${periodId}','${periodLabel}',${diff})">${diff > 0 ? '➕ Complementar' : '💰 Registrar Crédito'}</button>`;
             } else {
               status = 'pago';
-              statusHtml = `<span style="background:var(--green-bg);color:var(--green);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">✅ PAGO</span>`;
+              statusHtml = `<span style="background:var(--green-bg);color:var(--green);padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700">✅ PAGO</span>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">${ultimoPag.dataPagamento || ''}</div>`;
               acoes = `<button class="btn btn-ghost btn-sm" onclick="imprimirReciboPagamento('${name.replace(/'/g,"\\'")}','${periodId}','${ultimoPag.id}')">🖨️ Reimprimir</button>`;
             }
           }
@@ -9171,18 +9225,20 @@
       const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       const periodLabel = `${months[pData.month]} ${pData.year}`;
 
-      // Pega pagamentos já registrados
+      // Pega pagamentos já registrados (excluindo cancelados)
       const pagSnap = await db.collection('pagamentos')
         .where('unitId', '==', currentUnitId)
-        .where('periodId', '==', periodId)
-        .where('status', '==', 'pago').get();
-      const jaPagei = new Set();
-      pagSnap.forEach(doc => jaPagei.add(doc.data().vendedor));
+        .where('periodId', '==', periodId).get();
+      const jaTemRecibo = new Set();
+      pagSnap.forEach(doc => {
+        const d = doc.data();
+        if (d.status !== 'cancelado') jaTemRecibo.add(d.vendedor);
+      });
 
       const todos = Object.entries(vs)
         .filter(([n, v]) => !v.isNaoCom)
         .sort((a, b) => a[0].localeCompare(b[0]));
-      const pendentes = todos.filter(([n]) => !jaPagei.has(n));
+      const pendentes = todos.filter(([n]) => !jaTemRecibo.has(n));
 
       if (pendentes.length === 0) {
         toast('Todos os vendedores já foram pagos neste período.', 'info');
@@ -9282,7 +9338,7 @@
           const vd = vs[vendedor] || {};
           const calc = vd.grandTotal || 0;
 
-          // Busca créditos pendentes
+          // Busca créditos pendentes (apenas para registrar no recibo, não aplica ainda)
           const creditoSnap = await db.collection('creditos')
             .where('unitId', '==', currentUnitId)
             .where('vendedor', '==', vendedor)
@@ -9294,7 +9350,7 @@
 
           const reciboNum = await getNextReciboNum();
 
-          // Registra pagamento com status "recibo_emitido"
+          // Registra com status "recibo_emitido" — pagamento ainda não confirmado
           const pagRef = await db.collection('pagamentos').add({
             unitId: currentUnitId,
             periodId: data.periodId,
@@ -9303,26 +9359,17 @@
             valorCalculado: calc,
             valorCredito: totalCredito,
             valorPago: aPagar,
-            dataPagamento: new Date().toLocaleDateString('pt-BR'),
-            obs: 'Recibo emitido',
+            dataPagamento: null,
+            obs: '',
             reciboNum,
-            status: 'pago',
+            status: 'recibo_emitido',
             tipo: 'normal',
             creditosAplicados: creditos.map(c => ({ id: c.id, valor: c.valor, reciboOrigemNum: c.reciboOrigemNum, periodoOrigem: c.periodoOrigem })),
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             createdBy: currentUser.uid
           });
 
-          // Marca créditos como aplicados
-          if (creditos.length > 0) {
-            const batch = db.batch();
-            creditos.forEach(c => batch.update(db.collection('creditos').doc(c.id), {
-              status: 'aplicado',
-              aplicadoEmPagamento: pagRef.id,
-              aplicadoEm: firebase.firestore.FieldValue.serverTimestamp()
-            }));
-            await batch.commit();
-          }
+          // NÃO marca créditos como aplicados ainda — só faz isso ao confirmar pagamento
 
           logAudit('recibo_emitido', `Recibo #${String(reciboNum).padStart(4,'0')} emitido: ${vendedor} · ${data.periodLabel} · R$ ${fmt(aPagar)}`);
 
@@ -9335,13 +9382,125 @@
           if (selecionados.length > 1) await new Promise(r => setTimeout(r, 800));
         }
 
-        toast(`${selecionados.length} recibo(s) emitido(s) com sucesso!`, 'success');
+        toast(`${selecionados.length} recibo(s) emitido(s)! Confirme o pagamento após efetuar a transferência.`, 'success');
         closeEmitirReciboModal();
         loadPagamentos();
       } catch(e) {
         errEl.textContent = 'Erro: ' + e.message;
         btnEl.disabled = false;
         btnEl.textContent = '📄 Emitir Recibo(s)';
+      }
+    }
+
+    async function cancelarRecibo(vendedor, pagId, periodId) {
+      if (!confirm(`Cancelar o recibo de ${vendedor}?\n\nO número do recibo será marcado como cancelado e você poderá emitir um novo.`)) return;
+      try {
+        await db.collection('pagamentos').doc(pagId).update({
+          status: 'cancelado',
+          canceladoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          canceladoPor: currentUser.uid
+        });
+        logAudit('recibo_cancelado', `Recibo cancelado: ${vendedor} · período ${periodId}`);
+        toast(`Recibo de ${vendedor} cancelado. Você pode emitir um novo.`, 'info');
+        loadPagamentos();
+      } catch(e) {
+        toast('Erro ao cancelar: ' + e.message, 'error');
+      }
+    }
+
+    function confirmarPagamentoModal(vendedor, pagId, periodId, periodLabel, valorRecibo) {
+      document.getElementById('pagModalTitle').textContent = '✅ Confirmar Pagamento';
+      document.getElementById('pagModalBody').innerHTML = `
+        <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+          <strong>${vendedor}</strong> · ${periodLabel}<br>
+          <span style="color:var(--text2)">Confirme que o pagamento foi realizado para registrar e fechar o recibo.</span>
+        </div>
+        <div class="form-group">
+          <label>Valor do Recibo</label>
+          <input type="text" value="R$ ${fmt(valorRecibo)}" disabled
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;opacity:.7">
+        </div>
+        <div class="form-group">
+          <label>Data do Pagamento</label>
+          <input type="date" id="pagConfData" value="${new Date().toISOString().split('T')[0]}"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+        <div class="form-group">
+          <label>Observação (opcional)</label>
+          <input type="text" id="pagConfObs" placeholder="ex: PIX realizado, transferência..."
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif">
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="closePagModal()">Cancelar</button>
+          <button class="btn" style="background:var(--green);border-color:var(--green)" onclick="executarConfirmarPagamento('${vendedor.replace(/'/g,"\\'")}','${pagId}','${periodId}',${valorRecibo})">✅ Confirmar Pagamento</button>
+        </div>
+        <div class="error-msg" id="pagModalError"></div>`;
+      document.getElementById('pagModal').classList.add('open');
+    }
+
+    async function executarConfirmarPagamento(vendedor, pagId, periodId, valorPago) {
+      const dataPagamento = document.getElementById('pagConfData').value;
+      const obs = document.getElementById('pagConfObs').value.trim();
+      const errEl = document.getElementById('pagModalError');
+      if (!dataPagamento) { errEl.textContent = 'Informe a data do pagamento.'; return; }
+
+      try {
+        // Busca o registro atual para pegar os créditos que foram reservados
+        const pagDoc = await db.collection('pagamentos').doc(pagId).get();
+        const pagData = pagDoc.data();
+        const creditos = pagData.creditosAplicados || [];
+
+        // Atualiza status para pago
+        await db.collection('pagamentos').doc(pagId).update({
+          status: 'pago',
+          dataPagamento,
+          obs: obs || 'Pagamento confirmado',
+          pagoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          pagoPor: currentUser.uid
+        });
+
+        // Agora sim marca os créditos como aplicados
+        if (creditos.length > 0) {
+          const batch = db.batch();
+          creditos.forEach(c => {
+            if (c.id) batch.update(db.collection('creditos').doc(c.id), {
+              status: 'aplicado',
+              aplicadoEmPagamento: pagId,
+              aplicadoEm: firebase.firestore.FieldValue.serverTimestamp()
+            });
+          });
+          await batch.commit();
+        }
+
+        // Se pagou a mais (valor recibo > calculado atual), gera crédito
+        const pDoc = await db.collection('periodos').doc(periodId).get();
+        const vs = (pDoc.data()?.vendorSummary || {})[vendedor] || {};
+        const calcAtual = vs.grandTotal || 0;
+        const creditoAtual = (pagData.valorCredito || 0);
+        const aPagarAtual = Math.max(0, calcAtual - creditoAtual);
+        const sobra = valorPago - aPagarAtual;
+
+        if (sobra > 0.01) {
+          await db.collection('creditos').add({
+            unitId: currentUnitId, vendedor, valor: sobra,
+            reciboOrigemNum: pagData.reciboNum,
+            periodoOrigem: pagData.periodLabel,
+            periodoOrigemId: periodId,
+            pagamentoOrigemId: pagId,
+            obs: 'Crédito gerado automaticamente (pagamento acima do valor calculado)',
+            status: 'pendente',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          toast(`Pagamento confirmado! Crédito de R$ ${fmt(sobra)} gerado para o próximo mês.`, 'success');
+        } else {
+          toast(`Pagamento de ${vendedor} confirmado com sucesso!`, 'success');
+        }
+
+        logAudit('pagamento_confirmado', `Pagamento confirmado: ${vendedor} · R$ ${fmt(valorPago)} · data ${dataPagamento}`);
+        closePagModal();
+        loadPagamentos();
+      } catch(e) {
+        errEl.textContent = 'Erro: ' + e.message;
       }
     }
 
