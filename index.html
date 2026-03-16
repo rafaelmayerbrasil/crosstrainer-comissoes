@@ -7497,13 +7497,15 @@
       ) : source;
 
       // Show/hide reset button
-      const grandTotal = all.length + nonActiv.length;
       if (resetBtn) resetBtn.style.display = (activeFilter !== 'all' || q) ? '' : 'none';
       if (countEl) {
-        if (filtered.length === grandTotal) {
-          countEl.textContent = `${grandTotal} registros`;
+        if (!q) {
+          // Sem busca — só mostra total da categoria
+          countEl.textContent = `${source.length} registro${source.length !== 1 ? 's' : ''}`;
+        } else if (filtered.length === source.length) {
+          countEl.textContent = `${source.length} registro${source.length !== 1 ? 's' : ''}`;
         } else {
-          countEl.textContent = `${filtered.length} de ${grandTotal} registros`;
+          countEl.textContent = `${filtered.length} de ${source.length}`;
         }
       }
 
