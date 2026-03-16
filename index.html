@@ -7454,8 +7454,9 @@
     }
 
     let _ativActiveFilter = 'all';
-    let _ativSortCol = 'data';   // default sort: data
-    let _ativSortDir = 'desc';   // desc = mais recente primeiro
+    let _ativSortCol = 'data';
+    let _ativSortDir = 'desc';
+    const sumFator = arr => arr.reduce((s, r) => s + (r.splitAtivacao || 1), 0);
 
     function filterAtivacoes(filter) {
       const all = window._ativacoesAll || [];
