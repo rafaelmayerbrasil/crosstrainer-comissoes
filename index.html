@@ -2563,6 +2563,25 @@
     </div>
   </div>
 
+  <!-- Modal Visão Vendedor (Preview) -->
+  <div id="vendorPreviewModal" class="modal" style="z-index:9999;">
+    <div class="modal-content" style="max-width:900px;padding:0;max-height:92vh;overflow-y:auto;">
+      <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--surface);z-index:2">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--orange)">👁 Visão Vendedor</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Simulando o painel de: <strong id="vpreviewName" style="color:var(--text)">—</strong> · Período: <strong id="vpreviewPeriod" style="color:var(--text)">—</strong></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="vpreviewVendorSel" onchange="loadVendorPreview()" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif"></select>
+          <button class="close-btn" onclick="closeVendorPreviewModal()" style="font-size:24px;color:var(--text2)">&times;</button>
+        </div>
+      </div>
+      <div id="vpreviewContent" style="padding:20px 24px">
+        <div class="loading"><div class="spinner"></div>Selecione uma vendedora acima.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast-container" id="toasts"></div>
 
@@ -3108,6 +3127,8 @@
         html += sbItem('units', '🏢', 'Unidades');
         html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
+        html += '<div class="sb-section">Ferramentas</div>';
+        html += `<div class="sb-item" onclick="openVendorPreviewModal()"><span class="icon">👁</span>Visão Vendedor</div>`;
       } else {
         html += '<div class="sb-section">Meu Espaço</div>';
         html += sbItem('meu-painel', '📊', 'Meu Painel');
@@ -3460,20 +3481,31 @@
         loadUsers();
       } catch (e) {
         const msgs = {
-          'auth/email-already-in-use': 'Este e-mail já está cadastrado. Use um e-mail diferente.',
+          'auth/email-already-in-use': null, // handled below
           'auth/invalid-email': 'E-mail inválido.',
           'auth/weak-password': 'Senha muito fraca. Use ao menos 6 caracteres.',
           'auth/operation-not-allowed': 'Operação não permitida. Contate o administrador.',
         };
-        errEl.textContent = msgs[e.code] || e.message;
+        if (e.code === 'auth/email-already-in-use') {
+          errEl.innerHTML = `E-mail já existe no sistema de autenticação.<br>
+            <span style="font-size:11px;color:var(--text3)">
+              Se você excluiu o perfil deste usuário antes, o login dele ainda existe no Firebase Auth.<br>
+              Para reativar: use o botão 
+              <strong style="color:var(--orange)">Reativar</strong> em Usuários → Pendentes,
+              ou <strong style="color:var(--orange)">entre em contato com o suporte</strong> para 
+              limpar o registro de autenticação e recadastrar normalmente.
+            </span>`;
+        } else {
+          errEl.textContent = msgs[e.code] || e.message;
+        }
       }
     }
 
     async function deleteUser(uid, label) {
-      if (!confirm(`Remover ${label}?`)) return;
+      if (!confirm(`Remover ${label}?\n\nAtenção: o acesso de login do usuário no Firebase Auth NÃO é removido automaticamente. Se precisar reutilizar o mesmo e-mail, use "Reativar conta" ao invés de criar do zero.`)) return;
       try {
         await db.collection('users').doc(uid).delete();
-        toast('Usuário removido.', 'success');
+        toast('Usuário removido do sistema. Para liberar o e-mail, use "Reativar" ou entre em contato com o suporte.', 'info');
         loadUsers();
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
     }
@@ -7833,6 +7865,178 @@
     function closeHelpModal() { document.getElementById('helpModal').classList.remove('open'); }
     function openAboutModal() { document.getElementById('aboutModal').classList.add('open'); }
     function closeAboutModal() { document.getElementById('aboutModal').classList.remove('open'); }
+
+    // ═══════════════════════════════════════════════════════════════
+    // VISÃO VENDEDOR (ADMIN PREVIEW)
+    // ═══════════════════════════════════════════════════════════════
+    async function openVendorPreviewModal() {
+      if (!currentPeriodId) {
+        toast('Selecione um período no Dashboard primeiro.', 'info');
+        return;
+      }
+      const modal = document.getElementById('vendorPreviewModal');
+      modal.classList.add('open');
+
+      // Populate vendor selector from current period's vendor summary
+      const data = window.currentPeriodData;
+      const vs = data?.vendorSummary || {};
+      const sel = document.getElementById('vpreviewVendorSel');
+      const vendors = Object.keys(vs).filter(n => !vs[n].isNaoCom).sort();
+
+      if (vendors.length === 0) {
+        document.getElementById('vpreviewContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Nenhuma vendedora comissionável neste período.</div>';
+        return;
+      }
+
+      sel.innerHTML = vendors.map(n => `<option value="${n}">${n.split(' ')[0]}</option>`).join('');
+      sel.value = vendors[0];
+      await loadVendorPreview();
+    }
+
+    async function loadVendorPreview() {
+      const vendorName = document.getElementById('vpreviewVendorSel').value;
+      if (!vendorName || !currentPeriodId) return;
+
+      document.getElementById('vpreviewName').textContent = vendorName;
+      const selPeriod = document.getElementById('periodSelect');
+      document.getElementById('vpreviewPeriod').textContent = selPeriod?.options[selPeriod.selectedIndex]?.text || currentPeriodId;
+
+      const content = document.getElementById('vpreviewContent');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+      try {
+        const data = window.currentPeriodData;
+        const vs = data?.vendorSummary || {};
+        const myData = vs[vendorName];
+        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const t = data?.totals || {};
+
+        if (!myData) {
+          content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Dados não encontrados para esta vendedora.</div>';
+          return;
+        }
+
+        // Fetch vendor items
+        const snap = await db.collection('periodos').doc(currentPeriodId).collection('itens')
+          .where('vendedor', '==', vendorName).get();
+        const items = [];
+        snap.forEach(doc => items.push(doc.data()));
+        items.sort((a, b) => {
+          const pA = (a.data || '').split('/'), pB = (b.data || '').split('/');
+          const dA = pA.length === 3 ? new Date(pA[2], pA[1]-1, pA[0]) : 0;
+          const dB = pB.length === 3 ? new Date(pB[2], pB[1]-1, pB[0]) : 0;
+          return dB - dA;
+        });
+
+        const ranked = Object.entries(vs).filter(([n, v]) => !v.isNaoCom).sort((a, b) => (b[1].grandTotal || 0) - (a[1].grandTotal || 0));
+        const myRank = ranked.findIndex(([n]) => n === vendorName) + 1;
+        const p4 = data?.p4result || {};
+        const myVouchers = (p4.currentVouchers || []).filter(v => (v.vendedor || '').toUpperCase() === vendorName.toUpperCase());
+        const processedItems = items.filter(r => r.type !== 'excluded');
+        const pillCls = c => ({ novo:'pill-novo', renovacao:'pill-renovacao', retorno:'pill-retorno', voucher:'pill-voucher', avulsa:'pill-avulsa', upgrade:'pill-upgrade' }[c] || 'pill-outro');
+
+        // Build vendor view HTML (mirrors what a vendedor sees)
+        let html = `
+          <!-- Banner de modo preview -->
+          <div style="background:rgba(232,146,13,0.1);border:1px solid var(--orange);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:11px;color:var(--orange)">
+            👁 <strong>Modo Preview:</strong> você está vendo o app como <strong>${vendorName}</strong> veria. Nenhuma ação afeta dados reais.
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-row" style="margin-bottom:16px">
+            <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
+            <div class="stat"><div class="s-label">Minhas Ativações</div><div class="s-value">${Math.round(myData.ativacoes || 0)}</div></div>
+            <div class="stat"><div class="s-label">Meu Caixa</div><div class="s-value mono">R$ ${fmt(myData.caixa || 0)}</div></div>
+            <div class="stat green"><div class="s-label">Posição</div><div class="s-value">${myRank}º</div><div class="s-sub">de ${ranked.length}</div></div>
+          </div>
+
+          <!-- P breakdown -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P1 % Caixa</div>
+              <div class="mono" style="font-size:16px;font-weight:700;color:var(--green)">R$ ${fmt(myData.p1 || 0)}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P2 Fixo</div>
+              <div class="mono" style="font-size:16px;font-weight:700;color:var(--blue)">R$ ${fmt(myData.p2 || 0)}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P3 Meta</div>
+              <div class="mono" style="font-size:16px;font-weight:700;color:var(--orange-light)">R$ ${fmt(myData.p3 || 0)}</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:2px">${myData.p3Tier || '—'}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center">
+              <div style="font-size:9px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:4px">P4 Voucher</div>
+              <div class="mono" style="font-size:16px;font-weight:700;color:var(--yellow)">R$ ${fmt((myData.p4i || 0) + (myData.p4p || 0))}</div>
+            </div>
+          </div>
+
+          <!-- Meta unidade -->
+          <div class="meta-panel" style="margin-bottom:16px">
+            <h3>🎯 Metas da Unidade</h3>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+              <div style="font-size:13px;color:var(--text2)">
+                ${t.unitAtivacoes} ativações · Meta: ${cfg.meta} · Super: ${cfg.superMeta} · Gold: ${cfg.metaGold}
+              </div>
+              <div class="mono" style="font-size:20px;font-weight:700;color:${t.unitAtivacoes >= cfg.metaGold ? 'var(--orange-light)' : t.unitAtivacoes >= cfg.meta ? 'var(--green)' : 'var(--text)'}">
+                ${t.unitAtivacoes >= cfg.metaGold ? '👑 Meta Gold' : t.unitAtivacoes >= cfg.superMeta ? '🔥 Super Meta' : t.unitAtivacoes >= cfg.meta ? '🏅 Meta' : '⏳ Em andamento'}
+              </div>
+            </div>
+            <div class="meta-bar" style="margin-top:10px">
+              <div class="meta-bar-fill" style="width:${Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105)}%;background:${t.unitAtivacoes >= cfg.metaGold ? 'var(--orange-light)' : t.unitAtivacoes >= cfg.meta ? 'var(--green)' : 'var(--orange)'}"></div>
+              <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
+              <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
+              <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div>
+            </div>
+          </div>
+
+          <!-- Projeção -->
+          ${renderProjectionCard(calcProjection(data), cfg)}
+
+          <!-- Lançamentos -->
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px">Meus Lançamentos (${processedItems.length})</div>
+          <div class="table-wrap" style="max-height:300px;margin-bottom:16px">
+            <table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Cat.</th><th style="text-align:right">Caixa</th><th style="text-align:right">%</th><th style="text-align:right">P1</th></tr></thead>
+              <tbody>
+                ${processedItems.map(r => `<tr>
+                  <td style="color:var(--text3)">${r.data || ''}</td>
+                  <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
+                  <td style="font-size:10px;max-width:120px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item || ''}</td>
+                  <td><span class="pill ${pillCls(r.category)}">${r.label || r.category || ''}</span></td>
+                  <td class="currency" style="color:var(--orange-light)">R$ ${fmt(r.valorCaixa || 0)}</td>
+                  <td style="text-align:right;color:var(--text3)">${((r.p1pct || 0)*100).toFixed(1)}%</td>
+                  <td class="currency" style="color:var(--green);font-weight:700">R$ ${fmt(r.p1valor || 0)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Vouchers -->
+          ${myVouchers.length > 0 ? `
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);font-weight:700;margin-bottom:8px">Meus Vouchers (${myVouchers.length})</div>
+          <div class="table-wrap" style="max-height:160px">
+            <table style="width:100%">
+              <thead><tr><th>Data</th><th>Cliente</th><th>Código</th><th style="text-align:center">Status</th></tr></thead>
+              <tbody>${myVouchers.map(v => `<tr>
+                <td style="color:var(--text3)">${v.data || '—'}</td>
+                <td>${v.cliente || ''}</td>
+                <td class="mono" style="font-size:10px;color:var(--text3)">${v.codigo || ''}</td>
+                <td style="text-align:center"><span class="pill ${v.status === 'CONVERTIDO' ? 'pill-novo' : 'pill-voucher'}">${v.status || 'PENDENTE'}</span></td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>` : ''}
+        `;
+
+        content.innerHTML = html;
+      } catch (e) {
+        content.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`;
+      }
+    }
+
+    function closeVendorPreviewModal() {
+      document.getElementById('vendorPreviewModal').classList.remove('open');
+    }
 
     async function exportPeriodToExcel() {
       if (!currentPeriodId) return;
