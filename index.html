@@ -7493,8 +7493,16 @@
 
       try {
         const snap = await db.collection('periodos').doc(periodId).collection('itens').get();
+        const currentUploadId = (window.currentPeriodData || {}).uploadId;
         const allItems = [];
-        snap.forEach(doc => allItems.push({ _docId: doc.id, ...doc.data() }));
+        snap.forEach(doc => {
+          const d = { _docId: doc.id, ...doc.data() };
+          // Filter by current uploadId (exclude stale items from previous uploads)
+          // Always include items without uploadId (manually added)
+          if (!currentUploadId || !d.uploadId || d.uploadId === currentUploadId) {
+            allItems.push(d);
+          }
+        });
 
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
 
