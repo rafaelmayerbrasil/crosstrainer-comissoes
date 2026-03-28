@@ -4585,7 +4585,9 @@
             // - Se não existe → adicionar normalmente
             if (existingType === 'processed') {
               skipped++;
-              return; // skip
+              // Update uploadId so recalculatePeriod finds this item in re-uploads
+              batch.update(itemsRef.doc(stableId), { uploadId });
+              return;
             }
             if (existingType) replaced++; else added++;
 
