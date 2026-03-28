@@ -5181,9 +5181,9 @@
         const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
         items = [];
         itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-        // Include items from current upload OR manually added items (no uploadId)
+        // Include items from current upload, manually added (no uploadId), or split partners
         if (currentUploadId) {
-          items = items.filter(d => !d.uploadId || d.uploadId === currentUploadId);
+          items = items.filter(d => !d.uploadId || d.uploadId === currentUploadId || d.originalSplitId);
         }
         globalPeriodsCache[periodId] = items;
       }
@@ -7498,8 +7498,8 @@
         snap.forEach(doc => {
           const d = { _docId: doc.id, ...doc.data() };
           // Filter by current uploadId (exclude stale items from previous uploads)
-          // Always include items without uploadId (manually added)
-          if (!currentUploadId || !d.uploadId || d.uploadId === currentUploadId) {
+          // Always include: items without uploadId (manually added) and split partners (originalSplitId)
+          if (!currentUploadId || !d.uploadId || d.uploadId === currentUploadId || d.originalSplitId) {
             allItems.push(d);
           }
         });
