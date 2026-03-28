@@ -5108,6 +5108,12 @@
           await pRef.set({ unitId: currentUnitId, year: pYear, month: pMonth, totals: {}, vendorSummary: {} });
         }
 
+        // For new records, inherit the period's uploadId so recalculatePeriod includes them
+        if (!id && pSnap.exists) {
+          const periodUploadId = pSnap.data()?.uploadId;
+          if (periodUploadId) data.uploadId = periodUploadId;
+        }
+
         if (id) {
           if (targetPeriodId !== currentPeriodId) {
             // Moving to another period
@@ -5170,13 +5176,13 @@
 
       let items = globalPeriodsCache[periodId];
       if (!items) {
-        let query = db.collection('periodos').doc(periodId).collection('itens');
-        if (currentUploadId) {
-          query = query.where('uploadId', '==', currentUploadId);
-        }
-        const itemsSnap = await query.get();
+        const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
         items = [];
         itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+        // Include items from current upload OR manually added items (no uploadId)
+        if (currentUploadId) {
+          items = items.filter(d => !d.uploadId || d.uploadId === currentUploadId);
+        }
         globalPeriodsCache[periodId] = items;
       }
       
