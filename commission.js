@@ -339,7 +339,27 @@ const CommissionEngine = {
         return;
       }
 
-      if (valor <= 0 && !info.isDegustacao) return;
+      if (valor <= 0 && !info.isDegustacao) {
+        // Only show in excluded if there's a meaningful "Valor Final" > 0 (sold but not settled)
+        const valorFinal = parseFloat(row['Valor Final']) || parseFloat(row['Valor Venda']) || 0;
+        if (valorFinal > 0) {
+          excluded.push({
+            _idx: idx,
+            _reason: `Pagamento pendente (Valor Quitado/Recibo = R$ 0, Valor Final = R$ ${valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`,
+            _group: 'pagamento_pendente',
+            vendedor: String(row['Vendedor'] || '').trim().replace(/\s+/g, ' ') || 'Sem Vendedor',
+            cliente: row['Cliente'] || '',
+            item: String(row['Itens'] || ''),
+            tipoVenda: String(row['Tipo de Venda'] || ''),
+            data: row['Data'] instanceof Date ? row['Data'].toLocaleDateString('pt-BR') : String(row['Data'] || ''),
+            origem: String(row['Origem'] || ''),
+            valorCaixa: 0,
+            valorFinalPendente: valorFinal,
+            ...info,
+          });
+        }
+        return;
+      }
 
       const vendedor = String(row['Vendedor'] || '').trim().replace(/\s+/g, ' ') || 'Sem Vendedor';
       const codigo = String(row['Código'] || row['Codigo'] || '').trim();

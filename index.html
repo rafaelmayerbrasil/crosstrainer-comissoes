@@ -3069,8 +3069,10 @@
         </div>
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px">
           <div class="settings-grid" id="settingsForm"></div>
-          <div style="margin-top:20px;text-align:right"><button class="btn btn-sm" onclick="saveSettings()">💾 Salvar
-              Configurações</button></div>
+          <div style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <button class="btn btn-sm" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)" onclick="resetP4Defaults()" title="Restaura os valores padrão de P4 para esta unidade">🔄 Restaurar padrões P4</button>
+            <button class="btn btn-sm" onclick="saveSettings()">💾 Salvar Configurações</button>
+          </div>
         </div>
 
         <!-- Zona de Perigo -->
@@ -3764,6 +3766,22 @@
       } catch (e) {
         toast('Erro ao salvar: ' + e.message, 'error');
       }
+    }
+
+    function resetP4Defaults() {
+      const d = CommissionEngine.defaultConfig;
+      const p4Keys = {
+        bonusConversaoVoucher: d.bonusConversaoVoucher,
+        prazoConversaoDias: d.prazoConversaoDias,
+        poolVoucherMeta: d.poolVoucherMeta,
+        poolVoucherSuper: d.poolVoucherSuper,
+      };
+      let changed = false;
+      Object.entries(p4Keys).forEach(([key, val]) => {
+        const el = document.getElementById('cfg_' + key);
+        if (el) { el.value = val; changed = true; }
+      });
+      if (changed) toast('Valores P4 restaurados para os padrões. Clique em Salvar para confirmar.', 'info');
     }
 
     // ═══════════════════════════════════════════════════════════════
