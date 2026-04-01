@@ -7839,14 +7839,35 @@
       const totalpass = items.filter(r => r._group === 'totalpass' || (r._reason || '').includes('TotalPass'));
       const permutas  = items.filter(r => r._group === 'permuta'  || (r._reason || '').includes('Permuta'));
       const renovAuto = items.filter(r => (r._reason || '').includes('automática') || (r._reason || '').includes('Renovação de recorrente'));
-      const outros    = items.filter(r => !gympass.includes(r) && !totalpass.includes(r) && !permutas.includes(r) && !renovAuto.includes(r));
+      const pendentes = items.filter(r => r._group === 'pagamento_pendente' || (r._reason || '').toLowerCase().includes('pagamento pendente'));
+      const outros    = items.filter(r => !gympass.includes(r) && !totalpass.includes(r) && !permutas.includes(r) && !renovAuto.includes(r) && !pendentes.includes(r));
 
-      const gymCaixa      = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
-      const totalCaixa    = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+      const gymCaixa       = gympass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+      const totalCaixa     = totalpass.reduce((s, r) => s + (r.valorCaixa || 0), 0);
       const renovAutoCaixa = renovAuto.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+      const pendentesCaixa = pendentes.reduce((s, r) => s + (r.valorFinalPendente || 0), 0);
 
       // Summary cards
-      let html = `<div id="exclSummaryCards" class="grid-4col" style="margin-bottom:20px">
+      let html = '';
+
+      // Pending payments banner (only if there are any)
+      if (pendentes.length > 0) {
+        html += `<div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">⏳</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--orange)">Pagamentos Pendentes — aguardando confirmação</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:2px">Estes contratos foram vendidos mas o pagamento ainda não foi confirmado no sistema. Quando o pagamento entrar, a comissão é contabilizada automaticamente.</div>
+            </div>
+          </div>
+          <div style="text-align:right;min-width:120px">
+            <div class="mono" style="font-size:20px;font-weight:700;color:var(--orange)">${pendentes.length} contrato${pendentes.length > 1 ? 's' : ''}</div>
+            <div class="mono" style="font-size:13px;color:var(--text2)">R$ ${fmt(pendentesCaixa)} a confirmar</div>
+          </div>
+        </div>`;
+      }
+
+      html += `<div id="exclSummaryCards" class="grid-4col" style="margin-bottom:20px">
         <div style="background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:16px;text-align:center">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">🏋️ GymPass/Wellhub</div>
           <div class="mono" style="font-size:18px;font-weight:700">${gympass.length} vendas</div>
@@ -7869,27 +7890,29 @@
         </div>
       </div>`;
 
-      const renderGroupTable = (title, color, groupItems) => {
+      const renderGroupTable = (title, color, groupItems, usePendente = false) => {
         if (groupItems.length === 0) return '';
         let t = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:8px">${title} <span style="font-weight:400;color:var(--text3)">(${groupItems.length})</span></div>
-          <div class="table-wrap" style="max-height:240px"><table style="width:100%"><thead><tr>
-            <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor</th><th>Motivo</th>
+          <div class="table-wrap" style="max-height:300px"><table style="width:100%"><thead><tr>
+            <th>Vendedor</th><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">${usePendente ? 'Valor Pendente' : 'Valor'}</th><th>Motivo</th>
           </tr></thead><tbody>`;
         groupItems.forEach(r => {
-          t += `<tr>
+          const valor = usePendente ? (r.valorFinalPendente || 0) : (r.valorCaixa || 0);
+          t += `<tr${usePendente ? ' style="background:var(--orange-dim)"' : ''}>
             <td>${r.vendedor || ''}</td>
             <td>${r.data || ''}</td>
             <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
             <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
-            <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
-            <td style="font-size:10px;color:var(--text3)">${r._reason || r.label || ''}</td>
+            <td class="currency"${usePendente ? ' style="color:var(--orange);font-weight:700"' : ''}>R$ ${fmt(valor)}</td>
+            <td style="font-size:10px;color:var(--text3)">${usePendente ? '⏳ Aguardando pagamento' : (r._reason || r.label || '')}</td>
           </tr>`;
         });
         t += '</tbody></table></div></div>';
         return t;
       };
 
+      html += renderGroupTable('⏳ Pagamentos Pendentes (comissão entra quando pago)', 'var(--orange)', pendentes, true);
       html += renderGroupTable('GymPass / Wellhub', 'var(--purple)', gympass);
       html += renderGroupTable('TotalPass', 'var(--blue)', totalpass);
       html += renderGroupTable('Permutas', 'var(--yellow)', permutas);
