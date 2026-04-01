@@ -2350,7 +2350,7 @@
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--green);">
                 <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:4px;">💰 Comissões</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão detalhada dos seus ganhos: tabela P1 (cada lançamento com % aplicado), P2 (bônus fixo por contrato), status do P3 (meta da unidade) e P4 (vouchers). Inclui lançamentos excluídos da comissão para conferência.</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão detalhada dos seus ganhos: tabela P1 (cada lançamento com % aplicado), P2 (bônus fixo por contrato), status do P3 (meta da unidade) e P4 (vouchers). Inclui <strong style="color:var(--orange)">⏳ Aguardando Pagamento</strong> (contratos vendidos ainda sem pagamento confirmado) e lançamentos excluídos da comissão para conferência.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--blue);">
                 <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">⚡ Ativações</div>
@@ -2415,7 +2415,7 @@
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--blue);">
                 <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">Registros</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;"><strong>Lançamentos:</strong> tabela com filtros, busca, ordenação. Ações: ✏️ Editar, ➗ Dividir, 🗑️ Ignorar, edição em massa.<br><strong>Excluídos & Ignorados:</strong> agrupados por motivo com filtro dinâmico.</div>
+                <div style="font-size:10px; color:var(--text3); line-height:1.5;"><strong>Lançamentos:</strong> tabela com filtros, busca, ordenação. Ações: ✏️ Editar, ➗ Dividir, 🗑️ Ignorar, edição em massa.<br><strong>Excluídos & Ignorados:</strong> agrupados por motivo com filtro dinâmico. <strong style="color:var(--orange)">⏳ Pagamentos Pendentes</strong> aparecem em destaque no topo — contratos vendidos mas sem pagamento confirmado ainda.</div>
               </div>
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--green);">
                 <div style="font-size:11px; font-weight:700; color:var(--green); margin-bottom:4px;">Comissões</div>
@@ -7404,27 +7404,57 @@
               ${myVouchers.length === 0 && myConversions.length === 0 ? '<div style="padding:8px 0;color:var(--text3);font-size:12px">Nenhum voucher ou conversão neste período.</div>' : ''}
             </div>
 
+            <!-- PAGAMENTOS PENDENTES (destaque separado) -->
+            ${(() => {
+              const pendentes = vExcl.filter(r => r._group === 'pagamento_pendente' || (r._reason || '').toLowerCase().includes('pagamento pendente'));
+              if (pendentes.length === 0) return '';
+              const totalPend = pendentes.reduce((s, r) => s + (r.valorFinalPendente || 0), 0);
+              return `<div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:10px;padding:16px;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+                  <div>
+                    <div style="font-size:12px;font-weight:700;color:var(--orange)">⏳ Aguardando Confirmação de Pagamento</div>
+                    <div style="font-size:11px;color:var(--text2);margin-top:3px">Contratos vendidos mas ainda sem pagamento confirmado no sistema. A comissão entra automaticamente quando o pagamento for detectado.</div>
+                  </div>
+                  <div class="mono" style="font-size:15px;font-weight:700;color:var(--orange)">R$ ${fmt(totalPend)}</div>
+                </div>
+                <div class="table-wrap" style="max-height:220px"><table style="width:100%">
+                  <thead><tr><th>Data</th><th>Cliente</th><th>Item</th><th style="text-align:right">Valor do Contrato</th></tr></thead>
+                  <tbody>
+                  ${pendentes.map(r => `<tr>
+                    <td style="color:var(--text3)">${r.data || ''}</td>
+                    <td style="max-width:130px;word-break:break-word;white-space:normal;font-weight:600">${r.cliente || ''}</td>
+                    <td style="font-size:10px;max-width:150px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item || ''}</td>
+                    <td class="currency" style="color:var(--orange);font-weight:700">R$ ${fmt(r.valorFinalPendente || 0)}</td>
+                  </tr>`).join('')}
+                  </tbody>
+                </table></div>
+              </div>`;
+            })()}
+
             <!-- EXCLUÍDOS DA COMISSÃO -->
-            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;opacity:0.85">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${vExcl.length > 0 ? '12px' : '0'}">
+            ${(() => {
+              const outrosExcl = vExcl.filter(r => r._group !== 'pagamento_pendente' && !(r._reason || '').toLowerCase().includes('pagamento pendente'));
+              const exclOutrosCaixa = outrosExcl.reduce((s, r) => s + (r.valorCaixa || 0), 0);
+              return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;opacity:0.85">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${outrosExcl.length > 0 ? '12px' : '0'}">
                 <div>
                   <div style="font-size:12px;font-weight:700;color:var(--text3)">🚫 Lançamentos Excluídos da Comissão</div>
                   <div style="font-size:11px;color:var(--text3);margin-top:3px">
-                    ${vExcl.length > 0
-                      ? `${vExcl.length} lançamento(s) · R$ ${fmt(exclCaixa)} em caixa não comissionado`
-                      : 'Nenhum lançamento excluído neste período para esta vendedora.'}
+                    ${outrosExcl.length > 0
+                      ? `${outrosExcl.length} lançamento(s) · R$ ${fmt(exclOutrosCaixa)} em caixa não comissionado`
+                      : 'Nenhum lançamento excluído neste período.'}
                   </div>
                 </div>
-                ${vExcl.length > 0 ? `<div class="mono" style="font-size:13px;color:var(--text3)">R$ ${fmt(exclCaixa)}</div>` : ''}
+                ${outrosExcl.length > 0 ? `<div class="mono" style="font-size:13px;color:var(--text3)">R$ ${fmt(exclOutrosCaixa)}</div>` : ''}
               </div>
-              ${vExcl.length > 0 ? `
+              ${outrosExcl.length > 0 ? `
               <div class="table-wrap" style="max-height:260px"><table style="width:100%">
                 <thead><tr>
                   <th>Data</th><th>Cliente</th><th>Item</th><th>Motivo</th>
                   <th style="text-align:right">Caixa</th>
                 </tr></thead>
                 <tbody>
-                ${vExcl.map(r => `<tr style="opacity:0.7">
+                ${outrosExcl.map(r => `<tr style="opacity:0.7">
                   <td style="color:var(--text3)">${r.data || ''}</td>
                   <td style="max-width:130px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
                   <td style="font-size:10px;max-width:150px;word-break:break-word;white-space:normal;color:var(--text3)">${r.item || ''}</td>
@@ -7438,6 +7468,7 @@
                 </tbody>
               </table></div>` : ''}
             </div>`;
+            })()}`;
         };
 
         // Build vendor selector buttons + panel
