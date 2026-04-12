@@ -3694,6 +3694,7 @@
         { key: 'tetoMeta', label: 'Teto Meta', val: cfg.tetoMeta },
         { key: 'tetoSuper', label: 'Teto Super', val: cfg.tetoSuper },
         { key: 'tetoGold', label: 'Teto Gold', val: cfg.tetoGold },
+        { key: 'minAtivacoesIndivP3', label: 'Mín. Ativações Indiv. (P3)', val: cfg.minAtivacoesIndivP3 },
         { section: 'Tripé — Mínimos' },
         { key: 'minNovos', label: 'Mín. Novos+Retorno', val: cfg.minNovos },
         { key: 'minRenov', label: 'Mín. Renovações', val: cfg.minRenov },
@@ -4233,11 +4234,7 @@
       const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
-      Object.entries(vendorData).forEach(([name, v]) => {
-        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
-        const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
-        v.p3 = p3.final; v.p3detail = p3;
-      });
+      CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
 
       const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
       p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
@@ -5250,11 +5247,7 @@
       const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
-      Object.entries(vendorData).forEach(([name, v]) => {
-        if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] }; return; }
-        const p3 = CommissionEngine.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
-        v.p3 = p3.final; v.p3detail = p3;
-      });
+      CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
 
       // P4
       let previousProcessed = [];
@@ -5368,7 +5361,7 @@
       let projTier = 'Abaixo da meta';
       let tierColor = 'var(--red)';
       if (proj.projAtiv >= cfg.metaGold) { projTier = '👑 Meta Gold'; tierColor = 'var(--orange-light)'; }
-      else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--green)'; }
+      else if (proj.projAtiv >= cfg.superMeta) { projTier = '🔥 Super Meta'; tierColor = 'var(--blue)'; }
       else if (proj.projAtiv >= cfg.meta) { projTier = '🏅 Meta'; tierColor = 'var(--green)'; }
 
       const pctBar = Math.min(proj.pctElapsed * 100, 100);
@@ -5433,7 +5426,7 @@
         const hitSuper = t.unitAtivacoes >= cfg.superMeta;
         const hitMeta = t.unitAtivacoes >= cfg.meta;
         const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
-        const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--green)' : hitMeta ? 'var(--green)' : 'var(--orange)';
+        const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--blue)' : hitMeta ? 'var(--green)' : 'var(--orange)';
 
         // ── Inconsistency alerts ──
         const alerts = [];
@@ -6135,10 +6128,10 @@
       html += renderBadgesHtml(badges);
 
       // ── Cards: composição detalhada + meta unidade ──
-      // Calculate P3 in real-time for detailed breakdown
-      const p3Detail = CommissionEngine.calcP3(t.unitAtivacoes, t.unitNovosRetorno || 0, t.unitRenovacoes || 0, t.unitVouchers || 0, myData.caixa || 0, cfg);
-      const p3TierLabel = p3Detail.tierLabel || (myData.p3 > 0 ? 'Meta' : 'Não atingida');
-      const p3Motivos = p3Detail.motivos || [];
+      // Use stored P3 detail (pool-based — recalcular individualmente seria incorreto)
+      const p3Detail = { fixo: myData.p3fixo || 0, pctValor: myData.p3pct || 0, bruto: myData.p3bruto || 0, multiplier: myData.p3multiplier || 1 };
+      const p3TierLabel = myData.p3Tier || (myData.p3 > 0 ? 'Meta' : 'Não atingida');
+      const p3Motivos = myData.p3Motivos || [];
 
       html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px" class="vendor-comp-grid">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">

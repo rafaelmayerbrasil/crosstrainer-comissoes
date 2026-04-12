@@ -53,6 +53,7 @@ const CommissionEngine = {
     badgeTopRanking: 5,
     badgeConsistente: 6,
     planosAtivacao: ['BIANUAL', 'ANUAL', 'RECORRENTE', 'MENSAL'],
+    minAtivacoesIndivP3: 10,
   },
 
   // ─── Classify a row from the Excel ───
@@ -627,6 +628,50 @@ const CommissionEngine = {
     return result;
   },
 
+  // ─── Apply P3 Pool (rateio proporcional) to all vendors ───
+  // Calcula o Bolo da Unidade uma vez e distribui proporcionalmente ao caixa
+  // apenas para vendedoras que atingiram o mínimo individual de ativações.
+  applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg) {
+    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
+
+    // Base caixa P3 = soma de todos os vendors não-comissionáveis excluídos
+    const unitCaixaP3 = Object.values(vendorData).reduce(
+      (s, v) => s + (v.isNaoCom ? 0 : (v.caixaP3Eligible || 0)), 0
+    );
+
+    // Calcula o Pool da Unidade uma única vez
+    const p3Pool = this.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixaP3, cfg);
+
+    // Soma o caixaP3Eligible APENAS das vendedoras elegíveis (ativações >= mínimo)
+    const totalCaixaElegiveis = Object.values(vendorData)
+      .filter(v => !v.isNaoCom && v.ativacoes >= minAtiv)
+      .reduce((s, v) => s + (v.caixaP3Eligible || 0), 0);
+
+    Object.entries(vendorData).forEach(([name, v]) => {
+      if (v.isNaoCom) {
+        v.p3 = 0;
+        v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] };
+        return;
+      }
+      if (v.ativacoes < minAtiv) {
+        v.p3 = 0;
+        v.p3detail = {
+          ...p3Pool,
+          final: 0,
+          motivos: [...(p3Pool.motivos || []), `Não atingiu o mínimo individual de ${minAtiv} ativações.`],
+        };
+        return;
+      }
+      // Vendedora elegível — fatia proporcional ao caixa
+      let share = 0;
+      if (totalCaixaElegiveis > 0 && p3Pool.final > 0) {
+        share = Math.round((v.caixaP3Eligible / totalCaixaElegiveis) * p3Pool.final * 100) / 100;
+      }
+      v.p3 = share;
+      v.p3detail = { ...p3Pool, final: share };
+    });
+  },
+
   // ─── P4: Voucher conversion bonus ───
   calcP4(currentProcessed, previousProcessed, config) {
     const cfg = { ...this.defaultConfig, ...config };
@@ -767,13 +812,8 @@ const CommissionEngine = {
     const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
     const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
-    // P3 per vendor
-    Object.entries(vendorData).forEach(([name, v]) => {
-      if (v.isNaoCom) { v.p3 = 0; v.p3detail = { tier: null, final: 0, tierLabel: 'N/C' }; return; }
-      const p3 = this.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, v.caixaP3Eligible, cfg);
-      v.p3 = p3.final;
-      v.p3detail = p3;
-    });
+    // P3 per vendor (pool-based rateio proporcional)
+    this.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
 
     // P4
     const p4result = this.calcP4(processed, previousProcessed, cfg);
