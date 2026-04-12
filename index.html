@@ -1249,6 +1249,14 @@
       margin-right: 10px
     }
 
+      @keyframes goldShimmer {
+        0% { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+      @keyframes goldPulse {
+        0%, 100% { box-shadow: 0 0 0 1px var(--orange-light), 0 0 12px rgba(245,166,35,0.2); }
+        50% { box-shadow: 0 0 0 1px var(--orange-light), 0 0 22px rgba(245,166,35,0.45); }
+      }
     @keyframes spin {
       to {
         transform: rotate(360deg)
@@ -5493,13 +5501,31 @@
 
         // ── Meta panel (sempre largura total) ──
         const proj = calcProjection(data);
+        const _tierBorder = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--blue)' : hitMeta ? 'var(--green)' : 'var(--border)';
+        const _tierAnim   = hitGold ? 'goldPulse 2.5s ease-in-out infinite' : 'none';
+        const _tierBadge  = hitGold
+          ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(245,166,35,0.15);border:1px solid var(--orange-light);color:var(--orange-light);font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.8px;margin-top:5px">👑 META GOLD ATINGIDA</span>`
+          : hitSuper
+          ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(0,150,255,0.1);border:1px solid var(--blue);color:var(--blue);font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.8px;margin-top:5px">🔥 SUPER META ATINGIDA</span>`
+          : hitMeta
+          ? `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(76,175,80,0.1);border:1px solid var(--green);color:var(--green);font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.8px;margin-top:5px">🏅 META ATINGIDA</span>`
+          : '';
+        const _barFill = hitGold
+          ? `background:linear-gradient(90deg,#c97000,#F5A623,#FFD700,#F5A623,#c97000);background-size:200% auto;animation:goldShimmer 2.5s linear infinite`
+          : `background:${barColor}`;
         html += `<div class="meta-panel"><h3>🎯 Metas da Unidade</h3><div class="meta-grid">
-            <div style="background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:16px 20px;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-                <span style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px">ATIVAÇÕES TOTAIS</span>
-                <span class="mono" style="font-size:32px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span>
+            <div style="background:var(--bg);border:1px solid ${_tierBorder};border-radius:10px;padding:16px 20px;animation:${_tierAnim};transition:border-color .3s">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+                <div>
+                  <span style="font-size:10px;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:1px;display:block">ATIVAÇÕES TOTAIS</span>
+                  ${_tierBadge}
+                </div>
+                <div style="text-align:right;line-height:1">
+                  ${hitGold ? `<div style="font-size:18px;line-height:1;margin-bottom:2px">👑</div>` : ''}
+                  <span class="mono" style="font-size:32px;font-weight:700;color:${hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--blue)' : hitMeta ? 'var(--green)' : 'var(--text)'}">${t.unitAtivacoes}</span>
+                </div>
               </div>
-              <div class="meta-bar" style="margin-bottom:4px"><div class="meta-bar-fill" style="width:${barPct}%;background:${barColor}"></div>
+              <div class="meta-bar" style="margin-bottom:4px"><div class="meta-bar-fill" style="width:${barPct}%;${_barFill}"></div>
                 <div class="meta-marker" style="left:${(cfg.meta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.meta}</span></div>
                 <div class="meta-marker" style="left:${(cfg.superMeta / cfg.metaGold) * 100}%"><span class="m-label">${cfg.superMeta}</span></div>
                 <div class="meta-marker" style="left:100%"><span class="m-label">${cfg.metaGold}</span></div></div>
@@ -6176,9 +6202,26 @@
             <span class="mono" style="font-size:20px;font-weight:700;color:var(--orange)">R$ ${fmt(myData.grandTotal || 0)}</span>
           </div>
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px">
+        <div style="background:var(--surface);border:1px solid ${hitGold?'var(--orange-light)':hitSuper?'var(--blue)':hitMeta?'var(--green)':'var(--border)'};border-radius:8px;padding:18px;${hitGold?'animation:goldPulse 2.5s ease-in-out infinite':''}">
           <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px">Meta da Unidade</div>
-          <div style="font-size:13px;color:var(--text);margin-bottom:8px;font-weight:600">${t.unitAtivacoes} ativações — ${hitGold ? '👑 Meta Gold' : hitSuper ? '🔥 Super Meta' : hitMeta ? '🏅 Meta' : 'Não atingida'}</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px">
+            <div style="flex:1;padding:8px 4px;border-radius:6px;text-align:center;background:${hitMeta?'rgba(76,175,80,0.12)':'var(--bg)'};border:1px solid ${hitMeta?'var(--green)':'var(--border)'}">
+              <div style="font-size:16px;line-height:1">🏅</div>
+              <div style="font-size:9px;font-weight:700;color:${hitMeta?'var(--green)':'var(--text3)'};margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Meta</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px">${cfg.meta} ativ.</div>
+            </div>
+            <div style="flex:1;padding:8px 4px;border-radius:6px;text-align:center;background:${hitSuper?'rgba(0,150,255,0.12)':'var(--bg)'};border:1px solid ${hitSuper?'var(--blue)':'var(--border)'}">
+              <div style="font-size:16px;line-height:1">🔥</div>
+              <div style="font-size:9px;font-weight:700;color:${hitSuper?'var(--blue)':'var(--text3)'};margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Super</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px">${cfg.superMeta} ativ.</div>
+            </div>
+            <div style="flex:1;padding:8px 4px;border-radius:6px;text-align:center;background:${hitGold?'rgba(245,166,35,0.15)':'var(--bg)'};border:1px solid ${hitGold?'var(--orange-light)':'var(--border)'}">
+              <div style="font-size:16px;line-height:1">👑</div>
+              <div style="font-size:9px;font-weight:700;color:${hitGold?'var(--orange-light)':'var(--text3)'};margin-top:3px;text-transform:uppercase;letter-spacing:.5px">Gold</div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px">${cfg.metaGold} ativ.</div>
+            </div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:${hitGold?'var(--orange-light)':hitSuper?'var(--blue)':hitMeta?'var(--green)':'var(--text3)'};margin-bottom:10px">${t.unitAtivacoes} ativações · ${hitGold?'👑 Meta Gold atingida!':hitSuper?'🔥 Super Meta atingida!':hitMeta?'🏅 Meta atingida!':'Não atingida'}</div>
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Novos+Ret: ${t.unitNovosRetorno}/${cfg.minNovos} ${t.unitNovosRetorno >= cfg.minNovos ? '✅' : '❌'}</div>
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">Renovações: ${t.unitRenovacoes}/${cfg.minRenov} ${t.unitRenovacoes >= cfg.minRenov ? '✅' : '⚠️'}</div>
           <div style="font-size:11px;color:var(--text2)">Vouchers: ${t.unitVouchers}/${cfg.minVoucher} ${t.unitVouchers >= cfg.minVoucher ? '✅' : '⚠️'}</div>
@@ -6601,7 +6644,8 @@
           </div>
 
           <!-- P3 -->
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:10px">
+          <div style="background:var(--surface);border:1px solid ${hitGold?'var(--orange-light)':hitSuper?'var(--blue)':hitMeta?'var(--green)':'var(--border)'};border-radius:10px;padding:16px;margin-bottom:10px;${hitGold?'animation:goldPulse 2.5s ease-in-out infinite':''}">
+            ${hitGold ? `<div style="background:linear-gradient(135deg,rgba(245,166,35,0.18),rgba(255,215,0,0.08));border-radius:7px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;border:1px solid rgba(245,166,35,0.3)"><span style="font-size:22px;line-height:1">👑</span><div><div style="font-size:12px;font-weight:800;color:var(--orange-light);letter-spacing:.3px">Equipe chegou na Meta Gold!</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Pool da unidade: R$ ${fmt(vData.p3bruto||0)} · Sua fatia proporcional ao caixa</div></div></div>` : hitSuper ? `<div style="background:rgba(0,150,255,0.08);border-radius:7px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;border:1px solid rgba(0,150,255,0.25)"><span style="font-size:22px;line-height:1">🔥</span><div><div style="font-size:12px;font-weight:800;color:var(--blue)">Equipe atingiu a Super Meta!</div><div style="font-size:10px;color:var(--text3);margin-top:2px">Pool da unidade: R$ ${fmt(vData.p3bruto||0)} · Sua fatia proporcional ao caixa</div></div></div>` : ''}
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
                 <div style="font-size:12px;font-weight:700;color:var(--orange-light)">P3 — Bônus de Meta da Unidade</div>
