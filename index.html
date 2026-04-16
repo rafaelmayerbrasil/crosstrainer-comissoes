@@ -4657,11 +4657,16 @@
           }
         });
 
+        let afterVendorSummaryUpload = periodData.vendorSummary || {};
+        try {
+          const freshPeriodSnap = await db.collection('periodos').doc(periodId).get();
+          if (freshPeriodSnap.exists) afterVendorSummaryUpload = freshPeriodSnap.data().vendorSummary || {};
+        } catch (_e) {}
         await saveHistoricoSnapshot(
           periodId,
           { type: 'upload', label: `Upload: ${fileName}` },
           beforeVendorSummaryUpload,
-          periodData.vendorSummary || {},
+          afterVendorSummaryUpload,
           { precomputedItemDeltas: uploadItemDeltas }
         );
 
@@ -6666,7 +6671,11 @@
         const snapshots = [];
         snap.forEach(doc => snapshots.push({ id: doc.id, ...doc.data() }));
         const nameUpper = (vendorName || '').toUpperCase();
-        const findMyEntry = (vendorSnapshots) => Object.entries(vendorSnapshots || {}).find(([k]) => k.toUpperCase() === nameUpper || k.toUpperCase().includes(nameUpper));
+        const findMyEntry = (vendorSnapshots) => {
+          const entries = Object.entries(vendorSnapshots || {});
+          return entries.find(([k]) => k.toUpperCase() === nameUpper) ||
+                 entries.find(([k]) => k.toUpperCase().includes(nameUpper));
+        };
         const mySnapshots = snapshots.filter(s => !!findMyEntry(s.vendorSnapshots));
         if (mySnapshots.length === 0) {
           el.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">Nenhuma alteração registrada para você este mês.</p>';
@@ -6700,7 +6709,9 @@
           const dc = myDelta >= 0 ? 'var(--green,#4caf50)' : '#e53935';
           const ds = myDelta >= 0 ? '+' : '';
           const label = triggerLabels[s.triggerType] || s.triggerLabel || s.triggerType;
-          const myItems = (s.itemDeltas || []).filter(d => (d.vendorId || '').toUpperCase() === nameUpper || (d.vendorId || '').toUpperCase().includes(nameUpper));
+          const allDeltas = s.itemDeltas || [];
+          const exactItems = allDeltas.filter(d => (d.vendorId || '').toUpperCase() === nameUpper);
+          const myItems = exactItems.length > 0 ? exactItems : allDeltas.filter(d => (d.vendorId || '').toUpperCase().includes(nameUpper));
           const itemRows = myItems.map(d => {
             const ic = (d.impacto || 0) >= 0 ? 'var(--green,#4caf50)' : '#e53935';
             const is = (d.impacto || 0) >= 0 ? '+' : '';
