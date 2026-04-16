@@ -4514,6 +4514,13 @@
         console.log('[confirmUpload] Iniciando confirmUpload para periodoId:', periodId);
         toast('Salvando...', 'info');
 
+        // HISTÓRICO: capturar estado anterior (se período já existia)
+        let beforeVendorSummaryUpload = {};
+        try {
+          const existingPeriodSnap = await db.collection('periodos').doc(periodId).get();
+          if (existingPeriodSnap.exists) beforeVendorSummaryUpload = existingPeriodSnap.data().vendorSummary || {};
+        } catch (_e) {}
+
         // Auto-register or update vendors found in the file
         console.log('[confirmUpload] Registrando/Atualizando vendedores:', newVendors, pendingUpload.usersToUpdateUnit);
         await autoRegisterVendors(newVendors, pendingUpload.usersToUpdateUnit);
@@ -4628,6 +4635,32 @@
           await batch.commit();
         }
         console.log(`[confirmUpload] Dedup: ${added} novos, ${replaced} substituídos, ${skipped} ignorados (já ativos).`);
+
+        // HISTÓRICO: construir deltas de itens adicionados neste upload
+        const uploadItemDeltas = [];
+        allItems.filter(d => d.type === 'processed').forEach(item => {
+          const stableId = generateStableId(item);
+          if (existingMap[stableId] !== 'processed') {
+            uploadItemDeltas.push({
+              vendorId: item.vendedor || '',
+              vendorName: item.vendedor || '',
+              change: 'added',
+              cliente: item.cliente || '',
+              item: item.item || '',
+              data: item.data || '',
+              impacto: Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
+            });
+          }
+        });
+
+        await saveHistoricoSnapshot(
+          periodId,
+          { type: 'upload', label: `Upload: ${fileName}` },
+          beforeVendorSummaryUpload,
+          periodData.vendorSummary || {},
+          { precomputedItemDeltas: uploadItemDeltas }
+        );
+
         if (skipped > 0) toast(`${skipped} lançamento(s) já existiam e foram mantidos.`, 'info');
 
         // Save deferred commissions to future periods collection in batches
