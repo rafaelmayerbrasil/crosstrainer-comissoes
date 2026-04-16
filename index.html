@@ -5245,7 +5245,7 @@
           triggerLabel: triggerContext.label,
           triggeredBy: {
             uid: currentUser ? currentUser.uid : '',
-            name: currentUser ? (currentUser.displayName || currentUser.email.split('@')[0]) : 'Sistema'
+            name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema'
           },
           vendorSnapshots,
           itemDeltas
