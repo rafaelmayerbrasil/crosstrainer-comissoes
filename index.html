@@ -5561,6 +5561,7 @@
         <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
         <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
+        <button class="tab-btn" onclick="switchDashTab('tabHistorico',this)">📋 Histórico</button>
       </div>
 
       <div id="tabResumo">
@@ -5738,6 +5739,10 @@
       <div id="tabDiferidos" style="display:none">
         <div id="diferidosContent"></div>
       </div> <!-- END tabDiferidos -->
+
+      <div id="tabHistorico" style="display:none">
+        <div id="adminHistoricoContent"></div>
+      </div> <!-- END tabHistorico -->
       `;
 
         document.getElementById('dashboardContent').innerHTML = html;
@@ -7057,10 +7062,96 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // HISTÓRICO ADMIN TAB
+    // ═══════════════════════════════════════════════════════════════
+    async function renderHistoricoTab(periodId) {
+      const el = document.getElementById('adminHistoricoContent');
+      if (!el) return;
+      el.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">Carregando histórico...</p>';
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('historico')
+          .orderBy('timestamp', 'desc').limit(50).get();
+        if (snap.empty) {
+          el.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">Nenhuma alteração registrada ainda. As alterações aparecerão aqui após o próximo upload ou mudança de configuração.</p>';
+          return;
+        }
+        const snapshots = [];
+        snap.forEach(doc => snapshots.push({ id: doc.id, ...doc.data() }));
+        const typeIcons = { upload: '📤', config_change: '⚙️', item_edit: '✏️', item_add: '✚', item_delete: '✖' };
+        let html = '<div style="display:flex;flex-direction:column;gap:12px;padding:16px">';
+        snapshots.forEach(s => {
+          const ts = s.timestamp && s.timestamp.toDate ? s.timestamp.toDate() : new Date();
+          const dateStr = ts.toLocaleDateString('pt-BR') + ' ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const icon = typeIcons[s.triggerType] || '🔄';
+          const totalDelta = Object.values(s.vendorSnapshots || {}).reduce((sum, v) => sum + (v.delta || 0), 0);
+          const deltaColor = totalDelta >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+          const deltaSign = totalDelta >= 0 ? '+' : '';
+          const vendorRows = Object.values(s.vendorSnapshots || {}).map(v => {
+            const dc = v.delta >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+            const ds = v.delta >= 0 ? '+' : '';
+            return `<tr>
+              <td style="padding:6px 12px">${v.name}</td>
+              <td style="padding:6px 12px;text-align:right">R$ ${(v.totalAntes || 0).toFixed(2).replace('.', ',')}</td>
+              <td style="padding:6px 12px;text-align:right">R$ ${(v.totalDepois || 0).toFixed(2).replace('.', ',')}</td>
+              <td style="padding:6px 12px;text-align:right;color:${dc};font-weight:700">${ds}R$ ${Math.abs(v.delta || 0).toFixed(2).replace('.', ',')}</td>
+            </tr>`;
+          }).join('');
+          const itemRows = (s.itemDeltas || []).map(d => {
+            const ic = (d.impacto || 0) >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+            const is = (d.impacto || 0) >= 0 ? '+' : '';
+            const changeLabel = { added: '✚ Adicionado', removed: '✖ Removido', modified: '≠ Alterado', p3_recalc: '🎯 P3' }[d.change] || d.change;
+            const detail = d.change === 'modified' && d.antes ? ` (era R$ ${(d.antes.total || 0).toFixed(2).replace('.', ',')})` : '';
+            return `<tr style="font-size:11px">
+              <td style="padding:4px 12px;color:var(--text2)">${d.vendorName || ''}</td>
+              <td style="padding:4px 12px">${changeLabel}</td>
+              <td style="padding:4px 12px">${d.cliente || '—'}</td>
+              <td style="padding:4px 12px">${d.item || '—'}${detail}</td>
+              <td style="padding:4px 12px;text-align:right;color:${ic};font-weight:600">${is}R$ ${Math.abs(d.impacto || 0).toFixed(2).replace('.', ',')}</td>
+            </tr>`;
+          }).join('');
+          html += `
+            <div style="border:1px solid var(--border,#333);border-radius:8px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;background:var(--card,#1e1e1e)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+                <span style="font-size:16px">${icon}</span>
+                <div style="flex:1">
+                  <div style="font-weight:600;font-size:13px">${s.triggerLabel || s.triggerType}</div>
+                  <div style="font-size:11px;color:var(--text2)">${dateStr} · por ${(s.triggeredBy && s.triggeredBy.name) || 'Sistema'}</div>
+                </div>
+                <div style="font-weight:700;color:${deltaColor}">${deltaSign}R$ ${Math.abs(totalDelta).toFixed(2).replace('.', ',')}</div>
+              </div>
+              <div style="display:none;padding:16px;background:var(--bg,#121212)">
+                ${vendorRows ? `<table style="width:100%;border-collapse:collapse;margin-bottom:${itemRows ? 16 : 0}px;font-size:12px">
+                  <thead><tr style="border-bottom:1px solid var(--border,#333)">
+                    <th style="padding:6px 12px;text-align:left">Vendedor</th>
+                    <th style="padding:6px 12px;text-align:right">Antes</th>
+                    <th style="padding:6px 12px;text-align:right">Depois</th>
+                    <th style="padding:6px 12px;text-align:right">Diferença</th>
+                  </tr></thead><tbody>${vendorRows}</tbody></table>` : ''}
+                ${itemRows ? `<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Lançamentos afetados</div>
+                  <table style="width:100%;border-collapse:collapse">
+                    <thead><tr style="border-bottom:1px solid var(--border,#333)">
+                      <th style="padding:4px 12px;text-align:left">Vendedor</th>
+                      <th style="padding:4px 12px;text-align:left">Tipo</th>
+                      <th style="padding:4px 12px;text-align:left">Cliente</th>
+                      <th style="padding:4px 12px;text-align:left">Plano</th>
+                      <th style="padding:4px 12px;text-align:right">Impacto</th>
+                    </tr></thead><tbody>${itemRows}</tbody></table>` : ''}
+              </div>
+            </div>`;
+        });
+        html += '</div>';
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = '<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.</p>';
+        console.error('[Histórico Admin]', e);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // DASHBOARD TAB SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchDashTab(tabId, btn) {
-      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDiferidos'];
+      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDiferidos', 'tabHistorico'];
       allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       const target = document.getElementById(tabId);
@@ -7078,6 +7169,7 @@
         else if (tabId === 'tabAtivacoes') renderAtivacoesTab(periodId);
         else if (tabId === 'tabRelatorio') renderRelatorioTab(data, periodId);
         else if (tabId === 'tabDiferidos') renderDiferidosTab(data, periodId);
+        else if (tabId === 'tabHistorico') renderHistoricoTab(periodId);
 
         loadedTabs.add(tabId);
       }
