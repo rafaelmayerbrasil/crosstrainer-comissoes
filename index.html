@@ -4590,7 +4590,12 @@
         console.log('[confirmUpload] Carregando itens existentes para deduplicação...');
         const existingSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
         const existingMap = {}; // stableId → type
-        existingSnap.forEach(doc => { existingMap[doc.id] = doc.data().type || 'processed'; });
+        const existingProcessedData = {}; // stableId → item data (para detectar removidos no histórico)
+        existingSnap.forEach(doc => {
+          const d = doc.data();
+          existingMap[doc.id] = d.type || 'processed';
+          if ((d.type || 'processed') === 'processed') existingProcessedData[doc.id] = d;
+        });
         console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
 
         // Save items in batches (with dedup logic)
@@ -4640,8 +4645,11 @@
         }
         console.log(`[confirmUpload] Dedup: ${added} novos, ${replaced} substituídos, ${skipped} ignorados (já ativos).`);
 
-        // HISTÓRICO: construir deltas de itens adicionados neste upload
+        // HISTÓRICO: construir deltas de itens do upload (adicionados + removidos)
         const uploadItemDeltas = [];
+        const newUploadIds = new Set(allItems.filter(d => d.type === 'processed').map(item => generateStableId(item)));
+
+        // Itens adicionados (não estavam como processed antes)
         allItems.filter(d => d.type === 'processed').forEach(item => {
           const stableId = generateStableId(item);
           if (existingMap[stableId] !== 'processed') {
@@ -4653,6 +4661,21 @@
               item: item.item || '',
               data: item.data || '',
               impacto: Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
+            });
+          }
+        });
+
+        // Itens removidos (estavam como processed antes mas não vieram no novo arquivo)
+        Object.entries(existingProcessedData).forEach(([stableId, item]) => {
+          if (!newUploadIds.has(stableId)) {
+            uploadItemDeltas.push({
+              vendorId: item.vendedor || '',
+              vendorName: item.vendedor || '',
+              change: 'removed',
+              cliente: item.cliente || '',
+              item: item.item || '',
+              data: item.data || '',
+              impacto: -Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
             });
           }
         });
