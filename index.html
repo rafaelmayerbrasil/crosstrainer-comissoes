@@ -3184,6 +3184,7 @@
           <button class="tab-btn" onclick="switchVendorTab('vtabComissoes',this)">Comissões</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabAtivacoes',this)">Ativações</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabDiferidos',this)">⏳ Diferidos</button>
+          <button class="tab-btn" onclick="switchVendorTab('vtabHistorico',this)">📋 Histórico</button>
         </div>
         <div id="vtabResumo">
           <div id="vendorDashboard">
@@ -3198,6 +3199,9 @@
         </div>
         <div id="vtabDiferidos" style="display:none">
           <div id="vendorDiferidosContent"></div>
+        </div>
+        <div id="vtabHistorico" style="display:none">
+          <div id="vendorHistoricoContent"></div>
         </div>
       </div>
 
@@ -6154,7 +6158,7 @@
       const tabs = document.getElementById('vendorTabs');
       if (tabs) tabs.style.display = '';
       // Reset to Resumo tab
-      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos'].forEach(id => {
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos','vtabHistorico'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = id === 'vtabResumo' ? '' : 'none';
       });
@@ -6650,10 +6654,87 @@
     // ABA: COMISSÕES DIFERIDAS
     // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
+    // HISTÓRICO VENDEDOR TAB
+    // ═══════════════════════════════════════════════════════════════
+    async function renderVendorHistoricoTab(periodId, vendorName) {
+      const el = document.getElementById('vendorHistoricoContent');
+      if (!el) return;
+      el.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">Carregando histórico...</p>';
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('historico')
+          .orderBy('timestamp', 'desc').limit(50).get();
+        const snapshots = [];
+        snap.forEach(doc => snapshots.push({ id: doc.id, ...doc.data() }));
+        const nameUpper = (vendorName || '').toUpperCase();
+        const findMyEntry = (vendorSnapshots) => Object.entries(vendorSnapshots || {}).find(([k]) => k.toUpperCase() === nameUpper || k.toUpperCase().includes(nameUpper));
+        const mySnapshots = snapshots.filter(s => !!findMyEntry(s.vendorSnapshots));
+        if (mySnapshots.length === 0) {
+          el.innerHTML = '<p style="color:var(--text2);text-align:center;padding:40px">Nenhuma alteração registrada para você este mês.</p>';
+          return;
+        }
+        const oldest = [...mySnapshots].reverse()[0];
+        const oldestEntry = findMyEntry(oldest.vendorSnapshots);
+        const initialTotal = oldestEntry ? (oldestEntry[1].totalAntes || 0) : 0;
+        const newestEntry = findMyEntry(mySnapshots[0].vendorSnapshots);
+        const currentTotal = newestEntry ? (newestEntry[1].totalDepois || 0) : 0;
+        const totalVariation = currentTotal - initialTotal;
+        const triggerLabels = { upload: 'Atualização de base', config_change: 'Ajuste de configuração', item_edit: 'Correção de lançamento', item_add: 'Lançamento adicionado', item_delete: 'Lançamento removido' };
+        const headerColor = totalVariation >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+        const headerSign = totalVariation >= 0 ? '+' : '';
+        let html = `<div style="background:var(--card,#1e1e1e);border-radius:8px;padding:16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px">Variação no mês</div>
+            <div style="font-size:20px;font-weight:700;margin-top:4px;color:${headerColor}">${headerSign}R$ ${Math.abs(totalVariation).toFixed(2).replace('.', ',')}</div>
+          </div>
+          <div style="text-align:right;font-size:12px;color:var(--text2)">
+            <div>Início: R$ ${initialTotal.toFixed(2).replace('.', ',')}</div>
+            <div>Atual: R$ ${currentTotal.toFixed(2).replace('.', ',')}</div>
+          </div>
+        </div><div style="display:flex;flex-direction:column;gap:8px">`;
+        mySnapshots.forEach(s => {
+          const ts = s.timestamp && s.timestamp.toDate ? s.timestamp.toDate() : new Date();
+          const dateStr = ts.toLocaleDateString('pt-BR') + ' ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const myEntry = findMyEntry(s.vendorSnapshots);
+          if (!myEntry) return;
+          const myDelta = myEntry[1].delta || 0;
+          const dc = myDelta >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+          const ds = myDelta >= 0 ? '+' : '';
+          const label = triggerLabels[s.triggerType] || s.triggerLabel || s.triggerType;
+          const myItems = (s.itemDeltas || []).filter(d => (d.vendorId || '').toUpperCase() === nameUpper || (d.vendorId || '').toUpperCase().includes(nameUpper));
+          const itemRows = myItems.map(d => {
+            const ic = (d.impacto || 0) >= 0 ? 'var(--green,#4caf50)' : '#e53935';
+            const is = (d.impacto || 0) >= 0 ? '+' : '';
+            const changeIcon = { added: '✚', removed: '✖', modified: '≠', p3_recalc: '🎯' }[d.change] || '•';
+            const detail = d.change === 'modified' && d.antes ? ` (era R$ ${(d.antes.total || 0).toFixed(2).replace('.', ',')})` : '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border,#333);font-size:11px">
+              <span style="color:var(--text2)">${changeIcon} ${d.cliente || '—'} · ${d.item || '—'}${detail}</span>
+              <span style="color:${ic};font-weight:600;white-space:nowrap;margin-left:8px">${is}R$ ${Math.abs(d.impacto || 0).toFixed(2).replace('.', ',')}</span>
+            </div>`;
+          }).join('');
+          html += `<div style="border:1px solid var(--border,#333);border-radius:8px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:13px">${label}</div>
+                <div style="font-size:11px;color:var(--text2)">${dateStr}</div>
+              </div>
+              <div style="font-weight:700;color:${dc}">${ds}R$ ${Math.abs(myDelta).toFixed(2).replace('.', ',')}</div>
+            </div>
+            ${myItems.length > 0 ? `<div style="display:none;padding:12px 16px;background:var(--bg,#121212)">${itemRows}</div>` : '<div style="display:none"></div>'}
+          </div>`;
+        });
+        html += '</div>';
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = '<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.</p>';
+        console.error('[Histórico Vendedor]', e);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // VENDOR TABS SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchVendorTab(tabId, btn) {
-      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos'].forEach(id => {
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos','vtabHistorico'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
@@ -6671,6 +6752,7 @@
         if (tabId === 'vtabComissoes') renderVendorComissoesTab(periodId, myName, data);
         else if (tabId === 'vtabAtivacoes') renderVendorAtivacoesTab(periodId, myName);
         else if (tabId === 'vtabDiferidos') renderVendorDiferidosTab(data, periodId, myName);
+        else if (tabId === 'vtabHistorico') renderVendorHistoricoTab(periodId, myName);
         window._vendorLoadedTabs.add(tabId);
       }
     }
