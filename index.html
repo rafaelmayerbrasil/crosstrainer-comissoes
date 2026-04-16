@@ -5256,12 +5256,13 @@
       }
     }
 
-    async function recalculatePeriod(periodId) {
+    async function recalculatePeriod(periodId, triggerContext) {
       if (!periodId) return;
       const pDoc = await db.collection('periodos').doc(periodId).get();
       if (!pDoc.exists) return;
       const pData = pDoc.data();
       const currentUploadId = pData.uploadId;
+      const beforeVendorSummary = pData.vendorSummary || {};
 
       let items = globalPeriodsCache[periodId];
       if (!items) {
@@ -5277,7 +5278,15 @@
       
       const processed = items.filter(d => d.type === 'processed');
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
-      
+
+      // HISTÓRICO: snapshot de valores antes do recálculo
+      const beforeItemValues = {};
+      if (triggerContext) {
+        processed.forEach(item => {
+          beforeItemValues[item._docId] = { p1: item.p1valor || 0, p2: item.p2bonus || 0 };
+        });
+      }
+
       // 1. Recalculate and Sync each item back to Firestore in batches
       try {
         const batch = db.batch();
@@ -5392,6 +5401,11 @@
       }
 
       await db.collection('periodos').doc(periodId).update(removeUndefinedFields(rawUpdateData));
+
+      // HISTÓRICO: salvar snapshot se houve triggerContext
+      if (triggerContext) {
+        await saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, vendorSummary, { beforeItemValues, processedItems: processed });
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
