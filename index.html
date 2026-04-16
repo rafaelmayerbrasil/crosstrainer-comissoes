@@ -6736,7 +6736,8 @@
         html += '</div>';
         el.innerHTML = html;
       } catch (e) {
-        el.innerHTML = '<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.</p>';
+        const msgV = e && e.code ? e.code : (e && e.message ? e.message : String(e));
+        el.innerHTML = `<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.<br><small style="opacity:.6">${msgV}</small></p>`;
         console.error('[Histórico Vendedor]', e);
       }
     }
@@ -7235,7 +7236,8 @@
         html += '</div>';
         el.innerHTML = html;
       } catch (e) {
-        el.innerHTML = '<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.</p>';
+        const msg = e && e.code ? e.code : (e && e.message ? e.message : String(e));
+        el.innerHTML = `<p style="color:#e53935;text-align:center;padding:40px">Erro ao carregar histórico.<br><small style="opacity:.6">${msg}</small></p>`;
         console.error('[Histórico Admin]', e);
       }
     }
