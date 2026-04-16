@@ -5192,6 +5192,70 @@
       } catch (err) { toast('Erro: ' + err.message, 'error'); }
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    // HISTÓRICO DE COMISSÕES
+    // ═══════════════════════════════════════════════════════════════
+    async function saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, { beforeItemValues, processedItems, precomputedItemDeltas } = {}) {
+      try {
+        // Vendor-level deltas
+        const vendorSnapshots = {};
+        let hasVendorChange = false;
+        const allVendors = new Set([...Object.keys(beforeVendorSummary || {}), ...Object.keys(afterVendorSummary || {})]);
+        allVendors.forEach(name => {
+          const antes = (beforeVendorSummary[name] || {}).grandTotal || 0;
+          const depois = (afterVendorSummary[name] || {}).grandTotal || 0;
+          const delta = Math.round((depois - antes) * 100) / 100;
+          if (Math.abs(delta) >= 0.01) {
+            vendorSnapshots[name] = { name, totalAntes: antes, totalDepois: depois, delta };
+            hasVendorChange = true;
+          }
+        });
+
+        // Item-level deltas
+        let itemDeltas = [];
+        if (precomputedItemDeltas) {
+          itemDeltas = precomputedItemDeltas;
+        } else if (beforeItemValues && processedItems) {
+          processedItems.forEach(item => {
+            const bef = beforeItemValues[item._docId];
+            if (!bef) return;
+            const beforeTotal = (bef.p1 || 0) + (bef.p2 || 0);
+            const afterTotal = (item.p1valor || 0) + (item.p2bonus || 0);
+            if (Math.abs(afterTotal - beforeTotal) >= 0.01) {
+              itemDeltas.push({
+                vendorId: item.vendedor || '',
+                vendorName: item.vendedor || '',
+                change: 'modified',
+                cliente: item.cliente || '',
+                item: item.item || '',
+                data: item.data || '',
+                antes: { p1: bef.p1, p2: bef.p2, total: beforeTotal },
+                depois: { p1: item.p1valor || 0, p2: item.p2bonus || 0, total: afterTotal },
+                impacto: Math.round((afterTotal - beforeTotal) * 100) / 100
+              });
+            }
+          });
+        }
+
+        if (!hasVendorChange && itemDeltas.length === 0) return;
+
+        const snapshot = {
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          triggerType: triggerContext.type,
+          triggerLabel: triggerContext.label,
+          triggeredBy: {
+            uid: currentUser ? currentUser.uid : '',
+            name: currentUser ? (currentUser.displayName || currentUser.email.split('@')[0]) : 'Sistema'
+          },
+          vendorSnapshots,
+          itemDeltas
+        };
+        await db.collection('periodos').doc(periodId).collection('historico').add(snapshot);
+      } catch (e) {
+        console.warn('[Histórico] Erro ao salvar snapshot:', e);
+      }
+    }
+
     async function recalculatePeriod(periodId) {
       if (!periodId) return;
       const pDoc = await db.collection('periodos').doc(periodId).get();
