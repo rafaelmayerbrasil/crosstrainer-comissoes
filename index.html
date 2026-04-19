@@ -4680,6 +4680,36 @@
           }
         });
 
+        // ── BATCH DELETE: remover do Firestore itens que saíram do arquivo ──
+        const removedStableIds = Object.keys(existingProcessedData).filter(id => !newUploadIds.has(id));
+        if (removedStableIds.length > 0) {
+          console.log(`[confirmUpload] Deletando ${removedStableIds.length} itens removidos do período...`);
+          for (let i = 0; i < removedStableIds.length; i += 400) {
+            const delBatch = db.batch();
+            removedStableIds.slice(i, i + 400).forEach(stableId => {
+              delBatch.delete(itemsRef.doc(stableId));
+            });
+            await delBatch.commit();
+          }
+          console.log(`[confirmUpload] ${removedStableIds.length} itens removidos deletados do Firestore.`);
+        }
+
+        // ── ACTIVE SNAPSHOT: foto compacta dos itens ativos para o histórico ──
+        const activeItemsForSnapshot = allItems
+          .filter(d => d.type === 'processed')
+          .map(d => ({
+            vendedor: d.vendedor || '',
+            cliente: d.cliente || '',
+            item: d.item || '',
+            data: d.data || '',
+            categoria: d.category || '',
+            label: d.label || '',
+            valorCaixa: d.valorCaixa || 0,
+            p1valor: d.p1valor || 0,
+            p2bonus: d.p2bonus || 0,
+            total: Math.round(((d.p1valor || 0) + (d.p2bonus || 0)) * 100) / 100
+          }));
+
         let afterVendorSummaryUpload = periodData.vendorSummary || {};
         try {
           const freshPeriodSnap = await db.collection('periodos').doc(periodId).get();
@@ -4690,7 +4720,7 @@
           { type: 'upload', label: `Upload: ${fileName}` },
           beforeVendorSummaryUpload,
           afterVendorSummaryUpload,
-          { precomputedItemDeltas: uploadItemDeltas }
+          { precomputedItemDeltas: uploadItemDeltas, activeItems: activeItemsForSnapshot }
         );
 
         if (skipped > 0) toast(`${skipped} lançamento(s) já existiam e foram mantidos.`, 'info');
@@ -5260,7 +5290,7 @@
     // ═══════════════════════════════════════════════════════════════
     // HISTÓRICO DE COMISSÕES
     // ═══════════════════════════════════════════════════════════════
-    async function saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, { beforeItemValues, processedItems, precomputedItemDeltas } = {}) {
+    async function saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, { beforeItemValues, processedItems, precomputedItemDeltas, activeItems } = {}) {
       try {
         // Vendor-level deltas
         const vendorSnapshots = {};
@@ -5313,7 +5343,10 @@
             name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema'
           },
           vendorSnapshots,
-          itemDeltas
+          itemDeltas,
+          ...(triggerContext.type === 'upload' && activeItems && activeItems.length > 0
+            ? { activeSnapshot: activeItems }
+            : {})
         };
         await db.collection('periodos').doc(periodId).collection('historico').add(snapshot);
       } catch (e) {
