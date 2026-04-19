@@ -4647,6 +4647,14 @@
               batch.update(itemsRef.doc(stableId), { uploadId });
               return;
             }
+            // Soft match: mesmo contrato, valor diferente → manter original, não criar novo
+            const softId = generateSoftId(item);
+            if (existingSoftMap[softId] && existingSoftMap[softId].stableId !== stableId) {
+              skipped++;
+              // Atualiza uploadId do item ORIGINAL para rastreio
+              batch.update(itemsRef.doc(existingSoftMap[softId].stableId), { uploadId });
+              return;
+            }
             if (existingType) replaced++; else added++;
 
             const ref = itemsRef.doc(stableId);
