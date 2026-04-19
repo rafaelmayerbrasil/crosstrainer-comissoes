@@ -50,7 +50,9 @@ periodos/{periodId}/historico/{snapshotId}
   triggerType: "upload" | "config_change" | "item_edit" | "item_add" | "item_delete"
   triggerLabel, triggeredBy, timestamp
   vendorSnapshots: { vendorName: { totalAntes, totalDepois, delta } }
-  itemDeltas: [ { change: "added"|"removed"|"modified", vendorName, cliente, item, impacto } ]
+  itemDeltas: [ { change: "added"|"removed"|"modified"|"valor_alterado_ignorado", vendorName, cliente, item, impacto,
+                   valorOriginal?, valorNovo? } ]
+    — valor_alterado_ignorado: mesmo contrato (vendedor|cliente|data|item), valorCaixa diferente. impacto=0.
   activeSnapshot?: [ { vendedor, cliente, item, data, categoria, label, valorCaixa, p1valor, p2bonus, total } ]
     — Apenas em triggerType === "upload". Foto dos itens ativos após o upload.
     — Disponível para uploads a partir de 2026-04-19.
@@ -67,17 +69,23 @@ comissoes_diferidas/{id}
 1. Processar arquivo Excel via `CommissionEngine.calculate()`
 2. Carregar itens existentes do período do Firestore (deduplicação)
 3. Salvar novos itens em batch (400/lote) com merge:false
-   - Item já processado → apenas atualizar `uploadId`
+   - Item já processado (mesmo stableId) → apenas atualizar `uploadId`
+   - **Soft match** (mesmo softId, stableId diferente) → manter original, atualizar uploadId do original, não criar novo
    - Item inexistente/excluído → inserir/substituir
-4. **Detectar itens removidos:** IDs em DB ausentes no novo arquivo
-5. **Deletar fisicamente** os itens removidos do Firestore (batch delete, 400/lote)
-6. Coletar `activeItemsForSnapshot` (foto compacta dos itens processados)
+4. **Detectar soft matches:** construir `existingSoftMap` (softId → stableId/valorCaixa) e `newSoftIds`
+   - Soft match = mesmo (vendedor|cliente|data|item), valorCaixa diferente
+   - Item original preservado; delta `valor_alterado_ignorado` registrado com valorOriginal/valorNovo e impacto 0
+5. **Detectar itens removidos:** stableIds em DB onde NÃO há match exato nem soft match no novo arquivo
+6. **Deletar fisicamente** os itens removidos do Firestore (batch delete, 400/lote)
+7. Coletar `activeItemsForSnapshot` (foto compacta dos itens processados)
 7. Salvar snapshot no histórico com `activeSnapshot` (`saveHistoricoSnapshot`)
 8. Salvar comissões diferidas em `comissoes_diferidas`
 9. Atualizar `uploadId` e meta do período
 10. Chamar `recalculatePeriod` para recomputar totais e `vendorSummary`
 
 **StableId:** hash baseado em `vendedor|cliente|data|item|valorCaixa` — identifica o mesmo lançamento entre uploads.
+
+**SoftId:** hash baseado em `vendedor|cliente|data|item` (sem valorCaixa) — identifica o mesmo contrato independente do valor pago. Usado para proteger comissões originais quando o valor muda em uploads posteriores.
 
 ---
 
@@ -116,6 +124,13 @@ Usado pelos botões XLS e pelo modal de diff para evitar releitura do Firestore.
 ---
 
 ## Histórico de Mudanças
+
+### 2026-04-19 — Proteção de Comissão: Valor Alterado Ignorado
+- **Feat:** `generateSoftId()`: hash de `vendedor|cliente|data|item` sem `valorCaixa` — identifica o mesmo contrato independente do valor pago.
+- **Feat:** `existingSoftMap` e `newSoftIds` construídos durante upload para detecção de soft matches.
+- **Bug fix:** Items com mesmo contrato mas valor diferente agora preservam a comissão original — o item original não é deletado e o novo valor não gera nova comissão.
+- **Feat:** Delta `valor_alterado_ignorado` registrado no histórico com `valorOriginal` e `valorNovo`, impacto = 0.
+- **UI:** Tipo exibido como "⚠️ Val. Alterado (ignorado)" em âmbar no card do histórico, modal de diff (com filtro) e exportação XLS (com coluna "Detalhe").
 
 ### 2026-04-19 — Upload Sync + Histórico Enriquecido + Exportação Excel
 - **Bug fix:** `confirmUpload()` agora deleta fisicamente do Firestore os itens presentes no DB mas ausentes no novo arquivo. Anteriormente, esses itens permaneciam como "fantasmas" afetando totais e aparecendo repetidamente no histórico.
