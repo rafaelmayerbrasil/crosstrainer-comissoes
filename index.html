@@ -4478,6 +4478,21 @@
       return 'id_' + Math.abs(hash).toString(36) + '_' + key.length;
     }
 
+    function generateSoftId(item) {
+      const key = [
+        (item.vendedor || '').toString().trim().toUpperCase(),
+        (item.cliente || '').toString().trim().toUpperCase(),
+        (item.data || '').toString().replace(/\//g, ''),
+        (item.item || '').toString().trim().toUpperCase()
+      ].join('|');
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = ((hash << 5) - hash) + key.charCodeAt(i);
+        hash |= 0;
+      }
+      return 'soft_' + Math.abs(hash).toString(36) + '_' + key.length;
+    }
+
     async function confirmUpload() {
       if (!pendingUpload) return;
       const period = document.getElementById('periodMonth').value;
@@ -4591,10 +4606,14 @@
         const existingSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
         const existingMap = {}; // stableId → type
         const existingProcessedData = {}; // stableId → item data (para detectar removidos no histórico)
+        const existingSoftMap = {}; // softId → { stableId, valorCaixa } (para detectar valor alterado)
         existingSnap.forEach(doc => {
           const d = doc.data();
           existingMap[doc.id] = d.type || 'processed';
-          if ((d.type || 'processed') === 'processed') existingProcessedData[doc.id] = d;
+          if ((d.type || 'processed') === 'processed') {
+            existingProcessedData[doc.id] = d;
+            existingSoftMap[generateSoftId(d)] = { stableId: doc.id, valorCaixa: d.valorCaixa || 0 };
+          }
         });
         console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
 
