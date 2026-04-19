@@ -4672,29 +4672,49 @@
         }
         console.log(`[confirmUpload] Dedup: ${added} novos, ${replaced} substituídos, ${skipped} ignorados (já ativos).`);
 
-        // HISTÓRICO: construir deltas de itens do upload (adicionados + removidos)
+        // HISTÓRICO: construir deltas de itens do upload (adicionados + removidos + valor alterado)
         const uploadItemDeltas = [];
         const newUploadIds = new Set(allItems.filter(d => d.type === 'processed').map(item => generateStableId(item)));
+        const newSoftIds   = new Set(allItems.filter(d => d.type === 'processed').map(item => generateSoftId(item)));
 
-        // Itens adicionados (não estavam como processed antes)
+        // Itens adicionados (não estavam como processed antes e não são soft match)
         allItems.filter(d => d.type === 'processed').forEach(item => {
           const stableId = generateStableId(item);
-          if (existingMap[stableId] !== 'processed') {
-            uploadItemDeltas.push({
-              vendorId: item.vendedor || '',
-              vendorName: item.vendedor || '',
-              change: 'added',
-              cliente: item.cliente || '',
-              item: item.item || '',
-              data: item.data || '',
-              impacto: Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
-            });
-          }
+          if (existingMap[stableId] === 'processed') return; // match exato, já existe
+          if (existingSoftMap[generateSoftId(item)]) return; // soft match (valor alterado), registrado separadamente
+          uploadItemDeltas.push({
+            vendorId: item.vendedor || '',
+            vendorName: item.vendedor || '',
+            change: 'added',
+            cliente: item.cliente || '',
+            item: item.item || '',
+            data: item.data || '',
+            impacto: Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
+          });
+        });
+
+        // Itens com valor alterado (mesmo contrato, valorCaixa diferente → ignorado)
+        allItems.filter(d => d.type === 'processed').forEach(item => {
+          const stableId = generateStableId(item);
+          if (existingMap[stableId] === 'processed') return; // match exato, não é alteração de valor
+          const original = existingSoftMap[generateSoftId(item)];
+          if (!original) return; // nenhum soft match
+          uploadItemDeltas.push({
+            vendorId: item.vendedor || '',
+            vendorName: item.vendedor || '',
+            change: 'valor_alterado_ignorado',
+            cliente: item.cliente || '',
+            item: item.item || '',
+            data: item.data || '',
+            valorOriginal: original.valorCaixa,
+            valorNovo: item.valorCaixa || 0,
+            impacto: 0
+          });
         });
 
         // Itens removidos (estavam como processed antes mas não vieram no novo arquivo)
         Object.entries(existingProcessedData).forEach(([stableId, item]) => {
-          if (!newUploadIds.has(stableId)) {
+          if (!newUploadIds.has(stableId) && !newSoftIds.has(generateSoftId(item))) {
             uploadItemDeltas.push({
               vendorId: item.vendedor || '',
               vendorName: item.vendedor || '',
@@ -4708,7 +4728,11 @@
         });
 
         // ── BATCH DELETE: remover do Firestore itens que saíram do arquivo ──
-        const removedStableIds = Object.keys(existingProcessedData).filter(id => !newUploadIds.has(id));
+        const removedStableIds = Object.keys(existingProcessedData).filter(id => {
+          if (newUploadIds.has(id)) return false; // match exato → manter
+          if (newSoftIds.has(generateSoftId(existingProcessedData[id]))) return false; // soft match → manter original
+          return true; // sumiu do arquivo → deletar
+        });
         if (removedStableIds.length > 0) {
           console.log(`[confirmUpload] Deletando ${removedStableIds.length} itens removidos do período...`);
           for (let i = 0; i < removedStableIds.length; i += 400) {
