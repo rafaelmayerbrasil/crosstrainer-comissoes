@@ -7226,7 +7226,12 @@
           return;
         }
         const snapshots = [];
-        snap.forEach(doc => snapshots.push({ id: doc.id, ...doc.data() }));
+        window._historicoCache = window._historicoCache || {};
+        snap.forEach(doc => {
+          const s = { id: doc.id, ...doc.data() };
+          snapshots.push(s);
+          window._historicoCache[doc.id] = s;
+        });
         const typeIcons = { upload: '📤', config_change: '⚙️', item_edit: '✏️', item_add: '✚', item_delete: '✖' };
         let html = '<div style="display:flex;flex-direction:column;gap:12px;padding:16px">';
         snapshots.forEach(s => {
@@ -7259,14 +7264,22 @@
               <td style="padding:4px 12px;text-align:right;color:${ic};font-weight:600">${is}R$ ${Math.abs(d.impacto || 0).toFixed(2).replace('.', ',')}</td>
             </tr>`;
           }).join('');
+          const isUpload = s.triggerType === 'upload';
+          const labelHtml = isUpload
+            ? `<span style="cursor:pointer;color:var(--orange,#e59f3e);text-decoration:underline" onclick="event.stopPropagation();openHistoricoDiffModal('${s.id}')">${s.triggerLabel || s.triggerType}</span>`
+            : (s.triggerLabel || s.triggerType);
+          const exportBtn = isUpload
+            ? `<button onclick="event.stopPropagation();exportHistoricoXLS(window._historicoCache['${s.id}'])" style="padding:4px 10px;font-size:11px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:4px;color:var(--text,#eee);cursor:pointer;white-space:nowrap">⬇ XLS</button>`
+            : '';
           html += `
             <div style="border:1px solid var(--border,#333);border-radius:8px;overflow:hidden">
               <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;background:var(--card,#1e1e1e)" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
                 <span style="font-size:16px">${icon}</span>
                 <div style="flex:1">
-                  <div style="font-weight:600;font-size:13px">${s.triggerLabel || s.triggerType}</div>
+                  <div style="font-weight:600;font-size:13px">${labelHtml}</div>
                   <div style="font-size:11px;color:var(--text2)">${dateStr} · por ${(s.triggeredBy && s.triggeredBy.name) || 'Sistema'}</div>
                 </div>
+                ${exportBtn}
                 <div style="font-weight:700;color:${deltaColor}">${deltaSign}R$ ${Math.abs(totalDelta).toFixed(2).replace('.', ',')}</div>
               </div>
               <div style="display:none;padding:16px;background:var(--bg,#121212)">
@@ -10427,6 +10440,241 @@
         toast('Erro ao exportar: ' + e.message, 'error');
       }
     }
+
+    function exportHistoricoXLS(snapshotData) {
+      try {
+        if (!snapshotData) return toast('Dados do snapshot não disponíveis. Recarregue o histórico.', 'error');
+        const { triggerLabel, timestamp, itemDeltas, activeSnapshot } = snapshotData;
+
+        const sourceName = (triggerLabel || 'historico')
+          .replace(/^Upload:\s*/i, '')
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        const dateStr = timestamp && timestamp.toDate
+          ? timestamp.toDate().toLocaleDateString('pt-BR').replace(/\//g, '-')
+          : new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+        const fileName = `historico_${sourceName}_${dateStr}.xlsx`;
+
+        // --- Aba "Alterações" ---
+        const added    = (itemDeltas || []).filter(d => d.change === 'added');
+        const removed  = (itemDeltas || []).filter(d => d.change === 'removed');
+        const modified = (itemDeltas || []).filter(d => d.change === 'modified');
+        const totalAdded    = added.reduce((s, d) => s + Math.abs(d.impacto || 0), 0);
+        const totalRemoved  = removed.reduce((s, d) => s + Math.abs(d.impacto || 0), 0);
+        const totalModified = modified.reduce((s, d) => s + (d.impacto || 0), 0);
+        const totalLiq = totalAdded - totalRemoved + totalModified;
+
+        const altRows = [
+          ['RESUMO', '', '', '', ''],
+          ['Total Adicionado', '', '', '', totalAdded],
+          ['Total Removido', '', '', '', -totalRemoved],
+          ['Itens Alterados (líquido)', '', '', '', totalModified],
+          ['Impacto Líquido', '', '', '', totalLiq],
+          ['Itens Afetados', '', '', '', (itemDeltas || []).length],
+          [],
+          ['Vendedor', 'Tipo', 'Cliente', 'Plano / Item', 'Impacto R$'],
+          ...added.map(d => [d.vendorName || '', 'Adicionado', d.cliente || '', d.item || '', Math.abs(d.impacto || 0)]),
+          ...removed.map(d => [d.vendorName || '', 'Removido', d.cliente || '', d.item || '', -(Math.abs(d.impacto || 0))]),
+          ...modified.map(d => [d.vendorName || '', 'Alterado', d.cliente || '', d.item || '', d.impacto || 0]),
+        ];
+        const wsAlt = XLSX.utils.aoa_to_sheet(altRows);
+
+        // --- Aba "Snapshot" ---
+        const snapItems = [...(activeSnapshot || [])].sort((a, b) => {
+          if ((a.vendedor || '') < (b.vendedor || '')) return -1;
+          if ((a.vendedor || '') > (b.vendedor || '')) return 1;
+          return (a.data || '').localeCompare(b.data || '');
+        });
+
+        const snapRows = [['Vendedor', 'Cliente', 'Plano / Item', 'Data', 'Categoria', 'Valor Caixa', 'P1 R$', 'P2 R$', 'Total']];
+        let lastVendor = null, vP1 = 0, vP2 = 0, vTotal = 0, gP1 = 0, gP2 = 0, gTotal = 0;
+        snapItems.forEach(item => {
+          if (lastVendor !== null && item.vendedor !== lastVendor) {
+            snapRows.push(['', `Subtotal ${lastVendor}`, '', '', '', '', vP1, vP2, vTotal]);
+            snapRows.push([]);
+            vP1 = 0; vP2 = 0; vTotal = 0;
+          }
+          lastVendor = item.vendedor;
+          vP1 += item.p1valor || 0; vP2 += item.p2bonus || 0; vTotal += item.total || 0;
+          gP1 += item.p1valor || 0; gP2 += item.p2bonus || 0; gTotal += item.total || 0;
+          snapRows.push([
+            item.vendedor || '', item.cliente || '', item.item || '', item.data || '',
+            item.label || item.categoria || '', item.valorCaixa || 0,
+            item.p1valor || 0, item.p2bonus || 0, item.total || 0
+          ]);
+        });
+        if (lastVendor !== null) snapRows.push(['', `Subtotal ${lastVendor}`, '', '', '', '', vP1, vP2, vTotal]);
+        snapRows.push([]);
+        snapRows.push(['TOTAL GERAL', '', '', '', '', '', gP1, gP2, gTotal]);
+        const wsSnap = XLSX.utils.aoa_to_sheet(snapRows);
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, wsAlt, 'Alterações');
+        XLSX.utils.book_append_sheet(wb, wsSnap, 'Snapshot');
+        XLSX.writeFile(wb, fileName);
+        toast('Exportação concluída!', 'success');
+      } catch (e) {
+        console.error('[exportHistoricoXLS]', e);
+        toast('Erro ao exportar histórico: ' + e.message, 'error');
+      }
+    }
+
+    function openHistoricoDiffModal(snapshotId) {
+      const s = window._historicoCache && window._historicoCache[snapshotId];
+      if (!s) return toast('Dados do histórico não encontrados. Recarregue a aba.', 'error');
+      window._currentDiffSnapshot = s;
+
+      document.getElementById('hdmFilename').textContent = s.triggerLabel || '';
+      const ts = s.timestamp && s.timestamp.toDate ? s.timestamp.toDate() : new Date();
+      document.getElementById('hdmMeta').textContent =
+        ts.toLocaleDateString('pt-BR') + ' ' + ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) +
+        ' · por ' + ((s.triggeredBy && s.triggeredBy.name) || 'Sistema');
+
+      const deltas   = s.itemDeltas || [];
+      const added    = deltas.filter(d => d.change === 'added');
+      const removed  = deltas.filter(d => d.change === 'removed');
+      const modified = deltas.filter(d => d.change === 'modified');
+      const totAdd  = added.reduce((acc, d) => acc + Math.abs(d.impacto || 0), 0);
+      const totRem  = removed.reduce((acc, d) => acc + Math.abs(d.impacto || 0), 0);
+      const totMod  = modified.reduce((acc, d) => acc + (d.impacto || 0), 0);
+      const liq = totAdd - totRem + totMod;
+
+      document.getElementById('hdmCards').innerHTML = `
+        <div style="background:var(--surface,#1e1e1e);border:1px solid var(--border,#333);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Adicionados</div>
+          <div style="font-size:22px;font-weight:700;color:#4caf50">+R$ ${totAdd.toFixed(2).replace('.',',')}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${added.length} itens</div>
+        </div>
+        <div style="background:var(--surface,#1e1e1e);border:1px solid var(--border,#333);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Removidos</div>
+          <div style="font-size:22px;font-weight:700;color:#e53935">-R$ ${totRem.toFixed(2).replace('.',',')}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${removed.length} itens</div>
+        </div>
+        <div style="background:var(--surface,#1e1e1e);border:1px solid var(--border,#333);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Alterados</div>
+          <div style="font-size:22px;font-weight:700;color:#ff9800">±R$ ${Math.abs(totMod).toFixed(2).replace('.',',')}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${modified.length} itens</div>
+        </div>
+        <div style="background:var(--surface,#1e1e1e);border:1px solid var(--border,#333);border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Impacto Líquido</div>
+          <div style="font-size:22px;font-weight:700;color:${liq >= 0 ? '#4caf50' : '#e53935'}">${liq >= 0 ? '+' : ''}R$ ${liq.toFixed(2).replace('.',',')}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">${deltas.length} itens afetados</div>
+        </div>`;
+
+      const vendors = [...new Set(deltas.map(d => d.vendorName).filter(Boolean))].sort();
+      document.getElementById('hdmFilterVendor').innerHTML =
+        '<option value="">Todos os vendedores</option>' +
+        vendors.map(v => `<option value="${v}">${v}</option>`).join('');
+
+      const snapCount = (s.activeSnapshot || []).length;
+      document.getElementById('hdmSnapshotCount').textContent =
+        snapCount > 0 ? `${snapCount} itens ativos após este upload` : 'Snapshot não disponível (upload anterior à feature)';
+      document.getElementById('hdmSnapshotTable').style.display = 'none';
+      document.getElementById('hdmSnapshotBtn').textContent = 'Ver Snapshot completo';
+      document.getElementById('hdmSnapshotBtn').style.display = snapCount > 0 ? '' : 'none';
+
+      document.getElementById('hdmFilterType').value = '';
+      document.getElementById('hdmFilterVendor').value = '';
+      document.getElementById('hdmSearch').value = '';
+
+      renderHDMTable();
+      document.getElementById('historicoDiffModal').classList.add('open');
+    }
+
+    function closeHistoricoDiffModal() {
+      document.getElementById('historicoDiffModal').classList.remove('open');
+      window._currentDiffSnapshot = null;
+    }
+
+    function renderHDMTable() {
+      const s = window._currentDiffSnapshot;
+      if (!s) return;
+      const filterType   = document.getElementById('hdmFilterType').value;
+      const filterVendor = document.getElementById('hdmFilterVendor').value;
+      const search = (document.getElementById('hdmSearch').value || '').toLowerCase();
+      const order = { added: 0, removed: 1, modified: 2 };
+
+      const deltas = (s.itemDeltas || [])
+        .filter(d => {
+          if (filterType && d.change !== filterType) return false;
+          if (filterVendor && d.vendorName !== filterVendor) return false;
+          if (search && !(d.cliente || '').toLowerCase().includes(search)) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          if ((a.vendorName || '') < (b.vendorName || '')) return -1;
+          if ((a.vendorName || '') > (b.vendorName || '')) return 1;
+          return (order[a.change] || 0) - (order[b.change] || 0);
+        });
+
+      const changeLabel = { added: '✅ Adicionado', removed: '❌ Removido', modified: '✏️ Alterado' };
+      const changeColor = { added: '#4caf50', removed: '#e53935', modified: '#ff9800' };
+
+      const rows = deltas.map(d => `
+        <tr style="border-bottom:1px solid var(--border,#2a2a2a)">
+          <td style="padding:6px 10px;font-size:12px">${d.vendorName || ''}</td>
+          <td style="padding:6px 10px;font-size:12px;color:${changeColor[d.change] || '#eee'}">${changeLabel[d.change] || d.change}</td>
+          <td style="padding:6px 10px;font-size:12px">${d.cliente || '—'}</td>
+          <td style="padding:6px 10px;font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.item || '—'}</td>
+          <td style="padding:6px 10px;font-size:12px;text-align:right;font-weight:700;color:${(d.impacto || 0) >= 0 ? '#4caf50' : '#e53935'}">${(d.impacto || 0) >= 0 ? '+' : ''}R$ ${Math.abs(d.impacto || 0).toFixed(2).replace('.',',')}</td>
+        </tr>`).join('');
+
+      document.getElementById('hdmTable').innerHTML = rows.length
+        ? `<table style="width:100%;border-collapse:collapse">
+            <thead><tr style="border-bottom:2px solid var(--border,#333)">
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text2)">Vendedor</th>
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text2)">Tipo</th>
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text2)">Cliente</th>
+              <th style="padding:6px 10px;text-align:left;font-size:11px;color:var(--text2)">Plano / Item</th>
+              <th style="padding:6px 10px;text-align:right;font-size:11px;color:var(--text2)">Impacto</th>
+            </tr></thead><tbody>${rows}</tbody>
+           </table>`
+        : `<div style="padding:24px;text-align:center;color:var(--text2);font-size:13px">Nenhum item encontrado para os filtros selecionados.</div>`;
+    }
+
+    function toggleHDMSnapshot() {
+      const s = window._currentDiffSnapshot;
+      if (!s) return;
+      const tableEl = document.getElementById('hdmSnapshotTable');
+      const btnEl   = document.getElementById('hdmSnapshotBtn');
+      if (tableEl.style.display !== 'none') {
+        tableEl.style.display = 'none';
+        btnEl.textContent = 'Ver Snapshot completo';
+        return;
+      }
+      const items = [...(s.activeSnapshot || [])].sort((a, b) => {
+        if ((a.vendedor || '') < (b.vendedor || '')) return -1;
+        if ((a.vendedor || '') > (b.vendedor || '')) return 1;
+        return (a.data || '').localeCompare(b.data || '');
+      });
+      const rows = items.map(item => `
+        <tr style="border-bottom:1px solid var(--border,#2a2a2a)">
+          <td style="padding:4px 8px;font-size:11px">${item.vendedor || ''}</td>
+          <td style="padding:4px 8px;font-size:11px">${item.cliente || ''}</td>
+          <td style="padding:4px 8px;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.item || ''}</td>
+          <td style="padding:4px 8px;font-size:11px">${item.data || ''}</td>
+          <td style="padding:4px 8px;font-size:11px">${item.label || item.categoria || ''}</td>
+          <td style="padding:4px 8px;font-size:11px;text-align:right">R$ ${(item.valorCaixa || 0).toFixed(2).replace('.',',')}</td>
+          <td style="padding:4px 8px;font-size:11px;text-align:right">R$ ${(item.p1valor || 0).toFixed(2).replace('.',',')}</td>
+          <td style="padding:4px 8px;font-size:11px;text-align:right">R$ ${(item.p2bonus || 0).toFixed(2).replace('.',',')}</td>
+          <td style="padding:4px 8px;font-size:11px;text-align:right;font-weight:700">R$ ${(item.total || 0).toFixed(2).replace('.',',')}</td>
+        </tr>`).join('');
+      tableEl.innerHTML = `<table style="width:100%;border-collapse:collapse;min-width:700px">
+        <thead><tr style="border-bottom:2px solid var(--border,#333)">
+          <th style="padding:4px 8px;text-align:left;font-size:10px;color:var(--text2)">Vendedor</th>
+          <th style="padding:4px 8px;text-align:left;font-size:10px;color:var(--text2)">Cliente</th>
+          <th style="padding:4px 8px;text-align:left;font-size:10px;color:var(--text2)">Plano / Item</th>
+          <th style="padding:4px 8px;text-align:left;font-size:10px;color:var(--text2)">Data</th>
+          <th style="padding:4px 8px;text-align:left;font-size:10px;color:var(--text2)">Categoria</th>
+          <th style="padding:4px 8px;text-align:right;font-size:10px;color:var(--text2)">Vlr Caixa</th>
+          <th style="padding:4px 8px;text-align:right;font-size:10px;color:var(--text2)">P1 R$</th>
+          <th style="padding:4px 8px;text-align:right;font-size:10px;color:var(--text2)">P2 R$</th>
+          <th style="padding:4px 8px;text-align:right;font-size:10px;color:var(--text2)">Total</th>
+        </tr></thead><tbody>${rows}</tbody>
+       </table>`;
+      tableEl.style.display = '';
+      btnEl.textContent = 'Ocultar Snapshot';
+    }
   </script>
 
   <!-- PWA Service Worker Registration (with auto-update) -->
@@ -10461,6 +10709,45 @@
       });
     }
   </script>
+
+  <!-- ═══ MODAL: DIFF HISTÓRICO ═══ -->
+  <div id="historicoDiffModal" class="modal" style="align-items:flex-start;padding:16px;overflow-y:auto">
+    <div class="modal-content" style="max-width:1100px;width:100%;max-height:calc(100vh - 32px);overflow-y:auto;padding:0;border-radius:10px">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border,#333);position:sticky;top:0;background:var(--surface,#1e1e1e);z-index:10;border-radius:10px 10px 0 0">
+        <span style="font-size:18px">📤</span>
+        <div style="flex:1;min-width:0">
+          <div id="hdmFilename" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div id="hdmMeta" style="font-size:11px;color:var(--text2)"></div>
+        </div>
+        <button onclick="exportHistoricoXLS(window._currentDiffSnapshot)" style="padding:6px 12px;font-size:12px;background:var(--surface,#2a2a2a);border:1px solid var(--border,#444);border-radius:6px;color:var(--text,#eee);cursor:pointer;white-space:nowrap">⬇ Exportar XLS</button>
+        <button onclick="closeHistoricoDiffModal()" style="padding:6px 10px;font-size:14px;background:transparent;border:1px solid var(--border,#444);border-radius:6px;color:var(--text2);cursor:pointer;line-height:1">✕</button>
+      </div>
+      <!-- Cards de Resumo -->
+      <div id="hdmCards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;background:var(--bg,#121212)"></div>
+      <!-- Filtros -->
+      <div style="padding:0 20px 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--bg,#121212)">
+        <select id="hdmFilterType" onchange="renderHDMTable()" style="padding:6px 10px;font-size:12px;background:var(--surface,#1e1e1e);border:1px solid var(--border,#444);border-radius:6px;color:var(--text,#eee)">
+          <option value="">Todos os tipos</option>
+          <option value="added">✅ Adicionados</option>
+          <option value="removed">❌ Removidos</option>
+          <option value="modified">✏️ Alterados</option>
+        </select>
+        <select id="hdmFilterVendor" onchange="renderHDMTable()" style="padding:6px 10px;font-size:12px;background:var(--surface,#1e1e1e);border:1px solid var(--border,#444);border-radius:6px;color:var(--text,#eee)"></select>
+        <input id="hdmSearch" oninput="renderHDMTable()" placeholder="🔍 Buscar por cliente..." style="padding:6px 10px;font-size:12px;background:var(--surface,#1e1e1e);border:1px solid var(--border,#444);border-radius:6px;color:var(--text,#eee);flex:1;min-width:160px">
+      </div>
+      <!-- Tabela de Deltas -->
+      <div id="hdmTable" style="padding:0 20px 16px;background:var(--bg,#121212)"></div>
+      <!-- Seção Snapshot -->
+      <div style="border-top:1px solid var(--border,#333);background:var(--bg,#121212);border-radius:0 0 10px 10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px">
+          <span id="hdmSnapshotCount" style="font-size:12px;color:var(--text2)"></span>
+          <button id="hdmSnapshotBtn" onclick="toggleHDMSnapshot()" style="padding:6px 12px;font-size:12px;background:var(--surface,#1e1e1e);border:1px solid var(--border,#444);border-radius:6px;color:var(--text,#eee);cursor:pointer">Ver Snapshot completo</button>
+        </div>
+        <div id="hdmSnapshotTable" style="display:none;padding:0 20px 16px;overflow-x:auto"></div>
+      </div>
+    </div>
+  </div>
 </body>
 
 </html>
