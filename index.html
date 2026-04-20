@@ -4745,15 +4745,27 @@
           console.log(`[confirmUpload] ${removedStableIds.length} itens removidos deletados do Firestore.`);
         }
 
+        // ── RECALCULATE: recomputar vendorSummary a partir do estado real do Firestore ──
+        // periodData.vendorSummary foi calculado pelo engine a partir do arquivo novo (inclui
+        // valores de soft matches que NÃO foram gravados — os originais foram preservados).
+        // É preciso recalcular a partir dos itens reais para que afterVendorSummaryUpload
+        // reflita o estado correto antes de salvar o snapshot do histórico.
+        delete globalPeriodsCache[periodId]; // força releitura fresca do Firestore
+        await recalculatePeriod(periodId, null); // null = sem triggerContext → sem snapshot duplicado
+
         // ── ACTIVE SNAPSHOT: foto compacta dos itens ativos para o histórico ──
-        const activeItemsForSnapshot = allItems
+        // Usa globalPeriodsCache (populado pelo recalculatePeriod acima) para garantir
+        // que o snapshot reflita os itens reais do Firestore com valores originais preservados,
+        // e não os valores do arquivo novo (que podem diferir dos soft matches preservados).
+        const cachedPeriodItems = globalPeriodsCache[periodId] || [];
+        const activeItemsForSnapshot = cachedPeriodItems
           .filter(d => d.type === 'processed')
           .map(d => ({
             vendedor: d.vendedor || '',
             cliente: d.cliente || '',
             item: d.item || '',
             data: d.data || '',
-            categoria: d.category || '',
+            categoria: d.category || d.categoria || '',
             label: d.label || '',
             valorCaixa: d.valorCaixa || 0,
             p1valor: d.p1valor || 0,
