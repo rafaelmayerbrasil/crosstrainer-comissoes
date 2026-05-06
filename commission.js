@@ -536,7 +536,11 @@ const CommissionEngine = {
 
     processedData.forEach(d => {
       const eff = this.getEffective(d, splits);
-      const ativFactor = eff.splitWith ? 0.5 : 1;
+      // Pre-split items (from saveSplitRecord) already have scaled values and
+      // splitAtivacao set. When splits map is empty (recalculatePeriod path),
+      // use the stored splitAtivacao instead of the legacy 0.5 hardcoded factor.
+      const isPreSplit = !eff.splitWith && (d.splitAtivacao || 1) < 1;
+      const ativFactor = eff.splitWith ? 0.5 : (isPreSplit ? d.splitAtivacao : 1);
       const valueFactor = eff.splitWith ? eff.splitRatio : 1;
 
       // Original vendor
@@ -556,8 +560,10 @@ const CommissionEngine = {
       else v.outros += ativFactor;
       v.rows.push(d);
 
-      // Split partner
-      if (eff.splitWith) {
+      // Split partner (only for upload-time splits where splits map is active;
+      // pre-split items already have the partner as a separate Firestore document,
+      // so we skip the virtual partner injection to avoid double-counting.)
+      if (eff.splitWith && !isPreSplit) {
         const partnerRatio = 1 - eff.splitRatio;
         init(eff.splitWith);
         const sv = vd[eff.splitWith];
