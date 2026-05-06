@@ -2,7 +2,7 @@
 
 > Mantida após cada mudança significativa na arquitetura ou comportamento do sistema.
 
-**Última atualização:** 2026-04-19
+**Última atualização:** 2026-05-06
 
 ---
 
@@ -123,7 +123,31 @@ Usado pelos botões XLS e pelo modal de diff para evitar releitura do Firestore.
 
 ---
 
+## Divisão de Vendas (Split)
+
+O split divide uma venda entre dois vendedores (ex: 70/30 ou 50/50). É executado por `saveSplitRecord()` no `index.html`.
+
+**Mecanismo:**
+1. O item original é atualizado com `splitAtivacao` (ex: 0.3), `splitWith` (nome do parceiro), valores escalados (30% do original) e `(Split: 30 %)` anexado ao campo `item`.
+2. Um novo documento é criado para o parceiro com `splitAtivacao` complementar (ex: 0.7), `originalSplitId` apontando para o doc original, e seu próprio `vendedor`.
+
+**Cálculo de ativação corrigido (2026-05-06):**
+- `buildVendorData()` em `commission.js:521` agora detecta itens pré-divididos (`splitAtivacao < 1`) quando chamado com `splits = {}` (caminho do `recalculatePeriod`).
+- Em vez do fator hardcoded 0.5, usa o valor real de `splitAtivacao` do item.
+- O parceiro virtual **não é injetado** para itens pré-divididos (já existe como documento separado no Firestore).
+- `unitAtivacoes` (linha 5486 do `index.html`) e `vendorSummary.ativacoes` agora são consistentes: ambos usam `splitAtivacao`.
+
+**Atenção — re-upload apaga splits:**
+Itens de split são vulneráveis a re-uploads de arquivo Excel. O parceiro criado pelo split tem doc ID aleatório (não é `stableId`), `vendedor` diferente, e `item` modificado com `(Split: XX %)`. Nenhum hash (`stableId` ou `softId`) do novo upload bate com o item parceiro → ele é deletado pelo batch delete do `confirmUpload()`. Após um re-upload, **todos os splits do período precisam ser refeitos manualmente**.
+
+---
+
 ## Histórico de Mudanças
+
+### 2026-05-06 — Correção: splitAtivacao no buildVendorData
+- **Bug fix:** `buildVendorData()` usava fator hardcoded (`ativFactor = 1` ou `0.5`) ignorando o campo `splitAtivacao` já gravado nos itens. Itens pré-divididos (com `splitAtivacao < 1`) agora usam o valor real, corrigindo `vendorSummary.ativacoes` por vendedor.
+- **Bug fix:** Parceiro virtual não é mais injetado para itens pré-divididos (evita dupla contagem quando ambos os lados do split já existem como docs separados).
+- **Correção manual:** Item parceiro FRANCINI DAS CHAGAS (70%) recriado via console para o período `cp_2026-04` após ter sido deletado em re-upload.
 
 ### 2026-04-19 — Proteção de Comissão: Valor Alterado Ignorado
 - **Feat:** `generateSoftId()`: hash de `vendedor|cliente|data|item` sem `valorCaixa` — identifica o mesmo contrato independente do valor pago.
