@@ -3982,6 +3982,26 @@
         // Sign out secondary app (admin session untouched)
         await secondaryAuth.signOut();
 
+        // Limpa placeholders PENDENTES com o mesmo nome normalizado (criados via autoRegisterVendors no upload).
+        // Sem isso, o novo usuário ativo coexiste com os placeholders → duplicação na listagem.
+        try {
+          const normNew = normalizeString(name);
+          const pendingSnap = await db.collection('users').where('status', '==', 'pendente').get();
+          const toDelete = [];
+          pendingSnap.forEach(d => {
+            if (d.id === newUid) return;
+            if (normalizeString(d.data().name) === normNew) toDelete.push(d.id);
+          });
+          if (toDelete.length > 0) {
+            const cleanupBatch = db.batch();
+            toDelete.forEach(id => cleanupBatch.delete(db.collection('users').doc(id)));
+            await cleanupBatch.commit();
+            console.log(`[createUser] ${toDelete.length} placeholder(s) pendente(s) com nome "${name}" removido(s).`);
+          }
+        } catch (cleanupErr) {
+          console.warn('[createUser] Falha ao limpar placeholders pendentes:', cleanupErr);
+        }
+
         toast(`Usuário ${name} criado com sucesso!`, 'success');
         logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidade: ${unitId}`);
         document.getElementById('addUserForm').style.display = 'none';
@@ -4731,6 +4751,7 @@
         const removedStableIds = Object.keys(existingProcessedData).filter(id => {
           if (newUploadIds.has(id)) return false; // match exato → manter
           if (newSoftIds.has(generateSoftId(existingProcessedData[id]))) return false; // soft match → manter original
+          if (existingProcessedData[id].originalSplitId) return false; // perna clonada de split (doc auto-gerado, nunca casa por stableId/softId) → manter
           return true; // sumiu do arquivo → deletar
         });
         if (removedStableIds.length > 0) {
