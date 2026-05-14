@@ -6925,6 +6925,10 @@
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
         const t = data?.totals || {};
         const vData = vs[myName] || {};
+        // Flags de meta da unidade — usadas na seção P3 abaixo (correção 14/05/2026)
+        const hitMeta  = t.unitAtivacoes >= cfg.meta;
+        const hitSuper = t.unitAtivacoes >= cfg.superMeta;
+        const hitGold  = t.unitAtivacoes >= cfg.metaGold;
         const p4 = data?.p4result || {};
 
         items.forEach(r => { if (r.type === 'processed') CommissionEngine.applyCommissionsToItem(r, cfg); });
