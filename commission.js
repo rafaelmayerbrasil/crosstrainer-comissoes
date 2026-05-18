@@ -160,8 +160,13 @@ const CommissionEngine = {
     // ── Contracts (Plans) ──
     const termosAtivacao = (this.currentConfig?.planosAtivacao || this.defaultConfig.planosAtivacao);
     
+    // Fix 18/05/2026: usar word boundary (\b) pra evitar que "ANUAL" sobrescreva
+    // "BIANUAL" via substring match. Antes: 'BIANUAL' setava periodicidade='BIANUAL',
+    // mas logo depois 'ANUAL' (que é substring de "BIANUAL") sobrescrevia pra 'ANUAL',
+    // resultando em bônus P2 de R$ 45 (Anual Flex) ao invés de R$ 80 (Bianual VIP).
     termosAtivacao.forEach(termo => {
-      if (item.includes(termo)) r.periodicidade = termo;
+      const re = new RegExp(`\\b${termo}\\b`);
+      if (re.test(item)) r.periodicidade = termo;
     });
 
     if (item.includes('FLEX')) r.abrangencia = 'FLEX';
