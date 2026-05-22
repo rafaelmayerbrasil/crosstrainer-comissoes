@@ -1,0 +1,218 @@
+rules_version = '2';
+// ═══════════════════════════════════════════════════════════════════════
+// CrossTainer — Firestore Security Rules
+// Cobre módulo de Comissões (existente) + Módulo de Professores (novo)
+// Spec: §12 do EspecificacaoTecnica_Modulo_Professores_CrossTainer_V1.md
+// ═══════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ──────────────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function uData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Verifica se usuário tem perfil específico
+    // Backward compatible: aceita tanto profiles[] (novo) quanto role (antigo)
+    function hasP(p) {
+      let u = uData();
+      return (u.profiles != null && p in u.profiles) || u.role == p;
+    }
+
+    function isAdmin()      { return hasP('admin') || hasP('admin_gestao'); }
+    function isStrictAdmin(){ return hasP('admin'); }
+    function isSuperv()     { return hasP('supervisao'); }
+    function isProf()       { return hasP('professor') || hasP('professor_estagiario'); }
+
+    function hasProfModule() { return isAdmin() || isSuperv() || isProf(); }
+    function hasComModule()  {
+      let u = uData();
+      return u.role == 'admin' || u.role == 'vendedor' ||
+             (u.moduleAccess != null && u.moduleAccess.comissoes == true);
+    }
+
+    // ─── COLEÇÕES EXISTENTES (módulo de Comissões) ────────────────────
+    match /users/{uid} {
+      allow read:   if isAuth() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAuth() && isAdmin();
+      allow update: if isAuth() && (
+                       isAdmin() ||
+                       // próprio usuário pode atualizar profiles e moduleAccess apenas durante migração inline
+                       (request.auth.uid == uid &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['profiles', 'moduleAccess', 'updatedAt']))
+                     );
+      allow delete: if false;
+    }
+
+    match /units/{id} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    match /periodos/{id} {
+      allow read, write: if isAuth() && hasComModule();
+      match /itens/{i} {
+        allow read, write: if isAuth() && hasComModule();
+      }
+    }
+
+    match /comissoes_diferidas/{id} {
+      allow read, write: if isAuth() && hasComModule();
+    }
+
+    match /audit_log/{id} {
+      allow read:           if isAuth() && isAdmin();
+      allow create:         if isAuth();
+      allow update, delete: if false;
+    }
+
+    // ─── COLEÇÕES NOVAS (módulo de Professores) ───────────────────────
+
+    // ⛔ Dados salariais — APENAS Admin
+    match /teacher_salaries/{id} {
+      allow read, write: if isAuth() && isAdmin();
+    }
+
+    match /teachers/{id} {
+      allow read:           if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && isAdmin();
+      allow delete:         if false;
+    }
+
+    match /modalities/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    match /schedule_templates/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && (isAdmin() || isSuperv());
+    }
+
+    match /schedule_slots/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && (isAdmin() || isSuperv());
+    }
+
+    match /classes/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && (isAdmin() || isSuperv());
+      // Professor só pode atualizar a aula que é DELE e que não foi fechada
+      allow update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      (isProf() &&
+                       resource.data.originalTeacherId == uData().professorId &&
+                       resource.data.monthClosingId == null)
+                    );
+      allow delete: if false;
+    }
+
+    match /substitutions/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && hasProfModule();
+      allow update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      resource.data.requestingUserId == request.auth.uid ||
+                      resource.data.substituteUserId == request.auth.uid
+                    );
+      allow delete: if false;
+    }
+
+    match /coverage_applications/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && hasProfModule();
+      allow update: if isAuth() && (isAdmin() || isSuperv());
+    }
+
+    match /monthly_closings/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && isStrictAdmin();
+      // ⛔ Não pode alterar mês fechado
+      allow update: if isAuth() && isAdmin() && resource.data.status != 'fechado';
+      allow delete: if false;
+    }
+
+    match /creditos_professores/{id} {
+      allow read:  if isAuth() && (
+                     isAdmin() ||
+                     resource.data.teacherId == uData().professorId
+                   );
+      allow write: if isAuth() && isStrictAdmin();
+      allow delete: if false;
+    }
+
+    match /meta/receipt_counter {
+      allow read:  if isAuth() && isAdmin();
+      allow write: if isAuth() && isStrictAdmin();
+    }
+
+    match /payment_records/{id} {
+      allow read:  if isAuth() && (
+                     isAdmin() ||
+                     resource.data.teacherId == uData().professorId
+                   );
+      allow write: if isAuth() && isStrictAdmin();
+    }
+
+    match /receipts/{id} {
+      allow read:  if isAuth() && (
+                     isAdmin() ||
+                     resource.data.teacherId == uData().professorId
+                   );
+      allow write: if isAuth() && isStrictAdmin();
+    }
+
+    match /special_scale_types/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    match /special_scales/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && (isAdmin() || isSuperv());
+
+      match /scale_responses/{tid} {
+        allow read: if isAuth() && hasProfModule();
+        allow create, update: if isAuth() && (
+                                isAdmin() || isSuperv() ||
+                                request.auth.uid == uData().professorId
+                              );
+      }
+    }
+
+    match /vacation_requests/{id} {
+      allow read:   if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      resource.data.teacherId == uData().professorId
+                    );
+      allow create: if isAuth() && hasProfModule();
+      allow update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    match /notifications/{id} {
+      allow read, update: if isAuth() &&
+                            resource.data.recipientUserId == request.auth.uid;
+      allow create:       if isAuth();
+      allow delete:       if false;
+    }
+
+    // ─── Coleção do Trigger Email (Firebase Extension) ─────────────────
+    match /mail/{id} {
+      // Apenas Cloud Functions escrevem aqui (via Admin SDK)
+      // Frontend nunca grava direto — sempre via CF que cria notification + envia
+      allow read, write: if false;
+    }
+
+    // ─── Default deny ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
