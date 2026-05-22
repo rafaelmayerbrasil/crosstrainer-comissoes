@@ -1615,6 +1615,38 @@
       .menu-toggle { display: flex; }
       .page { padding: 70px 16px 24px; }
     }
+    /* ─── Pagamentos (Sprint 4b) ─── */
+    .pag-toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:20px; }
+    .chip-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .chip-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
+    .chip { padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; background:var(--surface2); border:1px solid var(--border); color:var(--text2); transition:all .15s; user-select:none; }
+    .chip:hover { border-color:var(--accent); color:var(--text); }
+    .chip.chip-active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .chip-mini { padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; display:inline-block; }
+    .chip-mini.chip-orange { background:var(--orange-glow); color:var(--orange); }
+    .chip-mini.chip-green { background:var(--green-bg); color:var(--green); }
+    .chip-mini.chip-yellow { background:var(--yellow-bg); color:var(--yellow); }
+    .pag-period { display:flex; gap:8px; }
+    .pag-period select { background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 12px; font-size:13px; color:var(--text); }
+    .pag-closing-list { display:flex; flex-direction:column; gap:12px; }
+    .pag-closing-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); }
+    .pag-closing-card.expanded { border-color:var(--accent); }
+    .pag-closing-header { padding:12px 16px; background:var(--surface2); display:flex; justify-content:space-between; align-items:center; }
+    .pag-closing-card.expanded .pag-closing-header { background:var(--accent); color:#fff; }
+    .pag-card-toolbar { padding:8px 16px; background:var(--surface1); border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; }
+    .pag-teacher-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .pag-teacher-table th { padding:8px 16px; text-align:left; background:var(--surface3); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); }
+    .pag-teacher-table td { padding:10px 16px; border-bottom:1px solid var(--border); }
+    .pag-teacher-table .text-right { text-align:right; }
+
+    .creditos-alert { background:var(--yellow-bg); border:1px solid var(--yellow); border-radius:8px; padding:16px; margin-bottom:20px; }
+    .creditos-alert h3 { margin:0 0 8px; font-size:14px; color:var(--yellow); }
+    .credito-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(253,216,53,0.2); font-size:13px; }
+    .meus-recibos-list { display:flex; flex-direction:column; gap:12px; }
+    .meus-recibos-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .meus-recibos-header { padding:10px 16px; background:var(--surface2); font-size:14px; display:flex; justify-content:space-between; }
+    .meus-recibos-card table { width:100%; border-collapse:collapse; font-size:13px; }
+    .meus-recibos-card td { padding:8px 16px; border-bottom:1px solid var(--border); }
   </style>
 </head>
 
