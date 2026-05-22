@@ -2185,7 +2185,7 @@ const ReceiptService = {
         type: 'receipt_cancelled',
         details: `Recibo ${receipt.numberFormatted} cancelado. ${creditosAplicados.length} crédito(s) revertido(s) para pendente.`,
         entityType: 'receipt', entityId: receiptId,
-        before: receipt, after: { ...receipt, status: 'cancelado' },
+        before: receipt, after: { ...receipt, status: 'cancelado', creditosAplicados: [], totalCreditoAplicado: 0 },
         module: 'pagamentos',
       });
 
@@ -2211,7 +2211,7 @@ const ReceiptService = {
     try {
       const snap = await db.collection('receipts')
         .where('closingId', '==', closingId)
-        .orderBy('number', 'asc')
+        .orderBy('number', 'desc')
         .get();
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
     } catch (err) {
@@ -2259,13 +2259,14 @@ const PaymentService = {
         paidAt: serverTs(), paidBy: currentUserId(), paidByName: currentUserName(),
         createdAt: serverTs(), updatedAt: serverTs(),
       };
-      await payRef.set(payData);
-
-      // Atualiza recibo
-      await receiptRef.update({
+      // Atualiza recibo e cria payment_record atomicamente
+      const batch = db.batch();
+      batch.set(payRef, payData);
+      batch.update(receiptRef, {
         status: 'pago', paidAt: serverTs(), paidBy: currentUserId(),
         paymentRecordId: payRef.id, updatedAt: serverTs(),
       });
+      await batch.commit();
 
       // Audit log
       await AuditService.log({
