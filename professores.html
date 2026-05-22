@@ -1,0 +1,2234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CrossTainer Elite — Módulo Professores</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CT Professores">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <!-- Firebase SDKs (mesma versão do index.html) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       DESIGN TOKENS — replicados fielmente do index.html
+       ═══════════════════════════════════════════════════════════════ */
+    :root {
+      --bg: #0a0a0a;
+      --surface: #131315;
+      --surface2: #1a1a1e;
+      --surface3: #222226;
+      --border: #2a2a30;
+      --border2: #353538;
+      --text: #eee9e0;
+      --text2: #908a82;
+      --text3: #5a5650;
+      --orange: #E8920D;
+      --orange-light: #F5A623;
+      --orange-dim: rgba(232, 146, 13, 0.08);
+      --orange-glow: rgba(232, 146, 13, 0.12);
+      --green: #5cb85c;
+      --green-bg: rgba(92, 184, 92, 0.08);
+      --red: #e05a3a;
+      --red-bg: rgba(224, 90, 58, 0.06);
+      --blue: #5b9bd5;
+      --blue-bg: rgba(91, 155, 213, 0.08);
+      --yellow: #FDD835;
+      --yellow-bg: rgba(253, 216, 53, 0.08);
+      --purple: #AB47BC;
+      --purple-bg: rgba(171, 71, 188, 0.08);
+      --radius: 8px;
+    }
+
+    html.light {
+      --bg: #f4f4f6;
+      --surface: #ffffff;
+      --surface2: #f0f0f2;
+      --surface3: #e8e8ec;
+      --border: #d8d8de;
+      --border2: #c8c8d0;
+      --text: #1a1a2e;
+      --text2: #5a5a70;
+      --text3: #8a8a9a;
+      --orange: #D07800;
+      --orange-light: #E8920D;
+      --orange-dim: rgba(232, 146, 13, 0.06);
+      --orange-glow: rgba(232, 146, 13, 0.10);
+      --green: #2d8a2d;
+      --green-bg: rgba(45, 138, 45, 0.08);
+      --red: #cc3a1a;
+      --red-bg: rgba(204, 58, 26, 0.06);
+      --blue: #3a7dc0;
+      --blue-bg: rgba(58, 125, 192, 0.08);
+      --yellow: #c9a800;
+      --yellow-bg: rgba(201, 168, 0, 0.08);
+      --purple: #8e24aa;
+      --purple-bg: rgba(142, 36, 170, 0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    a { color: var(--orange); text-decoration: none; }
+
+    /* ─── LAYOUT ─── */
+    .app { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 50;
+      transition: transform .3s;
+    }
+    .sidebar.hidden { transform: translateX(-240px); }
+
+    .main {
+      flex: 1;
+      margin-left: 240px;
+      min-height: 100vh;
+      transition: margin-left .3s;
+    }
+    .main.full { margin-left: 0; }
+
+    .page {
+      padding: 28px 32px;
+      max-width: 1600px;
+      margin: 0 auto;
+      display: none;
+    }
+    .page.active { display: block; }
+
+    /* ─── SIDEBAR ─── */
+    .sb-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .sb-logo-icon {
+      width: 30px; height: 30px;
+      background: var(--orange);
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sb-logo-icon svg { width: 16px; height: 16px; }
+    .sb-logo-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px;
+      letter-spacing: 2px;
+      color: var(--orange);
+    }
+    .sb-logo-text span { color: var(--text); }
+
+    .sb-nav { flex: 1; overflow-y: auto; }
+
+    .sb-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all .15s;
+      border-left: 3px solid transparent;
+    }
+    .sb-item:hover { color: var(--text); background: var(--surface2); }
+    .sb-item.active {
+      color: var(--orange);
+      background: var(--orange-dim);
+      border-left-color: var(--orange);
+    }
+    .sb-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    .sb-section {
+      font-size: 10px;
+      background: var(--surface2);
+      margin: 8px 12px 4px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text2);
+      font-weight: 700;
+      padding: 6px 8px;
+    }
+
+    .sb-user {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+    .sb-user .name { font-size: 13px; font-weight: 600; }
+    .sb-user .role { font-size: 11px; color: var(--text3); }
+    .sb-user .logout {
+      font-size: 11px;
+      color: var(--orange);
+      cursor: pointer;
+      margin-top: 6px;
+    }
+    .sb-user .logout:hover { text-decoration: underline; }
+
+    /* ─── ENV BADGE (staging vs prod) ─── */
+    .env-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+    .env-badge.staging { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+    .env-badge.production { display: none; }
+
+    /* ─── MOBILE TOGGLE ─── */
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 12px; left: 12px;
+      z-index: 60;
+      width: 40px; height: 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── LOGIN ─── */
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .login-box .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 2px;
+      color: var(--orange);
+      margin-bottom: 6px;
+    }
+    .login-box .logo span { color: var(--text); }
+    .login-box .sub {
+      font-size: 12px;
+      color: var(--text3);
+      margin-bottom: 32px;
+    }
+    .login-box h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 24px;
+    }
+
+    .input-group { margin-bottom: 14px; text-align: left; }
+    .input-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .input-group input,
+    .input-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+    }
+    .input-group input:focus,
+    .input-group select:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim);
+    }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 24px;
+      background: var(--orange);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      width: 100%;
+    }
+    .btn:hover { background: var(--orange-light); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+      width: auto;
+    }
+    .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+
+    .btn-sm { padding: 7px 16px; font-size: 12px; width: auto; }
+    .btn-danger { background: var(--red); }
+    .btn-outline {
+      background: transparent;
+      color: var(--orange);
+      border: 1px solid var(--orange);
+      width: auto;
+    }
+    .btn-outline:hover { background: var(--orange-dim); }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    /* ─── PAGE HEADER ─── */
+    .page-hdr { margin-bottom: 28px; }
+    .page-hdr h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 1px;
+    }
+    .page-hdr p {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 4px;
+    }
+    .page-hdr .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--orange-glow);
+      color: var(--orange);
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: .5px;
+      margin-left: 10px;
+    }
+
+    /* ─── LOADING / SPINNER ─── */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--text3);
+      font-size: 14px;
+    }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin-right: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── TOAST ─── */
+    .toast-container {
+      position: fixed;
+      top: 20px; right: 20px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      animation: slideIn .3s ease;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+    .toast.success { border-left: 3px solid var(--green); }
+    .toast.error   { border-left: 3px solid var(--red); }
+    .toast.info    { border-left: 3px solid var(--orange); }
+    @keyframes slideIn {
+      from { transform: translateX(100px); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+
+    /* ─── TABELA (compartilhado entre páginas) ─── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--text3);
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--surface);
+    }
+    tbody td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr:hover { background: var(--orange-dim); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+    .icon-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .icon-btn.danger:hover { border-color: var(--red); color: var(--red); }
+    .icon-btn.success:hover { border-color: var(--green); color: var(--green); }
+
+    /* ─── PILLS / STATUS ─── */
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+    }
+    .pill-active   { background: var(--green-bg);   color: var(--green); }
+    .pill-inactive { background: rgba(90,86,80,0.1); color: var(--text3); }
+
+    /* ─── EMPTY STATE ─── */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text3);
+    }
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    .empty-state h3 {
+      font-size: 16px;
+      margin-bottom: 6px;
+      color: var(--text2);
+    }
+    .empty-state p {
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    /* ─── MODAL ─── */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal.open { display: flex; }
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 6px;
+    }
+    .close-btn:hover { color: var(--text); }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+    }
+    .form-group textarea {
+      min-height: 70px;
+      resize: vertical;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim);
+    }
+    .form-group .hint {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .form-actions .btn { width: auto; padding: 10px 20px; }
+
+    /* ─── PAGE TOOLBAR (header com botão de ação) ─── */
+    .page-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .page-toolbar .lhs h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 1px;
+    }
+    .page-toolbar .lhs .count {
+      font-size: 12px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+    .page-toolbar .rhs {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* ─── PROFESSORES — Layout 2 colunas (Etapa 4) ─── */
+    .teachers-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 16px;
+      /* altura calculada: header da página + toolbar + paddings ≈ 170px (era 220, deixava ficha apertada) */
+      height: calc(100vh - 170px);
+      min-height: 500px;
+    }
+    .teachers-list-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chip-filter-row {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      background: var(--surface2);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--bg);
+      color: var(--text2);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: all .15s;
+      user-select: none;
+    }
+    .chip:hover { border-color: var(--text2); color: var(--text); }
+    .chip.chip-active {
+      background: var(--orange-glow);
+      color: var(--orange);
+      border-color: var(--orange);
+    }
+    .teachers-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .teacher-list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .15s;
+      border-left: 3px solid transparent;
+    }
+    .teacher-list-item:hover { background: var(--surface2); }
+    .teacher-list-item.selected {
+      background: var(--orange-dim);
+      border-left-color: var(--orange);
+    }
+    .teacher-list-item.inactive { opacity: .55; }
+    .teacher-info { flex: 1; min-width: 0; }
+    .teacher-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .teacher-meta {
+      font-size: 11px;
+      color: var(--text3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .teacher-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 3px;
+    }
+
+    .teachers-ficha {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-y: auto;
+      /* Reserva o espaço da scrollbar SEMPRE — evita o "pulo" do conteúdo
+         quando a barra aparece/some ao trocar de tab. */
+      scrollbar-gutter: stable;
+      padding: 18px 22px;
+    }
+    .teacher-ficha-empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text3);
+    }
+    .teacher-ficha-empty .icon { font-size: 48px; margin-bottom: 14px; opacity: .5; }
+    .teacher-ficha-empty h3 { font-size: 16px; margin-bottom: 8px; color: var(--text2); }
+    .teacher-ficha-empty p { font-size: 13px; }
+
+    .search-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      width: 220px;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim);
+    }
+    .search-input::placeholder { color: var(--text3); }
+
+    .info-callout {
+      background: var(--surface2);
+      border: 1px dashed var(--border2);
+      border-radius: 6px;
+      padding: 14px 16px;
+      color: var(--text2);
+      font-size: 13px;
+    }
+    .info-callout p { margin-bottom: 6px; }
+    .info-callout p:last-child { margin-bottom: 0; }
+    .info-callout strong { color: var(--text); }
+
+    .empty-state-small {
+      text-align: center;
+      padding: 30px 16px;
+      color: var(--text3);
+      font-size: 13px;
+    }
+
+    /* Mobile do layout 2 colunas: vira 1 coluna */
+    @media (max-width: 900px) {
+      .teachers-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .teachers-list-container { max-height: 60vh; }
+    }
+
+    /* ─── FICHA do Professor — header + tabs (Etapa 5) ─── */
+    .ficha-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .ficha-header-info {
+      flex: 1;
+      min-width: 180px;
+    }
+    .ficha-header-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px;
+      letter-spacing: 1px;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .ficha-header-sub {
+      font-size: 13px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+    .ficha-header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .ficha-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1.5px solid var(--border);
+      margin-bottom: 18px;
+      overflow-x: auto;
+      overflow-y: hidden;   /* evita scrollbar vertical fantasma em alguns browsers */
+    }
+    .ficha-tab {
+      padding: 9px 16px;
+      border-bottom: 3px solid transparent;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text2);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+      margin-bottom: -1.5px;
+      background: transparent;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .ficha-tab:hover { color: var(--text); }
+    .ficha-tab.active {
+      border-bottom-color: var(--orange);
+      color: var(--orange);
+    }
+
+    /* Conteúdo das tabs */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px 18px;
+      margin-bottom: 18px;
+    }
+    .info-field-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+    .info-field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .info-field-value.mono { font-family: 'JetBrains Mono', monospace; }
+    .info-field-hint {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      margin-bottom: 8px;
+      margin-top: 16px;
+      font-weight: 700;
+    }
+    .section-label:first-of-type { margin-top: 0; }
+
+    /* Etapa 7 — toolbar interna de aba (label à esquerda, ação à direita) */
+    .section-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-toolbar .section-label { margin: 0; }
+
+    /* Mini-sprint 1.5 (B-02) — Outros benefícios: linha editável no modal */
+    .other-benefits-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .other-benefits-empty {
+      font-size: 12px;
+      color: var(--text3);
+      padding: 8px 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-style: italic;
+    }
+    .other-benefit-row {
+      display: grid;
+      grid-template-columns: 1fr 120px 32px;
+      gap: 6px;
+      align-items: center;
+    }
+    .other-benefit-row input {
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    .other-benefit-row .ob-remove {
+      background: transparent;
+      color: var(--red);
+      border: 1px solid var(--red);
+      border-radius: 4px;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+    }
+    .other-benefit-row .ob-remove:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    /* Mini-sprint 1.5 (B-02) — Outros benefícios: leitura na aba Salarial */
+    .other-benefits-readonly {
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .other-benefit-readonly-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+      border-bottom: 1px dashed var(--border-soft, rgba(255,255,255,0.06));
+    }
+    .other-benefit-readonly-row:last-of-type { border-bottom: none; }
+    .other-benefit-readonly-total {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0 2px;
+      margin-top: 4px;
+      border-top: 2px solid var(--surface3);
+      font-size: 13px;
+    }
+
+    /* ─── Sprint 2 — AGENDA SEMANAL ─────────────────────────────────── */
+    .agenda-toolbar-rhs {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .agenda-unit-select {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .agenda-unit-select select {
+      font-size: 13px;
+      padding: 5px 8px;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .agenda-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      user-select: none;
+    }
+    .agenda-toggle input { cursor: pointer; }
+
+    .agenda-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .agenda-col {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 360px;
+    }
+    .agenda-col-header {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      color: var(--text2);
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      border-top-left-radius: var(--radius);
+      border-top-right-radius: var(--radius);
+      text-align: center;
+    }
+    .agenda-col-body {
+      flex: 1;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+    }
+    .agenda-col-empty {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+      font-style: italic;
+      padding: 14px 4px;
+      opacity: .7;
+    }
+
+    .slot-card {
+      position: relative;
+      padding: 6px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .12s;
+      font-size: 12px;
+    }
+    .slot-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .slot-card.slot-inactive {
+      opacity: .45;
+      filter: grayscale(40%);
+    }
+    .slot-time {
+      font-size: 11px;
+      color: var(--text);
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .slot-time-sep { margin: 0 2px; color: var(--text3); font-weight: 400; }
+    .slot-modality {
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .slot-teacher {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 1px;
+    }
+    .slot-inactive-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: var(--surface3);
+      color: var(--text3);
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+
+    /* Responsivo: mobile vira lista vertical */
+    @media (max-width: 900px) {
+      .agenda-grid {
+        grid-template-columns: 1fr;
+      }
+      .agenda-col {
+        min-height: auto;
+      }
+      .agenda-col-empty {
+        padding: 8px;
+      }
+    }
+
+    /* ─── Sprint 3a — MINHA AGENDA (lista de aulas reais por professor) ── */
+    .minha-agenda-filters {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .minha-agenda-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 6px;
+    }
+    .minha-agenda-day {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .minha-agenda-day-header {
+      padding: 8px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      color: var(--text2);
+    }
+    .minha-agenda-day-items {
+      display: flex;
+      flex-direction: column;
+    }
+    .class-card {
+      display: grid;
+      grid-template-columns: 120px 1fr 140px;
+      gap: 14px;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .class-card:last-child { border-bottom: none; }
+    .class-card:hover { background: var(--surface2); }
+    .class-card-time {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text);
+    }
+    .class-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .class-card-modality {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .class-card-unit {
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .class-card-status {
+      text-align: right;
+    }
+    .class-status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 700px) {
+      .class-card {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      .class-card-status {
+        text-align: left;
+      }
+    }
+
+    /* ─── Sprint 3b — SINO DE NOTIFICAÇÕES ───────────────────────────── */
+    .notif-bell-wrap { position: relative; }
+    .notif-bell {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      justify-content: space-between;
+      transition: background .12s;
+    }
+    .notif-bell:hover { background: var(--surface3); }
+    .notif-bell-badge {
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .notif-dropdown {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      width: 320px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 1000;
+      max-height: 480px;
+      display: flex;
+      flex-direction: column;
+    }
+    .notif-dropdown-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .notif-dropdown-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .notif-mark-all {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .notif-mark-all:hover { background: var(--surface2); color: var(--text); }
+    .notif-dropdown-list {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 320px;
+    }
+    .notif-dropdown-footer {
+      padding: 8px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .notif-link {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .notif-link:hover { background: var(--surface2); color: var(--text); }
+    .notif-empty {
+      padding: 24px 12px;
+      text-align: center;
+      color: var(--text3);
+      font-size: 12px;
+      font-style: italic;
+    }
+    .notif-item {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .notif-item:hover { background: var(--surface2); }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item.is-read { opacity: 0.7; cursor: default; }
+    .notif-item.is-read:hover { background: transparent; }
+    .notif-icon { font-size: 18px; line-height: 1; padding-top: 2px; }
+    .notif-text { min-width: 0; }
+    .notif-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .notif-body {
+      font-size: 11px;
+      color: var(--text2);
+      margin-bottom: 3px;
+      word-wrap: break-word;
+    }
+    .notif-time { font-size: 10px; color: var(--text3); }
+
+    /* ─── Sprint 3b — AGENDA GERAL filtros ───────────────────────────── */
+    .agenda-geral-filters {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .agenda-geral-units {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .agenda-geral-selects {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .agenda-geral-selects select {
+      padding: 5px 8px;
+      font-size: 12px;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .filter-label {
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
+    /* ─── Sprint 3b — INBOX (modal com 2 abas) ───────────────────────── */
+    .inbox-tabs {
+      display: flex;
+      border-bottom: 1.5px solid var(--border);
+      margin-bottom: 12px;
+    }
+    .inbox-tab {
+      padding: 9px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: -1.5px;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .inbox-tab.active {
+      color: var(--orange);
+      border-bottom-color: var(--orange);
+    }
+    .inbox-tab-count {
+      background: var(--surface3);
+      color: var(--text2);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+    .inbox-tab.active .inbox-tab-count {
+      background: var(--orange-glow);
+      color: var(--orange);
+    }
+    .inbox-list {
+      max-height: 500px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .inbox-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .inbox-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .inbox-item-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .inbox-item-body { font-size: 12px; color: var(--text2); }
+    .inbox-item-meta { font-size: 10px; color: var(--text3); font-family: monospace; }
+    .inbox-item-meta code { font-size: 10px; }
+    .inbox-item-actions {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+    .badge-retro {
+      background: rgba(255,180,80,0.15);
+      color: #FFB450;
+      border: 1px solid #FFB450;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .notif-history-list {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .notif-history-list .notif-item:hover { background: transparent; }
+
+    /* Mini-sprint 1.5 (B-01) — meta info do histórico (effectiveDate + nota) */
+    .history-item-meta {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .history-item-effective strong { color: var(--text2); }
+    .history-item-note {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text3);
+      font-style: italic;
+      padding-left: 8px;
+      border-left: 2px solid var(--surface3);
+    }
+
+    .chip-list {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .chip-primary {
+      background: var(--orange-glow);
+      color: var(--orange);
+      border: 1px solid var(--orange);
+    }
+    .chip-secondary {
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .chip-unit-main {
+      background: var(--orange);
+      color: #000;
+      border: 1px solid var(--orange);
+      font-weight: 700;
+    }
+
+    /* Histórico — Timeline simples */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .history-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 6px;
+      padding: 10px 14px;
+    }
+    .history-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .history-item-type {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--orange);
+    }
+    .history-item-date {
+      font-size: 11px;
+      color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .history-item-details {
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .history-item-user {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+    .history-item.removed { border-left-color: var(--red); }
+    .history-item.removed .history-item-type { color: var(--red); }
+
+    /* ─── FORM do modal de Professor (Etapa 6) ─── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .form-grid .form-full { grid-column: 1 / -1; }
+    .form-group .hint {
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 3px;
+    }
+    .form-section { margin-bottom: 16px; margin-top: 4px; }
+    .form-section > label {
+      display: block;
+      font-size: 11px;
+      color: var(--text2);
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+    }
+    .form-section > label .req { color: var(--red); }
+
+    .chip-toggle-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chip-toggle {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg);
+      color: var(--text2);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      user-select: none;
+      transition: all .15s;
+    }
+    .chip-toggle:hover {
+      border-color: var(--text2);
+      color: var(--text);
+    }
+    .chip-toggle.selected {
+      background: var(--orange-glow);
+      color: var(--orange);
+      border-color: var(--orange);
+    }
+    /* Sprint 2 — chip desabilitado (edição de slot: outros dias ficam visíveis mas inativos) */
+    .chip-toggle.chip-disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: auto;   /* mantém pra mostrar tooltip */
+    }
+    .chip-toggle.chip-disabled:hover {
+      border-color: var(--border);
+      color: var(--text2);
+    }
+
+    .form-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 14px 0;
+    }
+
+    /* Wider modal para o form de professor */
+    .modal-content-wide { max-width: 640px !important; }
+
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── PLACEHOLDER (home temporário do Sprint 1) ─── */
+    .placeholder-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .placeholder-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .placeholder-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .placeholder-card h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .placeholder-card p {
+      font-size: 12px;
+      color: var(--text3);
+    }
+    .placeholder-card .status {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-top: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .placeholder-card .status.ready { background: var(--orange-glow); color: var(--orange); }
+    .placeholder-card .status.soon  { background: var(--surface3); color: var(--text3); }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-240px); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .menu-toggle { display: flex; }
+      .page { padding: 70px 16px 24px; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- TOASTS -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- LOGIN -->
+  <div class="login-page" id="loginPage">
+    <div class="login-box">
+      <div class="logo">CROSSTAINER <span>ELITE</span></div>
+      <div class="sub">Módulo Professores · Agenda · Pagamentos</div>
+      <div id="loginForm">
+        <div class="input-group">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="username">
+        </div>
+        <div class="input-group">
+          <label>Senha</label>
+          <input type="password" id="loginPass" placeholder="••••••" autocomplete="current-password">
+        </div>
+        <button class="btn" onclick="doLogin()" id="loginBtn">Entrar</button>
+        <div class="error-msg" id="loginError"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:24px;">
+        Módulo Professores
+        <span id="envBadgeLogin" class="env-badge staging" style="display:none;">staging</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACESSO NEGADO -->
+  <div class="login-page" id="deniedPage" style="display:none;">
+    <div class="login-box">
+      <div style="font-size:56px;margin-bottom:16px;">🚫</div>
+      <h2 style="margin-bottom:14px;">Acesso negado</h2>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:24px;line-height:1.5;">
+        Sua conta não tem permissão para acessar o módulo de Professores.
+        Entre em contato com o administrador.
+      </p>
+      <button class="btn btn-outline" onclick="auth.signOut()" style="width:100%;">Trocar de usuário</button>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">☰</button>
+
+  <div class="app" id="appShell" style="display:none">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-logo">
+        <div class="sb-logo-icon">
+          <svg viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2" />
+            <path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="sb-logo-text">
+          CROSSTAINER <span>ELITE</span>
+          <span id="envBadgeApp" class="env-badge staging" style="display:none;">staging</span>
+        </div>
+      </div>
+      <nav class="sb-nav" id="sidebarNav"></nav>
+      <div class="sb-user">
+        <div class="name" id="userName"></div>
+        <div class="role" id="userRole"></div>
+
+        <!-- Sprint 3b — Sino de notificações in-app -->
+        <div class="notif-bell-wrap" style="margin-top:10px;">
+          <button class="notif-bell" id="notifBell" onclick="toggleNotifDropdown()" title="Notificações">
+            <span class="notif-bell-icon">🔔</span>
+            <span class="notif-bell-badge" id="notifBellBadge" style="display:none;">0</span>
+          </button>
+          <div class="notif-dropdown" id="notifDropdown" style="display:none;">
+            <div class="notif-dropdown-header">
+              <span class="notif-dropdown-title">Notificações</span>
+              <button class="notif-mark-all" onclick="markAllNotifsAsRead()" title="Marcar todas como lidas">✓ Todas</button>
+            </div>
+            <div class="notif-dropdown-list" id="notifDropdownList">
+              <div class="notif-empty">Nenhuma notificação não lida.</div>
+            </div>
+            <div class="notif-dropdown-footer">
+              <button class="notif-link" onclick="openInboxModal()">📬 Inbox de pedidos</button>
+              <button class="notif-link" onclick="openNotifHistoryModal()">📜 Ver lidas</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;margin-bottom:4px">
+          <span style="font-size:11px;color:var(--text3)">🌙</span>
+          <label style="position:relative;width:36px;height:20px;cursor:pointer;display:block">
+            <input type="checkbox" id="themeToggle" onchange="toggleTheme()" style="display:none">
+            <span style="position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.3s"></span>
+            <span id="themeKnob"
+              style="position:absolute;top:2px;left:2px;width:16px;height:16px;background:var(--orange);border-radius:50%;transition:.3s"></span>
+          </label>
+          <span style="font-size:11px;color:var(--text3)">☀️</span>
+        </div>
+        <div class="logout" onclick="window.location='index.html'" style="color:var(--text3);margin-bottom:4px">
+          ← Voltar para Comissões
+        </div>
+        <div class="logout" onclick="doLogout()">Sair</div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main" id="mainContent">
+      <!-- HOME (placeholder do Sprint 1) -->
+      <div class="page active" id="page-home">
+        <div class="page-hdr">
+          <h1>Módulo Professores <span class="badge">v0.1</span></h1>
+          <p>Selecione uma seção no menu lateral para começar.</p>
+        </div>
+
+        <div class="placeholder-grid">
+          <div class="placeholder-card">
+            <div class="icon">🏷️</div>
+            <h3>Modalidades</h3>
+            <p>Cadastrar e gerenciar as modalidades oferecidas (CrossFit, Yoga, Funcional, etc.)</p>
+            <span class="status soon">Em construção · Sprint 1</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">👥</div>
+            <h3>Professores</h3>
+            <p>Cadastrar professores, modalidades, unidades vinculadas e dados salariais.</p>
+            <span class="status soon">Em construção · Sprint 1</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">📅</div>
+            <h3>Agenda</h3>
+            <p>Grade semanal por unidade, agenda geral multi-unidade e lançamento em lote.</p>
+            <span class="status soon">Sprint 2</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">🔄</div>
+            <h3>Substituições</h3>
+            <p>Solicitar trocas diretas ou abrir cobertura. Aceitar/recusar como substituto.</p>
+            <span class="status soon">Sprint 3</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">💰</div>
+            <h3>Fechamento e Pagamento</h3>
+            <p>Consolidar horas do mês, calcular pagamento, emitir recibos.</p>
+            <span class="status soon">Sprint 4</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">⭐</div>
+            <h3>Escalas Especiais</h3>
+            <p>Sábados, feriados, domingos especiais e eventos com pesos diferenciados.</p>
+            <span class="status soon">Sprint 5</span>
+          </div>
+          <div class="placeholder-card">
+            <div class="icon">🏖️</div>
+            <h3>Férias e Recesso</h3>
+            <p>Solicitar férias CLT (efetivo) e recesso de 30 dias (estagiário).</p>
+            <span class="status soon">Sprint 6</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Páginas serão renderizadas dinamicamente pelos módulos JS -->
+      <div class="page" id="page-modalidades"></div>
+      <div class="page" id="page-professores"></div>
+      <div class="page" id="page-agenda"></div>
+      <div class="page" id="page-agenda-geral"></div>
+      <div class="page" id="page-minha-agenda"></div>
+      <div class="page" id="page-fechamento"></div>
+      <div class="page" id="page-pagamentos"></div>
+      <div class="page" id="page-meus-pagamentos"></div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Modalidade (Etapa 3) ═════════ -->
+  <div class="modal" id="modalityModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalityModalTitle">Nova modalidade</h3>
+        <button class="close-btn" onclick="closeModalityModal()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Nome <span style="color:var(--red)">*</span></label>
+        <input type="text" id="modalityName" placeholder="ex: CrossFit, Yoga, Pilates" maxlength="60">
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="modalityDescription" placeholder="Opcional — uma breve descrição"></textarea>
+      </div>
+      <div class="error-msg" id="modalityError"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeModalityModal()">Cancelar</button>
+        <button class="btn" id="modalitySaveBtn" onclick="saveModality()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Professor (Etapa 6) ═════════ -->
+  <div class="modal" id="teacherModal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3 id="teacherModalTitle">Novo professor</h3>
+        <button class="close-btn" onclick="closeTeacherModal()">✕</button>
+      </div>
+
+      <!-- Tipo -->
+      <div class="form-section">
+        <label>Tipo <span class="req">*</span></label>
+        <div class="chip-toggle-row" id="teacherTypeChips">
+          <span class="chip-toggle selected" data-type="efetivo"    onclick="setTeacherType('efetivo')">Efetivo</span>
+          <span class="chip-toggle"          data-type="estagiario" onclick="setTeacherType('estagiario')">Estagiário</span>
+          <span class="chip-toggle"          data-type="eventual"   onclick="setTeacherType('eventual')">Eventual</span>
+        </div>
+      </div>
+
+      <!-- Dados pessoais (grid 2 colunas) -->
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label>Nome completo <span style="color:var(--red)">*</span></label>
+          <input type="text" id="teacherName" placeholder="ex: Lucas Mendes da Silva" maxlength="100">
+        </div>
+        <div class="form-group">
+          <label>CPF <span style="color:var(--red)">*</span></label>
+          <input type="text" id="teacherCpf" maxlength="14" placeholder="000.000.000-00" oninput="maskCpfInput(this)">
+          <div class="hint">Será armazenado mascarado (LGPD · P05)</div>
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="teacherPhone" maxlength="15" placeholder="(11) 98765-4321" oninput="maskPhoneInput(this)">
+        </div>
+        <div class="form-group form-full">
+          <label>E-mail <span style="color:var(--red)">*</span></label>
+          <input type="email" id="teacherEmail" placeholder="professor@crosstainer.com" maxlength="120">
+        </div>
+        <div class="form-group">
+          <label>Data de admissão</label>
+          <input type="date" id="teacherHireDate">
+        </div>
+        <div class="form-group" id="internshipStartFieldWrap" style="display:none;">
+          <label>Início do estágio <span style="color:var(--red)">*</span></label>
+          <input type="date" id="teacherInternshipStart">
+        </div>
+        <div class="form-group" id="contractEndFieldWrap" style="display:none;">
+          <label>Fim do contrato <span style="color:var(--red)">*</span></label>
+          <input type="date" id="teacherContractEnd">
+          <div class="hint">Obrigatório para estagiários (12 meses)</div>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Unidades -->
+      <div class="form-section">
+        <label>Unidades habilitadas <span class="req">*</span></label>
+        <div class="chip-toggle-row" id="unitChips">
+          <span style="font-size:12px;color:var(--text3);">Carregando unidades…</span>
+        </div>
+      </div>
+
+      <!-- Unidade principal -->
+      <div class="form-group">
+        <label>Unidade principal</label>
+        <select id="teacherPrimaryUnit" onchange="onPrimaryUnitChange(this.value)">
+          <option value="">— escolha pelo menos uma unidade acima —</option>
+        </select>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Modalidades -->
+      <div class="form-section">
+        <label>Modalidades habilitadas <span class="req">*</span></label>
+        <div class="chip-toggle-row" id="teacherModalityChips">
+          <span style="font-size:12px;color:var(--text3);">Carregando modalidades…</span>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Observações -->
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="teacherNotes" placeholder="Notas internas, contato adicional, etc."></textarea>
+      </div>
+
+      <div class="error-msg" id="teacherError"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeTeacherModal()">Cancelar</button>
+        <button class="btn" id="teacherSaveBtn" onclick="saveTeacher()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Dados Salariais (Etapa 7 — restrito a Admin) ═════════ -->
+  <!-- Renderizado no DOM para todos, mas só acessível pelo botão "Editar" da   -->
+  <!-- aba Salarial, que por sua vez só aparece se canSeeSalary().              -->
+  <!-- Backend bloqueia via Security Rule mesmo se alguém disparar manualmente. -->
+  <div class="modal" id="salaryModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="salaryModalTitle">Remuneração</h3>
+        <button class="close-btn" onclick="closeSalaryModal()">✕</button>
+      </div>
+
+      <!-- Tipo de remuneração — B-02: oculto para não-estagiário (sempre hora-aula) -->
+      <div class="form-group" id="salaryRemunTypeWrap">
+        <label>Tipo de remuneração <span class="req">*</span></label>
+        <select id="salaryRemunType">
+          <option value="hora_aula">Hora-aula</option>
+          <option value="bolsa">Bolsa fixa</option>
+          <option value="misto">Misto (bolsa + extras)</option>
+        </select>
+      </div>
+
+      <div class="form-divider" id="salaryRemunTypeDivider"></div>
+
+      <!-- Bloco efetivo/eventual -->
+      <div id="salaryHourlyBlock">
+        <div class="form-group">
+          <label>R$ por hora-aula <span class="req">*</span></label>
+          <input type="number" id="salaryHourlyRate" step="0.01" min="0" placeholder="ex: 65.00">
+          <div class="hint">Valor pago por hora trabalhada (efetivo/eventual)</div>
+        </div>
+      </div>
+
+      <!-- Bloco estagiário -->
+      <div id="salaryInternBlock" style="display:none;">
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label>Bolsa mensal (R$) <span class="req">*</span></label>
+            <input type="number" id="salaryStipend" step="0.01" min="0" placeholder="ex: 600.00" oninput="updateProportionalRate()">
+            <div class="hint">Valor fixo recebido por mês pelo estagiário</div>
+          </div>
+          <div class="form-group">
+            <label>Limite mensal — horas <span class="req">*</span></label>
+            <input type="number" id="salaryLimitHours" step="1" min="0" max="200" placeholder="ex: 30" oninput="updateProportionalRate()">
+          </div>
+          <div class="form-group">
+            <label>Limite mensal — minutos</label>
+            <input type="number" id="salaryLimitMinutes" step="1" min="0" max="59" placeholder="ex: 0" oninput="updateProportionalRate()">
+            <div class="hint">0 a 59 (opcional)</div>
+          </div>
+          <div class="form-group form-full">
+            <label>R$/hora proporcional (calculado)</label>
+            <input type="text" id="salaryProportionalRate" readonly placeholder="—" style="background:var(--surface3);color:var(--text2);">
+            <div class="hint">Bolsa ÷ total de horas (atualiza automaticamente)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- B-02 — Benefícios mensais (universal: efetivo, eventual e estagiário) -->
+      <div class="section-label" style="margin-top:0;">Benefícios mensais (defaults)</div>
+      <div class="hint" style="margin-bottom:10px;">
+        Valores padrão registrados no cadastro. Podem ser sobrescritos pelo admin no fechamento mensal.
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Vale Refeição (VR) — R$/mês</label>
+          <input type="number" id="salaryMealAllowance" step="0.01" min="0" placeholder="ex: 600.00">
+        </div>
+        <div class="form-group">
+          <label>Vale Transporte (VT) — R$/mês</label>
+          <input type="number" id="salaryTransportAllowance" step="0.01" min="0" placeholder="ex: 250.00">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:8px;">
+        <label>Outros benefícios</label>
+        <div id="salaryOtherBenefitsList" class="other-benefits-list"></div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addOtherBenefitRow()" style="margin-top:6px;">
+          + Adicionar benefício
+        </button>
+        <div class="hint">Ex: Plano de Saúde, Bonificação, Adicional Noturno…</div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- B-01 — Data de início de validade da alteração -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Data de início de validade <span class="req">*</span></label>
+          <input type="date" id="salaryEffectiveDate">
+          <div class="hint">A partir de quando o novo valor passa a valer (default: hoje)</div>
+        </div>
+        <div class="form-group">
+          <label>Motivo da alteração</label>
+          <input type="text" id="salaryEffectiveNote" maxlength="120" placeholder="ex: reajuste anual, promoção...">
+          <div class="hint">Opcional (até 120 caracteres)</div>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <div class="info-callout">
+        ℹ️ <strong>Feriado:</strong> sempre pago em <strong>dobro</strong>, independente do tipo de remuneração (regra contratual fixa — P02).
+      </div>
+
+      <div class="error-msg" id="salaryModalError"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeSalaryModal()">Cancelar</button>
+        <button class="btn" id="salarySaveBtn" onclick="saveSalary()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Slot de Agenda (Sprint 2) ═════════ -->
+  <div class="modal" id="slotModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="slotModalTitle">Novo slot</h3>
+        <button class="close-btn" onclick="closeSlotModal()">✕</button>
+      </div>
+
+      <!-- Dia da semana — multi-select em criação, single (fixo) em edição -->
+      <div class="form-section">
+        <label>Dia(s) da semana <span class="req">*</span></label>
+        <div class="chip-toggle-row" id="slotWeekdayChips"></div>
+        <div class="hint" id="slotWeekdayHint" style="margin-top:6px;"></div>
+      </div>
+
+      <!-- Horário início + fim + duração -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Início <span class="req">*</span></label>
+          <input type="time" id="slotStartTime" oninput="updateSlotDuration()">
+        </div>
+        <div class="form-group">
+          <label>Fim <span class="req">*</span></label>
+          <input type="time" id="slotEndTime" oninput="updateSlotDuration()">
+        </div>
+        <div class="form-group form-full">
+          <label>Duração</label>
+          <div id="slotDuration" class="info-field-value mono" style="padding:6px 0;">—</div>
+        </div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Modalidade -->
+      <div class="form-group">
+        <label>Modalidade <span class="req">*</span></label>
+        <select id="slotModality" onchange="onSlotModalityChange(this.value)"></select>
+      </div>
+
+      <!-- Professor (filtrado pela modalidade) -->
+      <div class="form-group">
+        <label>Professor <span class="req">*</span></label>
+        <select id="slotTeacher"></select>
+        <div class="hint">Filtrado pelos professores habilitados na modalidade escolhida</div>
+      </div>
+
+      <div class="form-divider"></div>
+
+      <!-- Observações -->
+      <div class="form-group">
+        <label>Observações</label>
+        <textarea id="slotNotes" maxlength="200" placeholder="Notas internas (até 200 caracteres)"></textarea>
+      </div>
+
+      <div class="error-msg" id="slotModalError"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeSlotModal()">Cancelar</button>
+        <button class="btn btn-outline" id="slotToggleActiveBtn"
+                style="display:none;"
+                onclick="handleSlotToggleActive()">Inativar</button>
+        <button class="btn" id="slotSaveBtn" onclick="saveSlot()">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Aula (classes) — Sprint 3a ═════════ -->
+  <div class="modal" id="classModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="classModalTitle">Aula</h3>
+        <button class="close-btn" onclick="closeClassModal()">✕</button>
+      </div>
+
+      <div id="classModalDetails"></div>
+
+      <!-- Bloco de edição — só visível para admin/gestao/supervisao (controlado por JS) -->
+      <div id="classModalEditBlock" style="display:none;">
+        <div class="form-divider"></div>
+        <div class="section-label" style="margin-top:0;">Alterar status</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Novo status <span class="req">*</span></label>
+            <select id="classNewStatus">
+              <option value="prevista">Prevista</option>
+              <option value="realizada">Realizada</option>
+              <option value="cancelada">Cancelada</option>
+              <option value="nao_realizada">Não realizada</option>
+            </select>
+          </div>
+          <div class="form-group form-full">
+            <label>Motivo / observação</label>
+            <input type="text" id="classStatusNote" maxlength="500" placeholder="Ex: feriado, falta justificada, ...">
+            <div class="hint">Opcional. Aparece no histórico de auditoria.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hint" id="classModalReadOnlyHint" style="display:none; margin-top:14px;"></div>
+
+      <div class="error-msg" id="classModalError"></div>
+
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeClassModal()">Fechar</button>
+        <button class="btn" id="classSaveBtn" onclick="saveClassStatus()"
+                style="display:none;" data-edit-only="true">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Substituição Direta (Sprint 3b) ═════════ -->
+  <div class="modal" id="substitutionModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="substitutionModalTitle">Pedir substituição</h3>
+        <button class="close-btn" onclick="closeSubstitutionModal()">✕</button>
+      </div>
+      <div class="info-callout" id="substitutionRetroactiveBox" style="display:none; background:rgba(255,180,80,0.15); border-color:#FFB450;">
+        ⚠ Esta aula <strong>já passou</strong>. O pedido será registrado como retroativo no histórico.
+      </div>
+      <div class="form-group">
+        <label>Substituto <span class="req">*</span></label>
+        <select id="substituteSelect"></select>
+        <div class="hint">Apenas professores habilitados na modalidade da aula.</div>
+      </div>
+      <div class="form-group">
+        <label>Motivo</label>
+        <textarea id="substitutionReason" maxlength="500" placeholder="Ex: consulta médica, compromisso pessoal..."></textarea>
+        <div class="hint">Aparece pro substituto avaliar (opcional, até 500 chars).</div>
+      </div>
+      <div class="error-msg" id="substitutionModalError"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeSubstitutionModal()">Cancelar</button>
+        <button class="btn" id="substitutionSaveBtn" onclick="saveSubstitution()">Enviar pedido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Cobertura Aberta (Sprint 3b) ═════════ -->
+  <div class="modal" id="coverageModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="coverageModalTitle">Pedir cobertura aberta</h3>
+        <button class="close-btn" onclick="closeCoverageModal()">✕</button>
+      </div>
+      <div class="info-callout" id="coverageRetroactiveBox" style="display:none; background:rgba(255,180,80,0.15); border-color:#FFB450;">
+        ⚠ Esta aula <strong>já passou</strong>. O pedido será registrado como retroativo.
+      </div>
+      <div class="info-callout">
+        <div id="coverageInfo"></div>
+      </div>
+      <div class="form-group">
+        <label>Motivo</label>
+        <textarea id="coverageReason" maxlength="500" placeholder="Ex: imprevisto, atestado..."></textarea>
+        <div class="hint">Opcional. Os professores vão ver isso ao receber a notificação.</div>
+      </div>
+      <div class="error-msg" id="coverageModalError"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeCoverageModal()">Cancelar</button>
+        <button class="btn" id="coverageSaveBtn" onclick="saveCoverage()">Pedir cobertura</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Inbox de Pedidos (Sprint 3b) ═════════ -->
+  <div class="modal" id="inboxModal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3>📬 Inbox de pedidos</h3>
+        <button class="close-btn" onclick="closeInboxModal()">✕</button>
+      </div>
+      <div class="inbox-tabs">
+        <button class="inbox-tab active" id="inboxTabSubs">
+          Pedidos pra mim <span class="inbox-tab-count" id="inboxTabSubsCount">0</span>
+        </button>
+        <button class="inbox-tab" id="inboxTabCovs">
+          Oportunidades pra mim <span class="inbox-tab-count" id="inboxTabCovsCount">0</span>
+        </button>
+      </div>
+      <div class="inbox-list" id="inboxList"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeInboxModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Histórico de Notificações Lidas (Sprint 3b) ═════════ -->
+  <div class="modal" id="notifHistoryModal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3>📜 Notificações lidas</h3>
+        <button class="close-btn" onclick="closeNotifHistoryModal()">✕</button>
+      </div>
+      <div class="notif-history-list" id="notifHistoryList"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closeNotifHistoryModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ Firebase Config + Módulos JS ═════════ -->
+  <script src="firebase-config.js"></script>
+  <script src="professores-shared.js"></script>
+  <script src="professores-cadastro.js"></script>
+  <script src="professores-agenda.js"></script>
+  <script src="professores-fechamento.js"></script>
+  <script src="professores-pagamentos.js"></script>
+  <script src="professores.js"></script>
+</body>
+
+</html>
