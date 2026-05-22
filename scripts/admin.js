@@ -572,7 +572,7 @@ async function cmdListReceipts(unitId, year, month) {
   let q = db.collection('receipts');
   if (year) q = q.where('year', '==', parseInt(year));
   if (month) q = q.where('month', '==', parseInt(month));
-  const snap = await q.orderBy('number', 'asc').get();
+  const snap = await q.orderBy('number', 'desc').get();
   const recibos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     .filter(r => !unitId || r.unitId === unitId);
   console.log(`\nRecibos (${recibos.length}):`);
@@ -594,7 +594,7 @@ async function cmdSmoke4b(closingId) {
   console.log(`   Unidade: ${c.unitName || c.unitId} · ${c.month}/${c.year} · ${teachers.length} professores`);
 
   // C2-C3: Lista recibos
-  const recs = await db.collection('receipts').where('closingId', '==', closingId).orderBy('number', 'asc').get();
+  const recs = await db.collection('receipts').where('closingId', '==', closingId).orderBy('number', 'desc').get();
   console.log(`✅ C2-C3: Recibos deste closing: ${recs.size}`);
   recs.docs.forEach(d => {
     const r = d.data();
