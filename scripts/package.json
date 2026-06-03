@@ -1,0 +1,17 @@
+{
+  "name": "crosstrainer-scripts",
+  "description": "Scripts utilitários: migrações e seeds",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "migrate:users:staging":     "node migrate-users-to-profiles.js --project staging",
+    "migrate:users:production":  "node migrate-users-to-profiles.js --project production",
+    "seed:scales:staging":       "node seed-special-scale-types.js --project staging",
+    "seed:scales:production":    "node seed-special-scale-types.js --project production",
+    "admin:staging":             "node admin.js --project staging",
+    "admin:production":          "node admin.js --project production"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

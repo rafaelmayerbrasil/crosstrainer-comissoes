@@ -1,0 +1,2694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Módulo Agenda — Wireframes</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ef;
+    --paper: #faf9f7;
+    --ink: #1a1814;
+    --ink2: #5a5650;
+    --ink3: #9a9490;
+    --border: #c8c4bc;
+    --border2: #e0dcd4;
+    --orange: #E8920D;
+    --orange-dim: rgba(232,146,13,0.12);
+    --blue: #3a6ea8;
+    --blue-dim: rgba(58,110,168,0.10);
+    --green: #3a8a4a;
+    --green-dim: rgba(58,138,74,0.10);
+    --red: #c0392b;
+    --red-dim: rgba(192,57,43,0.10);
+    --yellow: #d4a017;
+    --yellow-dim: rgba(212,160,23,0.12);
+    --sketch: 2px solid var(--ink);
+    --r: 6px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+  /* ── HEADER ── */
+  .wf-header {
+    background: var(--ink);
+    color: #faf9f7;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 3px solid var(--orange);
+  }
+  .wf-header .logo { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: var(--orange); }
+  .wf-header .logo span { color: #faf9f7; }
+  .wf-header .tag { font-size: 14px; color: var(--ink3); margin-left: auto; }
+  .wf-header .tag b { color: var(--orange); }
+
+  /* ── TABS ── */
+  .tab-bar {
+    background: var(--paper);
+    border-bottom: 2px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 10px 18px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--ink2);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: all .15s;
+  }
+  .tab-btn:hover { color: var(--ink); }
+  .tab-btn.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  /* ── SCREEN ── */
+  .screen { display: none; padding: 24px; }
+  .screen.active { display: block; }
+
+  /* ── VARIANT LABEL ── */
+  .variant-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .variant-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border2);
+  }
+  .variant-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .vt-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 4px 14px;
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    background: transparent;
+    cursor: pointer;
+    color: var(--ink2);
+    transition: all .15s;
+  }
+  .vt-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* ── WIREFRAME SHELL ── */
+  .wf-shell {
+    background: var(--paper);
+    border: var(--sketch);
+    border-radius: var(--r);
+    overflow: hidden;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.15);
+    max-width: 1200px;
+  }
+  .wf-sidebar {
+    width: 200px;
+    background: #1a1814;
+    color: #faf9f7;
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .wf-sb-logo {
+    padding: 0 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 12px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    font-weight: 400;
+    color: var(--orange);
+  }
+  .wf-sb-logo span { color: #faf9f7; }
+  .wf-sb-section {
+    font-size: 11px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 12px 3px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+  }
+  .wf-sb-item {
+    font-size: 15px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(255,255,255,0.5);
+    cursor: pointer;
+    border-left: 3px solid transparent;
+  }
+  .wf-sb-item.active { color: var(--orange); background: rgba(232,146,13,0.1); border-left-color: var(--orange); }
+  .wf-sb-item.new-mod { color: rgba(255,255,255,0.7); }
+  .wf-main { flex: 1; overflow: hidden; }
+  .wf-topbar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--border2);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .wf-page-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; font-weight: 400; }
+  .wf-breadcrumb { font-size: 13px; color: var(--ink3); }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1.5px solid currentColor;
+  }
+  .chip-orange { color: var(--orange); background: var(--orange-dim); }
+  .chip-blue { color: var(--blue); background: var(--blue-dim); }
+  .chip-green { color: var(--green); background: var(--green-dim); }
+  .chip-red { color: var(--red); background: var(--red-dim); }
+  .chip-yellow { color: var(--yellow); background: var(--yellow-dim); }
+  .chip-gray { color: var(--ink2); background: rgba(0,0,0,0.06); border-color: var(--border); }
+
+  /* ── SKETCH ELEMENTS ── */
+  .sk-box {
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 8px 12px;
+    background: var(--paper);
+  }
+  .sk-box-dark {
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.04);
+  }
+  .sk-input {
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--ink2);
+    background: var(--paper);
+    width: 100%;
+  }
+  .sk-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border: 2px solid currentColor;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    transition: all .15s;
+  }
+  .sk-btn-primary { color: var(--ink); background: var(--orange); border-color: var(--orange); }
+  .sk-btn-ghost { color: var(--ink2); }
+  .sk-btn-danger { color: var(--red); }
+  .sk-btn-success { color: var(--green); }
+
+  /* ── CALENDAR GRID ── */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: 64px repeat(7, 1fr);
+    border-left: 1.5px solid var(--border);
+    border-top: 1.5px solid var(--border);
+  }
+  .cal-header {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 7px 4px;
+    border-right: 1.5px solid var(--border);
+    border-bottom: 1.5px solid var(--border);
+    background: rgba(0,0,0,0.03);
+  }
+  .cal-header.today { background: var(--orange-dim); color: var(--orange); }
+  .cal-time {
+    font-size: 12px;
+    color: var(--ink3);
+    text-align: right;
+    padding: 4px 6px 0 0;
+    border-right: 1.5px solid var(--border);
+    border-bottom: 1.5px solid var(--border2);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .cal-cell {
+    border-right: 1.5px solid var(--border);
+    border-bottom: 1.5px solid var(--border2);
+    padding: 2px;
+    min-height: 44px;
+    position: relative;
+  }
+  .cal-event {
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-size: 12px;
+    font-weight: 400;
+    margin-bottom: 2px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  .cal-event-orange { background: var(--orange-dim); color: var(--orange); border-left: 3px solid var(--orange); }
+  .cal-event-blue { background: var(--blue-dim); color: var(--blue); border-left: 3px solid var(--blue); }
+  .cal-event-green { background: var(--green-dim); color: var(--green); border-left: 3px solid var(--green); }
+  .cal-event-red { background: var(--red-dim); color: var(--red); border-left: 3px solid var(--red); }
+  .cal-event-yellow { background: var(--yellow-dim); color: var(--yellow); border-left: 3px solid var(--yellow); }
+
+  /* ── ANNOTATION ── */
+  .annotation {
+    font-size: 13px;
+    color: var(--ink3);
+    font-style: italic;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .annotation::before { content: '↳'; font-style: normal; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--paper);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px 16px;
+  }
+  .card-title { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: .5px; margin-bottom: 10px; }
+
+  /* ── TABLE ── */
+  .sk-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .sk-table th {
+    text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--border);
+    font-size: 12px; color: var(--ink2); text-transform: uppercase; letter-spacing: .5px;
+    font-family: 'DM Sans', sans-serif; font-weight: 600; background: rgba(0,0,0,0.03);
+  }
+  .sk-table td { padding: 8px 10px; border-bottom: 1px solid var(--border2); }
+  .sk-table tr:last-child td { border-bottom: none; }
+  .sk-table tr:hover td { background: rgba(0,0,0,0.02); }
+
+  /* ── PROF TIMELINE ── */
+  .prof-row { display: grid; align-items: center; border-bottom: 1px solid var(--border2); min-height: 52px; }
+  .prof-name-col { padding: 8px 12px; font-size: 15px; font-weight: 700; }
+  .timeline-col { position: relative; height: 52px; border-left: 1px solid var(--border2); }
+  .t-event {
+    position: absolute;
+    top: 8px; height: 34px;
+    border-radius: 4px;
+    display: flex; align-items: center;
+    padding: 0 8px;
+    font-size: 12px; font-weight: 700;
+    overflow: hidden;
+  }
+
+  /* ── NOTIFICATION BADGE ── */
+  .notif-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--red); color: #fff; font-size: 11px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── STEP FLOW ── */
+  .step-flow { display: flex; gap: 0; align-items: center; margin: 12px 0; }
+  .step-node {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex: 1; position: relative;
+  }
+  .step-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2.5px solid var(--border); background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; z-index: 1;
+  }
+  .step-circle.active { border-color: var(--orange); background: var(--orange); color: #fff; }
+  .step-circle.done { border-color: var(--green); background: var(--green); color: #fff; }
+  .step-label { font-size: 12px; color: var(--ink2); text-align: center; max-width: 80px; }
+  .step-line { height: 2.5px; background: var(--border2); flex: 1; margin-top: -24px; }
+  .step-line.done { background: var(--green); }
+
+  /* ── SIDEBAR OVERFLOW ── */
+  .wf-sb-badge {
+    margin-left: auto;
+    background: var(--orange);
+    color: #fff;
+    font-size: 11px;
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-family: 'DM Sans';
+    font-weight: 700;
+  }
+
+  /* ── TWEAKS PANEL ── */
+  #tweaks-panel {
+    display: none;
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    padding: 14px 16px;
+    width: 220px;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+    z-index: 100;
+  }
+  #tweaks-panel h3 { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; font-weight: 400; margin-bottom: 10px; border-bottom: 1.5px solid var(--border2); padding-bottom: 8px; }
+  .tweak-row { margin-bottom: 10px; }
+  .tweak-label { font-size: 14px; color: var(--ink2); margin-bottom: 4px; display: block; }
+  .tweak-toggle {
+    display: flex; border: 1.5px solid var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .tweak-toggle button {
+    flex: 1; font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 4px; border: none;
+    background: transparent; cursor: pointer; color: var(--ink2);
+  }
+  .tweak-toggle button.on { background: var(--ink); color: #fff; }
+
+  /* ── MISC ── */
+  .flex { display: flex; }
+  .flex-col { display: flex; flex-direction: column; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .gap-16 { gap: 16px; }
+  .gap-20 { gap: 20px; }
+  .p-16 { padding: 16px; }
+  .p-20 { padding: 20px; }
+  .mt-8 { margin-top: 8px; }
+  .mt-12 { margin-top: 12px; }
+  .mt-16 { margin-top: 16px; }
+  .mb-12 { margin-bottom: 12px; }
+  .text-sm { font-size: 14px; }
+  .text-xs { font-size: 12px; }
+  .text-muted { color: var(--ink3); }
+  .text-orange { color: var(--orange); }
+  .bold { font-weight: 700; }
+  .divider { border: none; border-top: 1px solid var(--border2); margin: 12px 0; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--orange-dim);
+    border: 1.5px solid var(--orange); display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--orange); flex-shrink: 0;
+  }
+
+  .screen-note {
+    font-size: 14px; color: var(--ink2); background: rgba(232,146,13,0.08);
+    border: 1.5px dashed var(--orange); border-radius: var(--r); padding: 10px 14px;
+    margin-bottom: 16px; max-width: 1200px;
+  }
+
+  .variant-panel { display: none; }
+  .variant-panel.active { display: block; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="wf-header">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--orange);">CROSS<span style="color:#faf9f7;">TRAINER</span></div>
+  <span style="color:rgba(255,255,255,0.3); font-size:18px">—</span>
+  <span style="font-size:18px; color:#faf9f7;">Módulo Agenda</span>
+  <span style="font-size:13px; color:rgba(255,255,255,0.3); background:rgba(232,146,13,0.15); border:1px solid rgba(232,146,13,0.3); border-radius:4px; padding:3px 10px;">WIREFRAMES v1</span>
+  <div class="tag">Para: <b>Rodrigo</b> · 20/04/2026</div>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('agenda-admin')">📅 Agenda (Admin)</button>
+  <button class="tab-btn" onclick="switchTab('minha-agenda')">👤 Minha Agenda</button>
+  <button class="tab-btn" onclick="switchTab('agenda-geral')">🌐 Agenda Geral</button>
+  <button class="tab-btn" onclick="switchTab('substituicao')">🔄 Substituição</button>
+  <button class="tab-btn" onclick="switchTab('fechamento')">💰 Fechamento</button>
+  <button class="tab-btn" onclick="switchTab('lote')">📦 Lançamento em Lote</button>
+  <button class="tab-btn" onclick="switchTab('cadastro')">👥 Cadastro Prof.</button>
+  <button class="tab-btn" onclick="switchTab('escalas')">⭐ Escalas Especiais</button>
+  <button class="tab-btn" onclick="switchTab('ferias')">🏖️ Férias / Recesso</button>
+  <button class="tab-btn" style="margin-left:auto;background:rgba(232,146,13,0.15);border-color:var(--orange);color:var(--orange);" onclick="switchTab('validacao')">✓ Validação de Escopo</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1: AGENDA ADMIN
+══════════════════════════════════════════ -->
+<div id="screen-agenda-admin" class="screen active">
+  <div class="screen-note">
+    💡 Visão do <b>Administrador</b> — 3 variações de layout para gerenciar a agenda completa. Explorar qual forma facilita mais a edição de escala.
+  </div>
+
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('admin', 'A', this)">A — Grade Semanal</button>
+    <button class="vt-btn" onclick="switchVariant('admin', 'B', this)">B — Por Professor</button>
+    <button class="vt-btn" onclick="switchVariant('admin', 'C', this)">C — Lista + Filtros</button>
+  </div>
+
+  <!-- VARIANTE A: Grade Semanal (calendar-like) -->
+  <div id="admin-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Grade semanal estilo calendário</div>
+    <div class="wf-shell flex" style="height:580px;">
+      <!-- sidebar -->
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Comissões</div>
+        <div class="wf-sb-item">📊 Dashboard</div>
+        <div class="wf-sb-item">📤 Uploads</div>
+        <div class="wf-sb-item">📋 Períodos</div>
+        <div class="wf-sb-section" style="color:var(--orange);opacity:.7;">Agenda</div>
+        <div class="wf-sb-item active new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições <span class="wf-sb-badge">3</span></div>
+        <div class="wf-sb-item new-mod">💰 Fechamento</div>
+      </div>
+      <!-- main -->
+      <div class="wf-main flex-col" style="overflow:auto;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Agenda Semanal</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <select class="sk-input" style="width:auto;padding:4px 8px;">
+              <option>Todas as unidades</option>
+              <option>Unidade Centro</option>
+            </select>
+            <button class="sk-btn sk-btn-ghost">‹ Semana anterior</button>
+            <span style="font-size:15px;font-weight:700;">21–27 abr</span>
+            <button class="sk-btn sk-btn-ghost">Próxima semana ›</button>
+            <button class="sk-btn sk-btn-primary">+ Nova aula</button>
+          </div>
+        </div>
+        <!-- filters strip -->
+        <div style="padding:8px 16px;display:flex;gap:8px;border-bottom:1px solid var(--border2);background:rgba(0,0,0,0.02);flex-wrap:wrap;">
+          <span style="font-size:13px;color:var(--ink3);align-self:center;">Filtrar:</span>
+          <span class="chip chip-orange">● Todos profs</span>
+          <span class="chip chip-gray">CrossFit</span>
+          <span class="chip chip-gray">Sala A</span>
+          <span class="chip chip-gray">Status: todos</span>
+        </div>
+        <!-- calendar -->
+        <div style="padding:12px;overflow:auto;flex:1;">
+          <div class="cal-grid">
+            <div class="cal-header"></div>
+            <div class="cal-header">SEG<br><span style="font-size:11px;color:var(--ink3);">21</span></div>
+            <div class="cal-header today">TER<br><span style="font-size:13px;font-weight:700;">22</span></div>
+            <div class="cal-header">QUA<br><span style="font-size:11px;color:var(--ink3);">23</span></div>
+            <div class="cal-header">QUI<br><span style="font-size:11px;color:var(--ink3);">24</span></div>
+            <div class="cal-header">SEX<br><span style="font-size:11px;color:var(--ink3);">25</span></div>
+            <div class="cal-header">SÁB<br><span style="font-size:11px;color:var(--ink3);">26</span></div>
+            <div class="cal-header">DOM<br><span style="font-size:11px;color:var(--ink3);">27</span></div>
+
+            <div class="cal-time">06:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange" style="font-weight: 200;">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">07:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates</div></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">08:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-red" style="opacity:.7;">⚠ Subst.<br>Pedro → ?</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">09:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional</div></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">17:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-yellow">Marcos E.<br>Natação</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-yellow">Marcos E.<br>Natação</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-yellow">Marcos E.<br>Natação</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-yellow">Marcos E.<br>Natação</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-yellow">Marcos E.<br>Natação</div></div>
+            <div class="cal-cell"></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">18:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit</div></div>
+            <div class="cal-cell"></div>
+            <div class="cal-cell"></div>
+          </div>
+          <div class="annotation">Clique em aula para editar / arrastar para mover horário</div>
+          <div class="annotation">⚠ Vermelho = substituição pendente de aceite</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANTE B: Por Professor (timeline horizontal) -->
+  <div id="admin-B" class="variant-panel">
+    <div class="variant-label">Variante B — Timeline por professor (visão do dia)</div>
+    <div class="wf-shell flex" style="height:560px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+        <div class="wf-sb-item new-mod">💰 Fechamento</div>
+      </div>
+      <div class="wf-main flex-col" style="overflow:auto;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Agenda — Terça, 22 abr</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;gap:4px;">
+              <button class="vt-btn" style="font-size:13px;padding:3px 10px;">Dia</button>
+              <button class="vt-btn active" style="font-size:13px;padding:3px 10px;">Semana</button>
+              <button class="vt-btn" style="font-size:13px;padding:3px 10px;">Mês</button>
+            </div>
+            <button class="sk-btn sk-btn-ghost">‹</button>
+            <button class="sk-btn sk-btn-ghost">›</button>
+            <button class="sk-btn sk-btn-primary">+ Nova aula</button>
+          </div>
+        </div>
+        <div style="padding:12px;flex:1;overflow:auto;">
+          <!-- timeline ruler -->
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);border-bottom:2px solid var(--border);margin-bottom:0;">
+            <div style="font-size:12px;color:var(--ink3);padding:4px 8px;font-family:'DM Sans';">Professor</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;padding:4px 0;font-family:'DM Sans';">05</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">06</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">07</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">08</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">09</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">10</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">11</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">12</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">13</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">14</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">15</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">16</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">17</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">18</div>
+            <div style="font-size:11px;color:var(--ink3);text-align:center;font-family:'DM Sans';">19</div>
+          </div>
+          <!-- prof rows -->
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);border-bottom:1px solid var(--border2);align-items:center;min-height:52px;">
+            <div style="padding:8px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;"><div class="avatar">LM</div>Lucas M.</div>
+            <div></div>
+            <div style="padding:2px;"><div style="background:var(--orange-dim);border-left:3px solid var(--orange);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--orange);">CrossFit 60'</div></div>
+            <div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--orange-dim);border-left:3px solid var(--orange);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--orange);">CrossFit 60'</div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--orange-dim);border-left:3px solid var(--orange);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--orange);">CrossFit 60'</div></div>
+            <div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);border-bottom:1px solid var(--border2);align-items:center;min-height:52px;">
+            <div style="padding:8px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div>Ana P.</div>
+            <div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--blue-dim);border-left:3px solid var(--blue);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--blue);">Yoga 60'</div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);border-bottom:1px solid var(--border2);align-items:center;min-height:52px;">
+            <div style="padding:8px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;"><div class="avatar" style="background:var(--red-dim);border-color:var(--red);color:var(--red);">PL</div>Pedro L. <span class="chip chip-yellow" style="font-size:11px;padding:1px 6px;margin-left:4px;">⚠ sub</span></div>
+            <div></div><div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--red-dim);border-left:3px solid var(--red);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--red);">⚠ Subst. pend.</div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);border-bottom:1px solid var(--border2);align-items:center;min-height:52px;">
+            <div style="padding:8px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div>Carla S.</div>
+            <div></div><div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--green-dim);border-left:3px solid var(--green);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--green);">Pilates 60'</div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:140px repeat(15,1fr);align-items:center;min-height:52px;">
+            <div style="padding:8px;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div>Marcos E. <span class="chip chip-gray" style="font-size:11px;padding:1px 6px;margin-left:4px;">estag.</span></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+            <div style="padding:2px;"><div style="background:var(--yellow-dim);border-left:3px solid var(--yellow);border-radius:3px;padding:4px 6px;font-size:12px;font-weight:400;color:var(--yellow);">Natação 60'</div></div>
+            <div></div>
+          </div>
+          <div class="annotation">Barra vermelha = substituição pendente. Clique no professor para ver detalhes e ações.</div>
+          <div class="annotation" style="margin-top:4px;">Arrastar bloco horizontal = alterar horário da aula</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANTE C: Lista + Filtros -->
+  <div id="admin-C" class="variant-panel">
+    <div class="variant-label">Variante C — Lista de aulas com filtros laterais</div>
+    <div class="wf-shell flex" style="height:580px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+        <div class="wf-sb-item new-mod">💰 Fechamento</div>
+      </div>
+      <div class="wf-main flex" style="overflow:hidden;">
+        <!-- filters sidebar -->
+        <div style="width:200px;border-right:1.5px solid var(--border2);padding:14px;background:rgba(0,0,0,0.02);overflow-y:auto;flex-shrink:0;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:12px;">Filtros</div>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">Período</div>
+          <input class="sk-input" style="margin-bottom:10px;" placeholder="abr 2026" value="abr 2026">
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">Unidade</div>
+          <select class="sk-input" style="margin-bottom:10px;"><option>Todas</option></select>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">Professor</div>
+          <select class="sk-input" style="margin-bottom:10px;"><option>Todos</option></select>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">Modalidade</div>
+          <select class="sk-input" style="margin-bottom:10px;"><option>Todas</option></select>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:4px;">Status</div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:14px;">
+            <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" checked> Prevista</label>
+            <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" checked> Realizada</label>
+            <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" checked> Substituída</label>
+            <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" checked> Pendente</label>
+            <label style="display:flex;gap:6px;align-items:center;"><input type="checkbox"> Cancelada</label>
+          </div>
+          <hr class="divider">
+          <button class="sk-btn sk-btn-primary" style="width:100%;margin-top:4px;">Aplicar</button>
+        </div>
+        <!-- table -->
+        <div style="flex:1;overflow:auto;padding:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div class="wf-page-title" style="font-size:18px;">Aulas — Abril 2026</div>
+            <span class="chip chip-gray">124 aulas</span>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <input class="sk-input" style="width:160px;" placeholder="buscar...">
+              <button class="sk-btn sk-btn-primary">+ Nova aula</button>
+            </div>
+          </div>
+          <table class="sk-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Horário</th>
+                <th>Professor</th>
+                <th>Modalidade</th>
+                <th>Sala</th>
+                <th>Unidade</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>22/04</td><td>06:00–07:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar">LM</div>Lucas M.</div></td>
+                <td>CrossFit</td><td>Sala A</td><td>Centro</td>
+                <td><span class="chip chip-green">Realizada</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+              <tr>
+                <td>22/04</td><td>07:00–08:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div>Ana P.</div></td>
+                <td>Yoga</td><td>Sala B</td><td>Centro</td>
+                <td><span class="chip chip-green">Realizada</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+              <tr style="background:rgba(192,57,43,0.04);">
+                <td>22/04</td><td>08:00–09:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar" style="background:var(--red-dim);border-color:var(--red);color:var(--red);">PL</div><span style="text-decoration:line-through;color:var(--ink3);">Pedro L.</span></div></td>
+                <td>Funcional</td><td>Sala C</td><td>Centro</td>
+                <td><span class="chip chip-yellow">⚠ Subst. pend.</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+              <tr>
+                <td>22/04</td><td>08:00–09:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div>Carla S.</div></td>
+                <td>Pilates</td><td>Sala B</td><td>Norte</td>
+                <td><span class="chip chip-blue">Prevista</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+              <tr>
+                <td>22/04</td><td>09:00–10:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">PL</div>Pedro L.</div></td>
+                <td>Funcional</td><td>Sala A</td><td>Centro</td>
+                <td><span class="chip chip-blue">Prevista</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+              <tr>
+                <td>23/04</td><td>17:00–18:00</td>
+                <td><div class="flex gap-8" style="align-items:center;"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div>Marcos E.</div></td>
+                <td>Natação</td><td>Piscina</td><td>Norte</td>
+                <td><span class="chip chip-blue">Prevista</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">···</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="annotation">Clique em "···" para editar, substituir ou cancelar aula</div>
+          <div class="annotation" style="margin-top:4px;">Linha destacada = atenção necessária (substituição pendente)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2: MINHA AGENDA (PROFESSOR)
+══════════════════════════════════════════ -->
+<div id="screen-minha-agenda" class="screen">
+  <div class="screen-note">
+    💡 Visão do <b>Professor</b> — sua própria agenda + ações pessoais (solicitar substituição, ver pendências).
+  </div>
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('prof', 'A', this)">A — Semana + Ações</button>
+    <button class="vt-btn" onclick="switchVariant('prof', 'B', this)">B — Dashboard pessoal</button>
+  </div>
+
+  <div id="prof-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Semana com painel lateral de ações</div>
+    <div class="wf-shell flex" style="height:560px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">📅 Minha agenda</div>
+        <div class="wf-sb-item new-mod">🌐 Agenda geral</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições <span class="wf-sb-badge">1</span></div>
+        <div class="wf-sb-item new-mod">📊 Meu histórico</div>
+        <div class="wf-sb-item new-mod">🧾 Meus recibos</div>
+      </div>
+      <div class="wf-main flex" style="overflow:hidden;">
+        <!-- calendar area -->
+        <div style="flex:1;overflow:auto;">
+          <div class="wf-topbar">
+            <div class="wf-page-title">Minha Agenda</div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+              <button class="sk-btn sk-btn-ghost">‹</button>
+              <span style="font-weight:700;">21–27 abr</span>
+              <button class="sk-btn sk-btn-ghost">›</button>
+            </div>
+          </div>
+          <div style="padding:12px;overflow:auto;">
+            <div class="cal-grid">
+              <div class="cal-header"></div>
+              <div class="cal-header">SEG 21</div>
+              <div class="cal-header today">TER 22</div>
+              <div class="cal-header">QUA 23</div>
+              <div class="cal-header">QUI 24</div>
+              <div class="cal-header">SEX 25</div>
+              <div class="cal-header">SÁB 26</div>
+              <div class="cal-header" style="color:var(--ink3);">DOM 27</div>
+
+              <div class="cal-time">06:00</div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit ✓<br><span style="font-size:11px;">06:00–07:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">06:00–07:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit ✓<br><span style="font-size:11px;">06:00–07:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">06:00–07:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">06:00–07:00</span></div></div>
+              <div class="cal-cell"></div>
+              <div class="cal-cell"></div>
+
+              <div class="cal-time">09:00</div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit ✓<br><span style="font-size:11px;">09:00–10:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-red">⚠ Subst.<br><span style="font-size:11px;">Aguardando</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">09:00–10:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">09:00–10:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">09:00–10:00</span></div></div>
+              <div class="cal-cell"></div>
+              <div class="cal-cell"></div>
+
+              <div class="cal-time">18:00</div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit ✓<br><span style="font-size:11px;">18:00–19:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">18:00–19:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">18:00–19:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">18:00–19:00</span></div></div>
+              <div class="cal-cell"><div class="cal-event cal-event-orange">CrossFit<br><span style="font-size:11px;">18:00–19:00</span></div></div>
+              <div class="cal-cell"></div>
+              <div class="cal-cell"></div>
+            </div>
+            <div class="annotation">✓ = já realizada · ⚠ = substituição pendente · clique em aula para ver opções</div>
+          </div>
+        </div>
+        <!-- right panel -->
+        <div style="width:220px;border-left:1.5px solid var(--border2);padding:14px;background:rgba(0,0,0,0.02);overflow-y:auto;flex-shrink:0;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:12px;">📊 Este mês</div>
+          <div class="card" style="margin-bottom:8px;padding:10px 12px;">
+            <div style="font-size:13px;color:var(--ink3);">Horas previstas</div>
+            <div style="font-size:22px;font-weight:700;">48h</div>
+          </div>
+          <div class="card" style="margin-bottom:8px;padding:10px 12px;background:var(--green-dim);border-color:var(--green);">
+            <div style="font-size:13px;color:var(--ink3);">Realizadas</div>
+            <div style="font-size:22px;font-weight:700;color:var(--green);">32h</div>
+          </div>
+          <div class="card" style="margin-bottom:14px;padding:10px 12px;background:var(--yellow-dim);border-color:var(--yellow);">
+            <div style="font-size:13px;color:var(--ink3);">Substituições</div>
+            <div style="font-size:22px;font-weight:700;color:var(--yellow);">2</div>
+          </div>
+          <hr class="divider">
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px;">⚠ Pendentes</div>
+          <div style="background:var(--red-dim);border:1.5px solid var(--red);border-radius:4px;padding:8px;font-size:13px;margin-bottom:8px;">
+            <div style="font-weight:700;color:var(--red);">Subst. enviada</div>
+            <div style="color:var(--ink2);">Ter 22/04 · 09:00</div>
+            <div style="color:var(--ink3);font-size:12px;">→ Ana P. (aguardando)</div>
+          </div>
+          <button class="sk-btn sk-btn-primary" style="width:100%;margin-top:4px;">+ Solicitar substituição</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="prof-B" class="variant-panel">
+    <div class="variant-label">Variante B — Dashboard pessoal com próximas aulas em lista</div>
+    <div class="wf-shell flex" style="height:560px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">📅 Minha agenda</div>
+        <div class="wf-sb-item new-mod">🌐 Agenda geral</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições <span class="wf-sb-badge">1</span></div>
+        <div class="wf-sb-item new-mod">📊 Meu histórico</div>
+        <div class="wf-sb-item new-mod">🧾 Meus recibos</div>
+      </div>
+      <div class="wf-main flex-col" style="overflow:auto;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Olá, Lucas! 👋</div>
+          <div style="margin-left:auto;"><span class="chip chip-orange">● Terça, 22 abr</span></div>
+        </div>
+        <div style="padding:16px;flex:1;overflow:auto;">
+          <!-- summary row -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+            <div class="card" style="text-align:center;">
+              <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">HORAS MÊS</div>
+              <div style="font-size:28px;font-weight:700;">48h</div>
+              <div style="font-size:12px;color:var(--green);">32h realizadas</div>
+            </div>
+            <div class="card" style="text-align:center;background:var(--orange-dim);border-color:var(--orange);">
+              <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">HOJE</div>
+              <div style="font-size:28px;font-weight:700;color:var(--orange);">3</div>
+              <div style="font-size:12px;color:var(--ink3);">aulas previstas</div>
+            </div>
+            <div class="card" style="text-align:center;background:var(--yellow-dim);border-color:var(--yellow);">
+              <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">SUBSTITUIÇÕES</div>
+              <div style="font-size:28px;font-weight:700;color:var(--yellow);">1</div>
+              <div style="font-size:12px;color:var(--red);">1 aguardando</div>
+            </div>
+            <div class="card" style="text-align:center;">
+              <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">PROJEÇÃO</div>
+              <div style="font-size:28px;font-weight:700;">R$ 960</div>
+              <div style="font-size:12px;color:var(--ink3);">estimado</div>
+            </div>
+          </div>
+          <!-- next classes + pending -->
+          <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;">
+            <div>
+              <div style="font-size:17px;font-weight:700;margin-bottom:10px;">Próximas aulas</div>
+              <table class="sk-table">
+                <thead><tr><th>Data / Hora</th><th>Modalidade</th><th>Sala</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <tr style="background:var(--orange-dim);">
+                    <td><b>HOJE</b> 18:00–19:00</td><td>CrossFit</td><td>Sala A · Centro</td>
+                    <td><span class="chip chip-blue">Prevista</span></td>
+                    <td><button class="sk-btn sk-btn-ghost text-sm">→</button></td>
+                  </tr>
+                  <tr>
+                    <td>Qua 23 · 06:00</td><td>CrossFit</td><td>Sala A · Centro</td>
+                    <td><span class="chip chip-blue">Prevista</span></td>
+                    <td><button class="sk-btn sk-btn-ghost text-sm">→</button></td>
+                  </tr>
+                  <tr>
+                    <td>Qua 23 · 09:00</td><td>CrossFit</td><td>Sala A · Centro</td>
+                    <td><span class="chip chip-blue">Prevista</span></td>
+                    <td><button class="sk-btn sk-btn-ghost text-sm">→</button></td>
+                  </tr>
+                  <tr>
+                    <td>Qua 23 · 18:00</td><td>CrossFit</td><td>Sala A · Centro</td>
+                    <td><span class="chip chip-blue">Prevista</span></td>
+                    <td><button class="sk-btn sk-btn-ghost text-sm">→</button></td>
+                  </tr>
+                  <tr style="background:var(--red-dim);">
+                    <td>Qui 24 · 09:00</td><td>CrossFit</td><td>Sala A · Centro</td>
+                    <td><span class="chip chip-yellow">⚠ Subst. pend.</span></td>
+                    <td><button class="sk-btn sk-btn-ghost text-sm">→</button></td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="annotation">Linha laranja = próxima aula do dia · Clique para solicitar substituição</div>
+            </div>
+            <div>
+              <div style="font-size:17px;font-weight:700;margin-bottom:10px;">⚠ Ação necessária</div>
+              <div style="background:var(--red-dim);border:1.5px solid var(--red);border-radius:var(--r);padding:12px;margin-bottom:10px;">
+                <div style="font-weight:700;color:var(--red);margin-bottom:4px;">Substituição aguardando aceite</div>
+                <div style="font-size:14px;margin-bottom:6px;">Qui 24/04 · 09:00 · CrossFit</div>
+                <div style="font-size:13px;color:var(--ink3);">Substituto sugerido: <b>Ana P.</b></div>
+                <div style="font-size:12px;color:var(--ink3);margin-top:4px;">Enviada há 2h · aguardando resposta</div>
+                <div style="display:flex;gap:8px;margin-top:10px;">
+                  <button class="sk-btn sk-btn-danger text-sm">Cancelar</button>
+                  <button class="sk-btn sk-btn-ghost text-sm">Ver detalhes</button>
+                </div>
+              </div>
+              <button class="sk-btn sk-btn-primary" style="width:100%;">+ Nova substituição</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3: AGENDA GERAL
+══════════════════════════════════════════ -->
+<div id="screen-agenda-geral" class="screen">
+  <div class="screen-note">
+    💡 Visão <b>somente leitura</b> para professores — ver quem está escalado onde, consultar disponibilidade para planejar substituição.
+  </div>
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('geral', 'A', this)">A — Grade multi-unidade</button>
+    <button class="vt-btn" onclick="switchVariant('geral', 'B', this)">B — Busca por horário</button>
+  </div>
+
+  <div id="geral-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Grade com abas por unidade</div>
+    <div class="wf-shell flex" style="height:560px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item new-mod">📅 Minha agenda</div>
+        <div class="wf-sb-item active new-mod">🌐 Agenda geral</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+      </div>
+      <div class="wf-main flex-col" style="overflow:hidden;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Agenda Geral</div>
+          <span class="chip chip-gray" style="margin-left:8px;">somente leitura</span>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <button class="sk-btn sk-btn-ghost">‹ Semana anterior</button>
+            <span style="font-weight:700;">21–27 abr</span>
+            <button class="sk-btn sk-btn-ghost">Próxima ›</button>
+          </div>
+        </div>
+        <!-- unit tabs -->
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--border2);padding:0 16px;background:rgba(0,0,0,0.02);">
+          <div style="padding:8px 16px;font-size:15px;font-weight:700;border-bottom:3px solid var(--orange);color:var(--orange);cursor:pointer;margin-bottom:-2px;">Todas</div>
+          <div style="padding:8px 16px;font-size:15px;color:var(--ink2);cursor:pointer;">Unid. Centro</div>
+          <div style="padding:8px 16px;font-size:15px;color:var(--ink2);cursor:pointer;">Unid. Norte</div>
+          <div style="padding:8px 16px;font-size:15px;color:var(--ink2);cursor:pointer;">Unid. Sul</div>
+        </div>
+        <div style="padding:12px;overflow:auto;flex:1;">
+          <!-- read-only legend -->
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <span class="chip chip-green">● Escalado</span>
+            <span class="chip chip-gray">● Sem aula</span>
+            <span class="chip chip-blue">● Outra unidade</span>
+            <span class="chip chip-red">● Conflito</span>
+          </div>
+          <div class="cal-grid">
+            <div class="cal-header"></div>
+            <div class="cal-header">SEG 21</div>
+            <div class="cal-header today">TER 22</div>
+            <div class="cal-header">QUA 23</div>
+            <div class="cal-header">QUI 24</div>
+            <div class="cal-header">SEX 25</div>
+            <div class="cal-header">SÁB 26</div>
+            <div class="cal-header">DOM 27</div>
+
+            <div class="cal-time">06:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit · Centro</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit · Centro</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit · Centro</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit · Centro</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-orange">Lucas M.<br>CrossFit · Centro</div></div>
+            <div class="cal-cell"><div style="font-size:12px;color:var(--ink3);padding:4px;text-align:center;">—</div></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">07:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga · Norte</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga · Norte</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga · Norte</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga · Norte</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Ana P.<br>Yoga · Norte</div></div>
+            <div class="cal-cell"></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">08:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates · Sul</div></div>
+            <div class="cal-cell"><div class="cal-event" style="background:#f5e6ff;border-left:3px solid #9b59b6;color:#9b59b6;font-size:12px;font-weight:700;">Pedro L.?<br>subst. pend.</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates · Sul</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates · Sul</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-green">Carla S.<br>Pilates · Sul</div></div>
+            <div class="cal-cell"></div>
+            <div class="cal-cell"></div>
+
+            <div class="cal-time">09:00</div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"><div class="cal-event cal-event-blue">Pedro L.<br>Funcional · C</div></div>
+            <div class="cal-cell"></div>
+          </div>
+          <div class="annotation">Somente leitura — sem ação disponível aqui. Para substituição, vá em "Minha Agenda"</div>
+          <div class="annotation" style="margin-top:4px;">Hover no card = exibe nome completo + telefone do professor (para contato prévio)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="geral-B" class="variant-panel">
+    <div class="variant-label">Variante B — Busca "quem está livre neste horário?"</div>
+    <div class="wf-shell flex" style="height:540px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item new-mod">📅 Minha agenda</div>
+        <div class="wf-sb-item active new-mod">🌐 Agenda geral</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+      </div>
+      <div class="wf-main flex-col" style="overflow:hidden;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Agenda Geral</div>
+          <span class="chip chip-gray" style="margin-left:8px;">somente leitura</span>
+        </div>
+        <div style="padding:16px;flex:1;overflow:auto;">
+          <!-- search box -->
+          <div style="background:var(--orange-dim);border:1.5px dashed var(--orange);border-radius:var(--r);padding:14px;margin-bottom:20px;">
+            <div style="font-size:17px;font-weight:700;margin-bottom:10px;">🔍 Encontrar professor disponível</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+              <div>
+                <div class="text-xs text-muted mb-12" style="margin-bottom:4px;">Data</div>
+                <input class="sk-input" type="date" value="2026-04-24">
+              </div>
+              <div>
+                <div class="text-xs text-muted" style="margin-bottom:4px;">Horário</div>
+                <input class="sk-input" type="time" value="09:00">
+              </div>
+              <div>
+                <div class="text-xs text-muted" style="margin-bottom:4px;">Modalidade</div>
+                <select class="sk-input"><option>CrossFit</option><option>Yoga</option><option>Qualquer</option></select>
+              </div>
+              <button class="sk-btn sk-btn-primary">Buscar →</button>
+            </div>
+          </div>
+
+          <!-- results -->
+          <div style="font-size:17px;font-weight:700;margin-bottom:10px;">Resultado — Qui 24/04 às 09:00</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div style="background:var(--green-dim);border:1.5px solid var(--green);border-radius:var(--r);padding:12px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">AP</div><b>Ana P.</b><span class="chip chip-green" style="margin-left:auto;font-size:11px;">livre</span></div>
+              <div style="font-size:13px;color:var(--ink2);">Yoga, Pilates</div>
+              <div style="font-size:12px;color:var(--ink3);">Unid. Norte</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:4px;">📞 (11) 9···· (ver)</div>
+            </div>
+            <div style="background:var(--green-dim);border:1.5px solid var(--green);border-radius:var(--r);padding:12px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div><b>Marcos E.</b><span class="chip chip-green" style="margin-left:auto;font-size:11px;">livre</span></div>
+              <div style="font-size:13px;color:var(--ink2);">CrossFit, Funcional</div>
+              <div style="font-size:12px;color:var(--ink3);">Unid. Norte</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:4px;">📞 (11) 9···· (ver)</div>
+            </div>
+            <div style="border:1.5px solid var(--border2);border-radius:var(--r);padding:12px;opacity:.6;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><div class="avatar" style="background:var(--red-dim);border-color:var(--red);color:var(--red);">CS</div><b>Carla S.</b><span class="chip chip-blue" style="margin-left:auto;font-size:11px;">outra un.</span></div>
+              <div style="font-size:13px;color:var(--ink2);">Pilates</div>
+              <div style="font-size:12px;color:var(--ink3);">Escalada em Sul · 09:00</div>
+            </div>
+          </div>
+          <div class="annotation">Esta visão é apenas para consulta. Combine com o colega e registre a substituição formalmente em "Minha Agenda → Nova substituição"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4: FLUXO DE SUBSTITUIÇÃO
+══════════════════════════════════════════ -->
+<div id="screen-substituicao" class="screen">
+  <div class="screen-note">
+    💡 <b>Fluxo de substituição</b> — do titular que solicita ao substituto que aceita/recusa. 2 variações de interface.
+  </div>
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('sub', 'A', this)">A — Wizard passo a passo</button>
+    <button class="vt-btn" onclick="switchVariant('sub', 'B', this)">B — Painel de pendências</button>
+  </div>
+
+  <div id="sub-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Wizard inline (solicitar substituição)</div>
+    <div class="two-col">
+      <!-- Left: Titular solicita -->
+      <div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:10px;color:var(--orange);">Etapa 2 — Titular formaliza pedido</div>
+        <div class="wf-shell flex-col" style="padding:0;overflow:hidden;">
+          <div style="background:var(--ink);padding:10px 16px;display:flex;align-items:center;gap:10px;">
+            <div style="color:var(--orange);font-size:15px;font-weight:700;">Solicitar Substituição</div>
+            <button style="margin-left:auto;background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:18px;cursor:pointer;">✕</button>
+          </div>
+          <div style="padding:16px;">
+            <!-- progress -->
+            <div class="step-flow" style="margin-bottom:20px;">
+              <div class="step-node"><div class="step-circle done">✓</div><div class="step-label">Aula</div></div>
+              <div class="step-line done"></div>
+              <div class="step-node"><div class="step-circle active">2</div><div class="step-label">Substituto</div></div>
+              <div class="step-line"></div>
+              <div class="step-node"><div class="step-circle">3</div><div class="step-label">Motivo</div></div>
+              <div class="step-line"></div>
+              <div class="step-node"><div class="step-circle">4</div><div class="step-label">Confirmar</div></div>
+            </div>
+            <!-- aula selecionada -->
+            <div class="sk-box-dark" style="margin-bottom:14px;">
+              <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Aula a substituir</div>
+              <div style="font-size:16px;font-weight:700;">CrossFit · Qui 24/04 · 09:00–10:00</div>
+              <div style="font-size:13px;color:var(--ink2);">Sala A · Unidade Centro</div>
+            </div>
+            <!-- escolha substituto -->
+            <div style="margin-bottom:12px;">
+              <div style="font-size:14px;margin-bottom:6px;">Selecionar substituto</div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <div style="border:2px solid var(--green);border-radius:var(--r);padding:10px 12px;background:var(--green-dim);cursor:pointer;display:flex;align-items:center;gap:10px;">
+                  <div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">AP</div>
+                  <div><div style="font-weight:700;">Ana P.</div><div style="font-size:12px;color:var(--ink3);">Livre neste horário · Yoga</div></div>
+                  <span class="chip chip-green" style="margin-left:auto;font-size:11px;">● livre</span>
+                </div>
+                <div style="border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;opacity:.7;">
+                  <div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div>
+                  <div><div style="font-weight:700;">Marcos E.</div><div style="font-size:12px;color:var(--ink3);">Livre neste horário · CrossFit</div></div>
+                  <span class="chip chip-green" style="margin-left:auto;font-size:11px;">● livre</span>
+                </div>
+                <div style="border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;opacity:.4;">
+                  <div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">CS</div>
+                  <div><div style="font-weight:700;">Carla S.</div><div style="font-size:12px;color:var(--red);">Outra unidade neste horário</div></div>
+                  <span class="chip chip-red" style="margin-left:auto;font-size:11px;">● ocupada</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+              <button class="sk-btn sk-btn-ghost">← Voltar</button>
+              <button class="sk-btn sk-btn-primary">Próximo →</button>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Lista ordenada: livres primeiro, depois ocupados. Badge verde = sem conflito</div>
+      </div>
+      <!-- Right: Substituto aceita -->
+      <div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:10px;color:var(--blue);">Etapa 3 — Substituto aceita ou recusa</div>
+        <div class="wf-shell flex-col" style="padding:0;overflow:hidden;">
+          <div style="background:var(--ink);padding:10px 16px;display:flex;align-items:center;gap:10px;">
+            <div style="font-size:16px;font-weight:700;color:var(--orange);">🔔 Nova solicitação de substituição</div>
+          </div>
+          <div style="padding:16px;">
+            <div class="sk-box-dark" style="margin-bottom:14px;">
+              <div style="font-size:13px;color:var(--ink3);margin-bottom:6px;">Pedido de substituição de</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <div class="avatar">LM</div>
+                <div><div style="font-weight:700;font-size:15px;">Lucas M.</div><div style="font-size:12px;color:var(--ink3);">Professor titular</div></div>
+              </div>
+              <hr class="divider" style="margin:10px 0;">
+              <div style="font-size:16px;font-weight:700;">CrossFit · Qui 24/04 · 09:00–10:00</div>
+              <div style="font-size:13px;color:var(--ink2);">Sala A · Unidade Centro</div>
+              <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.04);border-radius:4px;font-size:13px;color:var(--ink2);">
+                Motivo: <i>"Consulta médica agendada"</i>
+              </div>
+            </div>
+            <div style="font-size:14px;margin-bottom:8px;color:var(--ink2);">Se aceitar, esta aula será computada nas <b>suas horas</b> deste mês e <b>removida do Lucas</b>.</div>
+            <div style="display:flex;gap:10px;margin-top:14px;">
+              <button class="sk-btn sk-btn-danger" style="flex:1;padding:10px;">✕ Recusar</button>
+              <button class="sk-btn sk-btn-success" style="flex:1;padding:10px;background:var(--green);color:#fff;border-color:var(--green);">✓ Aceitar substituição</button>
+            </div>
+          </div>
+        </div>
+        <div class="annotation">Notificação aparece dentro do app (fase 1). Push/email em versões futuras</div>
+        <div class="annotation" style="margin-top:4px;">Aceite transfere as horas automaticamente no fechamento</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sub-B" class="variant-panel">
+    <div class="variant-label">Variante B — Painel de substituições (visão admin)</div>
+    <div class="wf-shell flex" style="height:520px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item active new-mod">🔄 Substituições <span class="wf-sb-badge">3</span></div>
+        <div class="wf-sb-item new-mod">💰 Fechamento</div>
+      </div>
+      <div class="wf-main flex-col" style="overflow:hidden;">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Substituições</div>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <span class="chip chip-yellow">3 pendentes</span>
+            <span class="chip chip-green">12 aceitas</span>
+            <span class="chip chip-red">1 recusada</span>
+          </div>
+        </div>
+        <div style="padding:16px;flex:1;overflow:auto;">
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            <span class="chip chip-orange">Abr 2026</span>
+            <span class="chip chip-gray">Todas unidades</span>
+            <span class="chip chip-gray">Todos profs</span>
+            <span class="chip chip-yellow">Pendentes ×</span>
+          </div>
+          <table class="sk-table">
+            <thead>
+              <tr>
+                <th>Aula</th>
+                <th>Titular</th>
+                <th>Substituto</th>
+                <th>Solicitado em</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background:var(--yellow-dim);">
+                <td><b>CrossFit</b><br><span style="font-size:12px;color:var(--ink3);">Qui 24/04 · 09:00 · Centro</span></td>
+                <td><div class="flex gap-8"><div class="avatar">LM</div>Lucas M.</div></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div>Ana P.</div></td>
+                <td><span style="font-size:13px;">Hoje, 10:23</span></td>
+                <td><span class="chip chip-yellow">⏳ Pend. aceite</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver</button></td>
+              </tr>
+              <tr style="background:var(--yellow-dim);">
+                <td><b>Funcional</b><br><span style="font-size:12px;color:var(--ink3);">Sex 25/04 · 06:00 · Norte</span></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">PL</div>Pedro L.</div></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div>Marcos E.</div></td>
+                <td><span style="font-size:13px;">Ontem, 18:40</span></td>
+                <td><span class="chip chip-yellow">⏳ Pend. aceite</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver</button></td>
+              </tr>
+              <tr style="background:var(--green-dim);">
+                <td><b>Yoga</b><br><span style="font-size:12px;color:var(--ink3);">Qua 23/04 · 07:00 · Norte</span></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div>Ana P.</div></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div>Carla S.</div></td>
+                <td><span style="font-size:13px;">21/04, 09:10</span></td>
+                <td><span class="chip chip-green">✓ Aceita</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver</button></td>
+              </tr>
+              <tr style="background:var(--red-dim);">
+                <td><b>Pilates</b><br><span style="font-size:12px;color:var(--ink3);">Ter 22/04 · 08:00 · Sul</span></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div>Carla S.</div></td>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">PL</div>Pedro L.</div></td>
+                <td><span style="font-size:13px;">20/04, 15:30</span></td>
+                <td><span class="chip chip-red">✕ Recusada</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="annotation">Admin visualiza todas as trocas. Não precisa aprovar — só acompanha e valida no fechamento</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 5: FECHAMENTO MENSAL
+══════════════════════════════════════════ -->
+<div id="screen-fechamento" class="screen">
+  <div class="screen-note">
+    💡 <b>Fechamento Mensal</b> — consolidação de horas + cálculo de pagamento por professor. Fluxo: Aberto → Apuração → Validação → Fechado.
+  </div>
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('fech', 'A', this)">A — Tabela consolidada</button>
+    <button class="vt-btn" onclick="switchVariant('fech', 'B', this)">B — Cards por professor</button>
+  </div>
+
+  <div id="fech-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Tabela consolidada com breakdown de horas</div>
+    <div class="wf-shell flex" style="min-height:520px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+        <div class="wf-sb-item active new-mod">💰 Fechamento</div>
+      </div>
+      <div class="wf-main flex-col">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Fechamento Mensal</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Abril 2026</option></select>
+            <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Todas unidades</option></select>
+            <span class="chip chip-yellow">Em apuração</span>
+            <button class="sk-btn sk-btn-primary">Validar fechamento →</button>
+          </div>
+        </div>
+        <!-- status strip -->
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--border2);padding:0 20px;background:rgba(0,0,0,0.02);">
+          <div style="padding:8px 16px;font-size:14px;color:var(--green);border-bottom:3px solid var(--green);margin-bottom:-2px;">✓ Aberto</div>
+          <div style="padding:8px 16px;font-size:14px;color:var(--orange);border-bottom:3px solid var(--orange);margin-bottom:-2px;font-weight:700;">◉ Em apuração</div>
+          <div style="padding:8px 16px;font-size:14px;color:var(--ink3);">Pend. validação</div>
+          <div style="padding:8px 16px;font-size:14px;color:var(--ink3);">Validado</div>
+          <div style="padding:8px 16px;font-size:14px;color:var(--ink3);">Fechado</div>
+        </div>
+        <div style="padding:16px;overflow:auto;">
+          <!-- summary cards -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+            <div class="card" style="text-align:center;padding:10px;">
+              <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;font-family:'DM Sans';">Total horas</div>
+              <div style="font-size:24px;font-weight:700;">312h</div>
+            </div>
+            <div class="card" style="text-align:center;padding:10px;background:var(--green-dim);border-color:var(--green);">
+              <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;font-family:'DM Sans';">Realizadas</div>
+              <div style="font-size:24px;font-weight:700;color:var(--green);">286h</div>
+            </div>
+            <div class="card" style="text-align:center;padding:10px;background:var(--orange-dim);border-color:var(--orange);">
+              <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;font-family:'DM Sans';">Total a pagar</div>
+              <div style="font-size:24px;font-weight:700;color:var(--orange);">R$ 14.320</div>
+            </div>
+            <div class="card" style="text-align:center;padding:10px;background:var(--yellow-dim);border-color:var(--yellow);">
+              <div style="font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;font-family:'DM Sans';">Divergências</div>
+              <div style="font-size:24px;font-weight:700;color:var(--yellow);">2</div>
+            </div>
+          </div>
+          <table class="sk-table">
+            <thead>
+              <tr>
+                <th>Professor</th>
+                <th>Tipo</th>
+                <th>H. Previstas</th>
+                <th>H. Realizadas</th>
+                <th>H. Subst.</th>
+                <th>H. Extras</th>
+                <th>H. Validadas</th>
+                <th>Valor/h</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="flex gap-8"><div class="avatar">LM</div><b>Lucas M.</b></div></td>
+                <td><span class="chip chip-blue" style="font-size:11px;">efetivo</span></td>
+                <td>64h</td><td>60h</td><td style="color:var(--red);">-4h</td><td>0h</td>
+                <td><b>60h</b></td><td>R$ 40</td>
+                <td><b style="color:var(--orange);">R$ 2.400</b></td>
+                <td><span class="chip chip-green" style="font-size:11px;">✓ ok</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver · 🧾</button></td>
+              </tr>
+              <tr>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div><b>Ana P.</b></div></td>
+                <td><span class="chip chip-blue" style="font-size:11px;">efetivo</span></td>
+                <td>48h</td><td>50h</td><td style="color:var(--green);">+2h</td><td>2h</td>
+                <td><b>52h</b></td><td>R$ 35</td>
+                <td><b style="color:var(--orange);">R$ 1.820</b></td>
+                <td><span class="chip chip-green" style="font-size:11px;">✓ ok</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver · 🧾</button></td>
+              </tr>
+              <tr style="background:var(--yellow-dim);">
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--red-dim);border-color:var(--red);color:var(--red);">PL</div><b>Pedro L.</b></div></td>
+                <td><span class="chip chip-blue" style="font-size:11px;">efetivo</span></td>
+                <td>56h</td><td>48h</td><td>0h</td><td>0h</td>
+                <td><b>48h</b></td><td>R$ 40</td>
+                <td><b style="color:var(--orange);">R$ 1.920</b></td>
+                <td><span class="chip chip-yellow" style="font-size:11px;">⚠ divergência</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ajustar</button></td>
+              </tr>
+              <tr>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div><b>Carla S.</b></div></td>
+                <td><span class="chip chip-blue" style="font-size:11px;">efetivo</span></td>
+                <td>60h</td><td>60h</td><td>+1h</td><td>0h</td>
+                <td><b>61h</b></td><td>R$ 38</td>
+                <td><b style="color:var(--orange);">R$ 2.318</b></td>
+                <td><span class="chip chip-green" style="font-size:11px;">✓ ok</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver · 🧾</button></td>
+              </tr>
+              <tr>
+                <td><div class="flex gap-8"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div><b>Marcos E.</b></div></td>
+                <td><span class="chip chip-gray" style="font-size:11px;">estag.</span></td>
+                <td>34h</td><td>34h</td><td>0h</td><td>4h</td>
+                <td><b>34h</b></td>
+                <td><span style="font-size:12px;color:var(--ink3);">bolsa R$900<br>+ 4h extra</span></td>
+                <td><b style="color:var(--orange);">R$ 1.020</b></td>
+                <td><span class="chip chip-green" style="font-size:11px;">✓ ok</span></td>
+                <td><button class="sk-btn sk-btn-ghost text-sm">Ver · 🧾</button></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="annotation">⚠ Linha amarela = divergência a resolver antes de validar</div>
+          <div class="annotation" style="margin-top:4px;">🧾 = Emitir recibo · linha estagiário calcula bolsa fixa + hora excedente</div>
+
+          <!-- Modal de fechamento irreversível (RN12) -->
+          <div style="margin-top:18px;background:rgba(192,57,43,0.04);border:1.5px dashed var(--red);border-radius:6px;padding:12px;">
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">↓ Modal acionado ao clicar <b>"Validar e Fechar"</b> — RN12 confirmação dupla de irreversibilidade</div>
+            <div style="background:var(--paper);border:2px solid var(--red);border-radius:6px;padding:18px;max-width:520px;margin:0 auto;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                <span style="font-size:24px;">🔒</span>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;color:var(--red);">FECHAR COMPETÊNCIA · ABRIL/2026</div>
+              </div>
+              <div style="background:var(--red-dim);border-left:3px solid var(--red);padding:10px 12px;border-radius:4px;margin-bottom:14px;font-size:13px;">
+                <b>⚠ Esta ação é IRREVERSÍVEL.</b><br>
+                Após confirmar, a competência fica <b>congelada</b>: não será possível editar lançamentos, ajustes, recibos ou pagamentos. Eventuais correções deverão ser feitas como <b>complemento na competência seguinte</b> (P06).
+              </div>
+              <div style="background:rgba(0,0,0,0.04);border-radius:4px;padding:10px;font-size:13px;margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--border2);padding:3px 0;"><span>Professores</span><b>5</b></div>
+                <div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--border2);padding:3px 0;"><span>Total horas</span><b>342h</b></div>
+                <div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--border2);padding:3px 0;"><span>Divergências pendentes</span><b style="color:var(--green);">0 ✓</b></div>
+                <div style="display:flex;justify-content:space-between;padding:3px 0;"><span>Total a pagar</span><b style="color:var(--orange);font-size:16px;">R$ 24.870,00</b></div>
+              </div>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:8px;cursor:pointer;">
+                <input type="checkbox" style="margin-top:3px;"> <span>Confirmo que <b>revisei todos os lançamentos</b> e estou ciente de que não poderei reabrir esta competência.</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:14px;">
+                <span>Digite "<b>FECHAR ABRIL</b>" para confirmar:</span>
+                <input class="sk-input" style="flex:1;font-family:'JetBrains Mono',monospace;" placeholder="FECHAR ABRIL">
+              </label>
+              <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="sk-btn sk-btn-ghost">Cancelar</button>
+                <button class="sk-btn" style="background:var(--red);border-color:var(--red);color:#fff;font-weight:700;">🔒 Fechar definitivamente</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fech-B" class="variant-panel">
+    <div class="variant-label">Variante B — Cards individuais por professor</div>
+    <div class="wf-shell flex" style="min-height:520px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">💰 Fechamento</div>
+      </div>
+      <div class="wf-main flex-col">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Fechamento — Abril 2026</div>
+          <span class="chip chip-yellow" style="margin-left:8px;">Em apuração</span>
+          <div style="margin-left:auto;">
+            <button class="sk-btn sk-btn-primary">Validar todos →</button>
+          </div>
+        </div>
+        <div style="padding:16px;overflow:auto;">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+            <!-- card 1 -->
+            <div class="card" style="border-top:3px solid var(--orange);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div class="avatar">LM</div>
+                <div><div style="font-weight:700;">Lucas M.</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Centro</div></div>
+                <span class="chip chip-green" style="margin-left:auto;font-size:11px;">✓ ok</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:10px;">
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Realizadas</div><div style="font-weight:700;">60h</div></div>
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Subst. -</div><div style="font-weight:700;color:var(--red);">-4h</div></div>
+              </div>
+              <div style="background:var(--orange-dim);border-radius:4px;padding:8px;text-align:center;">
+                <div style="font-size:12px;color:var(--ink3);">A RECEBER</div>
+                <div style="font-size:22px;font-weight:700;color:var(--orange);">R$ 2.400</div>
+                <div style="font-size:11px;color:var(--ink3);">60h × R$40</div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Ver detalhes</button>
+                <button class="sk-btn sk-btn-primary text-sm" style="flex:1;">🧾 Emitir</button>
+              </div>
+            </div>
+            <!-- card 2 -->
+            <div class="card" style="border-top:3px solid var(--blue);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);color:var(--blue);">AP</div>
+                <div><div style="font-weight:700;">Ana P.</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Norte</div></div>
+                <span class="chip chip-green" style="margin-left:auto;font-size:11px;">✓ ok</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:10px;">
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Realizadas</div><div style="font-weight:700;">50h</div></div>
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Subst. +</div><div style="font-weight:700;color:var(--green);">+2h</div></div>
+              </div>
+              <div style="background:var(--orange-dim);border-radius:4px;padding:8px;text-align:center;">
+                <div style="font-size:12px;color:var(--ink3);">A RECEBER</div>
+                <div style="font-size:22px;font-weight:700;color:var(--orange);">R$ 1.820</div>
+                <div style="font-size:11px;color:var(--ink3);">52h × R$35</div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Ver detalhes</button>
+                <button class="sk-btn sk-btn-primary text-sm" style="flex:1;">🧾 Emitir</button>
+              </div>
+            </div>
+            <!-- card 3 - divergence -->
+            <div class="card" style="border-top:3px solid var(--yellow);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div class="avatar" style="background:var(--red-dim);border-color:var(--red);color:var(--red);">PL</div>
+                <div><div style="font-weight:700;">Pedro L.</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Centro</div></div>
+                <span class="chip chip-yellow" style="margin-left:auto;font-size:11px;">⚠ divergência</span>
+              </div>
+              <div style="background:var(--yellow-dim);border:1px solid var(--yellow);border-radius:4px;padding:8px;font-size:13px;margin-bottom:8px;">
+                ⚠ 8h previstas sem confirmação de realização. Verificar com professor.
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:10px;">
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Previstas</div><div style="font-weight:700;">56h</div></div>
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Apuradas</div><div style="font-weight:700;color:var(--yellow);">48h</div></div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Ajustar horas</button>
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Ver histórico</button>
+              </div>
+            </div>
+            <!-- card 4 -->
+            <div class="card" style="border-top:3px solid var(--green);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div class="avatar" style="background:var(--green-dim);border-color:var(--green);color:var(--green);">CS</div>
+                <div><div style="font-weight:700;">Carla S.</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Sul</div></div>
+                <span class="chip chip-green" style="margin-left:auto;font-size:11px;">✓ ok</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;margin-bottom:10px;">
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Realizadas</div><div style="font-weight:700;">60h</div></div>
+                <div class="sk-box-dark"><div style="color:var(--ink3);font-size:11px;">Subst. +</div><div style="font-weight:700;color:var(--green);">+1h</div></div>
+              </div>
+              <div style="background:var(--orange-dim);border-radius:4px;padding:8px;text-align:center;">
+                <div style="font-size:12px;color:var(--ink3);">A RECEBER</div>
+                <div style="font-size:22px;font-weight:700;color:var(--orange);">R$ 2.318</div>
+                <div style="font-size:11px;color:var(--ink3);">61h × R$38</div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Ver detalhes</button>
+                <button class="sk-btn sk-btn-primary text-sm" style="flex:1;">🧾 Emitir</button>
+              </div>
+            </div>
+            <!-- card 5 - estagiario · breakdown completo RN14 + P02 -->
+            <div class="card" style="border-top:3px solid var(--yellow);">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);">ME</div>
+                <div><div style="font-weight:700;">Marcos E.</div><div style="font-size:12px;color:var(--ink3);">Estagiário · Norte</div></div>
+                <span class="chip chip-green" style="margin-left:auto;font-size:11px;">✓ ok</span>
+              </div>
+              <!-- breakdown 3 componentes -->
+              <div style="background:rgba(0,0,0,0.04);border-radius:4px;padding:8px;font-size:12px;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--border2);padding:3px 0;">
+                  <span>① <b>Bolsa fixa</b> (≤ 30h)</span><b>R$ 900,00</b>
+                </div>
+                <div style="display:flex;justify-content:space-between;border-bottom:1px dashed var(--border2);padding:3px 0;">
+                  <span>② Excedente <span style="color:var(--ink3);">(180min × R$ 0,50/min)</span></span><b style="color:var(--orange);">+ R$ 90,00</b>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:3px 0;">
+                  <span>③ Feriado ×2 <span style="color:var(--ink3);">(60min × R$ 1,00/min · P02)</span></span><b style="color:var(--red);">+ R$ 60,00</b>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--ink3);margin-bottom:6px;">Apurado: 34h (30h base + 3h excedente + 1h feriado)</div>
+              <div style="background:var(--orange-dim);border-radius:4px;padding:8px;text-align:center;">
+                <div style="font-size:11px;color:var(--ink3);">A RECEBER</div>
+                <div style="font-size:22px;font-weight:700;color:var(--orange);">R$ 1.050,00</div>
+                <div style="font-size:10px;color:var(--ink3);">bolsa + excedente + feriado</div>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:10px;">
+                <button class="sk-btn sk-btn-ghost text-sm" style="flex:1;">Detalhes</button>
+                <button class="sk-btn sk-btn-primary text-sm" style="flex:1;">🧾 Emitir</button>
+              </div>
+            </div>
+          </div>
+          <div class="annotation" style="margin-top:16px;">Cards com borda colorida por professor · estagiário mostra cálculo da bolsa + excedente explicitamente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 6: LANÇAMENTO EM LOTE
+══════════════════════════════════════════ -->
+<div id="screen-lote" class="screen">
+  <div class="screen-note">
+    💡 <b>Lançamento em Lote</b> — o admin define um período, dias da semana, horário e modalidade e o sistema gera todas as aulas de uma vez. Ideal para montar a grade de um mês inteiro.
+  </div>
+  <div class="variant-toggle mb-12">
+    <button class="vt-btn active" onclick="switchVariant('lote', 'A', this)">A — Formulário guiado</button>
+    <button class="vt-btn" onclick="switchVariant('lote', 'B', this)">B — Grade visual interativa</button>
+  </div>
+
+  <!-- VARIANTE A: Formulário guiado -->
+  <div id="lote-A" class="variant-panel active">
+    <div class="variant-label">Variante A — Formulário step-by-step</div>
+    <div class="wf-shell flex" style="min-height:580px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item new-mod">📅 Agenda</div>
+        <div class="wf-sb-item new-mod">👥 Professores</div>
+        <div class="wf-sb-item new-mod">🔄 Substituições</div>
+        <div class="wf-sb-item new-mod">💰 Fechamento</div>
+        <div class="wf-sb-item active new-mod">📦 Lançar em lote</div>
+      </div>
+      <div class="wf-main flex-col">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Lançamento em Lote</div>
+          <span style="font-size:13px;color:var(--ink3);margin-left:8px;">Crie múltiplas aulas de uma vez</span>
+        </div>
+        <div style="padding:20px;flex:1;overflow:auto;">
+
+          <!-- Step progress -->
+          <div class="step-flow" style="max-width:600px;margin-bottom:28px;">
+            <div class="step-node"><div class="step-circle done">✓</div><div class="step-label">Período</div></div>
+            <div class="step-line done"></div>
+            <div class="step-node"><div class="step-circle done">✓</div><div class="step-label">Horários</div></div>
+            <div class="step-line done"></div>
+            <div class="step-node"><div class="step-circle active">3</div><div class="step-label">Revisar</div></div>
+            <div class="step-line"></div>
+            <div class="step-node"><div class="step-circle">4</div><div class="step-label">Confirmar</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;max-width:1000px;">
+            <!-- Left: form -->
+            <div>
+              <!-- Step 1: Período -->
+              <div class="card" style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                  <div class="step-circle done" style="width:28px;height:28px;font-size:13px;">✓</div>
+                  <div style="font-weight:700;font-size:16px;">1. Período e Unidade</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Data início</div>
+                    <input class="sk-input" type="date" value="2026-05-01">
+                  </div>
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Data fim</div>
+                    <input class="sk-input" type="date" value="2026-05-31">
+                  </div>
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Unidade</div>
+                    <select class="sk-input"><option>Centro</option><option>Norte</option><option>Sul</option></select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Step 2: Horários e dias -->
+              <div class="card" style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                  <div class="step-circle active" style="width:28px;height:28px;font-size:13px;">2</div>
+                  <div style="font-weight:700;font-size:16px;">2. Horário, Modalidade e Recorrência</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Início</div>
+                    <input class="sk-input" type="time" value="06:00">
+                  </div>
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Fim</div>
+                    <input class="sk-input" type="time" value="07:00">
+                  </div>
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Modalidade</div>
+                    <select class="sk-input"><option>CrossFit</option><option>Yoga</option><option>Pilates</option></select>
+                  </div>
+                  <div>
+                    <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Sala</div>
+                    <select class="sk-input"><option>Sala A</option><option>Sala B</option><option>Piscina</option></select>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:12px;color:var(--ink3);margin-bottom:6px;">Professor</div>
+                  <select class="sk-input" style="width:auto;min-width:200px;"><option>Lucas M. — CrossFit</option><option>Ana P. — Yoga</option><option>Carla S. — Pilates</option></select>
+                </div>
+                <div style="margin-top:12px;">
+                  <div style="font-size:12px;color:var(--ink3);margin-bottom:6px;">Repetir nos dias</div>
+                  <div style="display:flex;gap:6px;">
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">S</div>
+                      <input type="checkbox" checked style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">T</div>
+                      <input type="checkbox" checked style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">Q</div>
+                      <input type="checkbox" checked style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">Q</div>
+                      <input type="checkbox" checked style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">S</div>
+                      <input type="checkbox" checked style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;border:2px dashed var(--border);color:var(--ink3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">S</div>
+                      <input type="checkbox" style="width:14px;height:14px;">
+                    </label>
+                    <label style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;">
+                      <div style="width:36px;height:36px;border-radius:50%;border:2px dashed var(--border);color:var(--ink3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">D</div>
+                      <input type="checkbox" style="width:14px;height:14px;">
+                    </label>
+                  </div>
+                </div>
+                <div style="margin-top:12px;background:var(--orange-dim);border-radius:4px;padding:8px 12px;font-size:14px;">
+                  → Serão geradas <b>22 aulas</b> (Seg–Sex, 01–31 mai, excluindo feriados)
+                </div>
+              </div>
+
+              <!-- Exceções -->
+              <div class="card" style="margin-bottom:14px;border-style:dashed;">
+                <div style="font-weight:700;font-size:15px;margin-bottom:8px;">3. Exceções (opcional)</div>
+                <div style="font-size:13px;color:var(--ink3);margin-bottom:8px;">Datas específicas para remover do lote gerado</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <span class="chip chip-red">01/05 (feriado) ×</span>
+                  <span class="chip chip-gray">+ Adicionar exceção</span>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button class="sk-btn sk-btn-ghost">← Voltar</button>
+                <button class="sk-btn sk-btn-primary" style="padding:8px 20px;">Revisar aulas geradas →</button>
+              </div>
+            </div>
+
+            <!-- Right: preview -->
+            <div>
+              <div style="font-weight:700;font-size:16px;margin-bottom:10px;">Prévia das aulas geradas</div>
+              <div class="card" style="background:rgba(0,0,0,0.02);padding:12px;">
+                <div style="font-size:13px;color:var(--ink3);margin-bottom:10px;">Maio 2026 · 22 aulas · Lucas M.</div>
+                <div style="display:flex;flex-direction:column;gap:4px;max-height:380px;overflow-y:auto;">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Sex 02/05</span>
+                    <span style="font-size:13px;font-weight:600;">06:00–07:00</span>
+                    <span class="chip chip-orange" style="font-size:11px;">CrossFit</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Seg 05/05</span>
+                    <span style="font-size:13px;font-weight:600;">06:00–07:00</span>
+                    <span class="chip chip-orange" style="font-size:11px;">CrossFit</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Ter 06/05</span>
+                    <span style="font-size:13px;font-weight:600;">06:00–07:00</span>
+                    <span class="chip chip-orange" style="font-size:11px;">CrossFit</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Qua 07/05</span>
+                    <span style="font-size:13px;font-weight:600;">06:00–07:00</span>
+                    <span class="chip chip-orange" style="font-size:11px;">CrossFit</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--red-dim);border-radius:4px;border:1px solid var(--red);opacity:.6;">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Qui 01/05</span>
+                    <span style="font-size:13px;font-weight:600;text-decoration:line-through;color:var(--ink3);">06:00–07:00</span>
+                    <span class="chip chip-red" style="font-size:11px;margin-left:auto;">excluída</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                    <span style="font-size:12px;color:var(--ink3);width:60px;">Sex 09/05</span>
+                    <span style="font-size:13px;font-weight:600;">06:00–07:00</span>
+                    <span class="chip chip-orange" style="font-size:11px;">CrossFit</span>
+                  </div>
+                  <div style="text-align:center;font-size:12px;color:var(--ink3);padding:8px;">... + 16 aulas</div>
+                </div>
+                <hr class="divider">
+                <div style="display:flex;justify-content:space-between;font-size:14px;">
+                  <span style="color:var(--ink3);">Total gerado:</span>
+                  <span style="font-weight:700;">22 aulas · 22h</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:14px;">
+                  <span style="color:var(--red);">Conflitos detectados:</span>
+                  <span style="font-weight:700;color:var(--red);">0</span>
+                </div>
+              </div>
+              <div class="annotation">Sistema verifica conflitos de horário antes de confirmar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANTE B: Grade visual -->
+  <div id="lote-B" class="variant-panel">
+    <div class="variant-label">Variante B — Grade visual interativa (marcar célula = criar aula)</div>
+    <div class="wf-shell flex" style="min-height:560px;">
+      <div class="wf-sidebar">
+        <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+        <div class="wf-sb-section">Agenda</div>
+        <div class="wf-sb-item active new-mod">📦 Lançar em lote</div>
+      </div>
+      <div class="wf-main flex-col">
+        <div class="wf-topbar">
+          <div class="wf-page-title">Lançamento em Lote — Maio 2026</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Lucas M.</option></select>
+            <select class="sk-input" style="width:auto;padding:4px 10px;"><option>CrossFit</option></select>
+            <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Sala A · Centro</option></select>
+          </div>
+        </div>
+        <div style="padding:12px;overflow:auto;flex:1;">
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:8px;">Clique nas células para marcar/desmarcar aulas. Arraste para selecionar múltiplas.</div>
+
+          <!-- grid header -->
+          <div style="display:grid;grid-template-columns:64px repeat(6,1fr);border-left:1.5px solid var(--border);border-top:1.5px solid var(--border);margin-bottom:0;max-width:900px;">
+            <div class="cal-header">Horário</div>
+            <div class="cal-header">Seg</div>
+            <div class="cal-header">Ter</div>
+            <div class="cal-header">Qua</div>
+            <div class="cal-header">Qui</div>
+            <div class="cal-header">Sex</div>
+            <div class="cal-header">Sáb</div>
+
+            <!-- 05:00 -->
+            <div class="cal-time">05:00</div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 06:00 - selected -->
+            <div class="cal-time">06:00</div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 06:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 06:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 06:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 06:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 06:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 07:00 -->
+            <div class="cal-time">07:00</div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 08:00 -->
+            <div class="cal-time">08:00</div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 09:00 - partially selected -->
+            <div class="cal-time">09:00</div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 09:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 09:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 09:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 09:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 09:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 17:00 -->
+            <div class="cal-time">17:00</div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+
+            <!-- 18:00 - selected -->
+            <div class="cal-time">18:00</div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 18:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 18:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 18:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 18:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;background:var(--orange-dim);"><div class="cal-event cal-event-orange">✓ 18:00</div></div>
+            <div class="cal-cell" style="cursor:pointer;"></div>
+          </div>
+
+          <div class="annotation">Esta grade representa o padrão semanal repetido por todo o período selecionado</div>
+
+          <div style="display:flex;align-items:center;gap:16px;margin-top:16px;padding:12px 16px;background:var(--orange-dim);border-radius:var(--r);border:1.5px solid var(--orange);max-width:900px;">
+            <div>
+              <span style="font-size:13px;color:var(--ink3);">Selecionadas:</span>
+              <b style="font-size:17px;margin-left:6px;">15 células/semana</b>
+            </div>
+            <div style="border-left:1.5px solid var(--border);height:28px;"></div>
+            <div>
+              <span style="font-size:13px;color:var(--ink3);">Total no período:</span>
+              <b style="font-size:17px;margin-left:6px;">66 aulas</b>
+            </div>
+            <div style="border-left:1.5px solid var(--border);height:28px;"></div>
+            <div>
+              <span style="font-size:13px;color:var(--ink3);">Carga estimada:</span>
+              <b style="font-size:17px;margin-left:6px;">66h</b>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button class="sk-btn sk-btn-ghost">Limpar seleção</button>
+              <button class="sk-btn sk-btn-primary">Gerar aulas →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annotation" style="margin-top:8px;">Variante B é mais visual e rápida para grades simétricas. Variante A é melhor para exceções e controle detalhado.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: CADASTRO DE PROFESSORES (RF01 + RF26)
+══════════════════════════════════════════ -->
+<div id="screen-cadastro" class="screen">
+  <div class="screen-note">
+    💡 <b>Cadastro de Professores</b> — RF01 + RF26 + RN19. Lista + ficha do professor com aba <b>Salarial</b> visível APENAS para perfil Admin. Modalidades configuráveis (P01).
+  </div>
+  <div class="wf-shell flex" style="min-height:640px;">
+    <div class="wf-sidebar">
+      <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+      <div class="wf-sb-section">Agenda</div>
+      <div class="wf-sb-item active new-mod">👥 Professores</div>
+      <div class="wf-sb-item new-mod">📅 Agenda</div>
+      <div class="wf-sb-item new-mod">🏷️ Modalidades</div>
+      <div class="wf-sb-item new-mod">🔄 Substituições</div>
+      <div class="wf-sb-item new-mod">⭐ Escalas Especiais</div>
+      <div class="wf-sb-item new-mod">🏖️ Férias / Recesso</div>
+      <div class="wf-sb-item new-mod">💰 Fechamento</div>
+    </div>
+    <div class="wf-main flex-col">
+      <div class="wf-topbar">
+        <div class="wf-page-title">Professores</div>
+        <span style="margin-left:8px;font-size:13px;color:var(--ink3);">12 ativos · 3 estagiários · 2 eventuais</span>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <input class="sk-input" placeholder="🔍 Buscar..." style="width:200px;">
+          <button class="sk-btn sk-btn-primary">+ Novo professor</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:280px 1fr;flex:1;overflow:hidden;">
+        <!-- Lista -->
+        <div style="border-right:1.5px solid var(--border2);overflow-y:auto;">
+          <div style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border2);background:rgba(0,0,0,0.02);">
+            <span class="chip chip-orange">● Todos</span>
+            <span class="chip chip-gray">Efetivo</span>
+            <span class="chip chip-gray">Estagiário</span>
+            <span class="chip chip-gray">Eventual</span>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--orange-dim);border-left:3px solid var(--orange);cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:8px;"><div class="avatar">LM</div><div><div style="font-weight:700;font-size:14px;">Lucas Mendes</div><div style="font-size:12px;color:var(--ink3);">Efetivo · CrossFit, Funcional</div></div></div>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border2);cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="background:var(--blue-dim);border-color:var(--blue);">AP</div><div><div style="font-weight:700;font-size:14px;">Ana Paula Souza</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Yoga, Pilates</div></div></div>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border2);cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="background:var(--green-dim);border-color:var(--green);">PL</div><div><div style="font-weight:700;font-size:14px;">Pedro Lima</div><div style="font-size:12px;color:var(--ink3);">Estagiário · Funcional</div><span class="chip chip-yellow" style="font-size:10px;">12 meses em 28d</span></div></div>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border2);cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="background:var(--yellow-dim);border-color:var(--yellow);">MS</div><div><div style="font-weight:700;font-size:14px;">Marcos Estrela</div><div style="font-size:12px;color:var(--ink3);">Eventual · Natação</div></div></div>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--border2);cursor:pointer;opacity:.5;">
+            <div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="background:#ddd;border-color:#999;">CS</div><div><div style="font-weight:700;font-size:14px;">Carla Silva</div><div style="font-size:12px;color:var(--ink3);">Efetivo · Inativo</div></div></div>
+          </div>
+        </div>
+        <!-- Ficha -->
+        <div style="overflow-y:auto;padding:18px 22px;">
+          <!-- Header da ficha -->
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+            <div class="avatar" style="width:56px;height:56px;font-size:20px;">LM</div>
+            <div style="flex:1;">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;line-height:1;">LUCAS MENDES</div>
+              <div style="font-size:13px;color:var(--ink3);">Efetivo · ativo desde 03/2024 · Centro + Norte</div>
+            </div>
+            <span class="chip chip-green">● Ativo</span>
+            <button class="sk-btn sk-btn-ghost">Editar</button>
+            <button class="sk-btn sk-btn-danger">Inativar</button>
+          </div>
+          <!-- Tabs -->
+          <div style="display:flex;gap:0;border-bottom:1.5px solid var(--border);margin-bottom:16px;">
+            <div style="padding:8px 16px;border-bottom:3px solid var(--orange);font-weight:700;font-size:14px;">Dados gerais</div>
+            <div style="padding:8px 16px;color:var(--ink3);font-size:14px;cursor:pointer;">Modalidades</div>
+            <div style="padding:8px 16px;color:var(--ink3);font-size:14px;cursor:pointer;">Unidades</div>
+            <div style="padding:8px 16px;color:var(--ink3);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:6px;background:rgba(192,57,43,0.06);border:1px dashed var(--red);border-bottom:3px solid var(--red);">🔒 Salarial <span style="font-size:10px;color:var(--red);">(só Admin)</span></div>
+            <div style="padding:8px 16px;color:var(--ink3);font-size:14px;cursor:pointer;">Histórico</div>
+          </div>
+          <!-- Aba Dados Gerais -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">Nome completo</div><div style="font-weight:600;">Lucas Mendes da Silva</div></div>
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">CPF</div><div style="font-weight:600;font-family:'JetBrains Mono',monospace;">***.456.789-**</div><div style="font-size:11px;color:var(--ink3);">mascarado · LGPD (P05)</div></div>
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">E-mail</div><div style="font-weight:600;">lucas.mendes@crosstrainer.com</div></div>
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">Telefone</div><div style="font-weight:600;">(11) 98765-4321</div></div>
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">Tipo</div><span class="chip chip-orange">Efetivo</span></div>
+            <div><div style="font-size:12px;color:var(--ink3);margin-bottom:3px;">Data de admissão</div><div style="font-weight:600;">15/03/2024</div></div>
+          </div>
+          <hr class="divider">
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:6px;">Unidades vinculadas</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;"><span class="chip chip-orange">Centro (principal)</span><span class="chip chip-blue">Norte</span></div>
+          <div style="font-size:13px;color:var(--ink3);margin-bottom:6px;">Modalidades habilitadas</div>
+          <div style="display:flex;gap:6px;margin-bottom:14px;"><span class="chip chip-orange">CrossFit</span><span class="chip chip-orange">Funcional</span></div>
+
+          <!-- Preview da aba Salarial (mostrada porque o usuário é Admin) -->
+          <div style="margin-top:20px;background:rgba(192,57,43,0.04);border:1.5px dashed var(--red);border-radius:6px;padding:14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <span style="font-size:18px;">🔒</span>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px;">Aba Salarial — preview</div>
+              <span class="chip chip-red" style="font-size:10px;margin-left:auto;">RN19 · só Admin</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:10px;">
+              <div><div style="font-size:12px;color:var(--ink3);">Tipo de remuneração</div><div style="font-weight:700;">Hora/aula</div></div>
+              <div><div style="font-size:12px;color:var(--ink3);">Valor R$/hora</div><div style="font-weight:700;color:var(--orange);font-size:18px;">R$ 65,00</div></div>
+              <div><div style="font-size:12px;color:var(--ink3);">Feriado (×2)</div><div style="font-weight:700;">R$ 130,00</div></div>
+            </div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:6px;">Histórico de alterações salariais</div>
+            <table style="width:100%;font-size:12px;border-collapse:collapse;">
+              <thead><tr style="border-bottom:1px solid var(--border2);text-align:left;"><th style="padding:4px 6px;">Data</th><th style="padding:4px 6px;">Campo</th><th style="padding:4px 6px;">Antes</th><th style="padding:4px 6px;">Depois</th><th style="padding:4px 6px;">Por</th></tr></thead>
+              <tbody>
+                <tr><td style="padding:4px 6px;">15/01/2026</td><td style="padding:4px 6px;">R$/hora</td><td style="padding:4px 6px;">R$ 60,00</td><td style="padding:4px 6px;">R$ 65,00</td><td style="padding:4px 6px;">Rodrigo</td></tr>
+                <tr><td style="padding:4px 6px;">03/2024</td><td style="padding:4px 6px;">cadastro</td><td style="padding:4px 6px;">—</td><td style="padding:4px 6px;">R$ 60,00</td><td style="padding:4px 6px;">Rodrigo</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Card específico estagiário (visível ao selecionar Pedro Lima) -->
+          <div style="margin-top:14px;background:rgba(58,138,74,0.04);border:1.5px dashed var(--green);border-radius:6px;padding:12px 14px;">
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:4px;">Aba Salarial — exemplo se fosse Pedro Lima (Estagiário)</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:13px;">
+              <div><div style="font-size:11px;color:var(--ink3);">Bolsa fixa</div><b>R$ 1.200,00</b></div>
+              <div><div style="font-size:11px;color:var(--ink3);">Limite mensal</div><b>80h</b></div>
+              <div><div style="font-size:11px;color:var(--ink3);">R$/h proporcional</div><b>R$ 15,00</b></div>
+              <div><div style="font-size:11px;color:var(--ink3);">Início estágio</div><b>15/05/2025</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: ESCALAS ESPECIAIS (RF24)
+══════════════════════════════════════════ -->
+<div id="screen-escalas" class="screen">
+  <div class="screen-note">
+    💡 <b>Escalas Especiais</b> — RF24. Bloco separado da agenda recorrente para sábados, feriados, domingos especiais e eventos. Pesos: sáb=1, feriado=2, domingo esp.=3, evento=3. Janela rolante padrão 3 meses (P07 configurável).
+  </div>
+  <div class="wf-shell flex" style="min-height:640px;">
+    <div class="wf-sidebar">
+      <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+      <div class="wf-sb-section">Agenda</div>
+      <div class="wf-sb-item new-mod">📅 Agenda</div>
+      <div class="wf-sb-item active new-mod">⭐ Escalas Especiais</div>
+      <div class="wf-sb-item new-mod">🏖️ Férias / Recesso</div>
+    </div>
+    <div class="wf-main flex-col">
+      <div class="wf-topbar">
+        <div class="wf-page-title">Escalas Especiais</div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <span style="font-size:12px;color:var(--ink3);">Janela:</span>
+          <select class="sk-input" style="width:auto;padding:4px 10px;"><option>3 meses (mai – jul/26)</option><option>6 meses</option></select>
+          <button class="sk-btn sk-btn-primary">+ Nova data especial</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 360px;flex:1;overflow:hidden;">
+        <!-- Calendário -->
+        <div style="padding:18px;overflow-y:auto;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;margin-bottom:12px;">Maio / 2026</div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:12px;">
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">DOM</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">SEG</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">TER</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">QUA</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">QUI</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">SEX</div>
+            <div style="text-align:center;color:var(--ink3);font-weight:700;">SÁB</div>
+            <!-- semana 1 -->
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:11px;color:var(--ink3);">27</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:11px;color:var(--ink3);">28</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:11px;color:var(--ink3);">29</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:11px;color:var(--ink3);">30</div>
+            <div style="background:var(--red-dim);border:1.5px solid var(--red);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--red);">1<br><span style="font-size:10px;font-weight:400;">Feriado</span><br><span class="chip chip-red" style="font-size:9px;padding:0 4px;">peso 2</span></div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">2</div>
+            <div style="background:var(--orange-dim);border:1.5px solid var(--orange);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--orange);">3<br><span style="font-size:10px;font-weight:400;">Sábado</span><br><span class="chip chip-orange" style="font-size:9px;padding:0 4px;">peso 1</span></div>
+            <!-- semana 2 -->
+            <div style="background:var(--blue-dim);border:1.5px solid var(--blue);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--blue);">4<br><span style="font-size:10px;font-weight:400;">Domingo Esp.</span><br><span class="chip chip-blue" style="font-size:9px;padding:0 4px;">peso 3</span></div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">5</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">6</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">7</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">8</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">9</div>
+            <div style="background:var(--orange-dim);border:1.5px solid var(--orange);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--orange);">10<br><span style="font-size:10px;font-weight:400;">Sábado</span></div>
+            <!-- semana 3 -->
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">11</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">12</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">13</div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">14</div>
+            <div style="background:rgba(212,160,23,0.15);border:2px solid var(--yellow);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--yellow);">15<br><span style="font-size:10px;font-weight:400;">Evento Esp.</span><br><span class="chip chip-yellow" style="font-size:9px;padding:0 4px;">peso 3</span></div>
+            <div style="background:var(--paper);border:1.5px solid var(--border2);border-radius:4px;min-height:70px;padding:4px;font-size:12px;">16</div>
+            <div style="background:var(--orange-dim);border:1.5px solid var(--orange);border-radius:4px;min-height:70px;padding:4px;font-size:12px;font-weight:700;color:var(--orange);">17<br><span style="font-size:10px;font-weight:400;">Sábado</span></div>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:14px;font-size:12px;flex-wrap:wrap;">
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--orange);border-radius:2px;"></span>Sábado · peso 1</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--red);border-radius:2px;"></span>Feriado · peso 2</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--blue);border-radius:2px;"></span>Domingo especial · peso 3</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--yellow);border-radius:2px;"></span>Evento · peso 3</span>
+          </div>
+        </div>
+        <!-- Painel lateral: data selecionada + equilíbrio -->
+        <div style="border-left:1.5px solid var(--border2);overflow-y:auto;background:rgba(0,0,0,0.02);">
+          <div style="padding:16px;border-bottom:1.5px solid var(--border2);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span class="chip chip-red" style="font-size:11px;">Feriado · peso 2</span>
+              <span style="font-size:11px;color:var(--ink3);">01/05 · Centro</span>
+            </div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px;">Dia do Trabalho</div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:10px;">3 vagas · planejamento aberto até 20/04</div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;">Preferências dos professores</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--green);">
+                <div class="avatar" style="width:24px;height:24px;font-size:10px;">LM</div>
+                <span>Lucas M.</span>
+                <span class="chip chip-green" style="font-size:10px;margin-left:auto;">prefere trabalhar</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                <div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--blue-dim);border-color:var(--blue);">AP</div>
+                <span>Ana P.</span>
+                <span class="chip chip-gray" style="font-size:10px;margin-left:auto;">disponível</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--border2);">
+                <div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--green-dim);border-color:var(--green);">PL</div>
+                <span>Pedro L.</span>
+                <span class="chip chip-yellow" style="font-size:10px;margin-left:auto;">prefere não</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--paper);border-radius:4px;border:1px solid var(--red);">
+                <div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--yellow-dim);border-color:var(--yellow);">MS</div>
+                <span>Marcos E.</span>
+                <span class="chip chip-red" style="font-size:10px;margin-left:auto;">indisponível</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="sk-btn sk-btn-ghost" style="font-size:12px;padding:5px 10px;flex:1;">Alocar auto</button>
+              <button class="sk-btn sk-btn-primary" style="font-size:12px;padding:5px 10px;flex:1;">Fechar planejamento</button>
+            </div>
+          </div>
+          <!-- Painel de equilíbrio -->
+          <div style="padding:16px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.5px;margin-bottom:10px;">Equilíbrio do ciclo (3 meses)</div>
+            <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">Peso acumulado por professor — RN distribuição equilibrada</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>Lucas M.</span><b style="color:var(--red);">14 ⚠ alto</b></div>
+                <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;"><div style="width:90%;height:100%;background:var(--red);"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>Ana P.</span><b>9 — média</b></div>
+                <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;"><div style="width:60%;height:100%;background:var(--green);"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>Pedro L.</span><b>7 — média</b></div>
+                <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;"><div style="width:46%;height:100%;background:var(--green);"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:2px;"><span>Marcos E.</span><b style="color:var(--orange);">3 ⚠ baixo</b></div>
+                <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;"><div style="width:20%;height:100%;background:var(--orange);"></div></div>
+              </div>
+            </div>
+            <div class="annotation" style="margin-top:10px;">Sistema sugere priorizar quem tem menor peso acumulado</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN: FÉRIAS E RECESSO (RF25)
+══════════════════════════════════════════ -->
+<div id="screen-ferias" class="screen">
+  <div class="screen-note">
+    💡 <b>Férias (CLT) e Recesso (Estagiário)</b> — RF25 + RN18. Bloqueia agenda no período aprovado, gera alertas 60/45/30 dias e detecta conflitos com escalas atribuídas.
+  </div>
+  <div class="wf-shell flex" style="min-height:640px;">
+    <div class="wf-sidebar">
+      <div class="wf-sb-logo">CROSS<span>TRAINER</span></div>
+      <div class="wf-sb-section">Agenda</div>
+      <div class="wf-sb-item new-mod">📅 Agenda</div>
+      <div class="wf-sb-item new-mod">⭐ Escalas Especiais</div>
+      <div class="wf-sb-item active new-mod">🏖️ Férias / Recesso</div>
+    </div>
+    <div class="wf-main flex-col">
+      <div class="wf-topbar">
+        <div class="wf-page-title">Férias e Recesso</div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Todos os tipos</option><option>Férias CLT</option><option>Recesso estagiário</option></select>
+          <select class="sk-input" style="width:auto;padding:4px 10px;"><option>Todos os status</option></select>
+          <button class="sk-btn sk-btn-primary">+ Nova solicitação</button>
+        </div>
+      </div>
+      <div style="padding:18px;flex:1;overflow:auto;">
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+          <div class="card" style="text-align:center;"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--orange);line-height:1;">4</div><div style="font-size:12px;color:var(--ink3);margin-top:4px;">Em andamento</div></div>
+          <div class="card" style="text-align:center;"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--yellow);line-height:1;">3</div><div style="font-size:12px;color:var(--ink3);margin-top:4px;">Aguardando aprovação</div></div>
+          <div class="card" style="text-align:center;"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--red);line-height:1;">2</div><div style="font-size:12px;color:var(--ink3);margin-top:4px;">Próximas (alerta 30d)</div></div>
+          <div class="card" style="text-align:center;"><div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--green);line-height:1;">1</div><div style="font-size:12px;color:var(--ink3);margin-top:4px;">Estagiário · 12m em 28d</div></div>
+        </div>
+
+        <!-- Conflitos detectados -->
+        <div class="card" style="margin-bottom:16px;border-color:var(--red);background:rgba(192,57,43,0.04);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">⚠️</span>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.5px;color:var(--red);">Conflitos detectados (2)</div>
+          </div>
+          <div style="font-size:13px;color:var(--ink2);margin-bottom:8px;">As férias aprovadas conflitam com aulas/escalas já atribuídas. Necessária redistribuição antes do início.</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">
+            <div style="background:var(--paper);border-left:3px solid var(--red);padding:8px 12px;border-radius:4px;">
+              <b>Ana Paula</b> · férias 15–25/06 → conflita com 6 aulas e 1 escala especial (Domingo 21/06) · <a style="color:var(--orange);cursor:pointer;font-weight:700;">resolver →</a>
+            </div>
+            <div style="background:var(--paper);border-left:3px solid var(--red);padding:8px 12px;border-radius:4px;">
+              <b>Pedro Lima</b> · recesso 10–20/06 → conflita com 4 aulas · <a style="color:var(--orange);cursor:pointer;font-weight:700;">resolver →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabela -->
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="sk-table">
+            <thead>
+              <tr><th>Professor</th><th>Tipo</th><th>Período</th><th>Dias</th><th>Status</th><th>Alertas</th><th>Conflitos</th><th></th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;">LM</div>Lucas M.</div></td>
+                <td><span class="chip chip-orange">Férias CLT</span></td>
+                <td>05–25/05/2026</td>
+                <td>21d</td>
+                <td><span class="chip chip-green">● Em andamento</span></td>
+                <td><span style="font-size:11px;color:var(--ink3);">60✓ 45✓ 30✓</span></td>
+                <td>—</td>
+                <td><a style="color:var(--orange);cursor:pointer;font-weight:700;font-size:13px;">ver →</a></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--blue-dim);border-color:var(--blue);">AP</div>Ana P.</div></td>
+                <td><span class="chip chip-orange">Férias CLT</span></td>
+                <td>15–25/06/2026</td>
+                <td>11d</td>
+                <td><span class="chip chip-green">● Aprovado</span></td>
+                <td><span style="font-size:11px;color:var(--orange);">60⚠ 45 30</span></td>
+                <td><span class="chip chip-red" style="font-size:11px;">2 conflitos</span></td>
+                <td><a style="color:var(--orange);cursor:pointer;font-weight:700;font-size:13px;">ver →</a></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--green-dim);border-color:var(--green);">PL</div>Pedro L.</div></td>
+                <td><span class="chip chip-blue">Recesso (estagiário)</span></td>
+                <td>10–20/06/2026</td>
+                <td>11d</td>
+                <td><span class="chip chip-yellow">⏳ Pendente</span></td>
+                <td>—</td>
+                <td><span class="chip chip-red" style="font-size:11px;">1 conflito</span></td>
+                <td><a style="color:var(--orange);cursor:pointer;font-weight:700;font-size:13px;">aprovar / rejeitar →</a></td>
+              </tr>
+              <tr>
+                <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--green-dim);border-color:var(--green);">JC</div>João C.</div></td>
+                <td><span class="chip chip-blue">Recesso (estagiário)</span></td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="chip chip-yellow">⏳ Marco 12m em 28d</span></td>
+                <td><span style="font-size:11px;color:var(--red);">programar</span></td>
+                <td>—</td>
+                <td><a style="color:var(--orange);cursor:pointer;font-weight:700;font-size:13px;">programar →</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Modal preview de aprovação -->
+        <div class="card" style="margin-top:16px;border-style:dashed;background:rgba(58,138,74,0.04);">
+          <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">↓ Preview do modal de aprovação ao clicar "aprovar"</div>
+          <div style="background:var(--paper);border:2px solid var(--ink);border-radius:6px;padding:18px;max-width:500px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;margin-bottom:8px;">APROVAR RECESSO — PEDRO LIMA</div>
+            <div style="font-size:13px;color:var(--ink2);margin-bottom:14px;">10–20/06/2026 · 11 dias · Estagiário</div>
+            <div style="background:var(--red-dim);border-left:3px solid var(--red);padding:10px 12px;border-radius:4px;margin-bottom:14px;font-size:13px;">
+              <b>⚠ 1 conflito detectado:</b><br>
+              4 aulas atribuídas no período (CrossFit · Centro)
+            </div>
+            <div style="font-size:13px;margin-bottom:8px;font-weight:700;">Como tratar as aulas conflitantes?</div>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;"><input type="radio" name="conf" checked> <span>Abrir cobertura para todas (recomendado)</span></label>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:6px;cursor:pointer;"><input type="radio" name="conf"> <span>Reatribuir manualmente um a um</span></label>
+            <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;margin-bottom:14px;cursor:pointer;"><input type="radio" name="conf"> <span>Cancelar as aulas (registrar motivo)</span></label>
+            <textarea class="sk-input" rows="2" placeholder="Observação (opcional)" style="margin-bottom:10px;"></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button class="sk-btn sk-btn-ghost">Cancelar</button>
+              <button class="sk-btn sk-btn-success" style="background:var(--green);color:#fff;">Aprovar e processar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 7: VALIDAÇÃO DE ESCOPO
+══════════════════════════════════════════ -->
+<div id="screen-validacao" class="screen">
+  <div class="screen-note" style="background:rgba(58,138,74,0.08);border-color:var(--green);">
+    ✅ <b>Cobertura ampliada · v2</b> — adicionados wireframes de <b>Cadastro de Professores</b> (RF01+RF26+RN19), <b>Escalas Especiais</b> (RF24+P07), <b>Férias e Recesso</b> (RF25+RN18), card estagiário detalhado (RN14+P02) e modal de fechamento irreversível (RN12). Restam apenas Relatórios, Auditoria e Gestão de Usuários — que podem ir como descrição funcional.
+  </div>
+
+  <!-- Resumo executivo · ATUALIZADO -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+    <div class="card" style="text-align:center;border-color:var(--green);background:rgba(58,138,74,0.04);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--green);line-height:1;">23</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px;">RFs com wireframe <span style="color:var(--green);">↑6</span></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--yellow);line-height:1;">3</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px;">RFs parciais (mobile) <span style="color:var(--green);">↓3</span></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--red);line-height:1;">3</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px;">Sem wireframe <span style="color:var(--green);">↓3</span></div>
+    </div>
+    <div class="card" style="text-align:center;border-color:var(--orange);background:rgba(232,146,13,0.04);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--orange);line-height:1;">79%</div>
+      <div style="font-size:13px;color:var(--ink3);margin-top:4px;">cobertura total <span style="color:var(--green);">↑21%</span></div>
+    </div>
+  </div>
+
+  <!-- Bloco "o que mudou" -->
+  <div class="card" style="margin-bottom:16px;border-color:var(--green);background:linear-gradient(135deg,rgba(58,138,74,0.06),rgba(58,138,74,0.02));">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="width:8px;height:24px;background:var(--green);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">O que foi adicionado nesta revisão</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+      <div style="background:var(--paper);border-left:3px solid var(--green);padding:8px 12px;border-radius:4px;">
+        <b>👥 Cadastro de Professores</b> · RF01 + RF26 + RN19<br>
+        <span style="color:var(--ink2);">Lista + ficha · aba Salarial restrita ao Admin · CPF mascarado · histórico de alterações · variação para estagiário com bolsa/limite/proporcional</span>
+      </div>
+      <div style="background:var(--paper);border-left:3px solid var(--green);padding:8px 12px;border-radius:4px;">
+        <b>⭐ Escalas Especiais</b> · RF24 + P07<br>
+        <span style="color:var(--ink2);">Calendário 3 meses · pesos 1/2/3 · preferências dos professores · painel de equilíbrio com peso acumulado · janela configurável</span>
+      </div>
+      <div style="background:var(--paper);border-left:3px solid var(--green);padding:8px 12px;border-radius:4px;">
+        <b>🏖️ Férias e Recesso</b> · RF25 + RN18<br>
+        <span style="color:var(--ink2);">Tabela CLT/estagiário · alertas 60/45/30d · detecção de conflitos com agenda/escalas · modal de aprovação com 3 opções de tratamento</span>
+      </div>
+      <div style="background:var(--paper);border-left:3px solid var(--green);padding:8px 12px;border-radius:4px;">
+        <b>🧾 Card estagiário detalhado</b> · RN14 + P02<br>
+        <span style="color:var(--ink2);">Breakdown explícito: bolsa fixa + excedente em minutos + feriado dobrado · valores parciais separados</span>
+      </div>
+      <div style="background:var(--paper);border-left:3px solid var(--green);padding:8px 12px;border-radius:4px;grid-column:span 2;">
+        <b>🔒 Modal de fechamento irreversível</b> · RN12<br>
+        <span style="color:var(--ink2);">Confirmação dupla com checkbox + digitação literal "FECHAR &lt;mês&gt;" + resumo executivo · referência a complemento na competência seguinte (P06)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legenda -->
+  <div style="display:flex;gap:16px;font-size:13px;margin-bottom:12px;flex-wrap:wrap;">
+    <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;border-radius:3px;background:var(--green);display:inline-block;"></span>Coberto pelo wireframe</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;border-radius:3px;background:var(--yellow);display:inline-block;"></span>Parcial — precisa detalhar</span>
+    <span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;border-radius:3px;background:var(--red);display:inline-block;"></span>Sem wireframe — é tela nova</span>
+  </div>
+
+  <!-- ═════ PARTE 1: RFs cobertos ═════ -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="width:8px;height:24px;background:var(--green);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Cobertos pelos Wireframes (23)</div>
+    </div>
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:8px;">+6 novos: RF01, RF24, RF25, RF26 + lógica completa de RF18 (estagiário) e RN12 (fechamento)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);text-align:left;">
+          <th style="padding:8px 6px;width:70px;">RF</th>
+          <th style="padding:8px 6px;">Requisito</th>
+          <th style="padding:8px 6px;width:240px;">Onde está nos wireframes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF02</td><td style="padding:8px 6px;">Agenda recorrente e avulsa</td><td style="padding:8px 6px;color:var(--ink2);">Agenda Admin · Lançamento em Lote</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF03</td><td style="padding:8px 6px;">Edição de escala admin/gestão</td><td style="padding:8px 6px;color:var(--ink2);">Agenda Admin (3 views)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF04</td><td style="padding:8px 6px;">Própria agenda (professor)</td><td style="padding:8px 6px;color:var(--ink2);">Minha Agenda (A e B)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF05</td><td style="padding:8px 6px;">Agenda geral (professor)</td><td style="padding:8px 6px;color:var(--ink2);">Agenda Geral A e B</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF06</td><td style="padding:8px 6px;">Ver todas as unidades</td><td style="padding:8px 6px;color:var(--ink2);">Agenda Geral · filtro multi-unidade</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF07</td><td style="padding:8px 6px;">Nome + modalidade + unidade</td><td style="padding:8px 6px;color:var(--ink2);">Cards de aula (todas as agendas)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF08</td><td style="padding:8px 6px;">Indicador "Livre" automático</td><td style="padding:8px 6px;color:var(--ink2);">Agenda Geral B (busca por disponibilidade)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF09</td><td style="padding:8px 6px;">Substituição direta</td><td style="padding:8px 6px;color:var(--ink2);">Substituição A (wizard)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF10</td><td style="padding:8px 6px;">Cobertura em aberto</td><td style="padding:8px 6px;color:var(--ink2);">Substituição A · seção "cobertura aberta"</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF11</td><td style="padding:8px 6px;">Aceite/recusa do substituto</td><td style="padding:8px 6px;color:var(--ink2);">Substituição B (painel pendências)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF12</td><td style="padding:8px 6px;">Transferência de horas após aceite</td><td style="padding:8px 6px;color:var(--ink2);">Lógica embarcada · validar com cliente</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF13</td><td style="padding:8px 6px;">Histórico completo da troca</td><td style="padding:8px 6px;color:var(--ink2);">Substituição B · timeline de status</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF14</td><td style="padding:8px 6px;">Consolidar horas do mês</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento A (tabela)</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF15</td><td style="padding:8px 6px;">Ajuste manual no fechamento</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento A · coluna ajuste</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF16</td><td style="padding:8px 6px;">Congelar competência</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento · botão "Validar e Fechar"</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF17</td><td style="padding:8px 6px;">Pagamento efetivo · feriado dobrado</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento B · cards por professor</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF19</td><td style="padding:8px 6px;">Recibos + registro de pagamento</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento B · botão emitir recibo</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF01 ✨</td><td style="padding:8px 6px;">Cadastro de professor + dados gerais</td><td style="padding:8px 6px;color:var(--ink2);">Cadastro Prof. · ficha completa</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF26 ✨</td><td style="padding:8px 6px;">Aba Salarial restrita Admin</td><td style="padding:8px 6px;color:var(--ink2);">Cadastro Prof. · aba 🔒 Salarial</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF18 ✨</td><td style="padding:8px 6px;">Estagiário · breakdown completo</td><td style="padding:8px 6px;color:var(--ink2);">Fechamento B · card 3 componentes</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF24 ✨</td><td style="padding:8px 6px;">Escalas Especiais</td><td style="padding:8px 6px;color:var(--ink2);">Tela dedicada com calendário + equilíbrio</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RF25 ✨</td><td style="padding:8px 6px;">Férias e Recesso</td><td style="padding:8px 6px;color:var(--ink2);">Tela dedicada · alertas + conflitos</td></tr>
+        <tr style="background:rgba(58,138,74,0.06);"><td style="padding:8px 6px;font-weight:700;color:var(--green);">RN12 ✨</td><td style="padding:8px 6px;">Fechamento irreversível</td><td style="padding:8px 6px;color:var(--ink2);">Modal de confirmação dupla</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═════ PARTE 2: RFs parciais ═════ -->
+  <div class="card" style="margin-bottom:14px;border-color:var(--yellow);background:rgba(212,160,23,0.04);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="width:8px;height:24px;background:var(--yellow);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Parciais — não bloqueiam aprovação (3)</div>
+    </div>
+    <div style="font-size:13px;color:var(--ink2);margin-bottom:10px;">Itens menores que podem ser detalhados durante a implementação, sem bloquear o cliente.</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);text-align:left;">
+          <th style="padding:8px 6px;width:70px;">RF</th>
+          <th style="padding:8px 6px;">Requisito</th>
+          <th style="padding:8px 6px;width:300px;">O que ainda falta detalhar</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--yellow);">RF22/23</td><td style="padding:8px 6px;">Versão mobile (prof. + admin)</td><td style="padding:8px 6px;color:var(--ink2);">Desktop pronto · mobile pode ser derivado dos componentes existentes na fase de implementação</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:8px 6px;font-weight:700;color:var(--yellow);">—</td><td style="padding:8px 6px;">Centro de notificações (sino)</td><td style="padding:8px 6px;color:var(--ink2);">Padrão UX comum — pode ser detalhado via Figma na implementação</td></tr>
+        <tr><td style="padding:8px 6px;font-weight:700;color:var(--yellow);">—</td><td style="padding:8px 6px;">Modal de cancelamento (motivos)</td><td style="padding:8px 6px;color:var(--ink2);">Lista de motivos da spec § 19 · dropdown simples na implementação</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═════ PARTE 3: RFs sem wireframe ═════ -->
+  <div class="card" style="margin-bottom:14px;border-color:var(--red);background:rgba(192,57,43,0.04);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <span style="width:8px;height:24px;background:var(--red);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Sem wireframe — vão como descrição funcional (3)</div>
+    </div>
+    <div style="font-size:13px;color:var(--ink2);margin-bottom:10px;">Telas com padrões já estabelecidos no sistema atual (<code>index.html</code>). Podem ser implementadas seguindo o mesmo visual das telas existentes de Comissões/Relatórios, sem necessidade de wireframe novo.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+      <div style="background:var(--paper);border:1.5px solid var(--red);border-radius:6px;padding:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="chip chip-red" style="font-size:11px;font-weight:700;">RF20</span>
+          <div style="font-weight:700;font-size:15px;">Relatórios</div>
+        </div>
+        <div style="font-size:13px;color:var(--ink2);line-height:1.5;">
+          16 relatórios da spec § 20. Filtros + export Excel. Reaproveita layout dos relatórios já existentes em Comissões.
+        </div>
+      </div>
+      <div style="background:var(--paper);border:1.5px solid var(--red);border-radius:6px;padding:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="chip chip-red" style="font-size:11px;font-weight:700;">RF21</span>
+          <div style="font-weight:700;font-size:15px;">Auditoria</div>
+        </div>
+        <div style="font-size:13px;color:var(--ink2);line-height:1.5;">
+          Tabela paginada · before/after expansível · filtros · export. Padrão de log universal — sem regras específicas.
+        </div>
+      </div>
+      <div style="background:var(--paper);border:1.5px solid var(--red);border-radius:6px;padding:14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <span class="chip chip-red" style="font-size:11px;font-weight:700;">RF27/28/29</span>
+          <div style="font-weight:700;font-size:15px;">Perfis e Acessos</div>
+        </div>
+        <div style="font-size:13px;color:var(--ink2);line-height:1.5;">
+          Estende a tela de gestão de usuários do <code>index.html</code> com <code>profiles[]</code> e <code>moduleAccess{}</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════ PARTE 4: Regras de Negócio críticas a confirmar ═════ -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="width:8px;height:24px;background:var(--blue);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Regras de Negócio críticas — refletidas no wireframe?</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);text-align:left;">
+          <th style="padding:8px 6px;width:70px;">RN</th>
+          <th style="padding:8px 6px;">Regra</th>
+          <th style="padding:8px 6px;width:120px;">Status</th>
+          <th style="padding:8px 6px;">Observação</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN04/05</td><td style="padding:6px;">Troca só vale após aceite no sistema</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Status "pendente_aceite" no painel de substituição</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN06</td><td style="padding:6px;">Validação da gestão é posterior, não bloqueia</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Trocas aparecem direto na agenda; validação fica no Fechamento</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN07/08</td><td style="padding:6px;">Aula realizada por padrão · status final no fechamento</td><td style="padding:6px;"><span class="chip chip-yellow" style="font-size:11px;">implementação</span></td><td style="padding:6px;color:var(--ink2);">Dropdown de status na implementação · padrão UX simples</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN10</td><td style="padding:6px;">Distinção clara entre direta e cobertura aberta</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Toggle no wizard A · seções separadas no painel B</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:6px;font-weight:700;">RN12 ✨</td><td style="padding:6px;">Fechamento mensal não pode ser reaberto</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Modal de confirmação dupla com checkbox + digitação literal</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN13</td><td style="padding:6px;">Feriado dobra hora · efetivo</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Coluna "Feriado (×2)" no Fechamento A</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:6px;font-weight:700;">RN14 ✨</td><td style="padding:6px;">Estagiário · bolsa + excedente proporcional por minutos</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Card no Fechamento B exibe ① bolsa + ② excedente + ③ feriado separados</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);"><td style="padding:6px;font-weight:700;">RN15</td><td style="padding:6px;">Respeitar capacitação para modalidade</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Wizard só lista profs aptos · validar com cliente</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:6px;font-weight:700;">RN18 ✨</td><td style="padding:6px;">Férias bloqueiam elegibilidade e agenda</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Tela Férias · detecção de conflitos + modal de aprovação com 3 opções</td></tr>
+        <tr style="border-bottom:1px solid var(--border2);background:rgba(58,138,74,0.06);"><td style="padding:6px;font-weight:700;">RN19 ✨</td><td style="padding:6px;">Dados salariais restritos ao Admin</td><td style="padding:6px;"><span class="chip chip-green" style="font-size:11px;">refletido</span></td><td style="padding:6px;color:var(--ink2);">Aba 🔒 Salarial no Cadastro · destaque visual e marcação "só Admin"</td></tr>
+        <tr><td style="padding:6px;font-weight:700;">RN21/22/23</td><td style="padding:6px;">Múltiplos perfis · segregação Comissões × Professores</td><td style="padding:6px;"><span class="chip chip-yellow" style="font-size:11px;">na implementação</span></td><td style="padding:6px;color:var(--ink2);">Reaproveita tela existente · sem UI nova necessária</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═════ PARTE 5: Decisões M4 incorporadas ═════ -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="width:8px;height:24px;background:var(--green);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Decisões M4 (todas resolvidas) — impacto nos wireframes</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P01 · Modalidades configuráveis pelo admin</b><br>
+        <span style="color:var(--ink2);">Cadastro de modalidades é tela própria — incluir no escopo da Tela de Cadastro (RF01).</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P02 · Feriado dobra para estagiário também</b><br>
+        <span style="color:var(--ink2);">Card do estagiário no Fechamento B precisa exibir minutos de feriado separados.</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P05 · CPF mascarado no banco</b><br>
+        <span style="color:var(--ink2);">Recibo deve exibir <code>***.456.789-**</code> — refletir no wireframe do recibo.</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P06 · Cancelamento de recibo gera complemento</b><br>
+        <span style="color:var(--ink2);">Tela de pagamentos precisa coluna/badge "complemento" e ação de aplicar como ajuste.</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P07 · Janela de escala configurável</b><br>
+        <span style="color:var(--ink2);">Tela de Escala Especial precisa campo "janela em meses" (padrão 3).</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P09 · Eventual = mesma fórmula do efetivo</b><br>
+        <span style="color:var(--ink2);">Não exige tela diferente — só o tipo no cadastro.</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P10 · Cancelada nunca paga</b><br>
+        <span style="color:var(--ink2);">Wireframe do Fechamento já reflete · linha cancelada com 0h paga.</span>
+      </div>
+      <div style="background:rgba(58,138,74,0.06);border-left:3px solid var(--green);padding:10px 12px;border-radius:4px;">
+        <b>P08 · Excel para relatórios · PDF para recibos</b><br>
+        <span style="color:var(--ink2);">Botões de export já no wireframe (Fechamento). Reforçar nos Relatórios.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════ PARTE 6: Status final ═════ -->
+  <div class="card" style="background:linear-gradient(135deg,rgba(58,138,74,0.08),rgba(58,138,74,0.02));border-color:var(--green);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="width:8px;height:24px;background:var(--green);border-radius:2px;"></span>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;">Pacote pronto para validação formal do cliente</div>
+    </div>
+    <div style="font-size:14px;line-height:1.6;color:var(--ink);">
+      <p style="margin-bottom:10px;">A <b>cobertura subiu de 58% para 79%</b> e todas as <b>regras de negócio críticas</b> com impacto financeiro/operacional estão refletidas em UI: aba salarial restrita, breakdown do estagiário, fechamento irreversível, conflitos de férias, equilíbrio de escalas especiais.</p>
+
+      <p style="margin-bottom:10px;"><b>Os 3 itens sem wireframe (Relatórios, Auditoria, Gestão de Usuários)</b> seguem padrões UX universais já implementados no sistema atual — vão como descrição funcional na proposta sem prejuízo do entendimento.</p>
+
+      <div style="background:var(--paper);border:1.5px solid var(--green);border-radius:6px;padding:12px 14px;margin-top:12px;">
+        <b style="color:var(--green);">✓ Pacote sugerido para o cliente:</b> 9 telas principais + 3 modais embutidos cobrindo o núcleo operacional e as decisões M4. As 3 telas restantes podem ir como descrição funcional na proposta.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TWEAKS PANEL -->
+<div id="tweaks-panel">
+  <h3>Tweaks</h3>
+  <div class="tweak-row">
+    <span class="tweak-label">Tema do wireframe</span>
+    <div class="tweak-toggle">
+      <button class="on" onclick="setTheme('light', this)">Claro</button>
+      <button onclick="setTheme('dark', this)">Escuro</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Densidade</span>
+    <div class="tweak-toggle">
+      <button onclick="setDensity('compact', this)">Compacto</button>
+      <button class="on" onclick="setDensity('normal', this)">Normal</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Mostra anotações</span>
+    <div class="tweak-toggle">
+      <button class="on" onclick="toggleAnnotations(true, this)">Sim</button>
+      <button onclick="toggleAnnotations(false, this)">Não</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Variant switching
+function switchVariant(group, letter, btn) {
+  const panel = btn.closest('.screen') || document.querySelector('.screen.active');
+  panel.querySelectorAll(`[id^="${group}-"]`).forEach(p => p.classList.remove('active'));
+  panel.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(group + '-' + letter).classList.add('active');
+  btn.classList.add('active');
+}
+
+// Tweaks
+window.addEventListener('message', e => {
+  if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel').style.display = 'block';
+  if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel').style.display = 'none';
+});
+window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+function setTheme(mode, btn) {
+  btn.closest('.tweak-toggle').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (mode === 'dark') {
+    document.documentElement.style.setProperty('--bg', '#0a0a0a');
+    document.documentElement.style.setProperty('--paper', '#131315');
+    document.documentElement.style.setProperty('--ink', '#eee9e0');
+    document.documentElement.style.setProperty('--ink2', '#908a82');
+    document.documentElement.style.setProperty('--border', '#2a2a30');
+    document.documentElement.style.setProperty('--border2', '#222226');
+  } else {
+    document.documentElement.style.setProperty('--bg', '#f5f3ef');
+    document.documentElement.style.setProperty('--paper', '#faf9f7');
+    document.documentElement.style.setProperty('--ink', '#1a1814');
+    document.documentElement.style.setProperty('--ink2', '#5a5650');
+    document.documentElement.style.setProperty('--border', '#c8c4bc');
+    document.documentElement.style.setProperty('--border2', '#e0dcd4');
+  }
+}
+
+function setDensity(mode, btn) {
+  btn.closest('.tweak-toggle').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.cal-cell').forEach(c => c.style.minHeight = mode === 'compact' ? '32px' : '44px');
+}
+
+function toggleAnnotations(show, btn) {
+  btn.closest('.tweak-toggle').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.annotation').forEach(a => a.style.display = show ? '' : 'none');
+}
+</script>
+</body>
+</html>

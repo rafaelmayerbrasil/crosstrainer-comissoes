@@ -20,6 +20,8 @@
 
 'use strict';
 
+const BR_OFFSET_HOURS = 3;  // UTC-3, sem DST desde 2019
+
 // ────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ────────────────────────────────────────────────────────────────────────
@@ -1246,6 +1248,10 @@ const NOTIF_TYPE_META = {
   coverage_cancelled:      { icon: '🚫', title: 'Cobertura cancelada' },
   recibo_emitido:          { icon: '📄', title: 'Recibo emitido' },
   pagamento_confirmado:    { icon: '💰', title: 'Pagamento confirmado' },
+  vacation_requested:      { icon: '🏖️', title: 'Solicitação de férias' },
+  vacation_approved:       { icon: '✅', title: 'Férias aprovadas' },
+  vacation_rejected:       { icon: '❌', title: 'Férias recusadas' },
+  vacation_cancelled:      { icon: '🚫', title: 'Férias canceladas' },
 };
 
 const SUBSTITUTION_STATUS_LABEL = {
@@ -1702,16 +1708,19 @@ function buildSubstitutionNotifBody(cls, prefix = '') {
  * @param {Array} classes — array de objetos de aula com durationMinutes e isHoliday
  * @returns {number} horas decimais (ex: 24.5)
  */
-function calculateTeacherHours(classes) {
+function calculateTeacherHours(classes, scaleTypesMap = null) {
   if (!Array.isArray(classes) || classes.length === 0) return 0;
   let totalMinutes = 0;
   for (const c of classes) {
     const mins = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
-    if (c.isHoliday === true) {
-      totalMinutes += mins * 2;   // feriado conta em dobro
-    } else {
-      totalMinutes += mins;
+    let weight = 1;
+    // Peso variável por tipo de escala (Sprint 5a)
+    if (c.specialScaleType && scaleTypesMap && scaleTypesMap.has(c.specialScaleType)) {
+      weight = scaleTypesMap.get(c.specialScaleType).weight || 1;
+    } else if (c.isHoliday === true) {
+      weight = 2;  // fallback retrocompat (P02)
     }
+    totalMinutes += mins * weight;
   }
   return totalMinutes / 60;
 }
@@ -1917,6 +1926,10 @@ const ClosingService = {
       });
       await Promise.all(salaryPromises);
 
+      // 6b) Busca special_scale_types pra cálculo de peso (Sprint 5a)
+      const stSnap = await db.collection('special_scale_types').get();
+      const scaleTypesMap = new Map(stSnap.docs.map(d => [d.id, d.data()]));
+
       // 7) Agrupa classes por teacherId
       const grouped = {};
       for (const c of validClasses) {
@@ -1932,7 +1945,7 @@ const ClosingService = {
         const teacher = teacherMap[tid] || { id: tid, name: '(desconhecido)', type: 'efetivo' };
         const salary = salaryMap[tid] || null;
 
-        const hours = calculateTeacherHours(classes);
+        const hours = calculateTeacherHours(classes, scaleTypesMap);
         const value = calculateTeacherValue(teacher, salary, hours, endDate);
 
         teacherResults.push({
@@ -2382,6 +2395,484 @@ const CreditService = {
   },
 };
 
+// ═════════════════════════════════════════════════════════════════════
+// Sprint 5a — SpecialScaleService
+// ═════════════════════════════════════════════════════════════════════
+
+const SpecialScaleService = {
+  async list() {
+    try {
+      const snap = await db.collection('special_scales').orderBy('date', 'desc').get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[SpecialScaleService.list]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  async getById(id) {
+    try {
+      const doc = await db.collection('special_scales').doc(id).get();
+      if (!doc.exists) return { success: false, error: 'Escala não encontrada' };
+      return { success: true, data: { id: doc.id, ...doc.data() } };
+    } catch (err) {
+      console.error('[SpecialScaleService.getById]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  async create({ scaleTypeId, date, name, unitIds, description }) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Não autenticado');
+      const dateBR = new Date(date + 'T03:00:00Z');  // meia-noite BR
+      const ref = db.collection('special_scales').doc();
+      const data = {
+        scaleTypeId, name,
+        date: firebase.firestore.Timestamp.fromDate(dateBR),
+        unitIds: unitIds || [],
+        description: description || '',
+        appliedToClasses: [],
+        appliedAt: null,
+        isActive: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdBy: user.uid,
+        createdByName: user.displayName || user.email || user.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: user.uid,
+      };
+      await ref.set(data);
+
+      // Audit log
+      await AuditService.log({
+        type: 'special_scale_created',
+        details: `Escala "${name}" (${scaleTypeId}) criada para ${date}`,
+        module: 'escalas',
+        entityType: 'special_scale',
+        entityId: ref.id,
+        after: data,
+      });
+
+      return { success: true, data: { id: ref.id, ...data } };
+    } catch (err) {
+      console.error('[SpecialScaleService.create]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  async update(id, { name, date, unitIds, description, scaleTypeId }) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Não autenticado');
+      const ref = db.collection('special_scales').doc(id);
+      const before = await ref.get();
+      if (!before.exists) return { success: false, error: 'Escala não encontrada' };
+
+      const updates = {
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: user.uid,
+      };
+      if (name !== undefined) updates.name = name;
+      if (scaleTypeId !== undefined) updates.scaleTypeId = scaleTypeId;
+      if (description !== undefined) updates.description = description;
+      if (unitIds !== undefined) updates.unitIds = unitIds;
+      if (date !== undefined) {
+        const dateBR = new Date(date + 'T03:00:00Z');
+        updates.date = firebase.firestore.Timestamp.fromDate(dateBR);
+      }
+
+      await ref.update(updates);
+
+      await AuditService.log({
+        type: 'special_scale_updated',
+        details: `Escala "${name || before.data().name}" atualizada`,
+        module: 'escalas',
+        entityType: 'special_scale',
+        entityId: id,
+        before: before.data(),
+        after: { ...before.data(), ...updates },
+      });
+
+      return { success: true, data: { id, ...before.data(), ...updates } };
+    } catch (err) {
+      console.error('[SpecialScaleService.update]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  async deactivate(id) {
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Não autenticado');
+      const ref = db.collection('special_scales').doc(id);
+      await ref.update({
+        isActive: false,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: user.uid,
+      });
+
+      await AuditService.log({
+        type: 'special_scale_deactivated',
+        details: `Escala ${id} inativada`,
+        module: 'escalas',
+        entityType: 'special_scale',
+        entityId: id,
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('[SpecialScaleService.deactivate]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Aplica uma escala a classes existentes da data + unidades. */
+  async applyToClasses(scaleId) {
+    try {
+      const scaleDoc = await db.collection('special_scales').doc(scaleId).get();
+      if (!scaleDoc.exists) return { success: false, error: 'Escala não encontrada' };
+      const scale = { id: scaleDoc.id, ...scaleDoc.data() };
+
+      const dObj = scale.date && scale.date.toDate ? scale.date.toDate() : new Date(scale.date);
+      const startBR = new Date(Date.UTC(
+        dObj.getUTCFullYear(), dObj.getUTCMonth(), dObj.getUTCDate(), BR_OFFSET_HOURS, 0, 0
+      ));
+      const endBR = new Date(startBR.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+      const unitIds = scale.unitIds || [];
+      const appliedIds = [];
+
+      for (const uid of unitIds) {
+        const snap = await db.collection('classes')
+          .where('unitId', '==', uid)
+          .where('scheduledDate', '>=', firebase.firestore.Timestamp.fromDate(startBR))
+          .where('scheduledDate', '<=', firebase.firestore.Timestamp.fromDate(endBR))
+          .get();
+
+        const batch = db.batch();
+        snap.docs.forEach(d => {
+          batch.update(d.ref, {
+            specialScaleType: scale.scaleTypeId,
+            specialScaleId: scaleId,
+            isHoliday: scale.scaleTypeId === 'feriado' ? true : d.data().isHoliday,
+            holidayName: scale.scaleTypeId === 'feriado' ? scale.name : d.data().holidayName,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          appliedIds.push(d.id);
+        });
+        if (snap.docs.length > 0) await batch.commit();
+      }
+
+      // Atualiza o campo appliedToClasses na escala
+      await db.collection('special_scales').doc(scaleId).update({
+        appliedToClasses: appliedIds,
+        appliedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await AuditService.log({
+        type: 'special_scale_applied',
+        details: `Escala "${scale.name}" aplicada a ${appliedIds.length} classes existentes`,
+        module: 'escalas',
+        entityType: 'special_scale',
+        entityId: scaleId,
+      });
+
+      return { success: true, data: { appliedCount: appliedIds.length, classIds: appliedIds } };
+    } catch (err) {
+      console.error('[SpecialScaleService.applyToClasses]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+};
+
+// ═════════════════════════════════════════════════════════════════════
+// Sprint 6a — VacationService (Férias e Recesso)
+// ═════════════════════════════════════════════════════════════════════
+
+const ANTECEDENCIA_EFETIVO = 5;
+const ANTECEDENCIA_ESTAGIARIO = 5;
+const FERIAS_TOTAL_EFETIVO = 30;
+const PRIMEIRO_PERIODO_MIN = 14;
+const DEMAIS_PERIODOS_MIN = 5;
+const RECESSO_MAX_ESTAGIARIO = 30;
+
+function validateVacationRequest({ teacher, type, periods, force = false }) {
+  if (teacher.type === 'eventual') {
+    return 'Professores eventuais não têm direito formal a férias/recesso. Fale com a gestão.';
+  }
+  if (!Array.isArray(periods) || periods.length === 0 || periods.length > 3) {
+    return 'Informe entre 1 e 3 períodos.';
+  }
+  const periodsWithDays = periods.map(p => {
+    const start = p.startDate && p.startDate.toDate ? p.startDate.toDate() : new Date(p.startDate);
+    const end = p.endDate && p.endDate.toDate ? p.endDate.toDate() : new Date(p.endDate);
+    const days = Math.round((end - start) / 86400000) + 1;
+    return { ...p, days, _start: start, _end: end };
+  });
+
+  // Datas futuras
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (const p of periodsWithDays) {
+    if (p._start < today) return 'Datas no passado não são permitidas.';
+    if (p._end < p._start) return 'Data fim anterior à data início em um dos períodos.';
+  }
+
+  // Sobreposição
+  for (let i = 0; i < periodsWithDays.length; i++) {
+    for (let j = i + 1; j < periodsWithDays.length; j++) {
+      if (periodsWithDays[i]._start <= periodsWithDays[j]._end
+        && periodsWithDays[j]._start <= periodsWithDays[i]._end) {
+        return 'Períodos se sobrepõem.';
+      }
+    }
+  }
+
+  // Antecedência
+  if (!force) {
+    const earliest = periodsWithDays.map(p => p._start).reduce((a, b) => a < b ? a : b);
+    const diasAteIniciar = Math.round((earliest - today) / 86400000);
+    const minAnt = teacher.type === 'efetivo' ? ANTECEDENCIA_EFETIVO : ANTECEDENCIA_ESTAGIARIO;
+    if (diasAteIniciar < minAnt) {
+      return `Antecedência mínima de ${minAnt} dias não atendida (faltam ${diasAteIniciar} dias).`;
+    }
+  }
+
+  const totalDays = periodsWithDays.reduce((s, p) => s + p.days, 0);
+
+  if (teacher.type === 'efetivo') {
+    if (totalDays !== FERIAS_TOTAL_EFETIVO) {
+      return `CLT exige total de ${FERIAS_TOTAL_EFETIVO} dias para efetivo (informado: ${totalDays}).`;
+    }
+    if (periodsWithDays.length > 1) {
+      const sorted = [...periodsWithDays].sort((a, b) => b.days - a.days);
+      if (sorted[0].days < PRIMEIRO_PERIODO_MIN) {
+        return `1º período deve ter no mínimo ${PRIMEIRO_PERIODO_MIN} dias (CLT).`;
+      }
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].days < DEMAIS_PERIODOS_MIN) {
+          return `Demais períodos devem ter no mínimo ${DEMAIS_PERIODOS_MIN} dias cada.`;
+        }
+      }
+    }
+  } else if (teacher.type === 'estagiario') {
+    if (totalDays > RECESSO_MAX_ESTAGIARIO) {
+      return `Recesso máximo de ${RECESSO_MAX_ESTAGIARIO} dias (informado: ${totalDays}).`;
+    }
+    if (periodsWithDays.some(p => p.days < DEMAIS_PERIODOS_MIN)) {
+      return `Mínimo ${DEMAIS_PERIODOS_MIN} dias por período.`;
+    }
+  }
+
+  return null;  // OK
+}
+
+const VacationService = {
+  async request({ teacherId, periods, reason, force = false }) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
+    try {
+      const teacherDoc = await db.collection('teachers').doc(teacherId).get();
+      if (!teacherDoc.exists) return { success: false, error: 'Professor não encontrado' };
+      const teacher = teacherDoc.data();
+
+      const type = teacher.type === 'estagiario' ? 'recesso' : 'ferias';
+
+      const validationErr = validateVacationRequest({ teacher, type, periods, force });
+      if (validationErr) return { success: false, error: validationErr };
+
+      const normalizedPeriods = periods.map(p => {
+        const start = p.startDate && p.startDate.toDate ? p.startDate.toDate() : new Date(p.startDate);
+        const end = p.endDate && p.endDate.toDate ? p.endDate.toDate() : new Date(p.endDate);
+        const days = Math.round((end - start) / 86400000) + 1;
+        return {
+          startDate: firebase.firestore.Timestamp.fromDate(start),
+          endDate: firebase.firestore.Timestamp.fromDate(end),
+          days,
+        };
+      });
+      const totalDays = normalizedPeriods.reduce((s, p) => s + p.days, 0);
+
+      const ref = db.collection('vacation_requests').doc();
+      const uid = currentUserId();
+      const data = {
+        teacherId,
+        teacherName: teacher.name,
+        teacherType: teacher.type,
+        unitId: teacher.primaryUnitId || (teacher.unitIds && teacher.unitIds[0]) || null,
+        type,
+        periods: normalizedPeriods,
+        totalDays,
+        reason: (reason || '').toString().slice(0, 500),
+        status: 'pendente',
+        requestedAt: serverTs(),
+        requestedBy: uid,
+        requestedByName: currentUserName(),
+        respondedAt: null, respondedBy: null, respondedByName: null, responseNote: null,
+        cancelledAt: null, cancelledBy: null, cancelReason: null,
+        createdAt: serverTs(), updatedAt: serverTs(),
+      };
+      await ref.set(data);
+
+      // Notif pros admins/gestão
+      const adminsSnap = await db.collection('users')
+        .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
+        .get();
+      for (const u of adminsSnap.docs) {
+        await NotificationService.create({
+          recipientUserId: u.id,
+          type: 'vacation_requested',
+          title: 'Nova solicitação de férias',
+          body: `${teacher.name} (${teacher.type}) solicitou ${type} · ${totalDays} dias`,
+          link: { type: 'vacation', id: ref.id },
+        });
+      }
+
+      await AuditService.log({
+        type: 'vacation_requested',
+        details: `Solicitação de ${type} criada (${teacher.name} · ${totalDays} dias)`,
+        entityType: 'vacation_request', entityId: ref.id,
+        before: null, after: { ...data, id: ref.id },
+        module: 'ferias',
+      });
+
+      return { success: true, data: { id: ref.id, ...data } };
+    } catch (err) {
+      console.error('[VacationService.request]', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async approve(reqId, note = '') { return this._respond(reqId, 'aprovada', note); },
+  async reject(reqId, note) {
+    if (!note) return { success: false, error: 'Motivo da recusa é obrigatório' };
+    return this._respond(reqId, 'recusada', note);
+  },
+
+  async _respond(reqId, status, note) {
+    try {
+      const ref = db.collection('vacation_requests').doc(reqId);
+      const beforeDoc = await ref.get();
+      if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
+      const before = beforeDoc.data();
+      if (before.status !== 'pendente') return { success: false, error: `Pedido já está como "${before.status}"` };
+
+      const uid = currentUserId();
+      const after = {
+        status,
+        respondedAt: serverTs(),
+        respondedBy: uid,
+        respondedByName: currentUserName(),
+        responseNote: (note || '').toString().slice(0, 500) || null,
+        updatedAt: serverTs(),
+      };
+      await ref.update(after);
+
+      await NotificationService.create({
+        recipientUserId: before.requestedBy,
+        type: status === 'aprovada' ? 'vacation_approved' : 'vacation_rejected',
+        title: status === 'aprovada' ? 'Férias aprovadas' : 'Férias recusadas',
+        body: status === 'aprovada'
+          ? `Suas ${before.type} foram aprovadas (${before.totalDays} dias)`
+          : `Suas ${before.type} foram recusadas. Motivo: ${note}`,
+        link: { type: 'vacation', id: reqId },
+      });
+
+      await AuditService.log({
+        type: `vacation_${status}`,
+        details: `${status === 'aprovada' ? 'Aprovada' : 'Recusada'} ${before.type} de ${before.teacherName}${note ? ' · ' + note : ''}`,
+        entityType: 'vacation_request', entityId: reqId,
+        before, after: { ...before, ...after },
+        module: 'ferias',
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[VacationService._respond]', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async cancel(reqId, reason = '') {
+    try {
+      const ref = db.collection('vacation_requests').doc(reqId);
+      const beforeDoc = await ref.get();
+      if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
+      const before = beforeDoc.data();
+      const uid = currentUserId();
+      const after = {
+        status: 'cancelada',
+        cancelledAt: serverTs(),
+        cancelledBy: uid,
+        cancelReason: (reason || '').toString().slice(0, 500) || null,
+        updatedAt: serverTs(),
+      };
+      await ref.update(after);
+
+      // Notif: se admin cancelou, avisa solicitante; se solicitante cancelou, avisa admins
+      const isSelfCancel = before.requestedBy === uid;
+      if (isSelfCancel) {
+        const adminsSnap = await db.collection('users')
+          .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
+          .get();
+        for (const u of adminsSnap.docs) {
+          await NotificationService.create({
+            recipientUserId: u.id,
+            type: 'vacation_cancelled',
+            title: 'Pedido de férias cancelado',
+            body: `${before.teacherName} cancelou o pedido de ${before.type}`,
+            link: { type: 'vacation', id: reqId },
+          });
+        }
+      } else {
+        await NotificationService.create({
+          recipientUserId: before.requestedBy,
+          type: 'vacation_cancelled',
+          title: 'Pedido de férias cancelado',
+          body: `Seu pedido de ${before.type} foi cancelado pela gestão.`,
+          link: { type: 'vacation', id: reqId },
+        });
+      }
+
+      await AuditService.log({
+        type: 'vacation_cancelled',
+        details: `Pedido de ${before.type} cancelado (${before.teacherName})`,
+        entityType: 'vacation_request', entityId: reqId,
+        before, after: { ...before, ...after },
+        module: 'ferias',
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[VacationService.cancel]', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async listByTeacher(teacherId) {
+    try {
+      const snap = await db.collection('vacation_requests')
+        .where('teacherId', '==', teacherId)
+        .orderBy('requestedAt', 'desc')
+        .get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[VacationService.listByTeacher]', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  async listAll({ status, unitId } = {}) {
+    try {
+      let q = db.collection('vacation_requests');
+      if (status) q = q.where('status', '==', status);
+      if (unitId) q = q.where('unitId', '==', unitId);
+      const snap = await q.orderBy('requestedAt', 'desc').get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[VacationService.listAll]', err);
+      return { success: false, error: err.message };
+    }
+  },
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // Expor para depuração via console
 // ────────────────────────────────────────────────────────────────────────
@@ -2400,6 +2891,8 @@ window.ClosingService         = ClosingService;
 window.ReceiptService         = ReceiptService;
 window.PaymentService         = PaymentService;
 window.CreditService          = CreditService;
+window.SpecialScaleService    = SpecialScaleService;
+window.VacationService        = VacationService;
 window.ProfHelpers     = {
   mascararCpf, getInitials, avatarHtml, internAlertHtml, fmt, formatDate, toTimestamp,
   // Sprint 2 — helpers de horário
@@ -2409,6 +2902,10 @@ window.ProfHelpers     = {
   getStartOfWeek, getEndOfWeek, ymdFromDate, formatDateBR,
   CLASS_STATUS_LABEL, CLASS_STATUS_COLOR,
   // Sprint 3b — constantes de notif/sub/cov
+  // Sprint 6a — VacationService
+  VacationService, validateVacationRequest,
+  VACATION_ANTECEDENCIA_EFETIVO: ANTECEDENCIA_EFETIVO,
+  VACATION_ANTECEDENCIA_ESTAGIARIO: ANTECEDENCIA_ESTAGIARIO,
   NOTIF_TYPE_META, SUBSTITUTION_STATUS_LABEL, COVERAGE_STATUS_LABEL,
   // Sprint 4a — helpers de fechamento
   calculateTeacherHours, calculateTeacherValue, getEffectiveSalaryAt,

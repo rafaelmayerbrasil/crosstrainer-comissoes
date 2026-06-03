@@ -5,3 +5,29 @@ commission.txt
 index.txt
 indexOLD.html
 .claude/settings.local.json
+.claude/worktrees/
+
+# Estado local de ferramentas
+.superpowers/
+
+# Planilhas de vendas (dados, não código)
+vendas*.xlsx
+vendas*.xls
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+
+# Service Accounts (NUNCA commitar — contêm credenciais privadas)
+scripts/serviceAccount-*.json
+functions/serviceAccount-*.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Build artifacts
+.cache/
+dist/

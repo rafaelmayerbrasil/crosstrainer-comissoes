@@ -27,11 +27,11 @@ const AppState = {
 
 /* ─── Configuração de páginas por perfil ────────────────────────── */
 const PROF_PAGES = {
-  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos'],
-  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento'],
-  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda'],
-  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos'],
-  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos'],
+  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias'],
+  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias'],
+  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias'],
+  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias'],
+  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias'],
 };
 
 const PAGE_DEFINITIONS = [
@@ -44,6 +44,8 @@ const PAGE_DEFINITIONS = [
   { id: 'fechamento',   label: 'Fechamento',     icon: '💰', section: 'Financeiro' },
   { id: 'pagamentos',      label: 'Pagamentos',      icon: '💳', section: 'Financeiro' },
   { id: 'meus-pagamentos', label: 'Meus Pagamentos', icon: '💳', section: 'Financeiro' },
+  { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Operação' },
+  { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Operação' },
 ];
 
 /* ─── Helpers de perfil ─────────────────────────────────────────── */
@@ -457,6 +459,15 @@ function navigateTo(pageId) {
     renderPagamentosPage();
   } else if (pageId === 'meus-pagamentos' && typeof renderMeusPagamentosPage === 'function') {
     renderMeusPagamentosPage();
+  } else if (pageId === 'escalas' && typeof renderEscalasPage === 'function') {
+    renderEscalasPage();
+  } else if (pageId === 'ferias' && typeof renderFeriasGestaoPage === 'function' && typeof renderMinhasFeriasPage === 'function') {
+    // Admin/Gestão/Supervisão veem tela de gestão; Professor vê "Minhas Férias"
+    if (isAdminGestao() || isSupervisao()) {
+      renderFeriasGestaoPage();
+    } else {
+      renderMinhasFeriasPage();
+    }
   }
 
   // Fecha menu mobile se estiver aberto

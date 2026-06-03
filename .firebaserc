@@ -1,0 +1,10 @@
+{
+  "projects": {
+    "default": "crosstrainer-comissoes-staging",
+    "staging": "crosstrainer-comissoes-staging",
+    "production": "crosstrainer-comissoes"
+  },
+  "targets": {},
+  "etags": {},
+  "_comment": "default aponta para staging — protege contra deploy acidental em produção. Para deploy em prod use sempre: firebase deploy --project production"
+}

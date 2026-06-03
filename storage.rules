@@ -1,0 +1,28 @@
+rules_version = '2';
+// ═══════════════════════════════════════════════════════════════════════
+// CrossTainer — Storage Security Rules
+// Spec: §12.2 do EspecificacaoTecnica_Modulo_Professores_CrossTainer_V1.md
+// ═══════════════════════════════════════════════════════════════════════
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Recibos PDF — gerados por Cloud Function ─────────────────────
+    // Path pattern: receipts/{year}/{month}/{teacherId}.pdf
+    match /receipts/{year}/{month}/{file} {
+      // Leitura: apenas Admin OU o próprio professor (file começa com seu uid)
+      allow read: if request.auth != null && (
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.profiles
+          .hasAny(['admin', 'admin_gestao']) ||
+        file.matches(request.auth.uid + '.*')
+      );
+      // Apenas Cloud Functions escrevem (via Admin SDK)
+      allow write: if false;
+    }
+
+    // ─── Default deny ─────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

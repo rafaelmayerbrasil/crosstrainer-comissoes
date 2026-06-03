@@ -186,13 +186,28 @@ service cloud.firestore {
       }
     }
 
+    // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
+    match /meta/{doc} {
+      allow read:  if isAuth() && hasProfModule() && doc.matches('holidays_cache_.*');
+      allow write: if false;
+    }
+
     match /vacation_requests/{id} {
-      allow read:   if isAuth() && (
-                      isAdmin() || isSuperv() ||
-                      resource.data.teacherId == uData().professorId
-                    );
-      allow create: if isAuth() && hasProfModule();
-      allow update: if isAuth() && (isAdmin() || isSuperv());
+      allow read: if isAuth() && (
+        isAdmin() || isSuperv() ||
+        resource.data.teacherId == uData().professorId
+      );
+      allow create: if isAuth() && hasProfModule()
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pendente';
+      allow update: if isAuth() && (
+        // Admin/gestão pode aprovar/recusar/cancelar
+        isAdmin() || isSuperv() ||
+        // Solicitante pode cancelar apenas se ainda pendente
+        (resource.data.requestedBy == request.auth.uid
+         && resource.data.status == 'pendente'
+         && request.resource.data.status == 'cancelada')
+      );
       allow delete: if false;
     }
 
