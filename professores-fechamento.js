@@ -331,6 +331,18 @@ function renderTeacherTable(teachers, totals, readOnly) {
       ? t.otherBenefits.map(b => `${escapeHtml(b.nome || '?')}: ${fmt(b.valor || 0)}`).join('<br>')
       : '—';
 
+    const hasVacation = t.vacationValue > 0;
+    const vacRow = hasVacation ? `
+      <tr class="${t.isVacationOnly ? 'row-vacation-only' : 'row-vacation'}">
+        <td colspan="8" style="text-align:right;font-size:12px;padding:6px 12px;">
+          🏖️ Férias: ${(t.vacationDetails || []).map(vd =>
+            `${vd.daysInMonth} dia(s) · ${vd.paymentMode === 'auto' ? 'Automático' : vd.paymentMode === 'manual' ? 'Manual' : vd.paymentMode} · ${fmt(vd.proportionalValue)}`
+          ).join(' | ')}
+          ${t.isVacationOnly ? '<br><em>Período sem aulas — pagamento exclusivo de férias</em>' : ''}
+        </td>
+      </tr>
+    ` : '';
+
     return `
       <tr>
         <td>
@@ -345,6 +357,7 @@ function renderTeacherTable(teachers, totals, readOnly) {
         <td style="text-align:right;font-size:12px;">${outrosList}</td>
         <td class="mono" style="text-align:right;font-weight:700;">${fmt(t.valorTotal)}</td>
       </tr>
+      ${vacRow}
     `;
   }).join('');
 
@@ -377,6 +390,16 @@ function renderTeacherTable(teachers, totals, readOnly) {
             <td></td>
             <td class="mono" style="text-align:right;">${fmt(totals.totalValor)}</td>
           </tr>
+          ${(totals.totalVacationValue || 0) > 0 ? `
+          <tr>
+            <td colspan="7" style="text-align:right;font-weight:600;">🏖️ Total Férias</td>
+            <td class="mono" style="text-align:right;font-weight:700;">${fmt(totals.totalVacationValue)}</td>
+          </tr>
+          <tr>
+            <td colspan="7" style="text-align:right;font-weight:700;font-size:14px;">💵 TOTAL GERAL</td>
+            <td class="mono" style="text-align:right;font-weight:700;font-size:14px;">${fmt(totals.totalGeral)}</td>
+          </tr>
+          ` : ''}
         </tfoot>
       </table>
     </div>

@@ -1078,6 +1078,223 @@ async function cmdSmoke6a() {
   console.log('\n══════ FIM SMOKE TEST Sprint 6a ══════\n');
 }
 
+// ─── Sprint 6b — Comandos de pagamento de férias ──────────────────────
+
+async function cmdVacationPreview(reqId, mode) {
+  const doc = await db.collection('vacation_requests').doc(reqId).get();
+  if (!doc.exists) { console.log('Pedido não encontrado'); return; }
+  const req = { id: doc.id, ...doc.data() };
+
+  mode = mode || 'auto';
+  const noPayIntern = process.argv.includes('--no-pay-intern');
+
+  console.log(`\nCalculando preview para ${req.teacherName} (${req.teacherType}) — modo ${mode}...\n`);
+
+  if (mode === 'auto') {
+    if (req.teacherType === 'efetivo') {
+      const snap = await db.collection('monthly_closings')
+        .where('unitId', '==', req.unitId)
+        .where('status', '==', 'fechado')
+        .orderBy('year', 'desc').orderBy('month', 'desc')
+        .limit(12).get();
+
+      const monthsData = [];
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const t = (data.teachers || []).find(x => x.teacherId === req.teacherId);
+        if (t && typeof t.valorHoras === 'number' && t.valorHoras > 0) {
+          monthsData.push({ valorHoras: t.valorHoras, year: data.year, month: data.month });
+        }
+      });
+
+      if (monthsData.length < 3) {
+        console.log(`ERRO: Histórico insuficiente (${monthsData.length} meses). Use modo manual.`);
+        return;
+      }
+
+      const base12mAvg = monthsData.reduce((a, b) => a + b.valorHoras, 0) / monthsData.length;
+      const baseLastMonth = monthsData[0].valorHoras;
+      const baseMonthly = Math.max(base12mAvg, baseLastMonth);
+      const daysCount = (req.periods || []).reduce((s, p) => s + (p.days || 0), 0);
+      const proportionalBase = baseMonthly * daysCount / 30;
+      const oneThirdValue = proportionalBase / 3;
+      const value = Math.round((proportionalBase + oneThirdValue) * 100) / 100;
+
+      console.log(`  Base 12m média:   R$ ${base12mAvg.toFixed(2)}`);
+      console.log(`  Base último mês:  R$ ${baseLastMonth.toFixed(2)}`);
+      console.log(`  Base usada (MAX): R$ ${baseMonthly.toFixed(2)}`);
+      console.log(`  Proporcional:     R$ ${proportionalBase.toFixed(2)} (${daysCount}/30 dias)`);
+      console.log(`  1/3 CLT:          R$ ${oneThirdValue.toFixed(2)}`);
+      console.log(`  TOTAL:            R$ ${value.toFixed(2)}`);
+    } else if (req.teacherType === 'estagiario') {
+      if (noPayIntern) {
+        console.log('  ⚠️ --no-pay-intern: registraria como sem pagamento');
+        return;
+      }
+      const salaryDoc = await db.collection('teacher_salaries').doc(req.teacherId).get();
+      if (!salaryDoc.exists) { console.log('ERRO: teacher_salaries não encontrado'); return; }
+      const stipend = salaryDoc.data().internMonthlyStipend || 0;
+      const daysCount = (req.periods || []).reduce((s, p) => s + (p.days || 0), 0);
+      const value = Math.round((stipend * daysCount / 30) * 100) / 100;
+      console.log(`  Bolsa mensal:     R$ ${stipend.toFixed(2)}`);
+      console.log(`  Proporcional:     R$ ${value.toFixed(2)} (${daysCount}/30 dias)`);
+      console.log(`  TOTAL:            R$ ${value.toFixed(2)}`);
+    }
+  } else if (mode === 'manual') {
+    console.log('  Use set-vacation-payment para aplicar com valor específico.');
+  } else if (mode === 'none') {
+    console.log('  Use set-vacation-payment <reqId> none <justificativa> para registrar sem pagamento.');
+  } else if (mode === 'deferred') {
+    console.log('  Use set-vacation-payment <reqId> deferred para adiar.');
+  } else {
+    console.log('Modo inválido. Use: auto | manual | none | deferred');
+  }
+}
+
+async function cmdSetVacationPayment(reqId, mode, ...rest) {
+  const doc = await db.collection('vacation_requests').doc(reqId).get();
+  if (!doc.exists) { console.log('Pedido não encontrado'); return; }
+  const before = doc.data();
+
+  if (before.status !== 'aprovada') {
+    console.log('ERRO: pedido não está aprovado. Aprove primeiro (approve-vacation).');
+    return;
+  }
+
+  let paymentData;
+
+  if (mode === 'deferred') {
+    paymentData = { mode: 'deferred', value: 0, calculation: null, notes: 'Pagamento adiado pelo admin' };
+  } else if (mode === 'none') {
+    const notes = rest.join(' ');
+    if (!notes) { console.log('ERRO: justificativa obrigatória para "sem pagamento".'); return; }
+    paymentData = { mode: 'none', value: 0, calculation: null, notes };
+  } else if (mode === 'manual') {
+    const value = parseFloat(rest[0]);
+    const notes = rest.slice(1).join(' ') || null;
+    if (isNaN(value) || value < 0) { console.log('ERRO: valor inválido.'); return; }
+    if (value === 0 && !notes) { console.log('ERRO: observação obrigatória se valor zero.'); return; }
+    paymentData = { mode: 'manual', value, calculation: null, notes };
+  } else if (mode === 'auto') {
+    if (before.teacherType === 'efetivo') {
+      const snap = await db.collection('monthly_closings')
+        .where('unitId', '==', before.unitId)
+        .where('status', '==', 'fechado')
+        .orderBy('year', 'desc').orderBy('month', 'desc')
+        .limit(12).get();
+
+      const monthsData = [];
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const t = (data.teachers || []).find(x => x.teacherId === before.teacherId);
+        if (t && typeof t.valorHoras === 'number' && t.valorHoras > 0) {
+          monthsData.push({ valorHoras: t.valorHoras });
+        }
+      });
+
+      if (monthsData.length < 3) {
+        console.log(`ERRO: Histórico insuficiente (${monthsData.length} meses). Use modo manual.`);
+        return;
+      }
+
+      const base12mAvg = monthsData.reduce((a, b) => a + b.valorHoras, 0) / monthsData.length;
+      const baseLastMonth = monthsData[0].valorHoras;
+      const baseMonthly = Math.max(base12mAvg, baseLastMonth);
+      const daysCount = (before.periods || []).reduce((s, p) => s + (p.days || 0), 0);
+      const proportionalBase = baseMonthly * daysCount / 30;
+      const oneThirdValue = proportionalBase / 3;
+      const value = Math.round((proportionalBase + oneThirdValue) * 100) / 100;
+
+      paymentData = {
+        mode: 'auto', value,
+        calculation: {
+          baseMonthly: Math.round(baseMonthly * 100) / 100,
+          base12mAvg: Math.round(base12mAvg * 100) / 100,
+          baseLastMonth: Math.round(baseLastMonth * 100) / 100,
+          monthsConsidered: monthsData.length,
+          oneThirdValue: Math.round(oneThirdValue * 100) / 100,
+          proportionalBase: Math.round(proportionalBase * 100) / 100,
+          daysCount,
+          formula: 'efetivo-clt-max',
+        },
+        notes: null,
+      };
+    } else {
+      console.log('ERRO: auto só funciona para efetivo. Para estagiário, use o UI.');
+      return;
+    }
+  } else {
+    console.log('Modo inválido. Use: auto | manual | none | deferred');
+    return;
+  }
+
+  await db.collection('vacation_requests').doc(reqId).update({
+    payment: {
+      ...paymentData,
+      setBy: 'admin-sdk',
+      setByName: 'Admin SDK',
+      setAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: null,
+      updatedByName: null,
+      updatedAt: null,
+    },
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`✓ Pagamento definido: ${paymentData.mode} · R$ ${(paymentData.value || 0).toFixed(2)}`);
+}
+
+async function cmdSmoke6b() {
+  console.log('\n══════ SMOKE TEST Sprint 6b — Pagamento de Férias ══════\n');
+
+  const all = await db.collection('vacation_requests').get();
+  const withPayment = all.docs.filter(d => d.data().payment).length;
+  const paid = all.docs.filter(d => (d.data().paidInClosingIds || []).length > 0).length;
+  const withDenorm = all.docs.filter(d => d.data().firstPeriodStart).length;
+
+  console.log(`Total vacation_requests: ${all.size}`);
+  console.log(`  Com payment definido: ${withPayment}`);
+  console.log(`  Já pagos (paidInClosingIds > 0): ${paid}`);
+  console.log(`  Com denormalização (firstPeriodStart): ${withDenorm}`);
+
+  const byMode = { auto: 0, manual: 0, none: 0, deferred: 0 };
+  all.docs.forEach(d => {
+    const m = d.data().payment?.mode;
+    if (m && byMode[m] !== undefined) byMode[m]++;
+  });
+  const pendingCount = byMode.deferred + (all.size - withPayment);
+  console.log(`\nPor modo: auto=${byMode.auto} manual=${byMode.manual} none=${byMode.none} deferred=${byMode.deferred}`);
+  console.log(`Pagamentos pendentes (deferred + sem payment): ${pendingCount}`);
+
+  // Fechamentos com férias
+  const closingsSnap = await db.collection('monthly_closings')
+    .where('status', '==', 'fechado').get();
+  let vacOnlyCount = 0, closingsWithVacation = 0;
+  closingsSnap.docs.forEach(c => {
+    const d = c.data();
+    const vacTeachers = (d.teachers || []).filter(t => t.isVacationOnly || t.vacationValue > 0);
+    if (vacTeachers.length > 0) closingsWithVacation++;
+    vacOnlyCount += vacTeachers.filter(t => t.isVacationOnly).length;
+  });
+  console.log(`\nFechamentos com férias: ${closingsWithVacation}`);
+  console.log(`Teachers isVacationOnly: ${vacOnlyCount}`);
+
+  // Audit
+  const auditPayments = await db.collection('audit_log')
+    .where('module', '==', 'ferias')
+    .where('type', 'in', ['vacation_payment_set', 'vacation_payment_updated'])
+    .orderBy('timestamp', 'desc').limit(10).get();
+  console.log(`\nAudit pagamentos (últimos 10): ${auditPayments.size} entries`);
+  auditPayments.docs.forEach(d => {
+    const a = d.data();
+    const ts = a.timestamp ? a.timestamp.toDate().toISOString().slice(0, 19) : '?';
+    console.log(`  [${ts}] ${a.type}: ${(a.details || '').slice(0, 120)}`);
+  });
+
+  console.log('\n══════ FIM SMOKE TEST Sprint 6b ══════\n');
+  console.log('Para validação completa C1-C16: node scripts/fixture-6b.js --project staging');
+}
+
 // ─── Dispatch ────────────────────────────────────────────────────────
 (async () => {
   try {
@@ -1105,6 +1322,9 @@ async function cmdSmoke6a() {
       case 'approve-vacation':      await cmdApproveVacation(cmdArgs[0]); break;
       case 'reject-vacation':       await cmdRejectVacation(cmdArgs[0], cmdArgs.slice(1).join(' ')); break;
       case 'smoke-6a':              await cmdSmoke6a(); break;
+      case 'vacation-preview':      await cmdVacationPreview(cmdArgs[0], cmdArgs[1]); break;
+      case 'set-vacation-payment':  await cmdSetVacationPayment(cmdArgs[0], cmdArgs[1], ...cmdArgs.slice(2)); break;
+      case 'smoke-6b':              await cmdSmoke6b(); break;
       default:
         if (cmd) console.error(`❌ Comando desconhecido: ${cmd}`);
         await cmdHelp();

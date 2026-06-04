@@ -1762,6 +1762,36 @@ function getEffectiveSalaryAt(salary, date) {
 }
 
 /**
+ * Retorna o internMonthlyStipend vigente em uma data específica.
+ * Espelha a lógica de getEffectiveSalaryAt: percorre salaryHistory
+ * rebobinando mudanças com effectiveDate > targetDate.
+ */
+function getEffectiveStipendAt(salaryData, date) {
+  if (!salaryData) return 0;
+  let stipend = salaryData.internMonthlyStipend || 0;
+  const targetMs = date.getTime();
+
+  if (!Array.isArray(salaryData.salaryHistory) || salaryData.salaryHistory.length === 0) {
+    return stipend;
+  }
+
+  const sorted = [...salaryData.salaryHistory].sort((a, b) => {
+    const ta = (a.effectiveDate && a.effectiveDate.toMillis) ? a.effectiveDate.toMillis() : 0;
+    const tb = (b.effectiveDate && b.effectiveDate.toMillis) ? b.effectiveDate.toMillis() : 0;
+    return tb - ta;
+  });
+
+  for (const entry of sorted) {
+    const entryMs = (entry.effectiveDate && entry.effectiveDate.toMillis) ? entry.effectiveDate.toMillis() : 0;
+    if (entryMs > targetMs && entry.field === 'internMonthlyStipend') {
+      stipend = entry.previousValue;
+    }
+  }
+
+  return stipend;
+}
+
+/**
  * Calcula valor a pagar para um professor.
  * Branch:
  *   - Efetivo/Eventual: horas × hourlyRate + VR + VT + Outros
@@ -2098,6 +2128,21 @@ const ReceiptService = {
           })),
           totalCreditoAplicado: totalCredito,
           valorLiquido,
+          // Sprint 6b — dados de férias pro recibo
+          hasVacation: (teacherEntry.vacationDetails || []).length > 0,
+          vacationValue: teacherEntry.vacationValue || 0,
+          vacationDaysInMonth: teacherEntry.vacationDaysInMonth || 0,
+          isVacationOnly: teacherEntry.isVacationOnly || false,
+          vacationDetails: (teacherEntry.vacationDetails || []).map(vd => ({
+            periodStart: vd.periodStart,
+            periodEnd: vd.periodEnd,
+            daysInMonth: vd.daysInMonth,
+            paymentMode: vd.paymentMode || 'manual',
+            baseMonthly: vd.baseMonthly || 0,
+            proportionalBase: vd.proportionalBase || vd.proportionalValue || 0,
+            oneThirdValue: vd.oneThirdValue || 0,
+            proportionalValue: vd.proportionalValue || 0,
+          })),
           status: 'aguardando_pagamento',
           emittedAt: serverTs(), emittedBy: currentUserId(), emittedByName: currentUserName(),
           paidAt: null, paidBy: null, paymentRecordId: null,
@@ -2680,7 +2725,7 @@ const VacationService = {
       const validationErr = validateVacationRequest({ teacher, type, periods, force });
       if (validationErr) return { success: false, error: validationErr };
 
-      const normalizedPeriods = periods.map(p => {
+      const sortedPeriods = periods.map(p => {
         const start = p.startDate && p.startDate.toDate ? p.startDate.toDate() : new Date(p.startDate);
         const end = p.endDate && p.endDate.toDate ? p.endDate.toDate() : new Date(p.endDate);
         const days = Math.round((end - start) / 86400000) + 1;
@@ -2689,8 +2734,8 @@ const VacationService = {
           endDate: firebase.firestore.Timestamp.fromDate(end),
           days,
         };
-      });
-      const totalDays = normalizedPeriods.reduce((s, p) => s + p.days, 0);
+      }).sort((a, b) => a.startDate.toMillis() - b.startDate.toMillis());
+      const totalDays = sortedPeriods.reduce((s, p) => s + p.days, 0);
 
       const ref = db.collection('vacation_requests').doc();
       const uid = currentUserId();
@@ -2700,8 +2745,11 @@ const VacationService = {
         teacherType: teacher.type,
         unitId: teacher.primaryUnitId || (teacher.unitIds && teacher.unitIds[0]) || null,
         type,
-        periods: normalizedPeriods,
+        periods: sortedPeriods,
         totalDays,
+        // ─── Sprint 6b — denormalização pra query por período ───
+        firstPeriodStart: sortedPeriods[0].startDate,
+        lastPeriodEnd: sortedPeriods[sortedPeriods.length - 1].endDate,
         reason: (reason || '').toString().slice(0, 500),
         status: 'pendente',
         requestedAt: serverTs(),
@@ -2742,13 +2790,13 @@ const VacationService = {
     }
   },
 
-  async approve(reqId, note = '') { return this._respond(reqId, 'aprovada', note); },
+  async approve(reqId, note = '', paymentData = null) { return this._respond(reqId, 'aprovada', note, paymentData); },
   async reject(reqId, note) {
     if (!note) return { success: false, error: 'Motivo da recusa é obrigatório' };
     return this._respond(reqId, 'recusada', note);
   },
 
-  async _respond(reqId, status, note) {
+  async _respond(reqId, status, note, paymentData = null) {
     try {
       const ref = db.collection('vacation_requests').doc(reqId);
       const beforeDoc = await ref.get();
@@ -2765,6 +2813,45 @@ const VacationService = {
         responseNote: (note || '').toString().slice(0, 500) || null,
         updatedAt: serverTs(),
       };
+
+      // Sprint 6b — se veio paymentData, inclui payment no mesmo update
+      if (paymentData) {
+        after.payment = {
+          mode: paymentData.mode,
+          value: paymentData.value || 0,
+          calculation: paymentData.calculation || null,
+          notes: paymentData.notes || null,
+          setBy: currentUserId(),
+          setByName: currentUserName(),
+          setAt: serverTs(),
+          updatedBy: null,
+          updatedByName: null,
+          updatedAt: null,
+        };
+
+        // Notificação de pagamento (junto com a aprovação)
+        if (paymentData.mode !== 'deferred') {
+          await NotificationService.create({
+            recipientUserId: before.requestedBy,
+            type: 'vacation_payment_set',
+            title: 'Pagamento de férias definido',
+            body: paymentData.value > 0
+              ? `${before.type} de ${before.totalDays} dias — R$ ${paymentData.value.toFixed(2)} (${paymentData.mode})`
+              : `${before.type} de ${before.totalDays} dias registrada sem pagamento`,
+            link: { type: 'vacation', id: reqId },
+          });
+        }
+
+        await AuditService.log({
+          type: 'vacation_payment_set',
+          details: `Definido pagamento de ${before.type} ${before.teacherName}: R$ ${(paymentData.value || 0).toFixed(2)} (${paymentData.mode})`,
+          entityType: 'vacation_request', entityId: reqId,
+          before: { payment: null },
+          after: { payment: after.payment },
+          module: 'ferias',
+        });
+      }
+
       await ref.update(after);
 
       await NotificationService.create({
@@ -2873,6 +2960,251 @@ const VacationService = {
   },
 };
 
+// ─── Sprint 6b — VacationPaymentService ─────────────────────────────────────
+
+const VacationPaymentService = {
+
+  // ─── calculateForRequest ───────────────────────────────────────────────
+  async calculateForRequest(req, opts = {}) {
+    if (!req || !req.teacherId || !Array.isArray(req.periods)) {
+      return { success: false, error: 'vacation_request inválido' };
+    }
+    const mode = opts.mode || 'auto';
+    const notes = (opts.notes || '').trim();
+
+    if (mode === 'deferred') {
+      return { success: true, data: { mode: 'deferred', value: 0, calculation: null, notes: notes || 'Pagamento adiado pelo admin' } };
+    }
+
+    if (mode === 'none') {
+      if (!notes) return { success: false, error: 'Justificativa obrigatória para "sem pagamento".' };
+      return { success: true, data: { mode: 'none', value: 0, calculation: null, notes } };
+    }
+
+    if (mode === 'manual') {
+      const value = parseFloat(opts.manualValue);
+      if (isNaN(value) || value < 0) return { success: false, error: 'Valor manual inválido.' };
+      if (value === 0 && !notes) return { success: false, error: 'Observação obrigatória se valor manual é zero.' };
+      return { success: true, data: { mode: 'manual', value, calculation: null, notes: notes || null } };
+    }
+
+    // mode === 'auto'
+    if (req.teacherType === 'efetivo') return this._calculateEfetivoAuto(req, notes);
+    if (req.teacherType === 'estagiario') {
+      if (opts.payIntern === false) {
+        return { success: true, data: { mode: 'none', value: 0, calculation: null, notes: notes || 'Estagiário sem bolsa proporcional nesta solicitação.' } };
+      }
+      return this._calculateEstagiarioAuto(req, notes);
+    }
+    return { success: false, error: 'Tipo de professor não suportado.' };
+  },
+
+  // ─── _calculateEfetivoAuto (v2 com MAX) ─────────────────────────────────
+  async _calculateEfetivoAuto(req, notes) {
+    const db = firebase.firestore();
+    const snap = await db.collection('monthly_closings')
+      .where('unitId', '==', req.unitId)
+      .where('status', '==', 'fechado')
+      .orderBy('year', 'desc').orderBy('month', 'desc')
+      .limit(12).get();
+
+    const monthsData = [];
+    snap.docs.forEach(d => {
+      const data = d.data();
+      const t = (data.teachers || []).find(x => x.teacherId === req.teacherId);
+      if (t && typeof t.valorHoras === 'number' && t.valorHoras > 0) {
+        monthsData.push({ valorHoras: t.valorHoras, year: data.year, month: data.month });
+      }
+    });
+
+    if (monthsData.length < 3) {
+      return { success: false, error: `Histórico insuficiente (${monthsData.length} meses com horas). Defina pagamento manual.` };
+    }
+
+    const base12mAvg = monthsData.reduce((a, b) => a + b.valorHoras, 0) / monthsData.length;
+    const baseLastMonth = monthsData[0].valorHoras;
+    const baseMonthly = Math.max(base12mAvg, baseLastMonth);
+
+    const daysCount = (req.periods || []).reduce((s, p) => s + (p.days || 0), 0);
+    const proportionalBase = baseMonthly * daysCount / 30;
+    const oneThirdValue = proportionalBase / 3;
+    const value = Math.round((proportionalBase + oneThirdValue) * 100) / 100;
+
+    return {
+      success: true,
+      data: {
+        mode: 'auto', value,
+        calculation: {
+          baseMonthly: Math.round(baseMonthly * 100) / 100,
+          base12mAvg: Math.round(base12mAvg * 100) / 100,
+          baseLastMonth: Math.round(baseLastMonth * 100) / 100,
+          monthsConsidered: monthsData.length,
+          oneThirdValue: Math.round(oneThirdValue * 100) / 100,
+          proportionalBase: Math.round(proportionalBase * 100) / 100,
+          daysCount,
+          formula: 'efetivo-clt-max',
+        },
+        notes: notes || null,
+      }
+    };
+  },
+
+  // ─── _calculateEstagiarioAuto ────────────────────────────────────────────
+  async _calculateEstagiarioAuto(req, notes) {
+    const db = firebase.firestore();
+    const earliestStart = req.periods.reduce((min, p) => {
+      const d = p.startDate.toDate ? p.startDate.toDate() : new Date(p.startDate);
+      return (!min || d < min) ? d : min;
+    }, null);
+
+    const salaryDoc = await db.collection('teacher_salaries').doc(req.teacherId).get();
+    if (!salaryDoc.exists) {
+      return { success: false, error: 'Cadastro salarial do estagiário não encontrado.' };
+    }
+    const stipend = getEffectiveStipendAt(salaryDoc.data(), earliestStart);
+    if (!stipend || stipend <= 0) {
+      return { success: false, error: 'Bolsa mensal não definida para esta data. Use modo manual ou registre como sem pagamento.' };
+    }
+
+    const daysCount = (req.periods || []).reduce((s, p) => s + (p.days || 0), 0);
+    const proportionalBase = stipend * daysCount / 30;
+    const value = Math.round(proportionalBase * 100) / 100;
+
+    return {
+      success: true,
+      data: {
+        mode: 'auto', value,
+        calculation: {
+          baseMonthly: stipend, base12mAvg: stipend, baseLastMonth: stipend,
+          monthsConsidered: 1,
+          oneThirdValue: 0, proportionalBase: value,
+          daysCount, formula: 'estagiario-bolsa-proporcional',
+        },
+        notes: notes || null,
+      }
+    };
+  },
+
+  // ─── getInternPayDefault ──────────────────────────────────────────────────
+  getInternPayDefault(teacher, salaryData) {
+    if (teacher.type !== 'estagiario') return false;
+    const stipend = getEffectiveStipendAt(salaryData, new Date());
+    return stipend > 0;
+  },
+
+  // ─── setPayment ───────────────────────────────────────────────────────────
+  async setPayment(reqId, paymentData) {
+    if (!reqId || !paymentData) return { success: false, error: 'Argumentos obrigatórios' };
+    const db = firebase.firestore();
+    try {
+      const ref = db.collection('vacation_requests').doc(reqId);
+      const beforeDoc = await ref.get();
+      if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
+      const before = beforeDoc.data();
+
+      if (before.status !== 'aprovada') {
+        return { success: false, error: 'Só é possível definir pagamento em férias aprovadas.' };
+      }
+      if (Array.isArray(before.paidInClosingIds) && before.paidInClosingIds.length > 0) {
+        return { success: false, error: 'Pagamento já foi processado em fechamento — não pode ser editado.' };
+      }
+
+      const uid = currentUserId();
+      const isUpdate = before.payment && before.payment.setAt;
+
+      const payment = {
+        mode: paymentData.mode,
+        value: paymentData.value || 0,
+        calculation: paymentData.calculation || null,
+        notes: paymentData.notes || null,
+      };
+
+      if (isUpdate) {
+        payment.setBy = before.payment.setBy;
+        payment.setByName = before.payment.setByName;
+        payment.setAt = before.payment.setAt;
+        payment.updatedBy = uid;
+        payment.updatedByName = currentUserName();
+        payment.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+      } else {
+        payment.setBy = uid;
+        payment.setByName = currentUserName();
+        payment.setAt = firebase.firestore.FieldValue.serverTimestamp();
+        payment.updatedBy = null;
+        payment.updatedByName = null;
+        payment.updatedAt = null;
+      }
+
+      await ref.update({
+        payment,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Notificação ao professor (só se NÃO é deferred)
+      if (payment.mode !== 'deferred') {
+        await NotificationService.create({
+          recipientUserId: before.requestedBy,
+          type: 'vacation_payment_set',
+          title: isUpdate ? 'Pagamento de férias atualizado' : 'Pagamento de férias definido',
+          body: payment.value > 0
+            ? `${before.type} de ${before.totalDays} dias — R$ ${payment.value.toFixed(2)} (${payment.mode})`
+            : `${before.type} de ${before.totalDays} dias registrada sem pagamento`,
+          link: { type: 'vacation', id: reqId },
+        });
+      }
+
+      await AuditService.log({
+        type: isUpdate ? 'vacation_payment_updated' : 'vacation_payment_set',
+        details: `${isUpdate ? 'Atualizado' : 'Definido'} pagamento de ${before.type} ${before.teacherName}: R$ ${payment.value.toFixed(2)} (${payment.mode})`,
+        entityType: 'vacation_request', entityId: reqId,
+        before: { payment: before.payment || null },
+        after: { payment },
+        module: 'ferias',
+      });
+
+      return { success: true, data: payment };
+    } catch (err) {
+      console.error('[VacationPaymentService.setPayment]', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  // ─── updatePayment ────────────────────────────────────────────────────────
+  async updatePayment(reqId, paymentData) {
+    return this.setPayment(reqId, paymentData);
+  },
+
+  // ─── previewMonthlyImpact ─────────────────────────────────────────────────
+  async previewMonthlyImpact(reqId, year, month) {
+    const db = firebase.firestore();
+    const doc = await db.collection('vacation_requests').doc(reqId).get();
+    if (!doc.exists) return { success: false, error: 'Pedido não encontrado' };
+    const req = { id: doc.id, ...doc.data() };
+    if (!req.payment || req.payment.value <= 0) {
+      return { success: false, error: 'Pedido sem pagamento definido' };
+    }
+
+    const monthStart = new Date(Date.UTC(year, month - 1, 1, 3, 0, 0));
+    const monthEnd = new Date(Date.UTC(year, month, 0, 3, 0, 0));
+    monthEnd.setUTCHours(26, 59, 59, 999);
+
+    let daysInMonth = 0;
+    for (const p of (req.periods || [])) {
+      const ps = p.startDate.toDate();
+      const pe = p.endDate.toDate();
+      const clipStart = ps < monthStart ? monthStart : ps;
+      const clipEnd = pe > monthEnd ? monthEnd : pe;
+      if (clipStart > clipEnd) continue;
+      daysInMonth += Math.round((clipEnd - clipStart) / 86400000) + 1;
+    }
+
+    if (daysInMonth === 0) return { success: true, data: { daysInMonth: 0, proportionalValue: 0 } };
+
+    const proportionalValue = Math.round((req.payment.value * daysInMonth / req.totalDays) * 100) / 100;
+    return { success: true, data: { daysInMonth, proportionalValue } };
+  },
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // Expor para depuração via console
 // ────────────────────────────────────────────────────────────────────────
@@ -2893,6 +3225,7 @@ window.PaymentService         = PaymentService;
 window.CreditService          = CreditService;
 window.SpecialScaleService    = SpecialScaleService;
 window.VacationService        = VacationService;
+window.VacationPaymentService = VacationPaymentService;
 window.ProfHelpers     = {
   mascararCpf, getInitials, avatarHtml, internAlertHtml, fmt, formatDate, toTimestamp,
   // Sprint 2 — helpers de horário
@@ -2909,6 +3242,8 @@ window.ProfHelpers     = {
   NOTIF_TYPE_META, SUBSTITUTION_STATUS_LABEL, COVERAGE_STATUS_LABEL,
   // Sprint 4a — helpers de fechamento
   calculateTeacherHours, calculateTeacherValue, getEffectiveSalaryAt,
+  // Sprint 6b — VacationPaymentService
+  VacationPaymentService, getEffectiveStipendAt,
   // Sprint 4b — serviços de pagamento/recibo/crédito
   ReceiptService, PaymentService, CreditService,
 };

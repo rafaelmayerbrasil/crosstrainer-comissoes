@@ -126,6 +126,14 @@
       ]
     },
     {
+      "collectionGroup": "vacation_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",           "order": "ASCENDING" },
+        { "fieldPath": "firstPeriodStart", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "audit_log",
       "queryScope": "COLLECTION",
       "fields": [

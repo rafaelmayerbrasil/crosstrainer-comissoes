@@ -244,6 +244,9 @@ function showApp() {
   // Sprint 3b — sino de notificações
   setupNotificationsBell();
 
+  // Sprint 6b — contador de férias pendentes (admin/gestão)
+  setupVacationCounter();
+
   // Roteamento inicial — sempre 'home' por enquanto
   navigateTo('home');
 }
@@ -442,6 +445,9 @@ function navigateTo(pageId) {
   document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
   buildSidebar();
 
+  // Sprint 6b — reaplica badge de férias após rebuild da sidebar
+  applyVacationBadge();
+
   // Renderiza conteúdo conforme página (delegado para módulos específicos)
   if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
     renderModalidadesPage();
@@ -521,6 +527,52 @@ function updateEnvBadges() {
       el.style.display = 'none';
     }
   });
+}
+
+// ─── Sprint 6b — Contador de férias pendentes (sidebar) ─────────────
+
+let _vacationPendingCount = 0;
+
+function setupVacationCounter() {
+  if (!isAdminGestao()) return;
+
+  db.collection('vacation_requests')
+    .where('status', '==', 'aprovada')
+    .onSnapshot(snap => {
+      _vacationPendingCount = 0;
+      snap.docs.forEach(d => {
+        const payment = d.data().payment;
+        if (!payment || payment.mode === 'deferred') _vacationPendingCount++;
+      });
+      applyVacationBadge();
+    }, err => {
+      console.warn('[vacationCounter]', err);
+    });
+}
+
+function applyVacationBadge() {
+  const count = _vacationPendingCount;
+  const badge = document.getElementById('vacationPendingBadge');
+  if (!badge && count > 0) {
+    const items = document.querySelectorAll('.sb-item');
+    for (const item of items) {
+      if (item.textContent.includes('Férias') || item.textContent.includes('Ferias')) {
+        const span = document.createElement('span');
+        span.id = 'vacationPendingBadge';
+        span.className = 'sidebar-counter';
+        span.textContent = count;
+        item.appendChild(span);
+        break;
+      }
+    }
+  } else if (badge) {
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
 }
 
 /* ─── Init ────────────────────────────────────────────────────── */

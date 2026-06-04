@@ -201,12 +201,29 @@ service cloud.firestore {
         && request.resource.data.requestedBy == request.auth.uid
         && request.resource.data.status == 'pendente';
       allow update: if isAuth() && (
-        // Admin/gestão pode aprovar/recusar/cancelar
-        isAdmin() || isSuperv() ||
-        // Solicitante pode cancelar apenas se ainda pendente
+        // (A) Mudanças que tocam payment ou paidInClosingIds
+        // APENAS admin/admin_gestao (supervisor NÃO)
+        // Só permitido enquanto paidInClosingIds vazio
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['payment', 'paidInClosingIds'])
+          && isAdmin()
+          && (!('paidInClosingIds' in resource.data) || resource.data.paidInClosingIds.size() == 0)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['payment', 'paidInClosingIds', 'updatedAt'])
+        )
+        ||
+        // (B) Mudanças de status (admin, admin_gestao, supervisor)
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['payment', 'paidInClosingIds'])
+          && (isAdmin() || isSuperv())
+        )
+        ||
+        // (C) Solicitante cancelando pendente (6a — manter como está)
         (resource.data.requestedBy == request.auth.uid
          && resource.data.status == 'pendente'
-         && request.resource.data.status == 'cancelada')
+         && request.resource.data.status == 'cancelada'
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt', 'cancelledBy', 'cancelledByName', 'cancelledReason', 'updatedAt']))
       );
       allow delete: if false;
     }

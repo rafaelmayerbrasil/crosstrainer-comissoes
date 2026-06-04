@@ -95,6 +95,50 @@ function ymdISOFromDateBR(d) {
   return `${c.year}-${String(c.month + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`;
 }
 
+// Sprint 6b — recorta período de férias ao mês corrente
+function splitVacationAcrossMonth(vacReq, year, month) {
+  const monthStart = brMidnightUTC(year, month - 1, 1);
+  const monthEnd = brMidnightUTC(year, month, 0);
+  monthEnd.setUTCHours(23 + BR_OFFSET_HOURS, 59, 59, 999);
+
+  let daysInMonth = 0;
+  const periodsClipped = [];
+
+  for (const p of (vacReq.periods || [])) {
+    const ps = p.startDate.toDate();
+    const pe = p.endDate.toDate();
+
+    const clipStart = ps < monthStart ? monthStart : ps;
+    const clipEnd = pe > monthEnd ? monthEnd : pe;
+
+    if (clipStart > clipEnd) continue;
+
+    const days = Math.round((clipEnd - clipStart) / 86400000) + 1;
+    daysInMonth += days;
+    periodsClipped.push({ start: clipStart, end: clipEnd, days });
+  }
+
+  if (daysInMonth === 0) return null;
+
+  const paymentCalc = vacReq.payment && vacReq.payment.calculation;
+
+  return {
+    vacationRequestId: vacReq.id,
+    periodStart: admin.firestore.Timestamp.fromDate(periodsClipped[0].start),
+    periodEnd: admin.firestore.Timestamp.fromDate(periodsClipped[periodsClipped.length - 1].end),
+    daysInMonth,
+    fullPeriodDays: vacReq.totalDays,
+    paymentMode: vacReq.payment.mode,
+    proportionalValue: vacReq.totalDays > 0
+      ? Math.round((vacReq.payment.value * daysInMonth / vacReq.totalDays) * 100) / 100
+      : 0,
+    // Sprint 6b — campos para exibição no recibo A4
+    baseMonthly: paymentCalc ? (paymentCalc.baseMonthly || 0) : 0,
+    proportionalBase: paymentCalc ? (paymentCalc.proportionalBase || 0) : 0,
+    oneThirdValue: paymentCalc ? (paymentCalc.oneThirdValue || 0) : 0,
+  };
+}
+
 // ─── Cache de feriados (Sprint 5a) ─────────────────────────────────────
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;  // 7 dias
 
@@ -692,6 +736,9 @@ exports.closeMonth = onCall({
       23 + BR_OFFSET_HOURS, 59, 59, 999
     ));
 
+    // lastDayOfMonth movido pra cá (Sprint 6b precisa antes do bloco de férias)
+    const lastDayOfMonth = new Date(Date.UTC(year, month, 0, 23 + BR_OFFSET_HOURS, 59, 59, 999));
+
     // ── 2) Query classes da unidade no intervalo ───────────────────
     const classesSnap = await firestore.collection('classes')
       .where('unitId', '==', unitId)
@@ -736,8 +783,47 @@ exports.closeMonth = onCall({
       grouped[c.teacherId].push(c);
     }
 
+    // ═══════════════════════════════════════════════════════
+    // Sprint 6b — busca férias aprovadas do mês
+    // ═══════════════════════════════════════════════════════
+    const monthStart = brMidnightUTC(year, month - 1, 1);
+    const monthEnd = lastDayOfMonth;
+
+    const vacSnap = await firestore.collection('vacation_requests')
+      .where('status', '==', 'aprovada')
+      .where('firstPeriodStart', '<=', monthEnd)
+      .get();
+
+    const vacsInMonth = vacSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(v =>
+           v.lastPeriodEnd && v.lastPeriodEnd.toDate() >= monthStart
+        && v.unitId === unitId
+        && v.payment
+        && v.payment.value > 0
+        && v.payment.mode !== 'deferred'
+      );
+
+    // CRÍTICO (D17): garante que professor 100% em férias entre no fechamento
+    const vacationOnlyTeacherIds = [...new Set(
+      vacsInMonth.map(v => v.teacherId).filter(tid => !teacherIds.includes(tid))
+    )];
+
+    // Buscar teachers e salaries pros vacation-only
+    for (const tid of vacationOnlyTeacherIds) {
+      if (!teacherMap[tid]) {
+        const tDoc = await firestore.collection('teachers').doc(tid).get();
+        if (tDoc.exists) teacherMap[tid] = { id: tDoc.id, ...tDoc.data() };
+      }
+      if (!salaryMap[tid]) {
+        try {
+          const sDoc = await firestore.collection('teacher_salaries').doc(tid).get();
+          if (sDoc.exists) salaryMap[tid] = { id: sDoc.id, ...sDoc.data() };
+        } catch (_) {}
+      }
+    }
+
     // ── 8) Calcula por professor (replica lógica client-side) ──────
-    const lastDayOfMonth = new Date(Date.UTC(year, month, 0, 23 + BR_OFFSET_HOURS, 59, 59, 999));
 
     // Carrega special_scale_types pra cálculo de peso (Sprint 5a)
     const stSnap = await firestore.collection('special_scale_types').get();
@@ -751,6 +837,31 @@ exports.closeMonth = onCall({
     for (const c of allClasses) {
       if (c.status === 'cancelada') totalCanceladas++;
       if (c.status === 'nao_realizada') totalNaoRealizadas++;
+    }
+
+    // Sprint 6b — entries vacation-only (professores sem aulas no mês)
+    for (const tid of vacationOnlyTeacherIds) {
+      const teacher = teacherMap[tid] || { id: tid, name: '(desconhecido)', type: 'efetivo' };
+      teacherResults.push({
+        teacherId: tid,
+        teacherName: teacher.name || '(desconhecido)',
+        teacherType: teacher.type || 'efetivo',
+        classesCount: 0,
+        totalHoras: 0,
+        hourlyRate: 0,
+        effectiveDateUsed: null,
+        valorHoras: 0, mealAllowance: 0, transportAllowance: 0, otherBenefits: 0,
+        totalOutros: 0,
+        valorTotal: 0,
+        isInternProportional: false,
+        internStipendUsed: null,
+        internExcessHours: 0,
+        internExcessValue: 0,
+        isVacationOnly: true,
+        vacationDaysInMonth: 0,
+        vacationValue: 0,
+        vacationDetails: [],
+      });
     }
 
     for (const [tid, classes] of Object.entries(grouped)) {
@@ -785,6 +896,23 @@ exports.closeMonth = onCall({
       totalClassesCount += classes.length;
     }
 
+    // Sprint 6b — aplicar férias do mês aos teacherResults
+    for (const v of vacsInMonth) {
+      const split = splitVacationAcrossMonth(v, year, month);
+      if (!split) continue;
+
+      const tResult = teacherResults.find(t => t.teacherId === v.teacherId);
+      if (!tResult) {
+        logger.warn('[closeMonth] vacation sem teacher correspondente', { vacationId: v.id });
+        continue;
+      }
+
+      tResult.vacationDaysInMonth = (tResult.vacationDaysInMonth || 0) + split.daysInMonth;
+      tResult.vacationValue = Math.round(((tResult.vacationValue || 0) + split.proportionalValue) * 100) / 100;
+      tResult.vacationDetails = tResult.vacationDetails || [];
+      tResult.vacationDetails.push(split);
+    }
+
     teacherResults.sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'pt'));
 
     const totals = {
@@ -794,6 +922,10 @@ exports.closeMonth = onCall({
       classesNaoRealizadas: totalNaoRealizadas,
       totalHoras: Math.round(totalHoras * 100) / 100,
       totalValor: Math.round(totalValor * 100) / 100,
+      // Sprint 6b — férias
+      totalVacationDays: teacherResults.reduce((s, t) => s + (t.vacationDaysInMonth || 0), 0),
+      totalVacationValue: Math.round(teacherResults.reduce((s, t) => s + (t.vacationValue || 0), 0) * 100) / 100,
+      totalGeral: Math.round((Math.round(totalValor * 100) / 100 + Math.round(teacherResults.reduce((s, t) => s + (t.vacationValue || 0), 0) * 100) / 100) * 100) / 100,
     };
 
     // ── 9) Cria monthly_closings (com transação anti-race) ────────
@@ -843,6 +975,19 @@ exports.closeMonth = onCall({
       batches.push(batch.commit());
     }
     await Promise.all(batches);
+
+    // Sprint 6b — atualiza paidInClosingIds nos vacation_requests processados
+    if (vacsInMonth.length > 0) {
+      const vacBatch = firestore.batch();
+      for (const v of vacsInMonth) {
+        vacBatch.update(firestore.collection('vacation_requests').doc(v.id), {
+          paidInClosingIds: admin.firestore.FieldValue.arrayUnion(closingId),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      await vacBatch.commit();
+      logger.info('[closeMonth] paidInClosingIds atualizados', { count: vacsInMonth.length });
+    }
 
     logger.info('[closeMonth] Batched update', allClassIds.length, 'classes em', batches.length, 'batches');
 

@@ -122,6 +122,83 @@ async function renderMinhasFeriasPage() {
   `;
 }
 
+/* ─── Helpers ──────────────────────────────────────────────────────────── */
+
+/** Fecha modal por ID (display:none). */
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+// ─── Sprint 6b — Renderização da coluna Pagamento ──────────────────────
+
+function renderPaymentCell(req) {
+  // Não aprovada → mostra "—"
+  if (req.status !== 'aprovada') {
+    return '<td class="mono" style="color:#94a3b8;">—</td>';
+  }
+
+  const payment = req.payment;
+  const paidIds = req.paidInClosingIds || [];
+
+  // Estado 1: deferred ou ausente (pendente)
+  if (!payment || payment.mode === 'deferred') {
+    return `<td>
+      <span class="payment-badge pending">⏳ Pendente</span>
+      <br><span class="payment-action" onclick="openEditPaymentModal('${req.id}')">💰 Definir</span>
+    </td>`;
+  }
+
+  // Estado 2: sem pagamento
+  if (payment.mode === 'none') {
+    const editLink = paidIds.length === 0
+      ? `<br><span class="payment-action" onclick="openEditPaymentModal('${req.id}')">✏️ Editar</span>`
+      : '';
+    return `<td>
+      <span class="payment-badge none">🚫 Sem pagamento</span>
+      ${editLink}
+    </td>`;
+  }
+
+  // Estado 3: auto/manual definido, ainda não pago
+  if (paidIds.length === 0) {
+    const label = payment.mode === 'auto' ? 'Auto' : 'Manual';
+    return `<td>
+      <span class="payment-badge defined">${label} · ${fmt(payment.value)}</span>
+      <br><span class="payment-action" onclick="openEditPaymentModal('${req.id}')">✏️ Editar</span>
+    </td>`;
+  }
+
+  // Estado 4/5: pago total ou parcial
+  const lastPeriodEnd = req.lastPeriodEnd ? req.lastPeriodEnd.toDate() : null;
+  const paidMonths = paidIds.map(id => {
+    const parts = id.split('_');
+    const ym = parts[1] || '';
+    const [y, m] = ym.split('-');
+    return { year: parseInt(y), month: parseInt(m) };
+  }).filter(p => !isNaN(p.month));
+
+  const lastPaid = paidMonths.reduce((max, p) => {
+    const val = p.year * 12 + p.month;
+    return val > max.val ? { val, month: p.month, year: p.year } : max;
+  }, { val: 0, month: 0, year: 0 });
+
+  const mesNome = ['', 'jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+  if (lastPeriodEnd && lastPaid.year) {
+    const endMonth = lastPeriodEnd.getUTCMonth() + 1;
+    const endYear = lastPeriodEnd.getUTCFullYear();
+    const endVal = endYear * 12 + endMonth;
+    const paidVal = lastPaid.year * 12 + lastPaid.month;
+
+    if (paidVal < endVal) {
+      return `<td><span class="payment-badge partial">✓ Parcial · ${mesNome[lastPaid.month]}/${String(lastPaid.year).slice(2)} · resta ${mesNome[endMonth]}/${String(endYear).slice(2)}</span></td>`;
+    }
+  }
+
+  return `<td><span class="payment-badge paid">✓ Pago em ${mesNome[lastPaid.month]}/${String(lastPaid.year).slice(2)}</span></td>`;
+}
+
 /* ─── View: Admin/Gestão "Gerenciar Férias" ─────────────────────────── */
 
 async function renderFeriasGestaoPage() {
@@ -144,7 +221,7 @@ async function renderFeriasGestaoPage() {
 
   let rowsHtml = '';
   if (requests.length === 0) {
-    rowsHtml = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text2);">
+    rowsHtml = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text2);">
       Nenhum pedido de férias encontrado.
     </td></tr>`;
   } else {
@@ -166,6 +243,7 @@ async function renderFeriasGestaoPage() {
               ? `<button class="btn-sm btn-danger" onclick="cancelarVacationAdmin('${r.id}')">Cancelar</button>`
               : '')}
         </td>
+        ${renderPaymentCell(r)}
       </tr>`;
     });
   }
@@ -194,7 +272,7 @@ async function renderFeriasGestaoPage() {
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Professor</th><th>Tipo</th><th>Período(s)</th><th>Dias</th><th>Solicitado</th><th>Status</th><th style="width:160px;">Ações</th>
+          <th>Professor</th><th>Tipo</th><th>Período(s)</th><th>Dias</th><th>Solicitado</th><th>Status</th><th style="width:160px;">Ações</th><th>Pagamento</th>
         </tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
@@ -220,7 +298,7 @@ async function filtrarFeriasPorStatus(status) {
   const requests = res.success ? res.data : [];
 
   let rowsHtml = requests.length === 0
-    ? `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text2);">Nenhum pedido encontrado.</td></tr>`
+    ? `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text2);">Nenhum pedido encontrado.</td></tr>`
     : requests.map(r => {
         const reqDate = r.requestedAt && r.requestedAt.toDate
           ? r.requestedAt.toDate().toLocaleDateString('pt-BR') : '—';
@@ -239,6 +317,7 @@ async function filtrarFeriasPorStatus(status) {
                 ? `<button class="btn-sm btn-danger" onclick="cancelarVacationAdmin('${r.id}')">Cancelar</button>`
                 : '')}
           </td>
+          ${renderPaymentCell(r)}
         </tr>`;
       }).join('');
 
@@ -448,15 +527,412 @@ async function submitFeriasRequestAdmin() {
 /* ─── Ações ──────────────────────────────────────────────────────────── */
 
 async function aprovarVacation(reqId) {
-  if (!confirm('Aprovar este pedido de férias?')) return;
-  const res = await VacationService.approve(reqId);
+  await openApproveWithPaymentModal(reqId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6b — Modal de aprovação com bloco Pagamento
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function openApproveWithPaymentModal(reqId) {
+  const { VacationPaymentService } = window.ProfHelpers;
+  const db = firebase.firestore();
+  const doc = await db.collection('vacation_requests').doc(reqId).get();
+  if (!doc.exists) { toast('Pedido não encontrado', 'error'); return; }
+  const req = { id: doc.id, ...doc.data() };
+
+  const modal = document.getElementById('feriasModal');
+  const content = document.getElementById('feriasModalContent');
+  if (!modal || !content) return;
+
+  // Pré-carrega dados necessários pro preview
+  let salaryData = null;
+  try {
+    const sDoc = await db.collection('teacher_salaries').doc(req.teacherId).get();
+    if (sDoc.exists) salaryData = sDoc.data();
+  } catch (_) {}
+
+  // Calcula estimativa auto pra referência (alerta de manual exorbitante)
+  let autoEstimate = null;
+  if (req.teacherType === 'efetivo') {
+    const calc = await VacationPaymentService._calculateEfetivoAuto(req, '');
+    if (calc.success) autoEstimate = calc.data.value;
+  }
+
+  const isEstagiario = req.teacherType === 'estagiario';
+  const defaultPayIntern = VacationPaymentService.getInternPayDefault(
+    { type: req.teacherType }, salaryData
+  );
+
+  content.innerHTML = `
+    <h3>Aprovar Férias — ${escapeHtml(req.teacherName)}</h3>
+    <div class="ferias-approve-info">
+      <span>📅 ${formatPeriodosFerias(req.periods)}</span>
+      <span>📐 ${req.totalDays} dias</span>
+      <span>🏖️ ${escapeHtml(req.type)}</span>
+    </div>
+
+    <div class="form-group">
+      <label>Nota de aprovação (opcional)</label>
+      <textarea id="approveNote" rows="2" placeholder="Ex: Aprovado conforme planejamento."></textarea>
+    </div>
+
+    <hr>
+
+    <div class="payment-block">
+      <h4>💰 Pagamento durante o período</h4>
+
+      <div class="payment-mode-selector">
+        <label class="payment-radio active">
+          <input type="radio" name="paymentMode" value="auto" checked
+            onchange="window._switchPaymentMode('auto')"> Automático
+        </label>
+        <label class="payment-radio">
+          <input type="radio" name="paymentMode" value="manual"
+            onchange="window._switchPaymentMode('manual')"> Manual
+        </label>
+        <label class="payment-radio">
+          <input type="radio" name="paymentMode" value="none"
+            onchange="window._switchPaymentMode('none')"> Sem pagamento
+        </label>
+      </div>
+
+      <div id="paymentInternCheck" style="display:${isEstagiario ? 'block' : 'none'};margin:12px 0;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="payIntern" ${defaultPayIntern ? 'checked' : ''}
+            onchange="window._recalcPaymentPreview()">
+          Pagar bolsa proporcional ao recesso?
+        </label>
+        <small class="helper-text">ℹ️ Lei do Estágio (11.788/2008) exige pagamento de recesso quando há bolsa.</small>
+      </div>
+
+      <div id="paymentPreview" class="payment-preview" style="display:block;">
+        <div class="preview-loader">Calculando...</div>
+      </div>
+
+      <div id="paymentManualFields" style="display:none;">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input type="number" id="manualValue" min="0" step="0.01" placeholder="0,00"
+            oninput="window._recalcPaymentPreview()">
+        </div>
+        <div id="manualAlert" class="alert-warning" style="display:none;"></div>
+      </div>
+
+      <div id="paymentNoneFields" style="display:none;">
+        <p style="font-size:13px;color:#64748b;">Registrar como licença não remunerada.</p>
+      </div>
+
+      <div class="form-group" id="paymentNotesGroup">
+        <label>Observação</label>
+        <textarea id="paymentNotes" rows="2" placeholder="(opcional)"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="window._deferPayment('${reqId}')">Adiar pagamento</button>
+      <button class="btn btn-secondary" onclick="closeModal('feriasModal')">Cancelar</button>
+      <button class="btn btn-primary" id="btnApprovePayment" onclick="window._submitApproveWithPayment('${reqId}')">
+        Aprovar e definir pagamento
+      </button>
+    </div>
+  `;
+
+  // Expõe estado no window pra callbacks
+  window._paymentReq = req;
+  window._paymentAutoEstimate = autoEstimate;
+  window._paymentSalaryData = salaryData;
+
+  modal.style.display = 'flex';
+
+  // Dispara preview inicial
+  _recalcPaymentPreview();
+}
+
+// ─── Helpers expostos ao window ──────────────────────────────────────────
+
+window._switchPaymentMode = function(mode) {
+  const previewDiv = document.getElementById('paymentPreview');
+  const manualDiv = document.getElementById('paymentManualFields');
+  const noneDiv = document.getElementById('paymentNoneFields');
+  const internDiv = document.getElementById('paymentInternCheck');
+
+  if (previewDiv) previewDiv.style.display = (mode === 'auto') ? 'block' : 'none';
+  if (manualDiv) manualDiv.style.display = (mode === 'manual') ? 'block' : 'none';
+  if (noneDiv) noneDiv.style.display = (mode === 'none') ? 'block' : 'none';
+  if (internDiv) {
+    internDiv.style.display = (mode === 'auto' && window._paymentReq && window._paymentReq.teacherType === 'estagiario') ? 'block' : 'none';
+  }
+
+  // Atualiza classes dos radio pills
+  document.querySelectorAll('.payment-radio').forEach(el => el.classList.remove('active'));
+  const selectedRadio = document.querySelector(`.payment-radio input[value="${mode}"]`);
+  if (selectedRadio) selectedRadio.closest('.payment-radio').classList.add('active');
+
+  // Atualiza label de observação
+  const notesLabel = document.querySelector('#paymentNotesGroup label');
+  if (notesLabel) {
+    notesLabel.textContent = (mode === 'none') ? 'Justificativa *' : 'Observação';
+  }
+
+  window._recalcPaymentPreview();
+};
+
+window._recalcPaymentPreview = async function() {
+  const { VacationPaymentService } = window.ProfHelpers;
+  const req = window._paymentReq;
+  if (!req) return;
+
+  const modeEl = document.querySelector('input[name="paymentMode"]:checked');
+  const mode = modeEl ? modeEl.value : 'auto';
+  const previewDiv = document.getElementById('paymentPreview');
+  if (!previewDiv) return;
+
+  if (mode !== 'auto') {
+    // Modo manual: verifica alerta
+    if (mode === 'manual') {
+      const val = parseFloat(document.getElementById('manualValue')?.value || '0');
+      const alertEl = document.getElementById('manualAlert');
+      if (alertEl && window._paymentAutoEstimate && val > window._paymentAutoEstimate * 1.5) {
+        alertEl.style.display = 'block';
+        alertEl.innerHTML = `⚠️ Valor ${Math.round(val/window._paymentAutoEstimate*100)}% acima do automático (R$ ${window._paymentAutoEstimate.toFixed(2)}). Confirme.`;
+      } else if (alertEl) {
+        alertEl.style.display = 'none';
+      }
+    }
+    previewDiv.style.display = 'none';
+    return;
+  }
+
+  previewDiv.style.display = 'block';
+  previewDiv.innerHTML = '<div class="preview-loader">Calculando...</div>';
+
+  const payIntern = document.getElementById('payIntern')?.checked;
+  const notes = document.getElementById('paymentNotes')?.value || '';
+
+  const result = await VacationPaymentService.calculateForRequest(req, {
+    mode: 'auto',
+    payIntern: req.teacherType === 'estagiario' ? payIntern : undefined,
+    notes,
+  });
+
+  if (!result.success) {
+    previewDiv.innerHTML = `<div class="preview-error">${escapeHtml(result.error)}</div>`;
+    return;
+  }
+
+  const d = result.data;
+  const calc = d.calculation || {};
+  let html = '';
+
+  if (calc.formula === 'efetivo-clt-max') {
+    html += `
+      <div class="preview-line"><span>Base mensal</span><span class="mono">${window.fmt ? window.fmt(calc.baseMonthly) : 'R$ ' + calc.baseMonthly.toFixed(2)}</span></div>
+      <div class="preview-sub">↳ média 12m: ${window.fmt ? window.fmt(calc.base12mAvg) : 'R$ ' + calc.base12mAvg.toFixed(2)} | último mês: ${window.fmt ? window.fmt(calc.baseLastMonth) : 'R$ ' + calc.baseLastMonth.toFixed(2)}</div>
+      <div class="preview-sub">↳ usado: MAX = ${window.fmt ? window.fmt(calc.baseMonthly) : 'R$ ' + calc.baseMonthly.toFixed(2)}</div>
+      <div class="preview-line"><span>Proporcional ${calc.daysCount} dias</span><span class="mono">${window.fmt ? window.fmt(calc.proportionalBase) : 'R$ ' + calc.proportionalBase.toFixed(2)}</span></div>
+      <div class="preview-line"><span>⅓ constitucional</span><span class="mono">${window.fmt ? window.fmt(calc.oneThirdValue) : 'R$ ' + calc.oneThirdValue.toFixed(2)}</span></div>
+    `;
+  } else if (calc.formula === 'estagiario-bolsa-proporcional') {
+    html += `
+      <div class="preview-line"><span>Bolsa mensal</span><span class="mono">${window.fmt ? window.fmt(calc.baseMonthly) : 'R$ ' + calc.baseMonthly.toFixed(2)}</span></div>
+      <div class="preview-line"><span>Proporcional ${calc.daysCount} dias</span><span class="mono">${window.fmt ? window.fmt(calc.proportionalBase) : 'R$ ' + calc.proportionalBase.toFixed(2)}</span></div>
+    `;
+  }
+
+  html += `<div class="preview-total"><span>💵 Total</span><span class="mono">${window.fmt ? window.fmt(d.value) : 'R$ ' + d.value.toFixed(2)}</span></div>`;
+  html += `<div class="preview-info">${calc.monthsConsidered} meses considerados</div>`;
+  previewDiv.innerHTML = html;
+};
+
+window._submitApproveWithPayment = async function(reqId) {
+  const { VacationService, VacationPaymentService } = window.ProfHelpers;
+
+  const modeEl = document.querySelector('input[name="paymentMode"]:checked');
+  const mode = modeEl ? modeEl.value : 'auto';
+  const note = document.getElementById('approveNote')?.value?.trim() || '';
+  const notes = document.getElementById('paymentNotes')?.value?.trim() || '';
+
+  // Validações
+  if (mode === 'none' && !notes) {
+    toast('Justificativa obrigatória para "Sem pagamento".', 'error'); return;
+  }
+
+  let paymentData;
+  if (mode === 'auto') {
+    const payIntern = document.getElementById('payIntern')?.checked;
+    const result = await VacationPaymentService.calculateForRequest(window._paymentReq, {
+      mode: 'auto',
+      payIntern: window._paymentReq.teacherType === 'estagiario' ? payIntern : undefined,
+      notes,
+    });
+    if (!result.success) { toast(result.error, 'error'); return; }
+    paymentData = result.data;
+  } else if (mode === 'manual') {
+    const val = parseFloat(document.getElementById('manualValue')?.value || '0');
+    if (isNaN(val) || val < 0) { toast('Valor manual inválido.', 'error'); return; }
+    if (val === 0 && !notes) { toast('Observação obrigatória se valor é zero.', 'error'); return; }
+    paymentData = { mode: 'manual', value: val, calculation: null, notes: notes || null };
+  } else {
+    paymentData = { mode: 'none', value: 0, calculation: null, notes };
+  }
+
+  const approveRes = await VacationService.approve(reqId, note, paymentData);
+  if (approveRes.success) {
+    toast('Férias aprovadas com pagamento definido!', 'success');
+    closeModal('feriasModal');
+    await renderFeriasGestaoPage();
+  } else {
+    toast('Erro: ' + (approveRes.error || 'Falha'), 'error');
+  }
+};
+
+window._deferPayment = async function(reqId) {
+  const { VacationService } = window.ProfHelpers;
+  if (!confirm('Adiar definição de pagamento? As férias serão aprovadas, mas o pagamento ficará pendente.')) return;
+
+  const note = document.getElementById('approveNote')?.value?.trim() || '';
+  const paymentData = { mode: 'deferred', value: 0, calculation: null, notes: 'Pagamento adiado pelo admin' };
+
+  const res = await VacationService.approve(reqId, note, paymentData);
   if (res.success) {
-    toast('Férias aprovadas!', 'success');
+    toast('Férias aprovadas (pagamento pendente).', 'success');
+    closeModal('feriasModal');
     await renderFeriasGestaoPage();
   } else {
     toast('Erro: ' + (res.error || 'Falha'), 'error');
   }
+};
+
+// Helper pra formatar períodos no modal
+function formatPeriodosFerias(periods) {
+  if (!Array.isArray(periods)) return '';
+  return periods.map(p => {
+    const start = p.startDate.toDate ? p.startDate.toDate() : new Date(p.startDate);
+    const end = p.endDate.toDate ? p.endDate.toDate() : new Date(p.endDate);
+    return start.toLocaleDateString('pt-BR') + ' – ' + end.toLocaleDateString('pt-BR');
+  }).join(' · ');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6b — Modal de edição de pagamento
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function openEditPaymentModal(reqId) {
+  const { VacationPaymentService } = window.ProfHelpers;
+  const db = firebase.firestore();
+  const doc = await db.collection('vacation_requests').doc(reqId).get();
+  if (!doc.exists) { toast('Pedido não encontrado', 'error'); return; }
+  const req = { id: doc.id, ...doc.data() };
+
+  if ((req.paidInClosingIds || []).length > 0) {
+    toast('Pagamento já processado em fechamento — não pode ser editado.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('feriasModal');
+  const content = document.getElementById('feriasModalContent');
+  if (!modal || !content) return;
+
+  const existingPayment = req.payment || {};
+  const currentMode = existingPayment.mode === 'deferred' ? 'auto' : (existingPayment.mode || 'auto');
+
+  // Pré-carrega estimativa auto
+  let autoEstimate = null;
+  if (req.teacherType === 'efetivo') {
+    const calc = await VacationPaymentService._calculateEfetivoAuto(req, '');
+    if (calc.success) autoEstimate = calc.data.value;
+  }
+
+  window._paymentReq = req;
+  window._paymentAutoEstimate = autoEstimate;
+
+  content.innerHTML = `
+    <h3>✏️ Editar Pagamento</h3>
+    <div class="ferias-approve-info">
+      <span><strong>${escapeHtml(req.teacherName)}</strong></span>
+      <span>📅 ${formatPeriodosFerias(req.periods)}</span>
+      <span>📐 ${req.totalDays} dias</span>
+    </div>
+
+    <div class="payment-block">
+      <div class="payment-mode-selector">
+        <label class="payment-radio ${currentMode === 'auto' ? 'active' : ''}">
+          <input type="radio" name="paymentMode" value="auto" ${currentMode === 'auto' ? 'checked' : ''}
+            onchange="window._switchPaymentMode('auto')"> Automático
+        </label>
+        <label class="payment-radio ${currentMode === 'manual' ? 'active' : ''}">
+          <input type="radio" name="paymentMode" value="manual" ${currentMode === 'manual' ? 'checked' : ''}
+            onchange="window._switchPaymentMode('manual')"> Manual
+        </label>
+        <label class="payment-radio ${currentMode === 'none' ? 'active' : ''}">
+          <input type="radio" name="paymentMode" value="none" ${currentMode === 'none' ? 'checked' : ''}
+            onchange="window._switchPaymentMode('none')"> Sem pagamento
+        </label>
+      </div>
+
+      <div id="paymentPreview" class="payment-preview" style="display:${currentMode === 'auto' ? 'block' : 'none'};"></div>
+
+      <div id="paymentManualFields" style="display:${currentMode === 'manual' ? 'block' : 'none'};">
+        <div class="form-group">
+          <label>Valor (R$)</label>
+          <input type="number" id="manualValue" min="0" step="0.01" value="${existingPayment.value || ''}"
+            oninput="window._recalcPaymentPreview()">
+        </div>
+        <div id="manualAlert" class="alert-warning" style="display:none;"></div>
+      </div>
+
+      <div id="paymentNoneFields" style="display:${currentMode === 'none' ? 'block' : 'none'};">
+        <p style="font-size:13px;color:#64748b;">Registrar como licença não remunerada.</p>
+      </div>
+
+      <div class="form-group" id="paymentNotesGroup">
+        <label>${currentMode === 'none' ? 'Justificativa *' : 'Observação'}</label>
+        <textarea id="paymentNotes" rows="2" placeholder="(opcional)">${escapeHtml(existingPayment.notes || '')}</textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('feriasModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="window._submitEditPayment('${reqId}')">💾 Salvar pagamento</button>
+    </div>
+  `;
+
+  if (currentMode === 'auto') _recalcPaymentPreview();
+  modal.style.display = 'flex';
+}
+
+window._submitEditPayment = async function(reqId) {
+  const { VacationPaymentService } = window.ProfHelpers;
+
+  const modeEl = document.querySelector('input[name="paymentMode"]:checked');
+  const mode = modeEl ? modeEl.value : 'auto';
+  const notes = document.getElementById('paymentNotes')?.value?.trim() || '';
+
+  let paymentData;
+  if (mode === 'auto') {
+    const result = await VacationPaymentService.calculateForRequest(window._paymentReq, { mode: 'auto', notes });
+    if (!result.success) { toast(result.error, 'error'); return; }
+    paymentData = result.data;
+  } else if (mode === 'manual') {
+    const val = parseFloat(document.getElementById('manualValue')?.value || '0');
+    if (isNaN(val) || val < 0) { toast('Valor inválido.', 'error'); return; }
+    if (val === 0 && !notes) { toast('Observação obrigatória se valor é zero.', 'error'); return; }
+    paymentData = { mode: 'manual', value: val, calculation: null, notes: notes || null };
+  } else {
+    if (!notes) { toast('Justificativa obrigatória.', 'error'); return; }
+    paymentData = { mode: 'none', value: 0, calculation: null, notes };
+  }
+
+  const res = await VacationPaymentService.updatePayment(reqId, paymentData);
+  if (res.success) {
+    toast('Pagamento atualizado!', 'success');
+    closeModal('feriasModal');
+    await renderFeriasGestaoPage();
+  } else {
+    toast('Erro: ' + (res.error || 'Falha'), 'error');
+  }
+};
 
 async function recusarVacation(reqId) {
   const motivo = prompt('Motivo da recusa (obrigatório):');
@@ -511,5 +987,7 @@ window.recusarVacation = recusarVacation;
 window.cancelarVacation = cancelarVacation;
 window.cancelarVacationAdmin = cancelarVacationAdmin;
 window.filtrarFeriasPorStatus = filtrarFeriasPorStatus;
+window.closeModal = closeModal;
+window.openEditPaymentModal = openEditPaymentModal;
 
 console.log('[CrossTainer Professores] professores-ferias.js carregado · Sprint 6a');
