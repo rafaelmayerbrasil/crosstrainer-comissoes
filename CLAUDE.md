@@ -61,7 +61,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**9 sprints validadas em staging (03/06/2026, sessão 22). Projeto ~90% completo.**
+**10 sprints validadas em staging (03/06/2026, sessão 23). Projeto ~95% completo.**
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -73,9 +73,10 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 4a | Fechamento Mensal + cálculo de horas + congelamento | ✅ |
 | 4b | Pagamentos + Recibos (HTML print A4) + Crédito automático | ✅ |
 | 5a | Escalas Especiais (peso variável) + Detecção auto de feriado (BrasilAPI) | ✅ |
-| **6a** | **Férias e Recesso (workflow CLT, multi-período, CF pula classes)** | **✅** |
+| 6a | Férias e Recesso (workflow CLT, multi-período, CF pula classes) | ✅ |
+| **6b** | **Pagamento de Férias (1/3 CLT efetivo + bolsa estagiário + rateio mês-a-mês + recibo)** | **✅ (13/16, 3 manuais pendentes)** |
 
-**Próxima ação:** decidir com usuário qual entra agora. Candidatas: 6b (pagamento durante férias — backlog do playbook 6a) ou polimentos finais. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
+**Próxima ação:** validar manualmente 3 critérios da Sprint 6b em staging (C8 supervisor sem acesso · C12 recibo A4 com seção Férias · C15 contador sidebar). ~10 min de teste UI com login real. Sem risco se adiar — Sprint 6b já está com 13/16 críticos validados automaticamente + bugs 1, 2 e 3 corrigidos e deployados. Depois disso, escolher próxima sprint (6c controle anual / Sprint 7 emails / Sprint 8 relatórios). **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
 
 ## 🔧 Tech debt registrado (não bloqueia)
 

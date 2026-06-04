@@ -1279,13 +1279,16 @@ async function cmdSmoke6b() {
   console.log(`\nFechamentos com férias: ${closingsWithVacation}`);
   console.log(`Teachers isVacationOnly: ${vacOnlyCount}`);
 
-  // Audit
-  const auditPayments = await db.collection('audit_log')
+  // Audit — v2.1: usa índice (module, timestamp) existente + filtra in-memory
+  // (evita índice composto extra pra where+IN+orderBy)
+  const auditAll = await db.collection('audit_log')
     .where('module', '==', 'ferias')
-    .where('type', 'in', ['vacation_payment_set', 'vacation_payment_updated'])
-    .orderBy('timestamp', 'desc').limit(10).get();
-  console.log(`\nAudit pagamentos (últimos 10): ${auditPayments.size} entries`);
-  auditPayments.docs.forEach(d => {
+    .orderBy('timestamp', 'desc').limit(30).get();
+  const auditPaymentDocs = auditAll.docs
+    .filter(d => ['vacation_payment_set', 'vacation_payment_updated'].includes(d.data().type))
+    .slice(0, 10);
+  console.log(`\nAudit pagamentos (últimos 10): ${auditPaymentDocs.length} entries`);
+  auditPaymentDocs.forEach(d => {
     const a = d.data();
     const ts = a.timestamp ? a.timestamp.toDate().toISOString().slice(0, 19) : '?';
     console.log(`  [${ts}] ${a.type}: ${(a.details || '').slice(0, 120)}`);

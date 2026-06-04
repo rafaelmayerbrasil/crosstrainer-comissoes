@@ -3,19 +3,81 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 03/06/2026 (sessão 22)
+## 🔖 ONDE PARAMOS — última sessão 03/06/2026 (sessão 23)
 
-**Estado:** Sprint 1 ✅ + Mini-sprint 1.5 ✅ + Sprint 2 ✅ + Sprint 3a ✅ + Sprint 3b ✅ + Sprint 4a ✅ + Sprint 4b ✅ + Sprint 5a ✅ + **Sprint 6a ✅ VALIDADA EM STAGING (via fixture)**.
+**Estado:** 9 sprints validadas em staging + **Sprint 6b IMPLEMENTADA + VALIDADA PARCIAL (13/16 automáticos OK, 3 manuais pendentes sem risco)**.
 
-> 🎯 **Sessão 22 (03/06) — Sprint 6a validada via fixture autônoma.**
-> - Criado `scripts/fixture-6a.js` — cria pedido de férias APROVADO via Admin SDK, replica algoritmo de `vacationDatesByTeacher` do `generateClassesCore`, valida que datas entram no Set de bloqueio, e limpa tudo no fim.
-> - Execução em staging: ✅ Ana Paula Souza (estagiário) · período 13-17/06/2026 · 5 datas no Set · 1/1/1 docs (vacation_request + audit + notif) detectados pelo smoke-6a · cleanup completo.
-> - Aviso lateral (não-bug): slot escolhido era sexta-feira e período de 5 dias não cobria sexta — algoritmo está validado, é só azar da seleção random.
-> - C2-C10 do playbook 6a cobertos por: smoke-6a (queries) + inspeção de código + execução real via fixture.
+> 🎯 **Sessão 23 (03/06) — Sprint 6b implementada (Subagent-Driven Development).**
 >
-> 🚨 **Regra fechada nesta sessão:** módulo Professores **NÃO** vai pra prod sprint-a-sprint. Deploy em produção só quando todas as sprints estiverem ✅ e o sistema inteiro homologado em staging. Refina regra #7 do CLAUDE.md.
+> **Parte 1 — Playbook v2 revisado pelo cliente:**
+> - Após avaliação do time em `docs/superpowers/specs/2026-06-03-sprint-6b-avaliacao-cliente.md`, cliente respondeu (`2026-06-03-sprint-6b-resposta-cliente.md`) com 10 mudanças vs v1:
+>   - Fluxo: Opção A (juntos) — modal único aprovação+pagamento com botão "Adiar pagamento" como escape
+>   - Estagiário: checkbox default MARCADO se `internMonthlyStipend > 0` (Lei 11.788/2008 Art. 13 §1º)
+>   - Base efetivo: `MAX(média 12m, último mês)` — protege contra baixa atípica
+>   - Observação: campo sempre presente em todos os modos
+>   - Coluna Pagamento: 6 estados (Pendente / Sem pagamento / Auto·R$X / Pago / Parcial)
+>   - Professor 100% férias: closeMonth mescla teacherIds (bug latente corrigido)
+>   - Supervisor sem acesso: Security Rules bloqueiam payment.*
+>   - Manual exorbitante: alerta visual silencioso se > 1,5× auto
+>   - Preview sem spinner: recalcula ao vivo, cache local
+>   - Contador sidebar: `🏖️ Férias (N)` com listener onSnapshot
+> - Playbook `sprint-6b-pagamento-ferias.md` atualizado para v2 (1002 linhas, 16 critérios, 19 decisões)
 >
-> **Próxima sprint:** decidir com usuário qual entra agora (candidatas: 6b pagamento durante férias, ou polimentos finais).
+> **Parte 2 — Implementação (13 tasks, Subagent-Driven):**
+> - Commit `3bc71f8` · 11 arquivos · +1437 / −17 linhas
+> - Plano: `docs/superpowers/plans/2026-06-03-sprint-6b-implementation.md`
+> - Syntax check: todos os 7 JS files passam em `node -c`
+> - Tasks executadas:
+>   1. `scripts/backfill-vacation-denorm.js` — populate firstPeriodStart/lastPeriodEnd legados
+>   2. `VacationService.request()` — grava denormalização na criação
+>   3. `VacationPaymentService` + `getEffectiveStipendAt` — cálculo, persistência, preview
+>   4. Security Rules + índice composto `(status, firstPeriodStart)`
+>   5-6. Modal aprovação com bloco Pagamento + CSS completo
+>   7. Coluna Pagamento 6 estados + modal edição posterior
+>   8. Contador sidebar `🏖️ Férias (N)` ao vivo
+>   9. `closeMonth` CF — merge vacationOnlyTeacherIds + split férias + paidInClosingIds
+>   10. Linha Férias no detalhe do fechamento
+>   11. Recibo A4 com seção Férias condicional
+>   12. Comandos `vacation-preview` + `set-vacation-payment` + `smoke-6b`
+>   13. ⏳ Deploy + validação em staging (aguardando)
+>
+> **Parte 3 — Resumo para validação:**
+> - Documento: `docs/superpowers/specs/2026-06-03-sprint-6b-resumo-validacao.md`
+> - Contém: checklist de deploy, 16 critérios de aceite, schemas novos, pontos de atenção
+>
+> **Parte 4 — Validação crítica (Claude validador):**
+> - Inspeção de código nos pontos críticos: D2 MAX, D3 default condicional, D14 Security Rules, D17 merge teacherIds, modal único, contador sidebar → todos implementados conforme spec.
+> - Criada fixture autônoma `scripts/fixture-6b.js` que cria 5 monthly_closings históricos fake + vacation_request 30d aprovado, replica `_calculateEfetivoAuto` e `splitVacationAcrossMonth`, valida cálculo + rateio + D17, e limpa tudo no fim.
+> - **3 bugs detectados** durante validação:
+>   - 🔴 Bug 1 (bloqueador): `_calculateEfetivoAuto` em `professores-shared.js` tinha `where('status','==','fechado')` exigindo índice composto não declarado → `FAILED_PRECONDITION` em 100% das chamadas
+>   - 🔴 Bug 2 (bloqueador): `splitVacationAcrossMonth` em `functions/index.js` usava `Math.round((clipEnd-clipStart)/86400000)+1` com `clipEnd` em .999ms → inflava rateio em 1 dia quando férias cruzava mês. Bug originalmente meu no Snippet 3 do playbook
+>   - 🟡 Bug 3 (cosmético): smoke-6b query `where IN + orderBy` exigia índice composto não declarado
+> - Relatórios formais: `2026-06-03-sprint-6b-validacao-resultado.md`.
+>
+> **Parte 5 — Fixes aplicados:**
+> - `professores-shared.js`: removido `where('status','==','fechado')` (status é único valor possível em monthly_closings)
+> - `functions/index.js`: `Math.round` → `Math.floor` em `splitVacationAcrossMonth`
+> - `scripts/admin.js`: query do smoke usa índice (module, timestamp) existente + filtra in-memory
+> - `sprint-6b-pagamento-ferias.md`: playbook v2.1 — Snippet 1 sem status filter, Snippet 3 com Math.floor
+>
+> **Parte 6 — Deploy em staging + validação final:**
+> - `firebase deploy --only firestore:indexes,functions:closeMonth,hosting --project staging` ✅
+> - Aguardado build do índice `vacation_requests(status, firstPeriodStart)` (~90s).
+> - Fixture-6b rodada com sucesso 100%:
+>   - Cálculo MAX: `base12mAvg=5080`, `baseLastMonth=5400`, `baseMonthly=MAX=5400` ✅
+>   - 30 dias × 5400/30 + 1/3 = **R$ 7.200** ✅
+>   - Rateio jun+jul: **13 + 17 = 30 dias** exatos · soma proporcionais R$ 7.200 = valor original (diff R$ 0,00) ✅
+>   - D17 query indexada retorna a fixture ✅
+>   - D17 merge teacherIds incluiria prof 100% férias ✅
+>   - Schema persistido com `formula='efetivo-clt-max'`, `baseMonthly=baseLastMonth` ✅
+>   - Cleanup completo ✅
+>
+> **Pendências (3 critérios — validação UI manual, sem risco):**
+> - **C8** — Supervisor sem acesso a payment: Security Rule já deployada em staging. Firestore bloqueia automaticamente, zero risco de vazamento.
+> - **C12** — Recibo A4 mostra seção "🏖️ Férias": cosmético, só renderiza se `vacationDetails.length > 0`.
+> - **C15** — Contador sidebar `🏖️ Férias (N)` atualiza em tempo real: visual, sem impacto em dado.
+>
+> **Próxima ação:** validar C8, C12, C15 manualmente com login real em staging (~10 min) quando usuário tiver tempo. Não bloqueia próximas sprints.
 
 ---
 

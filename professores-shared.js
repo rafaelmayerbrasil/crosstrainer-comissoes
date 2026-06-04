@@ -3002,9 +3002,10 @@ const VacationPaymentService = {
   // ─── _calculateEfetivoAuto (v2 com MAX) ─────────────────────────────────
   async _calculateEfetivoAuto(req, notes) {
     const db = firebase.firestore();
+    // Nota v2.1: removido where('status','==','fechado') — único valor possível em monthly_closings,
+    // filtro redundante que exigia índice composto não declarado.
     const snap = await db.collection('monthly_closings')
       .where('unitId', '==', req.unitId)
-      .where('status', '==', 'fechado')
       .orderBy('year', 'desc').orderBy('month', 'desc')
       .limit(12).get();
 

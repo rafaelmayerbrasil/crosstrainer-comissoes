@@ -113,7 +113,9 @@ function splitVacationAcrossMonth(vacReq, year, month) {
 
     if (clipStart > clipEnd) continue;
 
-    const days = Math.round((clipEnd - clipStart) / 86400000) + 1;
+    // v2.1: Math.floor (não Math.round). clipEnd termina em .999ms do dia BR final,
+    // diff/86400000 retorna X.9999... e Math.round inflava em 1 dia.
+    const days = Math.floor((clipEnd - clipStart) / 86400000) + 1;
     daysInMonth += days;
     periodsClipped.push({ start: clipStart, end: clipEnd, days });
   }
