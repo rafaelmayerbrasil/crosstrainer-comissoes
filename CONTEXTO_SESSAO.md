@@ -5,6 +5,29 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 03/06/2026 (sessão 23)
 
+**Estado:** **10 sprints validadas em staging + Sprint 6b ✅ 100% COMPLETA (16/16 critérios)**. Projeto ~95% pronto.
+
+> 🎯 **Sessão 24 (07/06) — Validação manual final de Sprint 6b (C8, C12, C15).**
+>
+> **Setup:** Criado `scripts/validate-6b-manual.js` — automatiza C8 via Auth REST API (cria supervisor fixture, login, tenta UPDATE em payment via Firestore REST) + prepara fixtures C12 (vacation paga manual R$ 1.500) e C15 (vacation deferred contando no sidebar).
+>
+> **🔴 Bug descoberto durante C8:** primeira tentativa de update como supervisor retornou HTTP 200 — Security Rule não estava bloqueando! Diagnóstico: time entregou commit `3bc71f8` modificando `firestore.rules`, mas só deployou functions/hosting, **esqueceu de `--only firestore:rules`**. Durante essa janela, supervisor conseguiu gravar `payment.value=999.99` na fixture. Após redeploy explícito (`firebase deploy --only firestore:rules --project staging`) → HTTP 403 correto.
+>
+> **Validação visual (usuário):**
+> - C12 ✅ — Coluna Pagamento renderiza "Manual · R$ 1.500,00" corretamente
+> - C15 ✅ — Contador sidebar `🏖️ Férias (1)` sumiu em tempo real ao definir pagamento
+> - C8 ✅ — Já validado via auth REST API após redeploy
+>
+> **Cleanup:** 3 fixtures + supervisor auth removidos. Sem rastros em staging.
+>
+> **Memória registrada:** `feedback-deploy-rules-explicito.md` — toda mudança em rules exige deploy explícito + validação via REST API (Admin SDK bypassa).
+>
+> **Próxima ação:** decidir próxima sprint. Candidatas: 6c (controle anual de saldo de férias) · Sprint 7 (emails Brevo) · Sprint 8 (relatórios + exportações) · polimentos finais.
+
+---
+
+## 🔖 Sessão 23 (03-07/06/2026) — Sprint 6b implementação + validação parcial (histórico consolidado)
+
 **Estado:** 9 sprints validadas em staging + **Sprint 6b IMPLEMENTADA + VALIDADA PARCIAL (13/16 automáticos OK, 3 manuais pendentes sem risco)**.
 
 > 🎯 **Sessão 23 (03/06) — Sprint 6b implementada (Subagent-Driven Development).**
