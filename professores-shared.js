@@ -3405,6 +3405,21 @@ const VacationBalanceService = {
         };
       });
 
+    // Sprint 6c fix: status agregado precisa considerar histórico.
+    // Se há QUALQUER período expired no histórico, o prof tem férias vencidas
+    // mesmo que o current esteja dentro do aquisitivo válido.
+    const expiredPeriods = history.filter(p => p.status === 'expired');
+    const expiredPeriodsCount = expiredPeriods.length;
+    let aggregatedStatus = status;
+    let aggregatedDaysOverdue = daysOverdue;
+    if (expiredPeriodsCount > 0) {
+      aggregatedStatus = 'overdue';
+      // Pior caso: dias do período mais antigo vencido
+      const oldest = expiredPeriods[0];
+      const oldestConcessiveEnd = addMonths(oldest.endDate, 12);
+      aggregatedDaysOverdue = Math.floor((now - oldestConcessiveEnd) / 86400000);
+    }
+
     return {
       success: true,
       data: {
@@ -3412,8 +3427,10 @@ const VacationBalanceService = {
         teacherName: teacher.name,
         teacherType: teacher.type,
         currentPeriod: current,
-        status,
-        grantPeriod: { deadlineDate: grantDeadline, daysOverdue },
+        status: aggregatedStatus,
+        currentStatusOnly: status,  // mantém status do current pra UI específica se precisar
+        grantPeriod: { deadlineDate: grantDeadline, daysOverdue: aggregatedDaysOverdue },
+        expiredPeriodsCount,
         history,
         estimatedStartDate: !(teacher.hireDate || teacher.internshipStartDate),
       },

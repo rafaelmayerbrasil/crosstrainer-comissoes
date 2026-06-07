@@ -1067,7 +1067,13 @@ async function renderSaldosGestaoPage() {
       <div class="alert-overdue-card">
         <div class="alert-overdue-title">🚨 ATENÇÃO: ${overdueCount} professor(es) com férias vencidas</div>
         <div class="alert-overdue-list">${balances.filter(b => b.status === 'overdue')
-          .map(b => `${escapeHtml(b.teacherName)} (${b.grantPeriod.daysOverdue}d vencidos)`).join(' · ')}</div>
+          .map(b => {
+            const cnt = b.expiredPeriodsCount || 0;
+            const label = cnt > 0
+              ? `${cnt} período(s) vencido(s)`
+              : `${b.grantPeriod.daysOverdue}d vencidos`;
+            return `${escapeHtml(b.teacherName)} (${label})`;
+          }).join(' · ')}</div>
         <div class="alert-overdue-note">CLT exige pagamento dobrado após período concessivo. Agendar urgente.</div>
       </div>
     ` : ''}

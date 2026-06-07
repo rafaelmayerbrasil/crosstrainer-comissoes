@@ -5,6 +5,36 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
+**Estado:** **Sprint 6c ✅ 100% COMPLETA — 12/12 critérios automáticos + 3 visuais (C5, C9 com bug agregado fixado, novo balance warning admin)**. Projeto ~97% pronto.
+
+> 🎯 **Sessão 26 (07/06) — Validação visual Sprint 6c (C5, C9, balance admin) + 1 bug semântico fixado.**
+>
+> **Fixture preparada via `scripts/validate-6c-manual.js`:**
+> - Reseto senha de `professor@teste.com` pra `Valida6Cqmbmhg!` (invalidada no cleanup — precisa redefinir via Console quando precisar logar de novo)
+> - Cria vacation aprovada de 25 dias pro "Nome de teste" (saldo=5 restantes)
+> - Cria teacher fixture "FIXTURE-6C Overdue Vencidão" com hireDate=01/01/2020 (5 períodos expirados)
+>
+> **🔴 Bug semântico descoberto e fixado:** `VacationBalanceService.getBalance` retornava `status='ok'` mesmo com 5 períodos expired no histórico, porque só olhava status do CURRENT period. Achado real: o painel mostrava o fixture como OK + descobriu também que **Lucas Mendes da Silva (dado real do staging) tem 1 período legítimo vencido**.
+>
+> **Fix aplicado:** agregar status considerando histórico. Se `history.some(p => p.status === 'expired')` → `status = 'overdue'`. Novo campo `expiredPeriodsCount` no retorno. Card vermelho do painel admin atualizado pra mostrar contagem de períodos vencidos. Em `professores-shared.js` e `professores-ferias.js`. Deploy hosting.
+>
+> **Validação visual (usuário, em staging):**
+> - C9 ✅ — Card vermelho mostrou "2 professor(es) com férias vencidas" (fixture com 5 períodos + Lucas Mendes da Silva REAL com 1 período). Linhas com badge 🔴 VENCIDA
+> - Balance warning admin ✅ — Modal "+ Nova solicitação (admin)" → select "Nome de teste" → bloco "Seu saldo atual: tirou 25, restam 5" aparece. Datas 10/09-19/09 → "excede em 5 dias" + justificativa obrigatória ✓. Envio bate em validação CLT 30 dias (Sprint 6a) — correto, esperado
+> - C5 ✅ — Login professor@teste.com → "📊 Meu Saldo" → "5 dias disponíveis até 29/09/2026" + período aquisitivo 1º + histórico vazio + botão Solicitar férias
+>
+> **Decisão registrada:** botão "+ Nova solicitação (admin)" mantido como escape operacional pra casos CLT especiais (verbalmente combinado, override antecedência).
+>
+> **Cleanup:** vacation_request fixture + teacher overdue removidos. Senha de professor@teste.com invalidada (cliente redefine via Console quando precisar). Sem rastros sintéticos em staging.
+>
+> **Achado bônus:** Lucas Mendes da Silva (dado real, hireDate 15/03/2024) tem 1 período aquisitivo vencido (15/03/2024-14/03/2025, concessivo expirou em 14/03/2026). Sistema agora alerta. Cliente decide se age sobre isso.
+>
+> **Próxima ação:** decidir próxima sprint. Candidatas: **Sprint 7 (emails Brevo)** · **Sprint 8 (relatórios + exportações)** · **polimentos finais**.
+
+---
+
+## 🔖 Sessão 25 (07/06/2026) — Validação Sprint 6c + 2 fixes (off-by-one + admin balance)
+
 **Estado:** **Sprint 6c ✅ implementada, validada e fixada (12/12 critérios automáticos)**. Projeto ~97% pronto.
 
 > 🎯 **Sessão 25 (07/06) — Validação Sprint 6c + 2 fixes aplicados.**
