@@ -77,7 +77,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | **6b** | **Pagamento de Férias (1/3 CLT efetivo + bolsa estagiário + rateio mês-a-mês + recibo)** | **✅ 16/16** |
 | **6c** | **Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas)** | **✅ 12/12 + 3 visuais** |
 
-**Próxima ação:** Sprint 6c ✅ 12/12 validados. Decidir próxima sprint: **Sprint 7 (emails via Brevo)** · **Sprint 8 (relatórios + exportações Excel/PDF)** · **polimentos finais**. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
+**Próxima ação:** **Sprint 8 — Relatórios e Exportações.** Playbook completo em `sprint-8-relatorios-exportacoes.md` (~900 linhas, 7 etapas, 12 critérios, 5 snippets-chave). Escopo: 4 relatórios (Fechamentos Mensais · Saldos de Férias · Horas por Professor · Recibos em Lote) em Excel + PDF, 100% client-side. Bibliotecas via CDN: SheetJS · jsPDF · jsPDF-autotable · JSZip. Decisões fixadas: ambos formatos desde início, geração browser, audit log de cada export. Instruções pro time em `docs/superpowers/specs/2026-06-07-sprint-8-instrucoes.md`. Estimativa: ~7-8 dias úteis. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
 
 ## 🔧 Tech debt registrado (não bloqueia)
 

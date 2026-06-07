@@ -5,6 +5,29 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
+**Estado:** **11 sprints validadas + Sprint 8 playbook publicado, aguardando dev**. Projeto ~97% pronto + sprint 8 em planejamento.
+
+> 🎯 **Sessão 27 (07/06) — Playbook Sprint 8 escrito.**
+>
+> **Decisões travadas (via AskUserQuestion):**
+> - Escopo: **4 relatórios** (Fechamentos Mensais · Saldos de Férias · Horas por Professor · Recibos em Lote)
+> - Formato: **Excel + PDF desde o início** (não staggered)
+> - Geração: **Client-side** (browser, sem CF)
+>
+> **Playbook canônico:** `sprint-8-relatorios-exportacoes.md` (~900 linhas, 12 critérios, 14 decisões, 5 snippets-chave). Sprint 100% client-side (sem CF, sem nova coleção, sem novos índices, sem alteração em rules).
+>
+> **Bibliotecas via CDN (lazy load):** SheetJS (xlsx) + jsPDF + jsPDF-autotable + JSZip (~600KB total).
+>
+> **Doc pro time:** `docs/superpowers/specs/2026-06-07-sprint-8-instrucoes.md` — resumo executivo + decisões fechadas + características + atenção em pontos delicados (encoding UTF-8 PDF, currency BR, performance de lote, reuso do receipt.html).
+>
+> **Estimativa:** 7-8 dias úteis pra dev entregar + 1 dia minha pra validar.
+>
+> **Próxima ação:** dev pega o playbook e executa as 7 etapas em ordem. Quando entregar, valido com inspeção de código + smoke-8 + fixture-8 + UI manual (abre Excel e PDF gerados, valida formato + branding + acentos + currency).
+
+---
+
+## 🔖 Sessão 26 (07/06/2026) — Sprint 6c validação 100% (15/15) + bug agregado fixado
+
 **Estado:** **Sprint 6c ✅ 100% COMPLETA — 12/12 critérios automáticos + 3 visuais (C5, C9 com bug agregado fixado, novo balance warning admin)**. Projeto ~97% pronto.
 
 > 🎯 **Sessão 26 (07/06) — Validação visual Sprint 6c (C5, C9, balance admin) + 1 bug semântico fixado.**
