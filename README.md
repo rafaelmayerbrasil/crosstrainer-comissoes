@@ -7,7 +7,7 @@ Sistema CrossTainer Elite — plataforma PWA para gestão da operação completa
 | Módulo | Status | Arquivos principais |
 |--------|--------|---------------------|
 | **Comissões** (vendedores · Performance) | ✅ Em produção | `index.html`, `commission.js`, `sw.js`, `manifest.json` |
-| **Professores** (agenda · pagamento) | 🟡 Em desenvolvimento ativo (95% completo, em staging) | `professores.html`, `professores-*.js`, `functions/`, `firestore.rules` |
+| **Professores** (agenda · pagamento) | 🟡 Em desenvolvimento ativo (97% completo, em staging) | `professores.html`, `professores-*.js`, `functions/`, `firestore.rules` |
 
 ## 🎯 Módulo Comissões (produção · `rafaelmayerbrasil.github.io`)
 
@@ -40,13 +40,16 @@ Plataforma completa de gestão de professores: cadastro, agenda, substituições
 11. **Créditos automáticos** — divergências viram crédito abatido no próximo recibo
 12. **Escalas Especiais** — sábado/feriado/eventos com pesos diferenciados (×1, ×2, ×3)
 13. **Detecção automática de feriado nacional** — via BrasilAPI, cache 7 dias
+14. **Férias e Recesso (Sprint 6a)** — workflow CLT completo: professor solicita até 3 períodos, admin aprova/recusa, CF pula classes nas datas aprovadas
+15. **Pagamento de Férias (Sprint 6b)** — cálculo automático para efetivo (média 12 meses + 1/3 CLT) e estagiário (bolsa proporcional, Lei 11.788). Modo manual + sem pagamento + adiar. Integra com fechamento mensal + recibo A4. Rateio proporcional quando férias atravessa 2 meses
+16. **Controle Anual de Saldo (Sprint 6c)** — painel admin "📊 Saldos de Férias" com badges 🟢🟡🔴 por professor. Painel professor "📊 Meu Saldo" com período aquisitivo CLT (12 meses de admissão) + histórico. Soft warning ao exceder saldo (alerta + justificativa obrigatória). Alerta automático de **férias vencidas** (CLT Art. 134 — pagamento dobrado se concessivo expirar)
 
 **Em desenvolvimento ou pendentes:**
 
 - Sprint 5b (opcional) — Workflow de aceite/recusa pelo professor + alocação automática
-- Sprint 6 — Férias e Recesso (CLT + recesso 30d estagiário)
 - Sprint 7 — Notificações por email (Brevo + Trigger Email)
 - Sprint 8 — Relatórios + Exportações
+- Polimentos finais — UX, bugs cosméticos, tech debt registrado em CLAUDE.md
 
 📄 Detalhamento técnico: [DOCUMENTACAO.md](DOCUMENTACAO.md) § Módulo Professores
 
