@@ -5,6 +5,52 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
+**Estado:** **12 sprints validadas — Sprint 8 ✅ COMPLETA (R1·R2·R3·R4 funcionando em staging)**. Projeto ~98% pronto.
+
+> 🎯 **Sessão 28 (07/06) — Validação Sprint 8 entregue pelo time + 5 fixes aplicados.**
+>
+> **Setup:** fixture-8.js criada (closing + 3 profs com nomes ricos em acentos pra testar UTF-8 + vacation + 5 classes) + validação visual via UI logada como admin.
+>
+> **5 bugs encontrados e fixados nesta sessão:**
+>
+> 🔴 **Fix 1 — Ordem de carregamento de libs** (`professores-relatorios.js`):
+>   - PDF não gerava silenciosamente. `Promise.all` carregava `jspdf-autotable` antes do `jspdf` estar pronto → autotable falhava em se anexar
+>   - Fix: carrega jspdf+xlsx+jszip em paralelo, **depois** autotable. Sanity check final
+>
+> 🔴 **Fix 2 — Summary formatava tudo como currency** (`exportToPdf`):
+>   - `totalProfessors: 12` virava "R$ 12,00" no rodapé
+>   - Fix: regex no nome do campo pra detectar currency (`totalValor|totalGeral|Value$`) vs número simples
+>
+> 🔴 **Fix 3 — R3 mostrava "Desconhecido" + R$ 0,00** (`getHorasPorProfessorReport`):
+>   - Time assumiu `class.teacherName` e `class.classValue` existiam (não existem no schema de classes)
+>   - Fix: lookup de teachers + teacher_salaries + modalities + cálculo on-the-fly `horas × hourlyRate` via `getEffectiveSalaryAt`
+>
+> 🔴 **Fix 4 — R3 estagiário R$ 0,00** (`getHorasPorProfessorReport`):
+>   - Fix 3 só pegava efetivo (hourlyRate)
+>   - Fix: estagiário usa `internProportionalHourlyRate` · fallback `internMonthlyStipend / internMonthlyLimitHours`
+>
+> 🔴 **Fix 5 — R4 ficava em "Carregando..."** (`getRecibosLoteData`):
+>   - Retorno não tinha `columns`/`rows` que o renderer genérico exige → `TypeError` silencioso
+>   - Fix: adicionado columns + rows com `valorTotal = valorTotal + vacationValue`
+>
+> **Validação visual (usuário, em staging):**
+> - R1 Fechamentos ✅ — PDF com header CrossTainer ELITE, acentos perfeitos, currency BR, coluna Férias da Sprint 6b integrada, totais corretos
+> - R2 Saldos de Férias ✅ — Lucas Mendes mantém status overdue (descoberta da Sprint 6c), totais com formatação correta
+> - R3 Horas por Professor ✅ — funciona; R$ 0,00 com Pedro Lima é correto (estagiário sem cadastro salarial em staging)
+> - R4 Recibos em Lote ✅ funcional — preview mostra profs, PDF único + ZIP geram corretamente
+>
+> **Descoberta interessante:** Pedro Lima (estagiário real do staging) **não tem cadastro em `teacher_salaries`**. Sistema mostra R$ 0,00 corretamente. Anotado pra polimentos finais: trocar R$ 0,00 por "—" ou "Sem cadastro" pra clareza UX.
+>
+> **Decisão registrada:** template do recibo R4 (PDF programático via jsPDF) está mais simples que receipt.html da Sprint 4b. Adiado pra polimentos finais (lista de itens consolidada em `polimentos-finais-backlog.md`).
+>
+> **Cleanup:** fixture-8 removida completa (closing + vacation + 5 classes).
+>
+> **Próxima ação:** decidir próxima sprint. Candidatas: **Sprint 7 (emails Brevo)** · **Polimentos finais** (lista pronta em memória).
+
+---
+
+## 🔖 Sessão 27 (07/06/2026) — Playbook Sprint 8 escrito
+
 **Estado:** **11 sprints validadas + Sprint 8 playbook publicado, aguardando dev**. Projeto ~97% pronto + sprint 8 em planejamento.
 
 > 🎯 **Sessão 27 (07/06) — Playbook Sprint 8 escrito.**

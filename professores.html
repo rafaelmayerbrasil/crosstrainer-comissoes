@@ -1755,6 +1755,28 @@
     .balance-row.status-overdue { background: var(--red-bg); }
     .balance-row:hover { background: var(--orange-dim) !important; }
     .preview-loader { font-size: 13px; color: var(--text2); padding: 8px 0; }
+
+    /* ─── Sprint 8 — Relatórios ─────────────────────────────────────────────── */
+    .report-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 16px;
+    }
+    .report-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+    .report-card h3 { margin-bottom: 4px; font-size: 15px; }
+    .report-card p { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+    .report-filters { margin-bottom: 12px; }
+    .report-preview { min-height: 40px; }
+    .filter-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { font-size: 11px; color: var(--text2); text-transform: uppercase; font-weight: 600; }
+    .progress-bar {
+      background: var(--surface3); border-radius: 4px; height: 6px; margin: 8px 0; overflow: hidden;
+    }
+    .progress-fill {
+      background: var(--orange); height: 100%; border-radius: 4px; transition: width 0.3s;
+    }
   </style>
 </head>
 
@@ -1928,6 +1950,7 @@
       <div class="page" id="page-ferias"></div>
       <div class="page" id="page-meu-saldo"></div>
       <div class="page" id="page-saldos-gestao"></div>
+      <div class="page" id="page-relatorios"></div>
     </div>
   </div>
 
@@ -2374,6 +2397,7 @@
   <script src="professores-pagamentos.js"></script>
   <script src="professores-escalas.js"></script>
   <script src="professores-ferias.js"></script>
+  <script src="professores-relatorios.js"></script>
   <script src="professores.js"></script>
 </body>
 

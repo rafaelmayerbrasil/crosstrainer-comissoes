@@ -3517,9 +3517,357 @@ const VacationBalanceService = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════════════
+// Sprint 8 — ReportService
+// ═══════════════════════════════════════════════════════════════════════
+
+function isInRange(year, month, yearMin, monthMin, yearMax, monthMax) {
+  const v = year * 12 + (month || 1);
+  const vMin = (yearMin || 2000) * 12 + (monthMin || 1);
+  const vMax = (yearMax || yearMin || 2099) * 12 + (monthMax || 12);
+  return v >= vMin && v <= vMax;
+}
+
+const ReportService = {
+
+  /** R1: Fechamentos Mensais */
+  async getFechamentosReport(filters) {
+    const { unitId, yearMin, monthMin, yearMax, monthMax } = filters;
+    if (!unitId) return { success: false, error: 'Unidade obrigatória.' };
+
+    let q = db.collection('monthly_closings').where('unitId', '==', unitId);
+    const snap = await q.get();
+    const closings = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => isInRange(c.year, c.month, yearMin, monthMin, yearMax, monthMax))
+      .sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month));
+
+    if (closings.length === 0) {
+      return { success: false, error: 'Nenhum fechamento encontrado pra esses filtros.' };
+    }
+
+    const rows = [];
+    for (const c of closings) {
+      for (const t of (c.teachers || [])) {
+        rows.push({
+          year: c.year, month: c.month,
+          monthLabel: `${String(c.month).padStart(2, '0')}/${c.year}`,
+          teacherName: t.teacherName, teacherType: t.teacherType,
+          classesCount: t.classesCount || 0,
+          totalHoras: t.totalHoras || 0,
+          valorHoras: t.valorHoras || 0,
+          mealAllowance: t.mealAllowance || 0,
+          transportAllowance: t.transportAllowance || 0,
+          otherBenefits: t.otherBenefits || 0,
+          vacationValue: t.vacationValue || 0,
+          isVacationOnly: t.isVacationOnly || false,
+          valorTotal: (t.valorTotal || 0) + (t.vacationValue || 0),
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        title: closings.length === 1
+          ? `Fechamento — Unidade ${unitId} — ${String(closings[0].month).padStart(2, '0')}/${closings[0].year}`
+          : `Fechamentos — Unidade ${unitId} — ${rows.length} linhas (${closings.length} meses)`,
+        generatedAt: new Date(),
+        filters,
+        columns: [
+          { key: 'monthLabel',    label: 'Mês',       width: 10 },
+          { key: 'teacherName',   label: 'Professor', width: 30 },
+          { key: 'teacherType',   label: 'Tipo',      width: 12 },
+          { key: 'classesCount',  label: 'Aulas',     width: 8,  type: 'number' },
+          { key: 'totalHoras',    label: 'Horas',     width: 8,  type: 'number' },
+          { key: 'valorHoras',    label: 'Valor Horas', width: 14, type: 'currency' },
+          { key: 'mealAllowance', label: 'VR',        width: 10, type: 'currency' },
+          { key: 'transportAllowance', label: 'VT',   width: 10, type: 'currency' },
+          { key: 'otherBenefits', label: 'Outros',    width: 10, type: 'currency' },
+          { key: 'vacationValue', label: 'Férias',    width: 12, type: 'currency' },
+          { key: 'valorTotal',    label: 'Total',     width: 14, type: 'currency', bold: true },
+        ],
+        rows,
+        summary: {
+          totalRows: rows.length,
+          totalClassesCount: rows.reduce((s, r) => s + r.classesCount, 0),
+          totalHoras: rows.reduce((s, r) => s + r.totalHoras, 0),
+          totalValor: rows.reduce((s, r) => s + r.valorTotal, 0),
+        },
+      },
+    };
+  },
+
+  /** R2: Saldos de Férias */
+  async getSaldosFeriasReport(filters) {
+    const { unitId, teacherType, statusFilter } = filters;
+    const all = await VacationBalanceService.getAllBalances({ unitId });
+    if (!all.success) return all;
+
+    let data = all.data;
+    if (teacherType) data = data.filter(b => b.teacherType === teacherType);
+    if (statusFilter && statusFilter !== 'todos') data = data.filter(b => b.status === statusFilter);
+
+    if (data.length === 0) {
+      return { success: false, error: 'Nenhum professor encontrado pra esses filtros.' };
+    }
+
+    const rows = data.map(b => ({
+      teacherName: b.teacherName,
+      teacherType: b.teacherType,
+      periodIndex: b.currentPeriod ? b.currentPeriod.index : 0,
+      periodStart: b.currentPeriod ? b.currentPeriod.startDate.toLocaleDateString('pt-BR') : '—',
+      periodEnd: b.currentPeriod ? b.currentPeriod.endDate.toLocaleDateString('pt-BR') : '—',
+      entitledDays: b.currentPeriod ? b.currentPeriod.entitledDays : 30,
+      daysTaken: b.currentPeriod ? b.currentPeriod.daysTaken : 0,
+      daysRemaining: b.currentPeriod ? b.currentPeriod.daysRemaining : 30,
+      status: b.status,
+      estimatedStartDate: b.estimatedStartDate,
+    }));
+
+    const byStatus = { ok: 0, warning: 0, overdue: 0 };
+    rows.forEach(r => { if (byStatus[r.status] !== undefined) byStatus[r.status]++; });
+
+    return {
+      success: true,
+      data: {
+        title: `Saldos de Férias — ${rows.length} professores`,
+        generatedAt: new Date(),
+        filters,
+        columns: [
+          { key: 'teacherName',    label: 'Professor',   width: 30 },
+          { key: 'teacherType',    label: 'Tipo',         width: 12 },
+          { key: 'periodIndex',    label: 'Período',      width: 8,  type: 'number' },
+          { key: 'periodStart',    label: 'Início',       width: 14 },
+          { key: 'periodEnd',      label: 'Fim',          width: 14 },
+          { key: 'entitledDays',   label: 'Direito',      width: 10, type: 'number' },
+          { key: 'daysTaken',      label: 'Tirados',      width: 10, type: 'number' },
+          { key: 'daysRemaining',  label: 'Restantes',    width: 10, type: 'number' },
+          { key: 'status',         label: 'Status',       width: 14 },
+        ],
+        rows,
+        summary: { totalProfessors: rows.length, ok: byStatus.ok, warning: byStatus.warning, overdue: byStatus.overdue },
+      },
+    };
+  },
+
+  /** R3: Horas por Professor */
+  async getHorasPorProfessorReport(filters) {
+    const { unitId, teacherId, dateStart, dateEnd } = filters;
+    if (!dateStart || !dateEnd) return { success: false, error: 'Período obrigatório.' };
+
+    const start = new Date(dateStart);
+    const end = new Date(dateEnd);
+    end.setHours(23, 59, 59, 999);
+
+    let q = db.collection('classes')
+      .where('scheduledDate', '>=', firebase.firestore.Timestamp.fromDate(start))
+      .where('scheduledDate', '<=', firebase.firestore.Timestamp.fromDate(end));
+    const snap = await q.get();
+    let classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Filtros client-side
+    if (unitId) classes = classes.filter(c => c.unitId === unitId);
+    if (teacherId) classes = classes.filter(c => c.teacherId === teacherId);
+
+    // Só aulas com conteúdo (realizada, substituição)
+    classes = classes.filter(c => ['realizada', 'substituicao'].includes(c.status));
+    classes.sort((a, b) => {
+      const da = a.scheduledDate ? a.scheduledDate.toDate().getTime() : 0;
+      const db2 = b.scheduledDate ? b.scheduledDate.toDate().getTime() : 0;
+      return da - db2 || (a.teacherName || '').localeCompare(b.teacherName || '');
+    });
+
+    if (classes.length === 0) {
+      // Segundo fallback: buscar por teacherId diretamente (quando especificado)
+      if (teacherId) {
+        const tSnap = await db.collection('classes')
+          .where('teacherId', '==', teacherId)
+          .where('scheduledDate', '>=', firebase.firestore.Timestamp.fromDate(start))
+          .where('scheduledDate', '<=', firebase.firestore.Timestamp.fromDate(end))
+          .get();
+        classes = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        classes = classes.filter(c => ['realizada', 'substituicao'].includes(c.status));
+        classes.sort((a, b) => {
+          const da = a.scheduledDate ? a.scheduledDate.toDate().getTime() : 0;
+          const db2 = b.scheduledDate ? b.scheduledDate.toDate().getTime() : 0;
+          return da - db2;
+        });
+      }
+
+      if (classes.length === 0) {
+        return { success: false, error: 'Nenhuma aula encontrada pra esses filtros.' };
+      }
+    }
+
+    // Sprint 8 fix: classes não denormalizam teacherName/teacherType/value.
+    // Precisamos buscar teachers + teacher_salaries pra preencher esses dados.
+    const teacherIdsToLookup = [...new Set(classes.map(c => c.teacherId).filter(Boolean))];
+    const teacherMap = {};
+    const salaryMap = {};
+    await Promise.all(teacherIdsToLookup.map(async (tid) => {
+      try {
+        const tDoc = await db.collection('teachers').doc(tid).get();
+        if (tDoc.exists) teacherMap[tid] = { id: tDoc.id, ...tDoc.data() };
+        const sDoc = await db.collection('teacher_salaries').doc(tid).get();
+        if (sDoc.exists) salaryMap[tid] = { id: sDoc.id, ...sDoc.data() };
+      } catch (_) {}
+    }));
+
+    // Buscar modalities pra resolver nome (cache simples)
+    const modalityIds = [...new Set(classes.map(c => c.modalityId).filter(Boolean))];
+    const modalityMap = {};
+    await Promise.all(modalityIds.map(async (mid) => {
+      try {
+        const mDoc = await db.collection('modalities').doc(mid).get();
+        if (mDoc.exists) modalityMap[mid] = mDoc.data().name || '—';
+      } catch (_) {}
+    }));
+
+    // Agrupa por professor
+    const groups = {};
+    for (const c of classes) {
+      const key = c.teacherId || 'desconhecido';
+      const teacher = teacherMap[key];
+      const salary = salaryMap[key];
+      // Sprint 8 fix v2: pegar taxa horária correta conforme tipo do prof.
+      // - Efetivo: hourlyRate
+      // - Estagiário: internProportionalHourlyRate · fallback internMonthlyStipend/internMonthlyLimitHours
+      const classDate = c.scheduledDate ? c.scheduledDate.toDate() : new Date();
+      let hourlyRate = 0;
+      let eff = null;
+      if (salary && typeof getEffectiveSalaryAt === 'function') {
+        eff = getEffectiveSalaryAt(salary, classDate);
+      } else {
+        eff = salary;
+      }
+      const isIntern = teacher && teacher.type === 'estagiario';
+      if (eff) {
+        if (isIntern) {
+          if (typeof eff.internProportionalHourlyRate === 'number' && eff.internProportionalHourlyRate > 0) {
+            hourlyRate = eff.internProportionalHourlyRate;
+          } else if (typeof eff.internMonthlyStipend === 'number' && eff.internMonthlyStipend > 0
+                     && typeof eff.internMonthlyLimitHours === 'number' && eff.internMonthlyLimitHours > 0) {
+            hourlyRate = eff.internMonthlyStipend / eff.internMonthlyLimitHours;
+          }
+        } else if (typeof eff.hourlyRate === 'number' && eff.hourlyRate > 0) {
+          hourlyRate = eff.hourlyRate;
+        }
+      }
+
+      if (!groups[key]) {
+        groups[key] = {
+          teacherId: key,
+          teacherName: teacher ? (teacher.name || 'Desconhecido') : 'Desconhecido',
+          teacherType: teacher ? (teacher.type || '—') : '—',
+          totalHoras: 0,
+          totalValor: 0,
+          classesCount: 0,
+          details: [],
+        };
+      }
+      const horas = (c.durationMinutes || 60) / 60;
+      const valor = hourlyRate > 0 ? Math.round(horas * hourlyRate * 100) / 100 : 0;
+      groups[key].totalHoras += horas;
+      groups[key].totalValor += valor;
+      groups[key].classesCount++;
+      groups[key].details.push({
+        date: c.scheduledDate ? c.scheduledDate.toDate().toLocaleDateString('pt-BR') : '—',
+        modalityName: modalityMap[c.modalityId] || '—',
+        startTime: c.startTime || '—',
+        durationMin: c.durationMinutes || 60,
+        horas,
+        valor,
+        status: c.status,
+        isSubstitution: c.isSubstitution || c.status === 'substituicao',
+      });
+    }
+
+    const summaryRows = Object.values(groups)
+      .map(g => ({
+        teacherName: g.teacherName,
+        teacherType: g.teacherType,
+        classesCount: g.classesCount,
+        totalHoras: Math.round(g.totalHoras * 10) / 10,
+        totalValor: Math.round(g.totalValor * 100) / 100,
+      }))
+      .sort((a, b) => b.totalValor - a.totalValor);
+
+    return {
+      success: true,
+      data: {
+        title: `Horas por Professor — ${new Date(dateStart).toLocaleDateString('pt-BR')} a ${new Date(dateEnd).toLocaleDateString('pt-BR')}`,
+        generatedAt: new Date(),
+        filters,
+        summaryColumns: [
+          { key: 'teacherName',  label: 'Professor',    width: 30 },
+          { key: 'teacherType',  label: 'Tipo',          width: 12 },
+          { key: 'classesCount', label: 'Aulas',         width: 8,  type: 'number' },
+          { key: 'totalHoras',   label: 'Horas',         width: 8,  type: 'number' },
+          { key: 'totalValor',   label: 'Valor Total',   width: 14, type: 'currency', bold: true },
+        ],
+        rows: summaryRows,
+        details: groups,
+        summary: {
+          totalProfessors: summaryRows.length,
+          totalClasses: summaryRows.reduce((s, r) => s + r.classesCount, 0),
+          totalHoras: Math.round(summaryRows.reduce((s, r) => s + r.totalHoras, 0) * 10) / 10,
+          totalValor: Math.round(summaryRows.reduce((s, r) => s + r.totalValor, 0) * 100) / 100,
+        },
+      },
+    };
+  },
+
+  /** R4: Recibos em Lote — retorna dados pra gerar recibos */
+  async getRecibosLoteData(closingId) {
+    const doc = await db.collection('monthly_closings').doc(closingId).get();
+    if (!doc.exists) return { success: false, error: 'Fechamento não encontrado.' };
+    const closing = { id: doc.id, ...doc.data() };
+
+    const profs = (closing.teachers || []).filter(t => t.valorTotal > 0 || (t.vacationValue || 0) > 0);
+    if (profs.length === 0) {
+      return { success: false, error: 'Nenhum professor com valor a receber neste fechamento.' };
+    }
+
+    // Sprint 8 fix: renderizador genérico exige columns + rows. Sem isso,
+    // d.rows.length jogava TypeError e preview ficava em "Carregando...".
+    const rows = profs.map(p => ({
+      teacherName: p.teacherName || '—',
+      teacherType: p.teacherType || '—',
+      classesCount: p.classesCount || 0,
+      totalHoras: Math.round((p.totalHoras || 0) * 10) / 10,
+      valorTotal: Math.round(((p.valorTotal || 0) + (p.vacationValue || 0)) * 100) / 100,
+    }));
+
+    return {
+      success: true,
+      data: {
+        title: `Recibos — ${String(closing.month).padStart(2, '0')}/${closing.year} — ${closing.unitId}`,
+        generatedAt: new Date(),
+        filters: { closingId, unitId: closing.unitId, month: closing.month, year: closing.year },
+        closing,
+        profs,
+        columns: [
+          { key: 'teacherName',  label: 'Professor', width: 30 },
+          { key: 'teacherType',  label: 'Tipo',      width: 12 },
+          { key: 'classesCount', label: 'Aulas',     width: 8,  type: 'number' },
+          { key: 'totalHoras',   label: 'Horas',     width: 8,  type: 'number' },
+          { key: 'valorTotal',   label: 'Total',     width: 14, type: 'currency', bold: true },
+        ],
+        rows,
+        summary: {
+          totalRecibos: profs.length,
+          totalValor: Math.round(profs.reduce((s, p) => s + (p.valorTotal || 0) + (p.vacationValue || 0), 0) * 100) / 100,
+        },
+      },
+    };
+  },
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // Expor para depuração via console
 // ────────────────────────────────────────────────────────────────────────
+window.ReportService = ReportService;
 window.VacationBalanceService = VacationBalanceService;
 window.ModalityService = ModalityService;
 window.UnitService     = UnitService;
@@ -3561,6 +3909,8 @@ window.ProfHelpers     = {
   ReceiptService, PaymentService, CreditService,
   // Sprint 6c — VacationBalanceService + helpers de período aquisitivo
   VacationBalanceService, getEntitlementStartDate, addMonths, listAcquisitionPeriods, findCurrentPeriod,
+  // Sprint 8 — ReportService
+  ReportService,
 };
 
 console.log('[CrossTainer Professores] professores-shared.js carregado · Services Sprint 1+1.5+2+3a+3b (todos)');

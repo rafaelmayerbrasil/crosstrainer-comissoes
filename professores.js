@@ -27,8 +27,8 @@ const AppState = {
 
 /* ─── Configuração de páginas por perfil ────────────────────────── */
 const PROF_PAGES = {
-  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao'],
-  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao'],
+  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
+  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
   supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
   professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
   professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
@@ -48,6 +48,7 @@ const PAGE_DEFINITIONS = [
   { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Operação' },
   { id: 'meu-saldo',      label: 'Meu Saldo',          icon: '📊', section: 'Minhas aulas' },
   { id: 'saldos-gestao',  label: 'Saldos de Férias',   icon: '📊', section: 'Financeiro' },
+  { id: 'relatorios',     label: 'Relatórios',         icon: '📊', section: 'Financeiro' },
 ];
 
 /* ─── Helpers de perfil ─────────────────────────────────────────── */
@@ -480,6 +481,8 @@ function navigateTo(pageId) {
     renderMeuSaldoPage();
   } else if (pageId === 'saldos-gestao' && typeof renderSaldosGestaoPage === 'function') {
     renderSaldosGestaoPage();
+  } else if (pageId === 'relatorios' && typeof renderRelatoriosPage === 'function') {
+    renderRelatoriosPage();
   }
 
   // Fecha menu mobile se estiver aberto

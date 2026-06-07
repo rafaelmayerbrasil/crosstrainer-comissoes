@@ -61,7 +61,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**11 sprints implementadas em staging (07/06/2026, sessão 24). Sprint 6c deployada, aguardando validação do cliente. Projeto ~97% completo.**
+**12 sprints validadas em staging (07/06/2026, sessão 28). Sprint 8 ✅ completa. Projeto ~98% completo.**
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -75,9 +75,10 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 5a | Escalas Especiais (peso variável) + Detecção auto de feriado (BrasilAPI) | ✅ |
 | 6a | Férias e Recesso (workflow CLT, multi-período, CF pula classes) | ✅ |
 | **6b** | **Pagamento de Férias (1/3 CLT efetivo + bolsa estagiário + rateio mês-a-mês + recibo)** | **✅ 16/16** |
-| **6c** | **Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas)** | **✅ 12/12 + 3 visuais** |
+| 6c | Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas) | ✅ 12/12 + 3 visuais |
+| **8** | **Relatórios e Exportações (4 relatórios em Excel + PDF, client-side, lazy load CDN)** | **✅ R1·R2·R3·R4** |
 
-**Próxima ação:** **Sprint 8 — Relatórios e Exportações.** Playbook completo em `sprint-8-relatorios-exportacoes.md` (~900 linhas, 7 etapas, 12 critérios, 5 snippets-chave). Escopo: 4 relatórios (Fechamentos Mensais · Saldos de Férias · Horas por Professor · Recibos em Lote) em Excel + PDF, 100% client-side. Bibliotecas via CDN: SheetJS · jsPDF · jsPDF-autotable · JSZip. Decisões fixadas: ambos formatos desde início, geração browser, audit log de cada export. Instruções pro time em `docs/superpowers/specs/2026-06-07-sprint-8-instrucoes.md`. Estimativa: ~7-8 dias úteis. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
+**Próxima ação:** Sprint 8 ✅ completa (R1·R2·R3·R4 validados em staging após 5 fixes). Decidir próxima: **Sprint 7 (emails Brevo)** ou **Polimentos finais** (backlog consolidado em memória `polimentos-finais-backlog.md` — inclui template do recibo R4 da Sprint 8, R3 "sem cadastro salarial" em vez de R$ 0,00, tech debt do sw.js, CDN local fallback, nome CrossTainer no index.html/manifest, etc.). **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
 
 ## 🔧 Tech debt registrado (não bloqueia)
 

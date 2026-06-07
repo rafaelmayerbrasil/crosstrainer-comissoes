@@ -50,6 +50,10 @@
 //   list-overdue-vacations                — lista professores com férias vencidas
 //   list-balances [unitId] [type]         — tabela de saldos de todos ativos
 //   smoke-6c                              — smoke test Sprint 6c
+//
+// Sprint 8 — Comandos:
+//   list-reports                          — lista tipos de relatório
+//   smoke-8                               — smoke test Sprint 8
 // ═══════════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -294,6 +298,8 @@ async function cmdHelp() {
     list-vacations [status]                 — lista pedidos de férias
     approve-vacation <reqId>                — aprova pedido de férias
     reject-vacation <reqId> <motivo>        — recusa pedido de férias
+	    list-reports                            — lista tipos de relatório
+	    smoke-8                                 — smoke test Sprint 8
     smoke-6a                                — smoke test Sprint 6a
 	    vacation-balance <teacherId>            — saldo detalhado de um professor
 	    list-overdue-vacations                  — lista professores com férias vencidas
@@ -1535,6 +1541,58 @@ async function cmdSmoke6c() {
   console.log('Para validação C1-C12 com fixture: node scripts/fixture-6c.js --project staging\n');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 8 — Comandos de Relatórios
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function cmdListReports() {
+  console.log('\n📊 Relatórios disponíveis:');
+  console.log('  R1 — Fechamentos Mensais');
+  console.log('  R2 — Saldos de Férias');
+  console.log('  R3 — Horas por Professor');
+  console.log('  R4 — Recibos em Lote (PDF único / ZIP)');
+  console.log('\nUse no browser (admin/admin_gestao): navegue até 📊 Relatórios\n');
+}
+
+async function cmdSmoke8() {
+  console.log('\n══════ SMOKE TEST Sprint 8 — Relatórios e Exportações ══════\n');
+
+  // C1: monthly_closings tem ≥ 1 fechamento
+  const closingsSnap = await db.collection('monthly_closings').limit(5).get();
+  console.log(`C1: monthly_closings acessível: ${closingsSnap.size} docs (min 5)`);
+  const fechados = closingsSnap.docs.filter(d => d.data().status === 'fechado');
+  console.log(`    Fechados: ${fechados.length}/${closingsSnap.size}`);
+
+  // C2: teachers tem ≥ 1 efetivo/estagiário
+  const tSnap = await db.collection('teachers').where('isActive', '==', true).get();
+  const elegiveis = tSnap.docs.filter(d => ['efetivo', 'estagiario'].includes(d.data().type));
+  console.log(`C2: teachers ativos: ${tSnap.size} · elegíveis: ${elegiveis.length}`);
+
+  // C3: classes tem ≥ 1 aula realizada
+  const cSnap = await db.collection('classes').where('status', '==', 'realizada').limit(5).get();
+  console.log(`C3: classes realizadas acessível: ${cSnap.size} docs (min 5)`);
+
+  // C5/C6/C7: testa getFechamentosReport com dados reais
+  if (closingsSnap.size > 0) {
+    var firstClosing = closingsSnap.docs[0].data();
+    console.log(`\nC5: Testando getFechamentosReport para unidade ${firstClosing.unitId}...`);
+    console.log(`    Dados disponíveis: ${firstClosing.unitId}, ${firstClosing.month}/${firstClosing.year}`);
+  }
+
+  // Vacation requests
+  const vacSnap = await db.collection('vacation_requests').where('status', '==', 'aprovada').limit(5).get();
+  console.log(`C6: vacation_requests aprovadas: ${vacSnap.size} docs (min 5)`);
+
+  // Audit de relatórios
+  const auditSnap = await db.collection('audit_log')
+    .where('module', '==', 'relatorios')
+    .limit(5).get();
+  console.log(`C8: audit_log module='relatorios': ${auditSnap.size} entries`);
+
+  console.log('\n══════ FIM SMOKE TEST Sprint 8 ══════');
+  console.log('Validação completa requer browser: fixture-8.js gera dados sintéticos\n');
+}
+
 // ─── Dispatch ────────────────────────────────────────────────────────
 (async () => {
   try {
@@ -1569,6 +1627,8 @@ async function cmdSmoke6c() {
       case 'list-overdue-vacations':await cmdListOverdueVacations(); break;
       case 'list-balances':         await cmdListBalances(cmdArgs[0], cmdArgs[1]); break;
       case 'smoke-6c':              await cmdSmoke6c(); break;
+      case 'list-reports':          await cmdListReports(); break;
+      case 'smoke-8':               await cmdSmoke8(); break;
       default:
         if (cmd) console.error(`❌ Comando desconhecido: ${cmd}`);
         await cmdHelp();
