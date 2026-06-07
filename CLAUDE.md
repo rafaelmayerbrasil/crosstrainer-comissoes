@@ -61,7 +61,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**10 sprints validadas 100% em staging (07/06/2026, sessão 24). Projeto ~95% completo.**
+**11 sprints implementadas em staging (07/06/2026, sessão 24). Sprint 6c deployada, aguardando validação do cliente. Projeto ~97% completo.**
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -75,8 +75,9 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 5a | Escalas Especiais (peso variável) + Detecção auto de feriado (BrasilAPI) | ✅ |
 | 6a | Férias e Recesso (workflow CLT, multi-período, CF pula classes) | ✅ |
 | **6b** | **Pagamento de Férias (1/3 CLT efetivo + bolsa estagiário + rateio mês-a-mês + recibo)** | **✅ 16/16** |
+| **6c** | **Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas)** | **✅ 12/12** |
 
-**Próxima ação:** **Sprint 6c — Controle Anual de Saldo de Férias.** Playbook completo em `sprint-6c-controle-anual-saldo.md` (723 linhas, 7 etapas, 12 critérios, 5 snippets-chave). Escopo pacote completo (saldo + período aquisitivo CLT + alerta vencidas + painel histórico). Decisões fixadas: (a) soft warning ao exceder saldo, (b) período aquisitivo CLT por professor (12 meses de admissão), (c) fallback createdAt se hireDate/internshipStartDate ausente. Sprint 100% frontend (sem CF, sem nova coleção, sem novos índices). Instruções pro time em `docs/superpowers/specs/2026-06-07-sprint-6c-instrucoes.md`. Estimativa: ~4-5 dias úteis. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
+**Próxima ação:** Sprint 6c ✅ 12/12 validados. Decidir próxima sprint: **Sprint 7 (emails via Brevo)** · **Sprint 8 (relatórios + exportações Excel/PDF)** · **polimentos finais**. **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
 
 ## 🔧 Tech debt registrado (não bloqueia)
 

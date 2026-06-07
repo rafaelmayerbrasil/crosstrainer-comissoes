@@ -142,6 +142,103 @@ function currentUserRoles() {
 }
 
 // ────────────────────────────────────────────────────────────────────────
+// Sprint 6c — Helpers de Período Aquisitivo (CLT)
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Retorna a data de início para contagem de períodos aquisitivos.
+ * Efetivo → hireDate. Estagiário → internshipStartDate.
+ * Eventual → null (sem direito).
+ * Fallback: createdAt do teacher (com flag estimatedStartDate).
+ */
+function getEntitlementStartDate(teacher) {
+  if (!teacher) return null;
+  if (teacher.type === 'eventual') return null;
+
+  if (teacher.type === 'efetivo' && teacher.hireDate) {
+    return teacher.hireDate.toDate ? teacher.hireDate.toDate() : new Date(teacher.hireDate);
+  }
+  if (teacher.type === 'estagiario' && teacher.internshipStartDate) {
+    return teacher.internshipStartDate.toDate ? teacher.internshipStartDate.toDate() : new Date(teacher.internshipStartDate);
+  }
+  // Fallback: createdAt
+  if (teacher.createdAt) {
+    return teacher.createdAt.toDate ? teacher.createdAt.toDate() : new Date(teacher.createdAt);
+  }
+  return null;
+}
+
+/**
+ * Adiciona N meses a uma data preservando fim de mês quando aplicável.
+ * Ex: 31/01 + 1m → 28/02 (ou 29/02 em bissexto), não 03/03.
+ */
+function addMonths(date, months) {
+  const d = new Date(date.getTime());
+  const originalDay = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  // Se o dia "estourou" pra próximo mês, volta pro último dia do mês alvo
+  if (d.getDate() !== originalDay) {
+    d.setDate(0);
+  }
+  return d;
+}
+
+/**
+ * Lista todos os períodos aquisitivos do professor (passados + atual).
+ * Retorna array ordenado por index (1, 2, 3...).
+ */
+function listAcquisitionPeriods(teacher, asOfDate) {
+  asOfDate = asOfDate || new Date();
+  const start = getEntitlementStartDate(teacher);
+  if (!start) return [];
+
+  const periods = [];
+  let cursor = new Date(start);
+  let index = 1;
+
+  while (cursor <= asOfDate) {
+    const endDate = addMonths(cursor, 12);
+    endDate.setDate(endDate.getDate() - 1);
+
+    periods.push({
+      index,
+      startDate: new Date(cursor),
+      endDate: new Date(endDate),
+      entitledDays: 30,
+    });
+
+    cursor = addMonths(cursor, 12);
+    index++;
+    if (index > 100) break; // safety net
+  }
+
+  return periods;
+}
+
+/**
+ * Encontra o período aquisitivo atual (o último que contém asOfDate).
+ */
+function findCurrentPeriod(periods, asOfDate) {
+  asOfDate = asOfDate || new Date();
+  for (let i = periods.length - 1; i >= 0; i--) {
+    if (periods[i].startDate <= asOfDate && asOfDate <= periods[i].endDate) {
+      return { ...periods[i], isCurrent: true };
+    }
+  }
+  return null;
+}
+
+/** Escapa HTML para prevenir XSS em dados vindos do Firestore. */
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ────────────────────────────────────────────────────────────────────────
 // AUDIT SERVICE
 // ────────────────────────────────────────────────────────────────────────
 
@@ -3206,9 +3303,207 @@ const VacationPaymentService = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — VacationBalanceService
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VacationBalanceService = {
+
+  /**
+   * Calcula o saldo de férias de um professor.
+   * @returns { success, data: { teacherId, teacherName, teacherType, currentPeriod,
+   *   status, grantPeriod, history, estimatedStartDate } }
+   */
+  async getBalance(teacherId) {
+    const teacherDoc = await db.collection('teachers').doc(teacherId).get();
+    if (!teacherDoc.exists) return { success: false, error: 'Professor não encontrado' };
+    const teacher = { id: teacherDoc.id, ...teacherDoc.data() };
+
+    if (teacher.type === 'eventual') {
+      return { success: false, error: 'Eventuais não têm direito formal a férias.' };
+    }
+
+    const periods = listAcquisitionPeriods(teacher);
+    if (periods.length === 0) {
+      return { success: false, error: 'Sem dados para calcular período aquisitivo.' };
+    }
+
+    // Busca todas as vacation_requests aprovadas
+    const vacSnap = await db.collection('vacation_requests')
+      .where('teacherId', '==', teacherId)
+      .where('status', '==', 'aprovada').get();
+    const allVacs = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Atribui cada vacation_request ao período aquisitivo onde cai firstPeriodStart
+    const vacsByPeriod = {};
+    for (const v of allVacs) {
+      let startDate;
+      if (v.firstPeriodStart) {
+        startDate = v.firstPeriodStart.toDate ? v.firstPeriodStart.toDate() : new Date(v.firstPeriodStart);
+      } else if (v.periods && v.periods[0] && v.periods[0].startDate) {
+        const ps = v.periods[0].startDate;
+        startDate = ps.toDate ? ps.toDate() : new Date(ps);
+      } else {
+        continue; // sem data, não atribui
+      }
+      const period = periods.find(p => p.startDate <= startDate && startDate <= p.endDate);
+      if (period) {
+        if (!vacsByPeriod[period.index]) vacsByPeriod[period.index] = [];
+        vacsByPeriod[period.index].push(v);
+      }
+    }
+
+    // Calcula daysTaken por período
+    const periodsWithUsage = periods.map(p => {
+      const vacs = vacsByPeriod[p.index] || [];
+      const daysTaken = vacs.reduce((s, v) => s + (v.totalDays || 0), 0);
+      return {
+        ...p,
+        daysTaken,
+        daysRemaining: Math.max(0, p.entitledDays - daysTaken),
+        vacationRequestIds: vacs.map(v => v.id),
+      };
+    });
+
+    // Período atual
+    const now = new Date();
+    const currentIdx = periodsWithUsage.findIndex(p => p.startDate <= now && now <= p.endDate);
+    const current = currentIdx >= 0
+      ? periodsWithUsage[currentIdx]
+      : periodsWithUsage[periodsWithUsage.length - 1];
+
+    // Status legal
+    let status = 'ok';
+    let grantDeadline = null;
+    let daysOverdue = 0;
+
+    if (current.endDate < now) {
+      // Aquisitivo terminou, está em período concessivo.
+      // Concessivo dura 12 meses APÓS o fim do aquisitivo (CLT Art. 134).
+      // Deadline = endDate + 12 meses (último dia válido pra tirar férias).
+      grantDeadline = addMonths(current.endDate, 12);
+      if (now > grantDeadline) {
+        status = 'overdue';
+        daysOverdue = Math.floor((now - grantDeadline) / 86400000);
+      } else {
+        const monthsLeft = (grantDeadline - now) / (30 * 86400000);
+        status = monthsLeft < 6 ? 'warning' : 'ok';
+      }
+    }
+
+    // Histórico (períodos passados)
+    const history = periodsWithUsage
+      .slice(0, currentIdx >= 0 ? currentIdx : periodsWithUsage.length - 1)
+      .map(p => {
+        // Deadline do concessivo = aquisitivo.endDate + 12 meses (CLT Art. 134).
+        const concessiveEnd = addMonths(p.endDate, 12);
+        return {
+          ...p,
+          status: p.daysRemaining === 0
+            ? 'closed'
+            : (now > concessiveEnd ? 'expired' : 'pending'),
+        };
+      });
+
+    return {
+      success: true,
+      data: {
+        teacherId,
+        teacherName: teacher.name,
+        teacherType: teacher.type,
+        currentPeriod: current,
+        status,
+        grantPeriod: { deadlineDate: grantDeadline, daysOverdue },
+        history,
+        estimatedStartDate: !(teacher.hireDate || teacher.internshipStartDate),
+      },
+    };
+  },
+
+  /**
+   * Lista saldos de todos os professores ativos (não eventuais).
+   * @param options.unitId — filtra por unidade (opcional)
+   */
+  async getAllBalances({ unitId } = {}) {
+    let q = db.collection('teachers').where('isActive', '==', true);
+    const snap = await q.get();
+    const teachers = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(t => t.type !== 'eventual')
+      .filter(t => !unitId || t.primaryUnitId === unitId || (t.unitIds || []).includes(unitId));
+
+    const results = await Promise.all(teachers.map(t => this.getBalance(t.id)));
+    return {
+      success: true,
+      data: results.filter(r => r.success).map(r => r.data),
+    };
+  },
+
+  /**
+   * Lista professores com status='overdue' (férias vencidas).
+   */
+  async listOverdueTeachers() {
+    const all = await this.getAllBalances();
+    if (!all.success) return all;
+    return { success: true, data: all.data.filter(b => b.status === 'overdue') };
+  },
+
+  /**
+   * Varredura idempotente: detecta férias vencidas e grava 1 audit log por dia.
+   * Dedup via metaDayKey='YYYY-MM-DD'.
+   */
+  async checkAndLogOverdue() {
+    const overdue = await this.listOverdueTeachers();
+    if (!overdue.success || overdue.data.length === 0) return { success: true, logged: 0 };
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const uid = currentUserId();
+    if (!uid) return { success: false, error: 'Sem usuário autenticado para gerar audit log.' };
+
+    let logged = 0;
+    for (const o of overdue.data) {
+      // Dedup: já auditou hoje? Usa module='ferias' (índice existe) + filtra client-side
+      const snap = await db.collection('audit_log')
+        .where('module', '==', 'ferias')
+        .where('entityId', '==', o.teacherId)
+        .limit(10).get();
+      const alreadyLogged = snap.docs.some(d => {
+        const a = d.data();
+        return a.type === 'vacation_overdue_detected' && a.metaDayKey === todayKey;
+      });
+      if (alreadyLogged) continue;
+
+      // Escreve diretamente porque AuditService.log não aceita metaDayKey
+      await db.collection('audit_log').add({
+        type: 'vacation_overdue_detected',
+        module: 'ferias',
+        details: `Férias vencidas: ${o.teacherName} (${o.grantPeriod.daysOverdue} dias após período concessivo)`,
+        entityType: 'teacher',
+        entityId: o.teacherId,
+        before: null,
+        after: {
+          teacherName: o.teacherName,
+          status: o.status,
+          daysOverdue: o.grantPeriod.daysOverdue,
+          currentPeriodIndex: o.currentPeriod.index,
+        },
+        userId: uid,
+        userName: currentUserName(),
+        role: currentUserRoles(),
+        unitId: null,
+        timestamp: serverTs(),
+        metaDayKey: todayKey,
+      });
+      logged++;
+    }
+    return { success: true, logged };
+  },
+};
+
 // ────────────────────────────────────────────────────────────────────────
 // Expor para depuração via console
 // ────────────────────────────────────────────────────────────────────────
+window.VacationBalanceService = VacationBalanceService;
 window.ModalityService = ModalityService;
 window.UnitService     = UnitService;
 window.TeacherService  = TeacherService;
@@ -3228,7 +3523,7 @@ window.SpecialScaleService    = SpecialScaleService;
 window.VacationService        = VacationService;
 window.VacationPaymentService = VacationPaymentService;
 window.ProfHelpers     = {
-  mascararCpf, getInitials, avatarHtml, internAlertHtml, fmt, formatDate, toTimestamp,
+  mascararCpf, getInitials, avatarHtml, internAlertHtml, fmt, formatDate, toTimestamp, escapeHtml,
   // Sprint 2 — helpers de horário
   timeToMinutes, minutesToTime, minutesBetween, slotsOverlap, detectSlotConflict,
   WEEKDAY_LABEL, WEEKDAY_LABEL_SHORT,
@@ -3247,6 +3542,8 @@ window.ProfHelpers     = {
   VacationPaymentService, getEffectiveStipendAt,
   // Sprint 4b — serviços de pagamento/recibo/crédito
   ReceiptService, PaymentService, CreditService,
+  // Sprint 6c — VacationBalanceService + helpers de período aquisitivo
+  VacationBalanceService, getEntitlementStartDate, addMonths, listAcquisitionPeriods, findCurrentPeriod,
 };
 
 console.log('[CrossTainer Professores] professores-shared.js carregado · Services Sprint 1+1.5+2+3a+3b (todos)');

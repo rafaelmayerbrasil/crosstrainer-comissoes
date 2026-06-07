@@ -27,11 +27,11 @@ const AppState = {
 
 /* ─── Configuração de páginas por perfil ────────────────────────── */
 const PROF_PAGES = {
-  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias'],
-  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias'],
-  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias'],
-  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias'],
-  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias'],
+  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao'],
+  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao'],
+  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
+  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
+  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
 };
 
 const PAGE_DEFINITIONS = [
@@ -46,6 +46,8 @@ const PAGE_DEFINITIONS = [
   { id: 'meus-pagamentos', label: 'Meus Pagamentos', icon: '💳', section: 'Financeiro' },
   { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Operação' },
   { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Operação' },
+  { id: 'meu-saldo',      label: 'Meu Saldo',          icon: '📊', section: 'Minhas aulas' },
+  { id: 'saldos-gestao',  label: 'Saldos de Férias',   icon: '📊', section: 'Financeiro' },
 ];
 
 /* ─── Helpers de perfil ─────────────────────────────────────────── */
@@ -474,6 +476,10 @@ function navigateTo(pageId) {
     } else {
       renderMinhasFeriasPage();
     }
+  } else if (pageId === 'meu-saldo' && typeof renderMeuSaldoPage === 'function') {
+    renderMeuSaldoPage();
+  } else if (pageId === 'saldos-gestao' && typeof renderSaldosGestaoPage === 'function') {
+    renderSaldosGestaoPage();
   }
 
   // Fecha menu mobile se estiver aberto

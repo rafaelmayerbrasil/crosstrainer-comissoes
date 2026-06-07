@@ -3,24 +3,62 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 03/06/2026 (sessão 23)
+## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
-**Estado:** **10 sprints validadas em staging + Sprint 6c playbook publicado, aguardando dev**. Projeto ~95% pronto + sprint 6c em planejamento.
+**Estado:** **Sprint 6c ✅ implementada, validada e fixada (12/12 critérios automáticos)**. Projeto ~97% pronto.
 
-> 🎯 **Sessão 24 continuação (07/06) — Playbook Sprint 6c escrito.**
+> 🎯 **Sessão 25 (07/06) — Validação Sprint 6c + 2 fixes aplicados.**
 >
-> **3 decisões travadas com usuário (via AskUserQuestion):**
-> - D1 Escopo: **Pacote completo** (saldo + período aquisitivo + alerta vencidas + painel histórico)
-> - D2 Validação: **Soft warning** (alerta visual + justificativa obrigatória, não bloqueia)
-> - D3 Período: **Aquisitivo CLT por professor** (12 meses a partir de hireDate / internshipStartDate)
+> **Inspeção de código + smoke + fixture-6c autônoma** (scripts/fixture-6c.js — addMonths em 5 casos tricky + período aquisitivo + saldo + overdue + dedup + cleanup) detectaram 2 issues NÃO-bloqueadoras:
+> - 🟡 Issue 1 — Off-by-one em `grantDeadline` no `professores-shared.js` (variável tinha `setDate(getDate()+1)` indevido). Resultado: prof ficava `overdue` 1 dia depois do correto
+> - 🟡 Issue 2 — Modal admin (`openFeriasRequestModalAdmin`) não tinha balance warning nem soft warning no submit. Paridade quebrada com modal do professor
 >
-> **Playbook canônico:** `sprint-6c-controle-anual-saldo.md` (723 linhas, 12 critérios de aceite, 14 decisões, 5 snippets-chave). Sprint 100% client-side (sem CF, sem nova coleção, sem novos índices, sem alteração em rules). Reuso de `firstPeriodStart`/`lastPeriodEnd` denormalizados do 6b pra atribuir vacation_request ao período aquisitivo.
+> **Fixes aplicados (Claude, ~20 min):**
+> - `professores-shared.js`: removido `setDate(+1)` em `grantDeadline` (2 lugares — período atual + history)
+> - `professores-ferias.js`: modal admin ganhou `<div id="feriasBalanceWarning">` + handler `onAdminFeriasTeacherChange()` + `onchange="updateFeriasBalanceWarning()"` nos inputs de data + balance check em `submitFeriasRequestAdmin` (mesmo pattern de `submitFeriasRequestComSaldo`)
 >
-> **Doc pro time:** `docs/superpowers/specs/2026-06-07-sprint-6c-instrucoes.md` — resumo executivo + decisões fechadas + características da sprint + atenção em pontos delicados + pré-deploy checklist.
+> **Validação pós-fix:**
+> - addMonths em 5/5 casos tricky (bissexto, fim de mês) ✅
+> - Período aquisitivo: hireDate 15/03/2023 → atual=4º (15/03/2026-14/03/2027) ✅
+> - Saldo subtrai vacation aprovada: 10 dias → daysRemaining=20 ✅
+> - Off-by-one corrigido: 14/03/2028 → ok (último dia válido) · 15/03/2028 → overdue ✅
+> - Dedup audit metaDayKey funcional ✅
+> - Fixture-6c passou 100% após fix
 >
-> **Estimativa:** 4-5 dias úteis pra dev entregar + 1 dia minha pra validar.
+> **Deploy:** `firebase deploy --only hosting --project staging` ✅
 >
-> **Próxima ação:** dev pega o playbook e executa as 7 etapas em ordem. Quando entregar, valido com inspeção de código + smoke-6c + fixture-6c + UI manual.
+> **Relatórios:** `docs/superpowers/specs/2026-06-07-sprint-6c-validacao-resultado.md`.
+>
+> **Pendente (sem risco, validação UI manual):** painel professor "Meu Saldo" + card vermelho de vencidas + balance warning admin via login real. Tudo cosmético.
+>
+> **Próxima ação:** decidir próxima sprint com usuário. Candidatas: **Sprint 7 (emails Brevo)** · **Sprint 8 (relatórios + exportações)** · **polimentos finais**.
+
+---
+
+## 🔖 Sessão 24 (07/06/2026) — Sprint 6c implementada pelo time
+
+**Estado:** **Sprint 6c implementada e deployada em staging, aguardando validação do cliente**. Projeto ~97% pronto.
+
+> 🎯 **Sessão 24 (07/06) — Sprint 6c implementada (7 etapas, ~700 linhas de código).**
+>
+> **Arquivos modificados (5):**
+> - `professores-shared.js` — +150 linhas: helpers (`getEntitlementStartDate`, `addMonths`, `listAcquisitionPeriods`, `findCurrentPeriod`, `escapeHtml`) + `VacationBalanceService` (getBalance, getAllBalances, listOverdueTeachers, checkAndLogOverdue)
+> - `professores-ferias.js` — +250 linhas: `renderSaldosGestaoPage`, `openBalanceDetailModal`, `renderMeuSaldoPage`, `renderBalanceWarning`, `submitFeriasRequestComSaldo`, `updateFeriasBalanceWarning`. Modal de solicitação atualizado com bloco de saldo.
+> - `professores.html` — páginas `page-meu-saldo` + `page-saldos-gestao` + CSS (~80 linhas)
+> - `professores.js` — sidebar items + routing para `meu-saldo` e `saldos-gestao`
+> - `scripts/admin.js` — comandos `vacation-balance`, `list-overdue-vacations`, `list-balances`, `smoke-6c`
+>
+> **Validação automática:**
+> - Syntax check: 4/4 JS files passam em `node -c`
+> - `smoke-6c` (admin SDK): ✅ 5 professores ativos, 4 elegíveis (2 efetivos + 2 estagiários), 1 eventual corretamente excluído
+> - `vacation-balance QZw9...`: Lucas Mendes da Silva → 3º período aquisitivo, 0 tirados, 30 restantes, status OK
+> - `list-balances`: 4 professores com saldo computado corretamente
+>
+> **Deploy staging:** ✅ `firebase deploy --only hosting --project staging`
+>
+> **12 critérios pendentes de validação manual (cliente):** UI admin, UI professor, soft warning, alerta vencidas, dedup audit.
+>
+> **Próxima ação:** cliente valida 12 critérios via inspeção de código + smoke-6c + UI manual em staging.
 
 ---
 

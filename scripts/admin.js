@@ -44,6 +44,12 @@
 //   approve-vacation <reqId>              — aprova pedido de férias
 //   reject-vacation <reqId> <motivo>      — recusa pedido de férias
 //   smoke-6a                              — smoke test Sprint 6a
+//
+// Sprint 6c — Comandos:
+//   vacation-balance <teacherId>          — saldo detalhado de um professor
+//   list-overdue-vacations                — lista professores com férias vencidas
+//   list-balances [unitId] [type]         — tabela de saldos de todos ativos
+//   smoke-6c                              — smoke test Sprint 6c
 // ═══════════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -289,6 +295,10 @@ async function cmdHelp() {
     approve-vacation <reqId>                — aprova pedido de férias
     reject-vacation <reqId> <motivo>        — recusa pedido de férias
     smoke-6a                                — smoke test Sprint 6a
+	    vacation-balance <teacherId>            — saldo detalhado de um professor
+	    list-overdue-vacations                  — lista professores com férias vencidas
+	    list-balances [unitId] [type]           — tabela de saldos de todos ativos
+	    smoke-6c                                — smoke test Sprint 6c
 `);
 }
 
@@ -1298,6 +1308,233 @@ async function cmdSmoke6b() {
   console.log('Para validação completa C1-C16: node scripts/fixture-6b.js --project staging');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — Saldo de Férias (Admin SDK)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function getEntitlementStartDate(teacher) {
+  if (!teacher || teacher.type === 'eventual') return null;
+  if (teacher.type === 'efetivo' && teacher.hireDate) {
+    return teacher.hireDate.toDate ? teacher.hireDate.toDate() : new Date(teacher.hireDate);
+  }
+  if (teacher.type === 'estagiario' && teacher.internshipStartDate) {
+    return teacher.internshipStartDate.toDate ? teacher.internshipStartDate.toDate() : new Date(teacher.internshipStartDate);
+  }
+  if (teacher.createdAt) {
+    return teacher.createdAt.toDate ? teacher.createdAt.toDate() : new Date(teacher.createdAt);
+  }
+  return null;
+}
+
+function addMonths(date, months) {
+  const d = new Date(date.getTime());
+  const originalDay = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  if (d.getDate() !== originalDay) d.setDate(0);
+  return d;
+}
+
+function listAcquisitionPeriods(teacher, asOfDate) {
+  asOfDate = asOfDate || new Date();
+  const start = getEntitlementStartDate(teacher);
+  if (!start) return [];
+  const periods = [];
+  let cursor = new Date(start);
+  let index = 1;
+  while (cursor <= asOfDate) {
+    const endDate = addMonths(cursor, 12);
+    endDate.setDate(endDate.getDate() - 1);
+    periods.push({ index, startDate: new Date(cursor), endDate: new Date(endDate), entitledDays: 30 });
+    cursor = addMonths(cursor, 12);
+    index++;
+    if (index > 100) break;
+  }
+  return periods;
+}
+
+async function getVacationBalance(teacher) {
+  if (teacher.type === 'eventual') return null;
+
+  const periods = listAcquisitionPeriods(teacher);
+  if (periods.length === 0) return null;
+
+  const vacSnap = await db.collection('vacation_requests')
+    .where('teacherId', '==', teacher.id)
+    .where('status', '==', 'aprovada').get();
+  const allVacs = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  const vacsByPeriod = {};
+  for (const v of allVacs) {
+    let startDate;
+    if (v.firstPeriodStart) {
+      startDate = v.firstPeriodStart.toDate ? v.firstPeriodStart.toDate() : new Date(v.firstPeriodStart);
+    } else if (v.periods && v.periods[0] && v.periods[0].startDate) {
+      const ps = v.periods[0].startDate;
+      startDate = ps.toDate ? ps.toDate() : new Date(ps);
+    } else continue;
+    const period = periods.find(p => p.startDate <= startDate && startDate <= p.endDate);
+    if (period) {
+      if (!vacsByPeriod[period.index]) vacsByPeriod[period.index] = [];
+      vacsByPeriod[period.index].push(v);
+    }
+  }
+
+  const now = new Date();
+  const periodsWithUsage = periods.map(p => {
+    const vacs = vacsByPeriod[p.index] || [];
+    const daysTaken = vacs.reduce((s, v) => s + (v.totalDays || 0), 0);
+    return { ...p, daysTaken, daysRemaining: Math.max(0, p.entitledDays - daysTaken), vacationRequestIds: vacs.map(v => v.id) };
+  });
+
+  const currentIdx = periodsWithUsage.findIndex(p => p.startDate <= now && now <= p.endDate);
+  const current = currentIdx >= 0 ? periodsWithUsage[currentIdx] : periodsWithUsage[periodsWithUsage.length - 1];
+
+  let status = 'ok';
+  let grantDeadline = null;
+  let daysOverdue = 0;
+  if (current.endDate < now) {
+    grantDeadline = addMonths(current.endDate, 12);
+    grantDeadline.setDate(grantDeadline.getDate() + 1);
+    if (now > grantDeadline) {
+      status = 'overdue';
+      daysOverdue = Math.floor((now - grantDeadline) / 86400000);
+    } else {
+      const monthsLeft = (grantDeadline - now) / (30 * 86400000);
+      status = monthsLeft < 6 ? 'warning' : 'ok';
+    }
+  }
+
+  return {
+    teacherId: teacher.id, teacherName: teacher.name, teacherType: teacher.type,
+    currentPeriod: current, status,
+    grantPeriod: { deadlineDate: grantDeadline, daysOverdue },
+    estimatedStartDate: !(teacher.hireDate || teacher.internshipStartDate),
+  };
+}
+
+async function cmdVacationBalance(teacherId) {
+  if (!teacherId) { console.error('Uso: vacation-balance <teacherId>'); return; }
+  const doc = await db.collection('teachers').doc(teacherId).get();
+  if (!doc.exists) { console.error('Professor não encontrado'); return; }
+  const teacher = { id: doc.id, ...doc.data() };
+  const balance = await getVacationBalance(teacher);
+  if (!balance) { console.log('Sem dados (eventual ou sem períodos).'); return; }
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+  console.log(`\n📊 ${balance.teacherName} (${balance.teacherType})${balance.estimatedStartDate ? ' ⚠️ data estimada' : ''}`);
+  console.log(`   Período atual: ${balance.currentPeriod.index}º · ${fmtDate(balance.currentPeriod.startDate)} - ${fmtDate(balance.currentPeriod.endDate)}`);
+  console.log(`   Tirados: ${balance.currentPeriod.daysTaken} · Restantes: ${balance.currentPeriod.daysRemaining} · Direito: 30`);
+  console.log(`   Status: ${balance.status}${balance.grantPeriod.deadlineDate ? ' · Concessivo: ' + fmtDate(balance.grantPeriod.deadlineDate) : ''}`);
+  if (balance.grantPeriod.daysOverdue > 0) {
+    console.log(`   ⚠️ VENCIDA: ${balance.grantPeriod.daysOverdue} dias após prazo concessivo`);
+  }
+}
+
+async function cmdListOverdueVacations() {
+  const snap = await db.collection('teachers').where('isActive', '==', true).get();
+  const teachers = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.type !== 'eventual');
+
+  const balances = await Promise.all(teachers.map(t => getVacationBalance(t)));
+  const overdue = balances.filter(b => b && b.status === 'overdue');
+
+  if (overdue.length === 0) {
+    console.log('✅ Nenhum professor com férias vencidas.');
+    return;
+  }
+
+  console.log(`\n🚨 ${overdue.length} professor(es) com férias vencidas:\n`);
+  overdue.forEach(b => {
+    console.log(`  • ${b.teacherName} (${b.teacherType}) — ${b.grantPeriod.daysOverdue}d vencidos — ${b.currentPeriod.index}º período`);
+  });
+}
+
+async function cmdListBalances(unitId, type) {
+  let q = db.collection('teachers').where('isActive', '==', true);
+  const snap = await q.get();
+  let teachers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(t => t.type !== 'eventual')
+    .filter(t => !unitId || t.primaryUnitId === unitId || (t.unitIds || []).includes(unitId));
+  if (type) teachers = teachers.filter(t => t.type === type);
+
+  const balances = (await Promise.all(teachers.map(t => getVacationBalance(t))))
+    .filter(b => b !== null);
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+  console.log(`\n📊 ${balances.length} professores com saldo:\n`);
+  console.log('Professor'.padEnd(25) + 'Tipo'.padEnd(12) + 'Período'.padEnd(10) + 'Tirados'.padEnd(10) + 'Restam'.padEnd(10) + 'Status');
+  console.log('─'.repeat(85));
+
+  balances
+    .sort((a, b) => (a.status === 'overdue' ? -1 : 1) || a.teacherName.localeCompare(b.teacherName))
+    .forEach(b => {
+      const name = b.teacherName.padEnd(25).slice(0, 25);
+      const tp = b.teacherType.padEnd(12);
+      const period = (b.currentPeriod.index + 'º').padEnd(10);
+      const taken = String(b.currentPeriod.daysTaken).padEnd(10);
+      const remaining = String(b.currentPeriod.daysRemaining).padEnd(10);
+      const st = b.status === 'overdue' ? '🔴 VENCIDA' : b.status === 'warning' ? '🟡 Vencendo' : '🟢 OK';
+      console.log(name + tp + period + taken + remaining + st);
+    });
+}
+
+async function cmdSmoke6c() {
+  console.log('\n══════ SMOKE TEST Sprint 6c — Controle Anual de Saldo ══════\n');
+
+  const teachersSnap = await db.collection('teachers').where('isActive', '==', true).get();
+  const teachers = teachersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  console.log(`Total professores ativos: ${teachers.length}`);
+  console.log(`  Efetivos: ${teachers.filter(t => t.type === 'efetivo').length}`);
+  console.log(`  Estagiários: ${teachers.filter(t => t.type === 'estagiario').length}`);
+  console.log(`  Eventuais: ${teachers.filter(t => t.type === 'eventual').length}`);
+
+  const withHire = teachers.filter(t => t.type === 'efetivo' && t.hireDate).length;
+  const withIntern = teachers.filter(t => t.type === 'estagiario' && t.internshipStartDate).length;
+  console.log(`\n  Efetivos com hireDate: ${withHire}`);
+  console.log(`  Estagiários com internshipStartDate: ${withIntern}`);
+
+  // Vacation requests por status
+  const vacAll = await db.collection('vacation_requests').get();
+  const byStatus = {};
+  vacAll.docs.forEach(d => { const s = d.data().status; byStatus[s] = (byStatus[s] || 0) + 1; });
+  console.log(`\nVacation_requests: ${vacAll.size} total`);
+  console.log('  Por status:', byStatus);
+
+  // Calcula balances
+  const eligible = teachers.filter(t => t.type !== 'eventual').slice(0, 20);
+  const balances = (await Promise.all(eligible.map(t => getVacationBalance(t)))).filter(b => b);
+  const byStatusBal = { ok: 0, warning: 0, overdue: 0 };
+  balances.forEach(b => { if (byStatusBal[b.status] !== undefined) byStatusBal[b.status]++; });
+  console.log(`\nSaldos (amostra ${eligible.length}):`);
+  console.log(`  OK: ${byStatusBal.ok} · Warning: ${byStatusBal.warning} · Overdue: ${byStatusBal.overdue}`);
+
+  // Audit de vencidas — usa módulo 'ferias' (índice module+timestamp já existe)
+  const auditAll = await db.collection('audit_log')
+    .where('module', '==', 'ferias')
+    .orderBy('timestamp', 'desc').limit(30).get();
+  const overdueDocs = auditAll.docs
+    .filter(d => d.data().type === 'vacation_overdue_detected')
+    .slice(0, 5);
+  console.log(`\nAudit overdue (últimos 5): ${overdueDocs.length}`);
+  for (const d of overdueDocs) {
+    const a = d.data();
+    const ts = a.timestamp ? a.timestamp.toDate().toISOString().slice(0, 10) : '?';
+    console.log(`  [${ts}] ${a.details || ''}`);
+  }
+
+  // C5: Eventual não tem direito
+  const eventuals = teachers.filter(t => t.type === 'eventual');
+  console.log(`\nC5: ${eventuals.length} eventuais — sem direito (esperado)`);
+
+  // C6: Fallback createdAt
+  const noHire = teachers.filter(t => t.type === 'efetivo' && !t.hireDate);
+  const noIntern = teachers.filter(t => t.type === 'estagiario' && !t.internshipStartDate);
+  console.log(`C6: Profs sem hireDate/internshipStartDate: efetivo=${noHire.length} estagiario=${noIntern.length}`);
+
+  console.log('\n══════ FIM SMOKE TEST Sprint 6c ══════');
+  console.log('Para validação C1-C12 com fixture: node scripts/fixture-6c.js --project staging\n');
+}
+
 // ─── Dispatch ────────────────────────────────────────────────────────
 (async () => {
   try {
@@ -1328,6 +1565,10 @@ async function cmdSmoke6b() {
       case 'vacation-preview':      await cmdVacationPreview(cmdArgs[0], cmdArgs[1]); break;
       case 'set-vacation-payment':  await cmdSetVacationPayment(cmdArgs[0], cmdArgs[1], ...cmdArgs.slice(2)); break;
       case 'smoke-6b':              await cmdSmoke6b(); break;
+      case 'vacation-balance':      await cmdVacationBalance(cmdArgs[0]); break;
+      case 'list-overdue-vacations':await cmdListOverdueVacations(); break;
+      case 'list-balances':         await cmdListBalances(cmdArgs[0], cmdArgs[1]); break;
+      case 'smoke-6c':              await cmdSmoke6c(); break;
       default:
         if (cmd) console.error(`❌ Comando desconhecido: ${cmd}`);
         await cmdHelp();

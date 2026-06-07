@@ -349,6 +349,9 @@ async function openFeriasRequestModal() {
   modal.classList.add('open');
   content.innerHTML = `
     <h2>Nova solicitação de ${typeLabel}</h2>
+    <div id="feriasBalanceWarning" class="balance-info-box" style="margin-bottom:16px;">
+      <div class="preview-loader">Carregando saldo...</div>
+    </div>
     <div class="form-group">
       <label>Tipo</label>
       <input type="text" value="${typeLabel} (${teacher.type})" readonly class="input" style="background:var(--surface3);">
@@ -357,9 +360,9 @@ async function openFeriasRequestModal() {
       <div class="ferias-period" data-idx="0" style="border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:8px;">
         <label>1º Período <span style="color:var(--red);">*</span></label>
         <div style="display:flex;gap:8px;">
-          <input type="date" class="ferias-period-start input" style="flex:1;" required>
+          <input type="date" class="ferias-period-start input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
           <span style="align-self:center;">a</span>
-          <input type="date" class="ferias-period-end input" style="flex:1;" required>
+          <input type="date" class="ferias-period-end input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
         </div>
         <div class="ferias-period-days" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
       </div>
@@ -377,6 +380,33 @@ async function openFeriasRequestModal() {
   `;
 
   window._feriasPeriodCount = 1;
+  window._feriasTeacherId = teacherId;
+
+  // Carrega saldo assíncrono
+  updateFeriasBalanceWarning();
+}
+
+/** Atualiza o bloco de saldo no modal de solicitação conforme períodos preenchidos */
+async function updateFeriasBalanceWarning() {
+  const warnDiv = document.getElementById('feriasBalanceWarning');
+  if (!warnDiv) return;
+
+  const teacherId = window._feriasTeacherId;
+  if (!teacherId) return;
+
+  // Calcula total de dias preenchidos
+  const periods = collectPeriods();
+  let totalDays = 0;
+  for (const p of periods) {
+    const start = p.startDate instanceof Date ? p.startDate : new Date(p.startDate);
+    const end = p.endDate instanceof Date ? p.endDate : new Date(p.endDate);
+    if (!isNaN(start) && !isNaN(end)) {
+      totalDays += Math.round((end - start) / 86400000) + 1;
+    }
+  }
+
+  const html = await renderBalanceWarning(teacherId, totalDays);
+  warnDiv.innerHTML = html || '<div style="font-size:13px;color:var(--text2);">Saldo não disponível.</div>';
 }
 
 /* ─── Modal de solicitação (Admin em nome de professor) ─────────────── */
@@ -398,8 +428,9 @@ async function openFeriasRequestModalAdmin() {
     <h2>Nova solicitação (admin)</h2>
     <div class="form-group">
       <label>Professor <span style="color:var(--red);">*</span></label>
-      <select id="feriasTeacherSelect" class="input">${opts}</select>
+      <select id="feriasTeacherSelect" class="input" onchange="onAdminFeriasTeacherChange(this.value)">${opts}</select>
     </div>
+    <div id="feriasBalanceWarning" style="margin:8px 0;"></div>
     <div class="form-group">
       <label style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" id="feriasForceOverride"> Forçar override de antecedência (admin)
@@ -409,9 +440,9 @@ async function openFeriasRequestModalAdmin() {
       <div class="ferias-period" data-idx="0" style="border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:8px;">
         <label>1º Período <span style="color:var(--red);">*</span></label>
         <div style="display:flex;gap:8px;">
-          <input type="date" class="ferias-period-start input" style="flex:1;" required>
+          <input type="date" class="ferias-period-start input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
           <span style="align-self:center;">a</span>
-          <input type="date" class="ferias-period-end input" style="flex:1;" required>
+          <input type="date" class="ferias-period-end input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
         </div>
         <div class="ferias-period-days" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
       </div>
@@ -429,6 +460,15 @@ async function openFeriasRequestModalAdmin() {
   `;
 
   window._feriasPeriodCount = 1;
+  // Sprint 6c — setar teacher inicial + disparar render do balance warning
+  window._feriasTeacherId = document.getElementById('feriasTeacherSelect')?.value || null;
+  updateFeriasBalanceWarning();
+}
+
+/** Sprint 6c — Handler quando admin troca o professor no select */
+async function onAdminFeriasTeacherChange(teacherId) {
+  window._feriasTeacherId = teacherId || null;
+  await updateFeriasBalanceWarning();
 }
 
 /* ─── Helpers do modal ───────────────────────────────────────────────── */
@@ -444,12 +484,12 @@ function addFeriasPeriod() {
   div.style.cssText = 'border:1px solid var(--border);padding:12px;border-radius:8px;margin-bottom:8px;';
   div.innerHTML = `
     <label>${idx + 1}º Período <span style="color:var(--red);">*</span>
-      <button class="btn-sm" onclick="this.closest('.ferias-period').remove();window._feriasPeriodCount--;" style="float:right;font-size:11px;">✕ Remover</button>
+      <button class="btn-sm" onclick="this.closest('.ferias-period').remove();window._feriasPeriodCount--;updateFeriasBalanceWarning();" style="float:right;font-size:11px;">✕ Remover</button>
     </label>
     <div style="display:flex;gap:8px;">
-      <input type="date" class="ferias-period-start input" style="flex:1;" required>
+      <input type="date" class="ferias-period-start input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
       <span style="align-self:center;">a</span>
-      <input type="date" class="ferias-period-end input" style="flex:1;" required>
+      <input type="date" class="ferias-period-end input" style="flex:1;" required onchange="updateFeriasBalanceWarning()">
     </div>
     <div class="ferias-period-days" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
   `;
@@ -507,11 +547,29 @@ async function submitFeriasRequestAdmin() {
   const teacherId = document.getElementById('feriasTeacherSelect')?.value;
   const force = document.getElementById('feriasForceOverride')?.checked || false;
   const periods = collectPeriods();
-  const reason = document.getElementById('feriasReason')?.value?.trim() || '';
+  let reason = document.getElementById('feriasReason')?.value?.trim() || '';
   const errEl = document.getElementById('feriasValidationError');
 
   if (!teacherId) { toast('Selecione o professor.', 'error'); return; }
   if (periods.length === 0) { if (errEl) errEl.textContent = 'Informe ao menos 1 período.'; return; }
+
+  // Sprint 6c — mesma validação de soft warning do fluxo do professor
+  const totalDays = periods.reduce((s, p) => {
+    const start = p.startDate instanceof Date ? p.startDate : new Date(p.startDate);
+    const end = p.endDate instanceof Date ? p.endDate : new Date(p.endDate);
+    return s + Math.round((end - start) / 86400000) + 1;
+  }, 0);
+  const balanceRes = await VacationBalanceService.getBalance(teacherId);
+  if (balanceRes.success && balanceRes.data.currentPeriod
+      && totalDays > balanceRes.data.currentPeriod.daysRemaining) {
+    const justification = document.getElementById('excessJustification')?.value?.trim();
+    if (!justification) {
+      if (errEl) errEl.textContent = 'Justificativa obrigatória para excesso de saldo.';
+      toast('Justificativa obrigatória para exceder saldo.', 'error');
+      return;
+    }
+    reason = (reason ? reason + '\n\n' : '') + '⚠️ EXCESSO DE SALDO: ' + justification;
+  }
 
   const res = await VacationService.request({ teacherId, periods, reason, force });
   if (res.success) {
@@ -973,14 +1031,364 @@ async function cancelarVacationAdmin(reqId) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — Painel Admin "📊 Saldos de Férias"
+// ═══════════════════════════════════════════════════════════════════════════
+
+function statusLabel(s) {
+  return s === 'ok' ? '🟢 OK' : s === 'warning' ? '🟡 Vencendo' : '🔴 VENCIDA';
+}
+
+async function renderSaldosGestaoPage() {
+  const container = document.getElementById('page-saldos-gestao');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loader">Calculando saldos...</div>';
+
+  const all = await VacationBalanceService.getAllBalances();
+  if (!all.success) {
+    container.innerHTML = '<div class="error">' + escapeHtml(all.error || 'Erro') + '</div>';
+    return;
+  }
+
+  const balances = all.data;
+  const overdueCount = balances.filter(b => b.status === 'overdue').length;
+  const warningCount = balances.filter(b => b.status === 'warning').length;
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+  container.innerHTML = `
+    <div class="page-hdr">
+      <h1>📊 Saldos de Férias</h1>
+      <p>Controle de saldo por período aquisitivo CLT. Dados computados em tempo real.</p>
+    </div>
+
+    ${overdueCount > 0 ? `
+      <div class="alert-overdue-card">
+        <div class="alert-overdue-title">🚨 ATENÇÃO: ${overdueCount} professor(es) com férias vencidas</div>
+        <div class="alert-overdue-list">${balances.filter(b => b.status === 'overdue')
+          .map(b => `${escapeHtml(b.teacherName)} (${b.grantPeriod.daysOverdue}d vencidos)`).join(' · ')}</div>
+        <div class="alert-overdue-note">CLT exige pagamento dobrado após período concessivo. Agendar urgente.</div>
+      </div>
+    ` : ''}
+
+    ${warningCount > 0 ? `
+      <div class="alert-warning-card">
+        ⚠️ ${warningCount} professor(es) com período aquisitivo expirado (concessivo ativo)
+      </div>
+    ` : ''}
+
+    <div class="page-toolbar">
+      <div class="lhs"><h2>Todos os professores <span class="count">${balances.length}</span></h2></div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="balances-table">
+        <thead>
+          <tr>
+            <th>Professor</th><th>Tipo</th><th>Período Atual</th>
+            <th>Tirados</th><th>Restantes</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${balances.map(b => `
+            <tr class="balance-row status-${b.status}" onclick="openBalanceDetailModal('${b.teacherId}')" style="cursor:pointer;">
+              <td>${escapeHtml(b.teacherName)}${b.estimatedStartDate ? ' <span class="badge-est">~est</span>' : ''}</td>
+              <td>${escapeHtml(b.teacherType)}</td>
+              <td>${b.currentPeriod ? b.currentPeriod.index + 'º · ' + fmtDate(b.currentPeriod.startDate) + ' - ' + fmtDate(b.currentPeriod.endDate) : '—'}</td>
+              <td>${b.currentPeriod ? b.currentPeriod.daysTaken : 0}</td>
+              <td><strong>${b.currentPeriod ? b.currentPeriod.daysRemaining : 30}</strong></td>
+              <td><span class="status-badge ${b.status}">${statusLabel(b.status)}</span></td>
+              <td><span class="detail-link">Detalhes →</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div id="balanceDetailModal" class="modal"><div class="modal-content modal-content-wide" id="balanceDetailModalContent"></div></div>
+  `;
+
+  // Dispara checkAndLogOverdue em background (idempotente)
+  VacationBalanceService.checkAndLogOverdue().catch(console.warn);
+}
+
+async function openBalanceDetailModal(teacherId) {
+  const modal = document.getElementById('balanceDetailModal');
+  const content = document.getElementById('balanceDetailModalContent');
+  if (!modal || !content) return;
+
+  content.innerHTML = '<div class="loader">Carregando...</div>';
+  modal.style.display = 'flex';
+
+  const res = await VacationBalanceService.getBalance(teacherId);
+  if (!res.success) {
+    content.innerHTML = '<div class="error">' + escapeHtml(res.error || 'Erro') + '</div>';
+    return;
+  }
+
+  const b = res.data;
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+  const historyRows = b.history.length === 0
+    ? '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text2);">Nenhum período aquisitivo anterior.</td></tr>'
+    : b.history.map(h => {
+        const statusLabels = { closed: '✅ Completas', expired: '⏰ Expiradas', pending: '🟡 Pendentes' };
+        return `
+          <tr>
+            <td>${h.index}º</td>
+            <td>${fmtDate(h.startDate)} - ${fmtDate(h.endDate)}</td>
+            <td>${h.entitledDays}</td>
+            <td>${h.daysTaken}</td>
+            <td>${h.daysRemaining}</td>
+            <td>${statusLabels[h.status] || h.status}</td>
+          </tr>
+        `;
+      }).join('');
+
+  content.innerHTML = `
+    <div class="modal-header">
+      <h3>📊 Histórico de Férias</h3>
+      <button class="close-btn" onclick="document.getElementById('balanceDetailModal').style.display='none'">✕</button>
+    </div>
+
+    <div class="detail-header">
+      <div class="detail-teacher-name">${escapeHtml(b.teacherName)}</div>
+      <div class="detail-teacher-type">${escapeHtml(b.teacherType)}${b.estimatedStartDate ? ' · <span class="badge-est">data estimada — confirme com admin</span>' : ''}</div>
+    </div>
+
+    ${b.currentPeriod ? `
+      <div class="detail-current-card status-${b.status}">
+        <h4>Período Atual (${b.currentPeriod.index}º)</h4>
+        <div class="detail-current-dates">${fmtDate(b.currentPeriod.startDate)} - ${fmtDate(b.currentPeriod.endDate)}</div>
+        <div class="detail-current-stats">
+          <div class="stat"><span class="stat-label">Direito</span><span class="stat-value">${b.currentPeriod.entitledDays} dias</span></div>
+          <div class="stat"><span class="stat-label">Tirados</span><span class="stat-value">${b.currentPeriod.daysTaken} dias</span></div>
+          <div class="stat"><span class="stat-label">Restantes</span><span class="stat-value highlight">${b.currentPeriod.daysRemaining} dias</span></div>
+        </div>
+        <div class="detail-status">Status: <span class="status-badge ${b.status}">${statusLabel(b.status)}</span></div>
+        ${b.grantPeriod && b.grantPeriod.deadlineDate ? `
+          <div style="font-size:13px;color:var(--text2);margin-top:4px;">Prazo concessivo: ${fmtDate(b.grantPeriod.deadlineDate)}${b.grantPeriod.daysOverdue > 0 ? ' (' + b.grantPeriod.daysOverdue + ' dias vencidos)' : ''}</div>
+        ` : ''}
+      </div>
+    ` : ''}
+
+    <h4 style="margin-top:24px;">Histórico de Períodos</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Período</th><th>Vigência</th><th>Direito</th><th>Tirados</th><th>Restantes</th><th>Status</th>
+        </tr></thead>
+        <tbody>${historyRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  // Click fora fecha
+  modal.onclick = function(e) {
+    if (e.target === modal) modal.style.display = 'none';
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — Painel Professor "📊 Meu Saldo"
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function renderMeuSaldoPage() {
+  const container = document.getElementById('page-meu-saldo');
+  if (!container) return;
+
+  const teacherId = getCurrentProfessorId();
+  if (!teacherId) {
+    container.innerHTML = `<div class="page-hdr"><h1>📊 Meu Saldo</h1>
+      <p style="color:var(--text2);">Nenhum professor vinculado ao seu usuário.</p></div>`;
+    return;
+  }
+
+  const res = await VacationBalanceService.getBalance(teacherId);
+
+  if (!res.success) {
+    // Eventual ou sem dados
+    const isEventual = res.error && res.error.includes('Eventuais');
+    container.innerHTML = `
+      <div class="page-hdr"><h1>📊 Meu Saldo de Férias</h1></div>
+      <div style="text-align:center;padding:60px 20px;color:var(--text2);">
+        <div style="font-size:48px;margin-bottom:16px;">${isEventual ? '🏖️' : '📊'}</div>
+        <p>${isEventual ? 'Professores eventuais não têm direito formal a férias. Fale com a gestão se precisar se ausentar.' : escapeHtml(res.error || 'Sem dados disponíveis.')}</p>
+      </div>`;
+    return;
+  }
+
+  const b = res.data;
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+  const historyRows = b.history.length === 0
+    ? '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text2);">Nenhum período aquisitivo anterior.</td></tr>'
+    : b.history.map(h => {
+        const statusLabels = { closed: '✅ Completo', expired: '⏰ Expirado', pending: '🟡 Pendente' };
+        return `
+          <tr>
+            <td>${h.index}º</td>
+            <td>${fmtDate(h.startDate)} - ${fmtDate(h.endDate)}</td>
+            <td>${h.entitledDays}</td>
+            <td>${h.daysTaken} / ${h.entitledDays}</td>
+            <td>${statusLabels[h.status] || h.status}</td>
+          </tr>
+        `;
+      }).join('');
+
+  container.innerHTML = `
+    <div class="page-hdr">
+      <h1>📊 Meu Saldo de Férias</h1>
+    </div>
+
+    ${b.estimatedStartDate ? `
+      <div class="alert-warning-card">
+        ⚠️ Data de admissão estimada (não cadastrada no sistema). Confirme com o admin para cálculo preciso.
+      </div>
+    ` : ''}
+
+    ${b.currentPeriod ? `
+      <div class="meu-saldo-card status-${b.status}">
+        <div class="meu-saldo-big-number">${b.currentPeriod.daysRemaining}</div>
+        <div class="meu-saldo-big-label">dias disponíveis até ${fmtDate(b.currentPeriod.endDate)}</div>
+        <div class="meu-saldo-sub">
+          Período aquisitivo ${b.currentPeriod.index}º: ${fmtDate(b.currentPeriod.startDate)} - ${fmtDate(b.currentPeriod.endDate)}
+          &nbsp;·&nbsp; Já tirou <strong>${b.currentPeriod.daysTaken}</strong> de <strong>${b.currentPeriod.entitledDays}</strong> dias
+        </div>
+        ${b.grantPeriod && b.grantPeriod.deadlineDate ? `
+          <div style="font-size:13px;color:var(--text2);margin-top:8px;">
+            Prazo para tirar: ${fmtDate(b.grantPeriod.deadlineDate)}
+            <span class="status-badge ${b.status}" style="margin-left:8px;">${statusLabel(b.status)}</span>
+          </div>
+        ` : ''}
+        <button class="btn-primary" onclick="openFeriasRequestModal()" style="margin-top:16px;">+ Solicitar férias</button>
+      </div>
+    ` : ''}
+
+    <div class="page-toolbar" style="margin-top:24px;">
+      <div class="lhs"><h2>Histórico <span class="count">${b.history.length}</span></h2></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Período</th><th>Vigência</th><th>Direito (dias)</th><th>Tirado</th><th>Status</th>
+        </tr></thead>
+        <tbody>${historyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — Aviso inline + soft warning no modal de solicitação
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function renderBalanceWarning(teacherId, requestedDays) {
+  const balanceRes = await VacationBalanceService.getBalance(teacherId);
+  if (!balanceRes.success) return ''; // eventual ou sem dados
+  const b = balanceRes.data;
+  if (!b.currentPeriod) return '';
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '';
+  let html = `
+    <div class="balance-info-box">
+      <strong>📊 Seu saldo atual</strong>
+      <div>Período aquisitivo ${b.currentPeriod.index}º: ${fmtDate(b.currentPeriod.startDate)} - ${fmtDate(b.currentPeriod.endDate)}</div>
+      <div>Já tirou: <strong>${b.currentPeriod.daysTaken}</strong> dias · Restam: <strong>${b.currentPeriod.daysRemaining}</strong> dias</div>
+    </div>
+  `;
+
+  if (requestedDays > b.currentPeriod.daysRemaining) {
+    const excess = requestedDays - b.currentPeriod.daysRemaining;
+    html += `
+      <div class="balance-warning-box">
+        ⚠️ Este pedido excede o saldo do período em <strong>${excess} dias</strong>.
+        Você está pedindo ${requestedDays} dias, mas só restam ${b.currentPeriod.daysRemaining}.
+      </div>
+      <div class="form-group">
+        <label>Justificativa (obrigatória)*</label>
+        <textarea id="excessJustification" rows="2" class="input" placeholder="Explique o motivo do excesso de saldo"></textarea>
+      </div>
+    `;
+  }
+
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Sprint 6c — Submit com validação de saldo (soft warning)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function submitFeriasRequestComSaldo() {
+  const teacherId = getCurrentProfessorId();
+  const periods = collectPeriods();
+  const reason = document.getElementById('feriasReason')?.value?.trim() || '';
+  const errEl = document.getElementById('feriasValidationError');
+
+  if (periods.length === 0) {
+    if (errEl) errEl.textContent = 'Informe ao menos 1 período.';
+    return;
+  }
+
+  // Calcula total de dias do pedido
+  const totalDays = periods.reduce((s, p) => {
+    const start = p.startDate instanceof Date ? p.startDate : new Date(p.startDate);
+    const end = p.endDate instanceof Date ? p.endDate : new Date(p.endDate);
+    return s + Math.round((end - start) / 86400000) + 1;
+  }, 0);
+
+  // Verifica saldo
+  const balanceRes = await VacationBalanceService.getBalance(teacherId);
+  if (balanceRes.success && balanceRes.data.currentPeriod) {
+    const daysRemaining = balanceRes.data.currentPeriod.daysRemaining;
+    if (totalDays > daysRemaining) {
+      const justification = document.getElementById('excessJustification')?.value?.trim();
+      if (!justification) {
+        if (errEl) errEl.textContent = 'Justificativa obrigatória para excesso de saldo.';
+        toast('Justificativa obrigatória para exceder saldo.', 'error');
+        return;
+      }
+      // Combina reason com justificativa de excesso
+      const finalReason = (reason ? reason + '\n\n' : '') + '⚠️ EXCESSO DE SALDO: ' + justification;
+      const res = await VacationService.request({ teacherId, periods, reason: finalReason.trim() });
+      if (res.success) {
+        toast('Solicitação enviada com justificativa de excesso!', 'success');
+        closeFeriasModal();
+        await renderMinhasFeriasPage();
+      } else {
+        if (errEl) errEl.textContent = res.error || 'Erro ao solicitar.';
+        toast(res.error || 'Erro', 'error');
+      }
+      return;
+    }
+  }
+
+  // Fluxo normal (sem excesso)
+  const res = await VacationService.request({ teacherId, periods, reason });
+  if (res.success) {
+    toast('Solicitação enviada com sucesso!', 'success');
+    closeFeriasModal();
+    await renderMinhasFeriasPage();
+  } else {
+    if (errEl) errEl.textContent = res.error || 'Erro ao solicitar.';
+    toast(res.error || 'Erro', 'error');
+  }
+}
+
 // Expor globalmente
 window.renderMinhasFeriasPage = renderMinhasFeriasPage;
 window.renderFeriasGestaoPage = renderFeriasGestaoPage;
+window.renderSaldosGestaoPage = renderSaldosGestaoPage;
+window.renderMeuSaldoPage = renderMeuSaldoPage;
+window.openBalanceDetailModal = openBalanceDetailModal;
 window.openFeriasRequestModal = openFeriasRequestModal;
 window.openFeriasRequestModalAdmin = openFeriasRequestModalAdmin;
+window.onAdminFeriasTeacherChange = onAdminFeriasTeacherChange;
 window.closeFeriasModal = closeFeriasModal;
 window.addFeriasPeriod = addFeriasPeriod;
-window.submitFeriasRequest = submitFeriasRequest;
+window.submitFeriasRequest = submitFeriasRequestComSaldo;
 window.submitFeriasRequestAdmin = submitFeriasRequestAdmin;
 window.aprovarVacation = aprovarVacation;
 window.recusarVacation = recusarVacation;
@@ -989,5 +1397,7 @@ window.cancelarVacationAdmin = cancelarVacationAdmin;
 window.filtrarFeriasPorStatus = filtrarFeriasPorStatus;
 window.closeModal = closeModal;
 window.openEditPaymentModal = openEditPaymentModal;
+window.renderBalanceWarning = renderBalanceWarning;
+window.updateFeriasBalanceWarning = updateFeriasBalanceWarning;
 
-console.log('[CrossTainer Professores] professores-ferias.js carregado · Sprint 6a');
+console.log('[CrossTainer Professores] professores-ferias.js carregado · Sprint 6a + 6c');

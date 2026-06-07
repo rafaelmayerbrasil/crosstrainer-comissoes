@@ -1690,6 +1690,71 @@
     /* ─── Sprint 6b — Fechamento ──────────────────────────────────────────── */
     tr.row-vacation td { background: #fefce8; font-size: 12px; }
     tr.row-vacation-only td { background: #fffbeb; border-left: 3px solid #f59e0b; }
+
+    /* ─── Sprint 6c — Saldos de Férias ─────────────────────────────────────── */
+    .balance-info-box {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 16px; font-size: 13px; line-height: 1.6;
+    }
+    .balance-info-box strong { color: var(--orange); }
+    .balance-warning-box {
+      background: var(--red-bg); border: 1px solid var(--red); border-radius: var(--radius);
+      padding: 12px 16px; margin-top: 12px; font-size: 13px; color: var(--red);
+    }
+    .alert-overdue-card {
+      background: var(--red-bg); border: 1px solid var(--red); border-radius: var(--radius);
+      padding: 16px 20px; margin-bottom: 16px;
+    }
+    .alert-overdue-title { font-size: 14px; font-weight: 700; color: var(--red); margin-bottom: 6px; }
+    .alert-overdue-list { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+    .alert-overdue-note { font-size: 12px; color: var(--text2); }
+    .alert-warning-card {
+      background: var(--yellow-bg); border: 1px solid var(--yellow); border-radius: var(--radius);
+      padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: var(--yellow);
+    }
+    .status-badge.ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+    .status-badge.warning { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+    .status-badge.overdue { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+    .status-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    }
+    .badge-est {
+      display: inline-block; background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow);
+      padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; vertical-align: middle;
+    }
+    .detail-link { color: var(--orange); font-size: 13px; }
+    .detail-header { margin-bottom: 16px; }
+    .detail-teacher-name { font-size: 18px; font-weight: 700; }
+    .detail-teacher-type { font-size: 13px; color: var(--text2); }
+    .detail-current-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px;
+    }
+    .detail-current-card.status-ok { border-left: 4px solid var(--green); }
+    .detail-current-card.status-warning { border-left: 4px solid var(--yellow); }
+    .detail-current-card.status-overdue { border-left: 4px solid var(--red); }
+    .detail-current-card h4 { margin-bottom: 8px; }
+    .detail-current-dates { font-size: 13px; color: var(--text2); margin-bottom: 12px; }
+    .detail-current-stats { display: flex; gap: 24px; }
+    .stat { text-align: center; }
+    .stat-label { display: block; font-size: 11px; color: var(--text2); text-transform: uppercase; }
+    .stat-value { display: block; font-size: 18px; font-weight: 700; }
+    .stat-value.highlight { color: var(--orange); }
+    .detail-status { margin-top: 12px; font-size: 13px; }
+    .meu-saldo-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 32px 24px; text-align: center; margin-bottom: 16px;
+    }
+    .meu-saldo-card.status-ok { border-top: 4px solid var(--green); }
+    .meu-saldo-card.status-warning { border-top: 4px solid var(--yellow); }
+    .meu-saldo-card.status-overdue { border-top: 4px solid var(--red); }
+    .meu-saldo-big-number { font-size: 56px; font-weight: 700; color: var(--orange); line-height: 1; }
+    .meu-saldo-big-label { font-size: 14px; color: var(--text2); margin: 8px 0; }
+    .meu-saldo-sub { font-size: 13px; color: var(--text2); margin-top: 8px; }
+    .balances-table { width: 100%; }
+    .balances-table td { vertical-align: middle; }
+    .balance-row.status-overdue { background: var(--red-bg); }
+    .balance-row:hover { background: var(--orange-dim) !important; }
+    .preview-loader { font-size: 13px; color: var(--text2); padding: 8px 0; }
   </style>
 </head>
 
@@ -1861,6 +1926,8 @@
       <div class="page" id="page-meus-pagamentos"></div>
       <div class="page" id="page-escalas"></div>
       <div class="page" id="page-ferias"></div>
+      <div class="page" id="page-meu-saldo"></div>
+      <div class="page" id="page-saldos-gestao"></div>
     </div>
   </div>
 
