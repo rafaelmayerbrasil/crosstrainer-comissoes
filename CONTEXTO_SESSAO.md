@@ -5,6 +5,27 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 03/06/2026 (sessão 23)
 
+**Estado:** **10 sprints validadas em staging + Sprint 6c playbook publicado, aguardando dev**. Projeto ~95% pronto + sprint 6c em planejamento.
+
+> 🎯 **Sessão 24 continuação (07/06) — Playbook Sprint 6c escrito.**
+>
+> **3 decisões travadas com usuário (via AskUserQuestion):**
+> - D1 Escopo: **Pacote completo** (saldo + período aquisitivo + alerta vencidas + painel histórico)
+> - D2 Validação: **Soft warning** (alerta visual + justificativa obrigatória, não bloqueia)
+> - D3 Período: **Aquisitivo CLT por professor** (12 meses a partir de hireDate / internshipStartDate)
+>
+> **Playbook canônico:** `sprint-6c-controle-anual-saldo.md` (723 linhas, 12 critérios de aceite, 14 decisões, 5 snippets-chave). Sprint 100% client-side (sem CF, sem nova coleção, sem novos índices, sem alteração em rules). Reuso de `firstPeriodStart`/`lastPeriodEnd` denormalizados do 6b pra atribuir vacation_request ao período aquisitivo.
+>
+> **Doc pro time:** `docs/superpowers/specs/2026-06-07-sprint-6c-instrucoes.md` — resumo executivo + decisões fechadas + características da sprint + atenção em pontos delicados + pré-deploy checklist.
+>
+> **Estimativa:** 4-5 dias úteis pra dev entregar + 1 dia minha pra validar.
+>
+> **Próxima ação:** dev pega o playbook e executa as 7 etapas em ordem. Quando entregar, valido com inspeção de código + smoke-6c + fixture-6c + UI manual.
+
+---
+
+## 🔖 Sessão 24 (07/06/2026) — Sprint 6b validação 100% completa
+
 **Estado:** **10 sprints validadas em staging + Sprint 6b ✅ 100% COMPLETA (16/16 critérios)**. Projeto ~95% pronto.
 
 > 🎯 **Sessão 24 (07/06) — Validação manual final de Sprint 6b (C8, C12, C15).**
