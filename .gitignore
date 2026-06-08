@@ -31,3 +31,6 @@ npm-debug.log*
 # Build artifacts
 .cache/
 dist/
+
+# Sprint 9 — Preview HTML temporário de recibos (descartável)
+tmp-preview-recibos/

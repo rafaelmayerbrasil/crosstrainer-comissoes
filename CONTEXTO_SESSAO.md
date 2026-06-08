@@ -5,6 +5,44 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
+**Estado:** **13 sprints validadas — Sprint 9 ✅ COMPLETA (com 2 fixes aplicados após inspeção)**. Projeto ~99% pronto.
+
+> 🎯 **Sessão 30 (07/06) — Sprint 9 entrega do time + 2 itens centrais re-fixados.**
+>
+> **Entrega do time:** branding + empty states + migrations + CDN fallback + CreditService transaction. Mas DOIS itens centrais do playbook **não foram implementados**:
+> - 🔴 Recibo R4 html2canvas (Etapa 3 inteira) — time baixou a lib mas não usou. `renderReciboInPdf` continuava com jsPDF programático
+> - 🟡 R3 "Sem cadastro salarial" (D8) — continuava mostrando R$ 0,00
+>
+> **Fixes aplicados por mim (~45 min):**
+> - `professores-shared.js`: `getHorasPorProfessorReport` agora adiciona `noSalaryData: true` quando salary ausente ou hourlyRate=0
+> - `professores-relatorios.js`:
+>   - Helper `formatRowCell(row, col)` substitui currency por "—" quando `noSalaryData`
+>   - Preview HTML: tooltip "Cadastro salarial incompleto" no hover
+>   - Excel: célula mostra string "Sem cadastro"
+>   - Novo `renderReciboFromHtml(prof, closing)` — iframe oculto + html2canvas + canvas.toDataURL → addImage no jsPDF
+>   - Novo `buildReceiptHtmlForExport(prof, closing)` — espelha receipt.html com CSS inline (header centralizado, info-blocks, total preto/branco, valor por extenso, 2 assinaturas, footer)
+>   - `exportRecibosLote` agora detecta `window.html2canvas` e usa o novo pipeline (fallback pro jsPDF programático se html2canvas indisponível)
+>
+> **Validação:**
+> - ✅ Branding: 0 matches de "CrossTrainer" em arquivos visíveis (sw.js intacto)
+> - ✅ Migrations: 36 entries em `audit_log module=agenda`, 18 classes em BR midnight, 0 UTC
+> - ✅ Vendor 5/5 libs (xlsx, jspdf, autotable, jszip, html2canvas)
+> - ✅ CreditService runTransaction
+> - ✅ R3 noSalaryData flag implementada
+> - ✅ R4 html2canvas — script `scripts/preview-recibo-html.js` gera HTML offline (replica buildReceiptHtmlForExport), preview enviado ao usuário pra inspeção visual: header CrossTainer centralizado · seção férias 🏖️ · total preto/branco · acentos perfeitos
+>
+> **Pendente (cliente valida via UI quando puder):**
+> - 🟡 Confirmar pipeline `html2canvas → canvas → PDF` gera arquivo válido sem erro (risco baixo, lib padrão)
+> - 🟡 Confirmar R3 visual mostra "—" + tooltip
+>
+> **Cleanup:** fixture-8 removida + pasta tmp-preview-recibos descartada + .gitignore atualizado.
+>
+> **Próxima ação:** quando cliente puder validar UI dos 2 itens pendentes (~5 min). Após isso → **homologação completa** + decisão de **deploy em produção** (regra inviolável #7).
+
+---
+
+## 🔖 Sessão 29 (07/06/2026) — Playbook Sprint 9 escrito
+
 **Estado:** **12 sprints validadas + Sprint 9 (Polimentos Finais) playbook publicado, aguardando dev**. Projeto ~98% pronto + sprint 9 em planejamento (última antes da homologação).
 
 > 🎯 **Sessão 29 (07/06) — Playbook Sprint 9 escrito.**

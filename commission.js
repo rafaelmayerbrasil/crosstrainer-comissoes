@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// CrossTrainer — Commission Engine v2.0
+// CrossTainer — Commission Engine v2.0
 // All P1-P4 rules, meta, tripé, splits, non-commissionable
 // ═══════════════════════════════════════════════════════════════
 

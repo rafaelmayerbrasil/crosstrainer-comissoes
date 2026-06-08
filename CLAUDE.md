@@ -61,7 +61,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**12 sprints validadas em staging (07/06/2026, sessão 28). Sprint 8 ✅ completa. Projeto ~98% completo.**
+**12 sprints completas em staging (07/06/2026). Sprint 9 ✅ concluída. Projeto ~99% pronto — aguardando homologação final.**
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -77,17 +77,19 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | **6b** | **Pagamento de Férias (1/3 CLT efetivo + bolsa estagiário + rateio mês-a-mês + recibo)** | **✅ 16/16** |
 | 6c | Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas) | ✅ 12/12 + 3 visuais |
 | **8** | **Relatórios e Exportações (4 relatórios em Excel + PDF, client-side, lazy load CDN)** | **✅ R1·R2·R3·R4** |
+| **9** | **Polimentos Finais (branding CrossTainer + empty states + recibo R4 html2canvas + CDN fallback + migrations + vendor/)** | **✅ deployado** |
 
-**Próxima ação:** **Sprint 9 — Polimentos Finais** (última antes da homologação). Playbook em `sprint-9-polimentos-finais.md` (~900 linhas, 6 etapas, 12 critérios, 5 snippets). Escopo: 4 categorias (UX/Visual + Branding CrossTainer + Tech debt funcional + Robustez CDN). Decisões fixadas: recibo R4 via html2canvas (paridade 100% com receipt.html), sw.js mantido, migrations idempotentes, CDN local fallback. Instruções pro time em `docs/superpowers/specs/2026-06-07-sprint-9-instrucoes.md`. Estimativa: ~5-6 dias úteis. **Após Sprint 9: homologação completa + deploy em produção** (regra inviolável #7).
+**Próxima ação:** homologação completa do módulo pelo cliente. Depois deploy em produção (regra inviolável #7).
 
 ## 🔧 Tech debt registrado (não bloqueia)
 
-1. **Classes legadas em UTC midnight** (pré-Sprint 17 bug D fix): em produção não acontece (geração sempre BR após fix); em staging legado alguns filtros novos (apply-scale, regenerate) não casam. Migration opcional: +3h em `scheduledDate` das classes pré-fix.
+1. **Classes legadas em UTC midnight** (pré-Sprint 17 bug D fix): ✅ Migração aplicada em staging (18 classes, +3h). Produção nunca teve esse bug.
 2. **`sw.js` do módulo Comissões cacheia agressivamente** arquivos de `professores.*`. Workaround em dev: DevTools → Application → Service Workers → Unregister + Clear site data. Fix estrutural (excluir `professores.*` do scope) requer autorização explícita pra tocar no sw.js (regra inviolável #1).
-3. **Cross-region warning** (CFs em `us-central1`, triggers de Firestore default em `sa-east1`): cosmético, sem impacto funcional.
-4. **Audit log entries antigas** (Sprint 2/3a/3b) com `module: 'professores'` em vez de `'agenda'`: bug corrigido na sessão 17, entries novas saem corretas. Migration retroativa = backlog.
+3. **Audit log entries antigas** (Sprint 2/3a/3b) com `module: 'professores'` em vez de `'agenda'`: ✅ Migração aplicada em staging (35 entries, `professores` → `agenda`). Production mantém entries legadas.
+4. **CDN externo como dependência** (Sprint 8): ✅ Fallback local em `/vendor/` (5 libs) + CDN como backup.
 5. **CreditService race condition rara** no abate de créditos: aceito como tech debt (1 admin por vez em produção realística).
-6. **Critérios 5/6 da Sprint 4a** (estagiário com/sem excedente) seguem sem validação direta — sem estagiário com aulas em staging.
+6. **Cross-region warning** (CFs em `us-central1`, triggers de Firestore default em `sa-east1`): cosmético, sem impacto funcional.
+7. **Critérios 5/6 da Sprint 4a** (estagiário com/sem excedente) seguem sem validação direta — sem estagiário com aulas em staging.
 
 ## 🐛 Bugfix em produção (Comissões)
 

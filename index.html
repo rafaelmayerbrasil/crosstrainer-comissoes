@@ -2328,7 +2328,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <h3 style="font-size:20px; color:var(--blue); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">❓ Central de Ajuda</h3>
-            <div style="font-size:11px; color:var(--text3); margin-top:2px;">Guia completo do CrossTrainer Elite — vendedores e administradores</div>
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">Guia completo do CrossTainer Elite — vendedores e administradores</div>
           </div>
           <button type="button" class="close-btn" onclick="closeHelpModal()" style="font-size:24px; line-height:1; color:var(--text2);">&times;</button>
         </div>
@@ -3022,7 +3022,7 @@
           <div class="input-group"><label>ID (sigla curta, sem espaços)</label><input id="newUnitId"
               placeholder="ex: filial2"></div>
           <div class="input-group"><label>Nome Fantasia</label><input id="newUnitName"
-              placeholder="ex: CrossTrainer Filial 2"></div>
+              placeholder="ex: CrossTainer Filial 2"></div>
           <div class="input-group"><label>Razão Social (Recibo)</label><input id="newUnitRazao"
               placeholder="Nome Legal LTDA"></div>
           <div class="input-group"><label>CNPJ (Recibo)</label><input id="newUnitCnpj" placeholder="00.000.000/0001-00">
@@ -3676,7 +3676,7 @@
           if (bDash) { bDash.textContent = unitName; bDash.style.display = 'inline-block'; }
           if (bVend) { bVend.textContent = unitName; bVend.style.display = 'inline-block'; }
         } else {
-          await db.collection('units').doc(currentUnitId).set({ name: 'CrossTrainer CP', config: CommissionEngine.defaultConfig });
+          await db.collection('units').doc(currentUnitId).set({ name: 'CrossTainer CP', config: CommissionEngine.defaultConfig });
           unitConfig = CommissionEngine.defaultConfig;
         }
       } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
@@ -9497,7 +9497,7 @@
             </div>
             
             <div style="text-align:center; margin-top:20px; font-size:9px; color:#555;">
-              Gerado pelo app CrossTrainer Comissões • Impresso em ${new Date().toLocaleString('pt-BR')}
+              Gerado pelo app CrossTainer Comissões • Impresso em ${new Date().toLocaleString('pt-BR')}
             </div>
           </div>
         `;

@@ -18,6 +18,17 @@ function formatCell(value, type) {
   return String(value);
 }
 
+/**
+ * Sprint 9 fix: formatRowCell considera flags do row inteiro.
+ * Se row.noSalaryData && col.type === 'currency' → "—" (não R$ 0,00).
+ */
+function formatRowCell(row, col) {
+  if (row && row.noSalaryData && col.type === 'currency') {
+    return '—';
+  }
+  return formatCell(row[col.key], col.type);
+}
+
 function formatFilters(filters) {
   if (!filters) return '';
   return Object.entries(filters)
@@ -59,7 +70,11 @@ async function exportToExcel(report, fileName) {
   // Linhas 6+: dados
   for (var i = 0; i < report.rows.length; i++) {
     var r = report.rows[i];
-    ws_data.push(cols.map(function(c) { return r[c.key]; }));
+    ws_data.push(cols.map(function(c) {
+      // Sprint 9 fix: noSalaryData → string "Sem cadastro" em vez do número 0
+      if (r.noSalaryData && c.type === 'currency') return 'Sem cadastro';
+      return r[c.key];
+    }));
   }
   // Linha final: totais
   if (report.summary) {
@@ -153,7 +168,7 @@ async function exportToPdf(report, fileName) {
     startY: 50,
     head: [cols.map(function(c) { return c.label; })],
     body: report.rows.map(function(r) {
-      return cols.map(function(c) { return formatCell(r[c.key], c.type); });
+      return cols.map(function(c) { return formatRowCell(r, c); });
     }),
     headStyles: { fillColor: [216, 124, 28], textColor: 255 },
     bodyStyles: { fontSize: 8 },
@@ -197,7 +212,7 @@ async function exportToPdf(report, fileName) {
   });
 }
 
-/* ─── R4: Recibos em Lote ───────────────────────────────────────────── */
+/* ─── R4: Recibos em Lote (Sprint 9 fix: html2canvas pra paridade visual) ── */
 
 async function exportRecibosLote(closingId, format, onProgress) {
   var dataRes = await ReportService.getRecibosLoteData(closingId);
@@ -206,16 +221,28 @@ async function exportRecibosLote(closingId, format, onProgress) {
   var profs = d.profs;
   var closing = d.closing;
 
+  // Sprint 9: usar html2canvas se disponível, fallback pro jsPDF programático
+  var useHtml2canvas = !!window.html2canvas;
+  if (!useHtml2canvas) {
+    console.warn('[Sprint 9] html2canvas não disponível — usando jsPDF programático');
+  }
+
   if (format === 'pdf-unico') {
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
     for (var i = 0; i < profs.length; i++) {
       if (i > 0) doc.addPage();
-      renderReciboInPdf(doc, profs[i], closing);
+      if (useHtml2canvas) {
+        var imgData = await renderReciboFromHtml(profs[i], closing);
+        // A4 = 210x297mm. Imagem ocupa página inteira preservando margem
+        doc.addImage(imgData, 'PNG', 0, 0, 210, 297);
+      } else {
+        renderReciboInPdf(doc, profs[i], closing);
+      }
       if (onProgress) onProgress((i + 1) / profs.length, 'Gerando recibo ' + (i + 1) + '/' + profs.length);
-      // Yield pro UI thread
-      if (i % 5 === 0) await sleep(0);
+      // Yield pro UI thread a cada 3 (html2canvas é mais pesado)
+      if (i % 3 === 0) await sleep(0);
     }
 
     doc.save('recibos-' + closingId + '.pdf');
@@ -225,11 +252,16 @@ async function exportRecibosLote(closingId, format, onProgress) {
     for (var i = 0; i < profs.length; i++) {
       var jsPDF = window.jspdf.jsPDF;
       var doc2 = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      renderReciboInPdf(doc2, profs[i], closing);
+      if (useHtml2canvas) {
+        var imgData2 = await renderReciboFromHtml(profs[i], closing);
+        doc2.addImage(imgData2, 'PNG', 0, 0, 210, 297);
+      } else {
+        renderReciboInPdf(doc2, profs[i], closing);
+      }
       var blob = doc2.output('blob');
       zip.file(sanitize(profs[i].teacherName) + '-' + closingId + '.pdf', blob);
       if (onProgress) onProgress((i + 1) / profs.length, 'Empacotando recibo ' + (i + 1) + '/' + profs.length);
-      if (i % 5 === 0) await sleep(0);
+      if (i % 3 === 0) await sleep(0);
     }
 
     var zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -242,6 +274,169 @@ async function exportRecibosLote(closingId, format, onProgress) {
     details: 'Recibos em lote · ' + profs.length + ' recibos · formato ' + format,
     after: { format: format, closingId: closingId, count: profs.length },
   });
+}
+
+/**
+ * Sprint 9: renderiza recibo via HTML + html2canvas pra paridade visual com receipt.html.
+ * Cria iframe oculto, injeta HTML estilizado, captura como imagem base64.
+ */
+async function renderReciboFromHtml(prof, closing) {
+  if (!window.html2canvas) throw new Error('html2canvas não carregada');
+
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:800px;height:1130px;border:none;background:#fff;';
+  document.body.appendChild(iframe);
+
+  var html = buildReceiptHtmlForExport(prof, closing);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+
+  // Aguarda render
+  await new Promise(function(resolve) { setTimeout(resolve, 150); });
+
+  var canvas;
+  try {
+    canvas = await window.html2canvas(iframe.contentDocument.body, {
+      scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff',
+      width: 800, height: 1130,
+    });
+  } finally {
+    document.body.removeChild(iframe);
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * Monta HTML do recibo idêntico ao receipt.html (Sprint 4b), mas usando dados
+ * do closing.teachers[] (não do receipts emitidos). CSS inline pra renderizar
+ * em iframe isolado.
+ */
+function buildReceiptHtmlForExport(prof, closing) {
+  var monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  var periodo = (monthNames[closing.month] || closing.month) + ' de ' + closing.year;
+  var typeLabel = { efetivo: 'Efetivo(a)', estagiario: 'Estagiário(a)', eventual: 'Eventual' }[prof.teacherType] || (prof.teacherType || '');
+
+  var horas = (prof.totalHoras || 0).toFixed(1);
+  var valorHoras = Number(prof.valorHoras || 0).toFixed(2);
+  var valorTotalFechamento = Number(prof.valorTotal || 0).toFixed(2);
+
+  // Seção férias (Sprint 6b — se houver)
+  var vacationHtml = '';
+  if ((prof.vacationValue || 0) > 0 && Array.isArray(prof.vacationDetails) && prof.vacationDetails.length > 0) {
+    var vacLines = prof.vacationDetails.map(function(vd) {
+      var pStart = vd.periodStart && vd.periodStart.toDate ? vd.periodStart.toDate().toLocaleDateString('pt-BR') : '';
+      var pEnd = vd.periodEnd && vd.periodEnd.toDate ? vd.periodEnd.toDate().toLocaleDateString('pt-BR') : '';
+      var isAuto = vd.paymentMode === 'auto';
+      var calcDetail = isAuto
+        ? '<div style="font-size:11px;color:#475569;margin:2px 0 4px 0;">Base mensal: R$ ' + Number(vd.baseMonthly || 0).toFixed(2) +
+          '<br>Proporcional: R$ ' + Number(vd.proportionalBase || 0).toFixed(2) + ' (' + vd.daysInMonth + '/30)' +
+          '<br>1/3 constitucional: R$ ' + Number(vd.oneThirdValue || 0).toFixed(2) + '</div>'
+        : '';
+      return '<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e0e0e0;">' +
+        '<div style="font-weight:600;font-size:12px;">Período: ' + pStart + ' a ' + pEnd + ' (' + vd.daysInMonth + ' dias)</div>' +
+        calcDetail +
+        '<div style="text-align:right;font-weight:700;font-size:13px;">R$ ' + Number(vd.proportionalValue || 0).toFixed(2) + '</div>' +
+        '</div>';
+    }).join('');
+    vacationHtml = '<section style="background:#f0f9ff;padding:10px 12px;border-left:3px solid #3b82f6;margin-bottom:16px;border-radius:2px;">' +
+      '<h3 style="font-size:13px;font-weight:700;margin-bottom:6px;">🏖️ Férias</h3>' +
+      vacLines +
+      (prof.isVacationOnly ? '<p style="font-size:11px;color:#94a3b8;margin-top:8px;">Período sem aulas — pagamento exclusivo de férias</p>' : '') +
+      '</section>';
+  }
+
+  // Total = valorTotal do fechamento + vacationValue
+  var valorLiquido = (prof.valorTotal || 0) + (prof.vacationValue || 0);
+  var extenso = numeroExtensoSimples(valorLiquido);
+
+  var unitName = (closing.unitName || closing.unitId || '').toString();
+
+  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo</title>' +
+    '<style>' +
+    '* { box-sizing: border-box; margin: 0; padding: 0; }' +
+    'body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #111; background: #fff; font-size: 13px; line-height: 1.5; padding: 30px; }' +
+    '.header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 24px; }' +
+    '.header h1 { margin: 0; font-size: 26px; letter-spacing: 1px; font-weight: 800; }' +
+    '.header .sub { font-size: 13px; color: #444; margin-top: 4px; text-transform: uppercase; letter-spacing: 2px; }' +
+    '.header .number { font-size: 15px; color: #000; margin-top: 4px; font-weight: 700; }' +
+    '.info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }' +
+    '.info-block { padding: 10px 12px; background: #f5f5f5; border-radius: 4px; }' +
+    '.info-label { font-size: 9px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }' +
+    '.info-value { font-weight: 600; font-size: 13px; margin-top: 2px; }' +
+    'table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }' +
+    'table th, table td { border-bottom: 1px solid #e0e0e0; padding: 10px 8px; text-align: left; font-size: 12px; }' +
+    'table th { background: #f0f0f0; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }' +
+    '.text-right { text-align: right; }' +
+    '.total { font-size: 22px; font-weight: 800; text-align: right; padding: 12px 16px; background: #000; color: #fff; border-radius: 4px; margin-top: 4px; }' +
+    '.extenso { font-size: 11px; font-style: italic; color: #666; margin-top: 4px; text-align: right; }' +
+    '.sig { margin-top: 60px; display: flex; justify-content: space-between; }' +
+    '.sig-line { width: 260px; border-top: 1px solid #000; padding-top: 6px; text-align: center; font-size: 12px; }' +
+    '.sig-line small { color: #888; font-size: 10px; }' +
+    '.footer { text-align: center; font-size: 10px; color: #aaa; margin-top: 30px; }' +
+    '</style></head><body>' +
+    '<div class="header">' +
+    '<h1>CrossTainer</h1>' +
+    '<div class="sub">Recibo de Pagamento</div>' +
+    '<div class="number">PRÉVIA · ' + periodo + '</div>' +
+    '</div>' +
+    '<div class="info">' +
+    '<div class="info-block"><div class="info-label">Professor(a)</div><div class="info-value">' + (prof.teacherName || '') + '</div></div>' +
+    '<div class="info-block"><div class="info-label">Tipo de vínculo</div><div class="info-value">' + typeLabel + '</div></div>' +
+    '<div class="info-block"><div class="info-label">CPF</div><div class="info-value">' + (prof.teacherCpf || '—') + '</div></div>' +
+    '<div class="info-block"><div class="info-label">Unidade</div><div class="info-value">' + unitName + '</div></div>' +
+    '</div>' +
+    '<table>' +
+    '<thead><tr><th>Descrição</th><th class="text-right">Valor (R$)</th></tr></thead>' +
+    '<tbody>' +
+    '<tr><td>Horas trabalhadas (' + horas + 'h)</td><td class="text-right">' + valorHoras + '</td></tr>' +
+    ((prof.mealAllowance || 0) > 0 ? '<tr><td>Vale Refeição (VR)</td><td class="text-right">' + Number(prof.mealAllowance).toFixed(2) + '</td></tr>' : '') +
+    ((prof.transportAllowance || 0) > 0 ? '<tr><td>Vale Transporte (VT)</td><td class="text-right">' + Number(prof.transportAllowance).toFixed(2) + '</td></tr>' : '') +
+    ((prof.otherBenefits || 0) > 0 ? '<tr><td>Outros Benefícios</td><td class="text-right">' + Number(prof.otherBenefits).toFixed(2) + '</td></tr>' : '') +
+    '<tr><td><strong>Total bruto do fechamento</strong></td><td class="text-right"><strong>' + valorTotalFechamento + '</strong></td></tr>' +
+    '</tbody>' +
+    '</table>' +
+    vacationHtml +
+    '<div class="total">VALOR LÍQUIDO: R$ ' + valorLiquido.toFixed(2) + '</div>' +
+    '<div class="extenso">' + extenso + '</div>' +
+    '<div class="sig">' +
+    '<div class="sig-line">' + (prof.teacherName || '') + '<br><small>Professor(a)</small></div>' +
+    '<div class="sig-line">Administração<br><small>Emitido por</small></div>' +
+    '</div>' +
+    '<div class="footer">Gerado em ' + new Date().toLocaleString('pt-BR') + ' · CrossTainer Sistema de Gestão · PRÉVIA — não substitui recibo emitido</div>' +
+    '</body></html>';
+}
+
+/** Valor por extenso simplificado para o recibo lote (espelha receipt.html). */
+function numeroExtensoSimples(valor) {
+  if (!valor || valor === 0) return 'Zero reais';
+  var inteiro = Math.floor(valor);
+  var centavos = Math.round((valor - inteiro) * 100);
+  var u = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove',
+    'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+  var d = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+  var c = ['', 'cem', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+  function centena(n) {
+    if (n === 0) return '';
+    if (n === 100) return 'cem';
+    if (n < 20) return u[n];
+    if (n < 100) { var dz = Math.floor(n / 10), uu = n % 10; return d[dz] + (uu ? ' e ' + u[uu] : ''); }
+    var ct = Math.floor(n / 100), resto = n % 100; var r = c[ct]; if (resto === 0) return r; return r + ' e ' + centena(resto);
+  }
+  function milhar(n) {
+    if (n < 1000) return centena(n);
+    var m = Math.floor(n / 1000), resto = n % 1000;
+    var mMil = m === 1 ? 'mil' : centena(m) + ' mil';
+    if (resto === 0) return mMil;
+    return mMil + (resto < 100 ? ' e ' : ' ') + centena(resto);
+  }
+  var ext = milhar(inteiro);
+  ext = ext.charAt(0).toUpperCase() + ext.slice(1);
+  ext += inteiro === 1 ? ' real' : ' reais';
+  if (centavos > 0) ext += ' e ' + centena(centavos) + (centavos === 1 ? ' centavo' : ' centavos');
+  return ext;
 }
 
 function renderReciboInPdf(doc, prof, closing) {
@@ -578,7 +773,11 @@ async function executarRelatorio(relId) {
           <thead><tr>${cols.map(function(c) { return '<th>' + c.label + '</th>'; }).join('')}</tr></thead>
           <tbody>
             ${d.rows.slice(0, 100).map(function(r) {
-              return '<tr>' + cols.map(function(c) { return '<td>' + formatCell(r[c.key], c.type) + '</td>'; }).join('') + '</tr>';
+              return '<tr>' + cols.map(function(c) {
+                var formatted = formatRowCell(r, c);
+                var title = (r.noSalaryData && c.type === 'currency') ? ' title="Cadastro salarial incompleto"' : '';
+                return '<td' + title + '>' + formatted + '</td>';
+              }).join('') + '</tr>';
             }).join('')}
             ${rowCount > 100 ? '<tr><td colspan="' + cols.length + '" style="text-align:center;color:var(--text2);">+ ' + (rowCount - 100) + ' linhas (exporte pra ver tudo)</td></tr>' : ''}
           </tbody>
@@ -655,10 +854,8 @@ function getVal(id) {
 /* ─── Lazy loading ───────────────────────────────────────────────────── */
 
 async function ensureReportLibsLoaded() {
-  // Sprint 8 fix: jspdf-autotable se auto-registra no jsPDF assim que carrega.
-  // Se carregar em paralelo, autotable pode chegar antes do jspdf estar pronto
-  // e falhar silenciosamente. Solução: jspdf antes de autotable. XLSX e JSZip
-  // são independentes, podem carregar em paralelo com o primeiro grupo.
+  // Sprint 9: tenta local (vendor/) primeiro, CDN como fallback.
+  // jspdf-autotable depende de jsPDF — carrega após jsPDF estar pronto.
 
   function loadScript(url) {
     return new Promise(function(resolve, reject) {
@@ -670,31 +867,49 @@ async function ensureReportLibsLoaded() {
     });
   }
 
-  try {
-    // Grupo 1: jsPDF + XLSX + JSZip podem carregar em paralelo
-    var loads = [];
-    if (!window.jspdf) loads.push(loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'));
-    if (!window.XLSX)  loads.push(loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'));
-    if (!window.JSZip) loads.push(loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'));
-    if (loads.length > 0) await Promise.all(loads);
+  async function loadWithFallback(localPath, cdnUrl, sentinel) {
+    if (sentinel && window[sentinel]) return true;
+    try {
+      await loadScript(localPath);
+      if (sentinel && window[sentinel]) return true;
+    } catch (e) {
+      console.warn('[Sprint 9] Local falhou (' + localPath + '), tentando CDN...');
+    }
+    try {
+      await loadScript(cdnUrl);
+      return true;
+    } catch (e2) {
+      console.error('[Sprint 9] CDN também falhou: ' + cdnUrl);
+      return false;
+    }
+  }
 
-    // Grupo 2: autotable APÓS jsPDF estar disponível (depende dele)
-    if (window.jspdf && window.jspdf.jsPDF && !window.jspdf.jsPDF.API.autoTable) {
-      await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.0/dist/jspdf.plugin.autotable.min.js');
+  try {
+    // Grupo 1: jsPDF + XLSX + JSZip em paralelo (local → CDN)
+    var ok1 = true;
+    if (!window.jspdf) ok1 = await loadWithFallback('vendor/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js', null) && ok1;
+    if (!window.XLSX)  ok1 = await loadWithFallback('vendor/xlsx.full.min.js', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js', 'XLSX') && ok1;
+    if (!window.JSZip) ok1 = await loadWithFallback('vendor/jszip.min.js', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', 'JSZip') && ok1;
+    if (!window.html2canvas) ok1 = await loadWithFallback('vendor/html2canvas.min.js', 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', 'html2canvas') && ok1;
+
+    // Grupo 2: autotable APÓS jsPDF (depende dele)
+    if (ok1 && window.jspdf && window.jspdf.jsPDF && !window.jspdf.jsPDF.API.autoTable) {
+      ok1 = await loadWithFallback('vendor/jspdf.plugin.autotable.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.0/dist/jspdf.plugin.autotable.min.js', null) && ok1;
     }
 
     // Sanity check final
-    var ok = !!(window.jspdf && window.jspdf.jsPDF && window.XLSX && window.JSZip);
+    var ok = !!(window.jspdf && window.jspdf.jsPDF && window.XLSX && window.JSZip && window.html2canvas);
     var hasAutotable = window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function';
     if (!ok || !hasAutotable) {
-      console.error('[Sprint 8] Libs não carregadas corretamente:', {
-        jspdf: !!window.jspdf, xlsx: !!window.XLSX, jszip: !!window.JSZip, autotable: hasAutotable,
+      console.error('[Sprint 9] Libs não carregadas:', {
+        jspdf: !!window.jspdf, xlsx: !!window.XLSX, jszip: !!window.JSZip,
+        html2canvas: !!window.html2canvas, autotable: hasAutotable,
       });
       return false;
     }
     return true;
   } catch (err) {
-    console.error('[Sprint 8]', err);
+    console.error('[Sprint 9]', err);
     return false;
   }
 }

@@ -3517,6 +3517,20 @@ const VacationBalanceService = {
   },
 };
 
+// ────────────────────────────────────────────────────────────────────────
+// Sprint 9 — Empty state helper
+// ────────────────────────────────────────────────────────────────────────
+
+function emptyStateHtml(icon, title, suggestion) {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">${icon}</div>
+      <div class="empty-title">${escapeHtml(title)}</div>
+      ${suggestion ? '<div class="empty-suggestion">' + escapeHtml(suggestion) + '</div>' : ''}
+    </div>
+  `;
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // Sprint 8 — ReportService
 // ═══════════════════════════════════════════════════════════════════════
@@ -3764,8 +3778,12 @@ const ReportService = {
           totalValor: 0,
           classesCount: 0,
           details: [],
+          // Sprint 9 fix: flag pra UI exibir "Sem cadastro salarial" em vez de R$ 0,00
+          noSalaryData: !salary || hourlyRate === 0,
         };
       }
+      // Sprint 9 fix: se algum cálculo de aula posterior tiver hourlyRate > 0, desfaz a flag
+      if (hourlyRate > 0) groups[key].noSalaryData = false;
       const horas = (c.durationMinutes || 60) / 60;
       const valor = hourlyRate > 0 ? Math.round(horas * hourlyRate * 100) / 100 : 0;
       groups[key].totalHoras += horas;
@@ -3790,6 +3808,8 @@ const ReportService = {
         classesCount: g.classesCount,
         totalHoras: Math.round(g.totalHoras * 10) / 10,
         totalValor: Math.round(g.totalValor * 100) / 100,
+        // Sprint 9 fix: propaga flag pro renderer
+        noSalaryData: g.noSalaryData,
       }))
       .sort((a, b) => b.totalValor - a.totalValor);
 
@@ -3910,7 +3930,7 @@ window.ProfHelpers     = {
   // Sprint 6c — VacationBalanceService + helpers de período aquisitivo
   VacationBalanceService, getEntitlementStartDate, addMonths, listAcquisitionPeriods, findCurrentPeriod,
   // Sprint 8 — ReportService
-  ReportService,
+  ReportService, emptyStateHtml,
 };
 
 console.log('[CrossTainer Professores] professores-shared.js carregado · Services Sprint 1+1.5+2+3a+3b (todos)');

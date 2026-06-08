@@ -1,6 +1,6 @@
 {
-  "name": "CrossTrainer — Comissões",
-  "short_name": "CrossTrainer",
+  "name": "CrossTainer — Comissões",
+  "short_name": "CrossTainer",
   "description": "Sistema de gestão de comissões de vendas",
   "start_url": "./index.html",
   "display": "standalone",
