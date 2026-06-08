@@ -78,7 +78,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 6c | Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas) | ✅ 12/12 + 3 visuais |
 | **8** | **Relatórios e Exportações (4 relatórios em Excel + PDF, client-side, lazy load CDN)** | **✅ R1·R2·R3·R4** |
 
-**Próxima ação:** Sprint 8 ✅ completa (R1·R2·R3·R4 validados em staging após 5 fixes). Decidir próxima: **Sprint 7 (emails Brevo)** ou **Polimentos finais** (backlog consolidado em memória `polimentos-finais-backlog.md` — inclui template do recibo R4 da Sprint 8, R3 "sem cadastro salarial" em vez de R$ 0,00, tech debt do sw.js, CDN local fallback, nome CrossTainer no index.html/manifest, etc.). **Deploy em produção só ao fechar TODAS as sprints** — não fazemos sprint-a-sprint em prod.
+**Próxima ação:** **Sprint 9 — Polimentos Finais** (última antes da homologação). Playbook em `sprint-9-polimentos-finais.md` (~900 linhas, 6 etapas, 12 critérios, 5 snippets). Escopo: 4 categorias (UX/Visual + Branding CrossTainer + Tech debt funcional + Robustez CDN). Decisões fixadas: recibo R4 via html2canvas (paridade 100% com receipt.html), sw.js mantido, migrations idempotentes, CDN local fallback. Instruções pro time em `docs/superpowers/specs/2026-06-07-sprint-9-instrucoes.md`. Estimativa: ~5-6 dias úteis. **Após Sprint 9: homologação completa + deploy em produção** (regra inviolável #7).
 
 ## 🔧 Tech debt registrado (não bloqueia)
 

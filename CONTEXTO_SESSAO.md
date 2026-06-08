@@ -5,6 +5,33 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
 
+**Estado:** **12 sprints validadas + Sprint 9 (Polimentos Finais) playbook publicado, aguardando dev**. Projeto ~98% pronto + sprint 9 em planejamento (última antes da homologação).
+
+> 🎯 **Sessão 29 (07/06) — Playbook Sprint 9 escrito.**
+>
+> **3 decisões travadas (via AskUserQuestion):**
+> - Escopo: **4 categorias completas** (UX + Branding + Tech debt + Robustez CDN)
+> - Recibo R4: **html2canvas espelhando receipt.html** (paridade visual 100%)
+> - sw.js: **manter** (regra inviolável #1)
+>
+> **Playbook canônico:** `sprint-9-polimentos-finais.md` (~900 linhas, 12 critérios, 12 decisões, 5 snippets-chave).
+>
+> **Itens cobertos:**
+> - **UX/Visual:** recibo R4 paridade, R3 "Sem cadastro" em vez de R$ 0,00, mensagens vazias padronizadas, loading states consistentes
+> - **Branding:** CrossTrainer → CrossTainer em arquivos visíveis ao usuário (regra inviolável #8). NÃO mexer em IDs técnicos do Firebase nem sw.js
+> - **Tech debt:** migration audit_log legacy (`professores` → `agenda`) + migration classes UTC midnight (só staging) + CreditService transação atômica + validar critérios 5/6 Sprint 4a
+> - **Robustez:** CDN local fallback (`/vendor` com 5 libs: SheetJS, jsPDF, jsPDF-autotable, JSZip, html2canvas)
+>
+> **Doc pro time:** `docs/superpowers/specs/2026-06-07-sprint-9-instrucoes.md` — resumo executivo + pontos delicados + checklist pré-deploy. Atenção especial pra branding (cuidado pra não mexer em IDs).
+>
+> **Estimativa:** 5-6 dias úteis pra dev + 1-2 dias minha pra validar.
+>
+> **Próxima ação:** dev pega o playbook e executa as 6 etapas em ordem. Quando entregar, valido com smoke-9 + fixture-9 + UI manual. **Após Sprint 9: homologação completa + decisão de deploy em produção (regra inviolável #7).**
+
+---
+
+## 🔖 Sessão 28 (07/06/2026) — Sprint 8 validação 100% (5 bugs encontrados e fixados)
+
 **Estado:** **12 sprints validadas — Sprint 8 ✅ COMPLETA (R1·R2·R3·R4 funcionando em staging)**. Projeto ~98% pronto.
 
 > 🎯 **Sessão 28 (07/06) — Validação Sprint 8 entregue pelo time + 5 fixes aplicados.**
