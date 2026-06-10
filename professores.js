@@ -25,31 +25,8 @@ const AppState = {
   currentPage: 'home',
 };
 
-/* ─── Configuração de páginas por perfil ────────────────────────── */
-const PROF_PAGES = {
-  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
-  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
-  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
-};
-
-const PAGE_DEFINITIONS = [
-  { id: 'home',          label: 'Início',         icon: '🏠', section: null },
-  { id: 'modalidades',   label: 'Modalidades',    icon: '🏷️', section: 'Cadastros' },
-  { id: 'professores',   label: 'Professores',    icon: '👥', section: 'Cadastros' },
-  { id: 'agenda',        label: 'Agenda',         icon: '📅', section: 'Operação' },
-  { id: 'agenda-geral',  label: 'Agenda Geral',   icon: '🌐', section: 'Operação' },
-  { id: 'minha-agenda',  label: 'Minha Agenda',   icon: '📅', section: 'Minhas aulas' },
-  { id: 'fechamento',   label: 'Fechamento',     icon: '💰', section: 'Financeiro' },
-  { id: 'pagamentos',      label: 'Pagamentos',      icon: '💳', section: 'Financeiro' },
-  { id: 'meus-pagamentos', label: 'Meus Pagamentos', icon: '💳', section: 'Financeiro' },
-  { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Operação' },
-  { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Operação' },
-  { id: 'meu-saldo',      label: 'Meu Saldo',          icon: '📊', section: 'Minhas aulas' },
-  { id: 'saldos-gestao',  label: 'Saldos de Férias',   icon: '📊', section: 'Financeiro' },
-  { id: 'relatorios',     label: 'Relatórios',         icon: '📊', section: 'Financeiro' },
-];
+/* ─── Configuração de páginas/navegação (fonte única: professores-nav.js) ─── */
+const PROF_PAGES = ProfNav.PROF_PAGES;
 
 /* ─── Helpers de perfil ─────────────────────────────────────────── */
 function hasProfile(p) {
@@ -401,27 +378,42 @@ function formatRoleLabel() {
 /* ─── Sidebar ─────────────────────────────────────────────────── */
 function buildSidebar() {
   const nav = document.getElementById('sidebarNav');
-  const allowed = getAllowedPages();
-  const items = PAGE_DEFINITIONS.filter(p => allowed.includes(p.id));
-
-  // Agrupa por section
-  let html = '';
-  let lastSection = undefined;
-  items.forEach(item => {
-    if (item.section !== lastSection) {
-      if (item.section) {
-        html += `<div class="sb-section">${item.section}</div>`;
-      }
-      lastSection = item.section;
-    }
-    const activeClass = item.id === AppState.currentPage ? 'active' : '';
-    html += `<div class="sb-item ${activeClass}" onclick="navigateTo('${item.id}')">
-               <span class="icon">${item.icon}</span>${item.label}
-             </div>`;
+  const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
+  const model = ProfNav.buildSidebarModel(profiles, {
+    hasProfessorLink: !!getCurrentProfessorId(),
+    moduleAccess: AppState.userProfile.moduleAccess || {},
   });
 
+  const itemHtml = (it) => {
+    const active = it.id === AppState.currentPage ? 'active' : '';
+    return `<div class="sb-item ${active}" onclick="navigateTo('${it.id}')">
+              <span class="icon">${it.icon}</span>${it.label}
+            </div>`;
+  };
+
+  let html = '';
+  if (model.home) html += itemHtml(model.home);
+  model.groups.forEach(g => {
+    html += `<div class="sb-section">${g.section}</div>`;
+    g.items.forEach(it => { html += itemHtml(it); });
+  });
+
+  // Seção de sistema (admin) — links externos pro Comissões
+  if (model.systemSection) {
+    html += `<div class="sb-section sb-sys-hdr">${model.systemSection.label}</div>`;
+    model.systemSection.items.forEach(it => {
+      html += `<a class="sb-item sb-sys" href="${it.href}">
+                 <span class="icon">${it.icon}</span>${it.label}
+               </a>`;
+    });
+  }
+
   nav.innerHTML = html;
+  renderModuleSwitcher(model.moduleSwitcher); // Task 4
 }
+
+// Placeholder até a Task 4 implementar de verdade (evita ReferenceError neste passo)
+function renderModuleSwitcher() {}
 
 /* ─── Roteamento ──────────────────────────────────────────────── */
 function navigateTo(pageId) {
