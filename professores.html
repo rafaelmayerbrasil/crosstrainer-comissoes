@@ -150,13 +150,17 @@
     }
     .sb-logo-text span { color: var(--text); }
 
-    .sb-nav { flex: 1; overflow-y: auto; }
+    .sb-nav { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .sb-nav::-webkit-scrollbar { width: 6px; }
+    .sb-nav::-webkit-scrollbar-track { background: transparent; }
+    .sb-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .sb-nav::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
     .sb-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 20px;
+      padding: 6px 20px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text2);
@@ -175,13 +179,13 @@
     .sb-section {
       font-size: 10px;
       background: var(--surface2);
-      margin: 8px 12px 4px;
+      margin: 5px 12px 2px;
       border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       color: var(--text2);
       font-weight: 700;
-      padding: 6px 8px;
+      padding: 4px 8px;
     }
 
     /* Seção Administração (sistema) — links cross-módulo */
