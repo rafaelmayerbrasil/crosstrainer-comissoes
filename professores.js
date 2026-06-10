@@ -412,8 +412,15 @@ function buildSidebar() {
   renderModuleSwitcher(model.moduleSwitcher); // Task 4
 }
 
-// Placeholder até a Task 4 implementar de verdade (evita ReferenceError neste passo)
-function renderModuleSwitcher() {}
+function renderModuleSwitcher(sw) {
+  const el = document.getElementById('sbSwitcher');
+  if (!el) return;
+  if (!sw || !sw.show) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = sw.modules.map(m =>
+    `<a href="${m.href}" class="${m.active ? 'active' : ''}">${m.label}</a>`
+  ).join('');
+}
 
 /* ─── Roteamento ──────────────────────────────────────────────── */
 function navigateTo(pageId) {

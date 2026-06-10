@@ -189,6 +189,12 @@
     a.sb-item.sb-sys { text-decoration: none; }
     a.sb-item.sb-sys:hover { background: var(--surface2); }
 
+    /* Seletor de módulo (Comissões ↔ Professores) */
+    .sb-switcher { display: flex; gap: 6px; padding: 8px 12px 4px; }
+    .sb-switcher a { font-size: 11px; padding: 3px 10px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--text3); }
+    .sb-switcher a.active { background: var(--orange); color: #1e293b; border-color: var(--orange); font-weight: 700; }
+
     .sb-user {
       padding: 16px 20px;
       border-top: 1px solid var(--border);
@@ -1852,6 +1858,7 @@
           <span id="envBadgeApp" class="env-badge staging" style="display:none;">staging</span>
         </div>
       </div>
+      <div class="sb-switcher" id="sbSwitcher" style="display:none;"></div>
       <nav class="sb-nav" id="sidebarNav"></nav>
       <div class="sb-user">
         <div class="name" id="userName"></div>
