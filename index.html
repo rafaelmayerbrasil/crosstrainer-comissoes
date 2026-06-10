@@ -3452,6 +3452,11 @@
         loadVendorPeriods();
       }
       renderQuickUnitSelector();
+
+      // Deep-link: abre uma página específica via ?page=... (ex.: vindo do módulo Professores).
+      // Aditivo — sem o parâmetro, o pouso default acima permanece. ACL é garantida pela navigateTo.
+      const deepLinkPage = new URLSearchParams(location.search).get('page');
+      if (deepLinkPage) navigateTo(deepLinkPage);
     }
 
     function buildMobileNav() {
