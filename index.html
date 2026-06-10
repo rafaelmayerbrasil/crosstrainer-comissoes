@@ -2983,11 +2983,14 @@
           <div class="input-group"><label>Chave PIX (Recibo)</label><input id="newUserPix"
               placeholder="Telefone, CPF, Email..."></div>
 
-          <div class="input-group"><label>Perfil</label>
-            <select id="newUserRole">
-              <option value="vendedor">Vendedor(a)</option>
-              <option value="admin">Administrador</option>
-            </select>
+          <div class="input-group"><label>Perfis</label>
+            <div id="newUserProfiles" style="display:flex; flex-direction:column; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px;">
+              <!-- checkboxes populados via renderProfileCheckboxes() -->
+            </div>
+          </div>
+          <div class="input-group" id="professorLinkGroup" style="display:none;">
+            <label>Vincular ao professor (cadastro)</label>
+            <select id="newUserProfessorId"><option value="">— selecione —</option></select>
           </div>
           <div class="input-group"><label>Acesso às Unidades</label>
             <div id="newUserUnitsContainer" style="display:flex; flex-direction:column; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; max-height:150px; overflow-y:auto;">
@@ -3280,6 +3283,10 @@
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
             userProfile = doc.data();
+            // Segregação (§4.7): quem não tem acesso ao Comissões não entra aqui.
+            const _ma = userProfile.moduleAccess
+              || UserModel.deriveUserModel(userProfile.profiles || (userProfile.role ? [userProfile.role] : [])).moduleAccess;
+            if (!_ma.comissoes) { showNoComissoesAccess(); return; }
             const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : ['cp']);
             if (!allowed.includes(currentUnitId)) {
               currentUnitId = allowed[0];
@@ -3300,6 +3307,20 @@
         showLogin();
       }
     });
+
+    function showNoComissoesAccess() {
+      const shell = document.getElementById('appShell');
+      if (shell) shell.style.display = 'none';
+      const lp = document.getElementById('loginPage');
+      if (lp) lp.style.display = 'none';
+      if (document.getElementById('noComissoesBlock')) return;
+      document.body.insertAdjacentHTML('beforeend',
+        '<div id="noComissoesBlock" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);color:var(--text);text-align:center;padding:20px;z-index:9999;">'
+        + '<div style="font-size:16px;font-weight:700;">Sem acesso ao módulo Comissões</div>'
+        + '<div style="font-size:13px;color:var(--text2);max-width:340px;">Seu usuário não tem acesso ao Comissões. Use o módulo Professores.</div>'
+        + '<a href="professores.html" style="background:var(--orange);color:#000;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Ir para Professores →</a>'
+        + '</div>');
+    }
 
     function showProfileRecovery(email) {
       document.getElementById('loginPage').style.display = '';
@@ -3816,8 +3837,11 @@
         : users.map(u => {
           const isPendente = u.status === 'pendente';
           const isNaoCom = !isPendente && naoComList.some(n => (u.name || '').toUpperCase().includes(n));
+          const profiles = u.profiles || (u.role ? [u.role] : []);
           const roleClass = isPendente ? 'role-pendente' : u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
-          const roleLabel = isPendente ? 'Pendente' : u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
+          const roleLabel = isPendente ? 'Pendente'
+            : profiles.length ? profiles.map(p => (UserModel.PROFILE_LABELS[p] || p)).join(' · ')
+            : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
           const isUserOwner = isOwner(u.email || '');
           return `<div class="user-row">
           <div class="ur-info"><div class="ur-avatar" style="${isUserOwner ? 'background:var(--orange-glow);color:var(--orange);border:1px solid var(--orange)' : ''}">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}${isUserOwner ? ' <span style="font-size:9px;background:var(--orange-glow);color:var(--orange);padding:1px 6px;border-radius:3px;font-weight:700;letter-spacing:.5px;vertical-align:middle">DESENVOLVEDOR</span>' : ''}</div><div class="ur-email">${isPendente ? 'Cadastrado repassado do Excel' : u.email}</div></div></div>
@@ -3871,6 +3895,44 @@
       }
     }
 
+    // ─── Perfis (multi) + vínculo com professor ───────────────────────
+    function renderProfileCheckboxes(selected) {
+      const sel = selected || [];
+      const container = document.getElementById('newUserProfiles');
+      container.innerHTML = UserModel.PROFILE_ORDER.map(p =>
+        `<label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+          <input type="checkbox" class="user-profile-cb" value="${p}" ${sel.includes(p) ? 'checked' : ''} onchange="updateProfessorLinkVisibility()">
+          ${UserModel.PROFILE_LABELS[p]}
+        </label>`
+      ).join('');
+      updateProfessorLinkVisibility();
+    }
+
+    function getSelectedProfiles() {
+      return Array.from(document.querySelectorAll('#newUserProfiles .user-profile-cb:checked')).map(cb => cb.value);
+    }
+
+    function updateProfessorLinkVisibility() {
+      const show = UserModel.isTeacherProfile(getSelectedProfiles());
+      document.getElementById('professorLinkGroup').style.display = show ? '' : 'none';
+    }
+
+    async function populateTeacherSelect() {
+      const sel = document.getElementById('newUserProfessorId');
+      sel.innerHTML = '<option value="">— selecione —</option>';
+      try {
+        const snap = await db.collection('teachers').orderBy('name').get();
+        snap.forEach(doc => {
+          const opt = document.createElement('option');
+          opt.value = doc.id;
+          opt.textContent = doc.data().name || doc.id;
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Erro ao carregar professores p/ vínculo:', e.message);
+      }
+    }
+
     async function showAddUser() {
       document.getElementById('userFormTitle').textContent = 'Novo Usuário';
       document.getElementById('editUserId').value = '';
@@ -3883,6 +3945,9 @@
       document.getElementById('newUserPix').value = '';
       document.getElementById('btnSaveUser').textContent = 'Criar';
       await populateUserUnitsCheckboxes();
+      renderProfileCheckboxes([]);
+      await populateTeacherSelect();
+      document.getElementById('newUserProfessorId').value = '';
       document.getElementById('addUserForm').style.display = '';
     }
 
@@ -3901,7 +3966,10 @@
 
           document.getElementById('newUserCpf').value = d.cpf || '';
           document.getElementById('newUserPix').value = d.pix || '';
-          document.getElementById('newUserRole').value = d.role || 'vendedor';
+          renderProfileCheckboxes(d.profiles || (d.role ? [d.role] : []));
+          await populateTeacherSelect();
+          document.getElementById('newUserProfessorId').value = d.professorId || '';
+          updateProfessorLinkVisibility();
 
           await populateUserUnitsCheckboxes();
 
@@ -3926,18 +3994,24 @@
     }
 
     async function editExistingUser(uid) {
+      const errEl = document.getElementById('addUserError');
+      errEl.textContent = '';
       const name = document.getElementById('newUserName').value.trim();
       const cpf = document.getElementById('newUserCpf').value.trim();
       const pix = document.getElementById('newUserPix').value.trim();
-      const role = document.getElementById('newUserRole').value;
+      const profiles = getSelectedProfiles();
+      if (profiles.length === 0) { errEl.textContent = 'Selecione ao menos um perfil.'; return; }
+      const { moduleAccess, role } = UserModel.deriveUserModel(profiles);
+      const professorId = UserModel.isTeacherProfile(profiles)
+        ? (document.getElementById('newUserProfessorId').value || null) : null;
       const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
-      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
-      
+      if (moduleAccess.comissoes && allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade (acesso ao Comissões).'; return; }
+
       try {
-        await db.collection('users').doc(uid).update({ 
-          name, cpf, pix, role, 
+        await db.collection('users').doc(uid).update({
+          name, cpf, pix, role, profiles, moduleAccess, professorId,
           allowedUnits,
-          unitId: allowedUnits[0] // fallback for legacy code
+          unitId: allowedUnits[0] || null // fallback for legacy code
         });
         toast(`Usuário atualizado com sucesso!`, 'success');
         document.getElementById('addUserForm').style.display = 'none';
@@ -3953,14 +4027,19 @@
       const cpf = document.getElementById('newUserCpf').value.trim();
       const pix = document.getElementById('newUserPix').value.trim();
 
-      const role = document.getElementById('newUserRole').value;
+      const profiles = getSelectedProfiles();
       const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
       const errEl = document.getElementById('addUserError');
       errEl.textContent = '';
 
       if (!name || !email || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
-      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
+      if (profiles.length === 0) { errEl.textContent = 'Selecione ao menos um perfil.'; return; }
       if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
+
+      const { moduleAccess, role } = UserModel.deriveUserModel(profiles);
+      const professorId = UserModel.isTeacherProfile(profiles)
+        ? (document.getElementById('newUserProfessorId').value || null) : null;
+      if (moduleAccess.comissoes && allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade (acesso ao Comissões).'; return; }
 
       try {
         // Use a secondary Firebase app so the admin session is never replaced
@@ -3975,9 +4054,9 @@
 
         // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
         await secondaryDb.collection('users').doc(newUid).set({
-          name, email, cpf, pix, role, 
+          name, email, cpf, pix, role, profiles, moduleAccess, professorId,
           allowedUnits,
-          unitId: allowedUnits[0], 
+          unitId: allowedUnits[0] || null,
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
