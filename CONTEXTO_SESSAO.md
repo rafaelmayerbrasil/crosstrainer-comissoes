@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
 
-**Estado:** **Reorganização de navegação (shell integrado) em implementação na branch `feature/shell-integrado`. Planos A e B executados e validados em staging. Próximo: Plano C (home).** Produção intacta.
+**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A, B e C executados e validados em staging.** Produção intacta. 1 bug real de férias registrado (`task_a84f3e95`).
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >
@@ -21,7 +21,13 @@
 >
 > **Pendências de prod:** a migração de config do `index.html` (e futuramente `profiles[]`/`professorId` no form de Usuários — Plano D) vão pra produção junto com o módulo, via homologação (regra #7). Branch **não mergeada no `main`**.
 >
-> **Próxima ação:** **Plano C** — home "centro de pendências" (admin + professor). Código novo no Professores, zero risco de prod. Retomar na branch `feature/shell-integrado`.
+> **Plano C ✅ (validado UI):** home "centro de pendências" — `professores-home.js` (`renderHomePage` despachado no `navigateTo('home')`). Admin: faixa "Precisam de você" (férias a aprovar, substituições pendentes) com chips que linkam + atalhos; professor: aulas de hoje + substituições + atalhos. Contador que falha é omitido (home nunca quebra). Validado com `scripts/fixture-home-c.js` (já limpa).
+>
+> **Polimento (dark mode):** modal "Aprovar Férias" (Sprint 6b) usava cores claras fixas → ilegível no dark. Convertido pra variáveis de tema (`.payment-*`/`.ferias-approve-info` em `professores.html`); radio ativo agora laranja.
+>
+> **🐛 BUG REAL registrado (tarefa `task_a84f3e95`):** aprovar férias COM pagamento ("Adiar" / "Aprovar e definir") falha com "Missing or insufficient permissions". `VacationService._respond` (`professores-shared.js:~2896/2952`) grava `status`+`payment` num único `update`, mas `firestore.rules` (`vacation_requests`, ~203-227) só permite essas mudanças **separadas**. Passou na Sprint 6b porque foi validado via Admin SDK (bypassa rules). Fix recomendado: dividir o write (status, depois payment). Não toca produção (módulo ainda não está em prod).
+>
+> **Próxima ação:** Planos A/B/C entregues e validados na branch `feature/shell-integrado`. Pendências: (1) bug de férias acima (`task_a84f3e95`); (2) Plano D (form Usuários `profiles[]`/`professorId`); (3) tech debt Comissões-staging sem dados; (4) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
 
 ---
 
