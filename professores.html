@@ -199,6 +199,27 @@
       border: 1px solid var(--border); color: var(--text3); }
     .sb-switcher a.active { background: var(--orange); color: #1e293b; border-color: var(--orange); font-weight: 700; }
 
+    /* ─── Home / Início — Centro de Pendências (Plano C) ─── */
+    .home-wrap { max-width: 760px; }
+    .home-greet { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 16px; }
+    .home-greet .home-date { display: block; font-size: 12px; font-weight: 500; color: var(--text3); text-transform: capitalize; margin-top: 2px; }
+    .home-loading, .home-empty { color: var(--text3); font-size: 13px; padding: 8px 0; }
+    .home-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+    .home-pend { background: var(--orange-dim); border-color: var(--orange); }
+    .home-ok { color: var(--text2); font-size: 13px; }
+    .home-pt { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); font-weight: 700; margin-bottom: 10px; }
+    .home-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .home-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .home-chip:hover { border-color: var(--orange); }
+    .home-chip b { color: var(--orange); font-size: 15px; margin-right: 2px; }
+    .home-chip-static, .home-chip-static:hover { cursor: default; border-color: var(--border); }
+    .home-empty-inline { color: var(--text3); font-size: 13px; }
+    .home-atalhos-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); font-weight: 700; margin: 16px 0 8px; }
+    .home-atalhos { display: flex; gap: 10px; flex-wrap: wrap; }
+    .home-atalho { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .home-atalho:hover { border-color: var(--orange); color: var(--orange); }
+    .home-atalho .ic { font-size: 16px; }
+
     .sb-user {
       padding: 16px 20px;
       border-top: 1px solid var(--border);
@@ -2382,6 +2403,7 @@
   <script src="professores-ferias.js"></script>
   <script src="professores-relatorios.js"></script>
   <script src="professores-nav.js"></script>
+  <script src="professores-home.js"></script>
   <script src="professores.js"></script>
 </body>
 

@@ -451,7 +451,9 @@ function navigateTo(pageId) {
   applyVacationBadge();
 
   // Renderiza conteúdo conforme página (delegado para módulos específicos)
-  if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
+  if (pageId === 'home' && typeof renderHomePage === 'function') {
+    renderHomePage();
+  } else if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
     renderModalidadesPage();
   } else if (pageId === 'professores' && typeof renderProfessoresPage === 'function') {
     renderProfessoresPage();
