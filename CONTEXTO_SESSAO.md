@@ -27,7 +27,9 @@
 >
 > **🐛 BUG REAL de férias — CORRIGIDO (commit `a15d07a`, validado UI):** aprovar férias COM pagamento ("Adiar" / "Aprovar e definir") falhava com "Missing or insufficient permissions". Causa: `VacationService._respond` (`professores-shared.js`) gravava `status`+`payment` num único `update`, mas `firestore.rules` (`vacation_requests`, ~203-227) só permite essas mudanças **separadas**. Passou na Sprint 6b porque foi validado via Admin SDK (bypassa rules). **Fix:** o `_respond` agora faz 2 updates — 1º status (regra B), 2º payment isolado `{payment, updatedAt}` (regra A). Reject (sem payment) segue 1 write. Não-atômico (se o 2º falhar, fica aprovada com pagamento pendente — recuperável via editar pagamento).
 >
-> **Próxima ação:** Planos A/B/C + fix de férias entregues e validados na branch `feature/shell-integrado`. Pendências: (1) Plano D (form Usuários `profiles[]`/`professorId`); (2) tech debt Comissões-staging sem dados (admin sem unidades); (3) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
+> **Comissões staging destravado:** admin `abluir@gmail.com` recebeu `allowedUnits = [unit-cp, unit-norte, unit-pp]` (estava `[]`) → Dashboard do Comissões no staging abre sem "Erro ao carregar períodos". Ainda há 0 `periodos` (sem dados de vendas — esperado; fazer upload se quiser exercitar). Há 3 `units` duplicadas "CrossTainer CP" (REEnfj/d3Tl/hGIf) que são lixo de teste — deixadas como estão.
+>
+> **Próxima ação:** Planos A/B/C + fix de férias + destrave do Comissões staging entregues na branch `feature/shell-integrado`. Pendências: (1) Plano D (form Usuários `profiles[]`/`professorId`); (2) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
 
 ---
 
