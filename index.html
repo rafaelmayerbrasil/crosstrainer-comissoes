@@ -19,6 +19,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Config + init do Firebase centralizados (detecção automática staging/produção) -->
+  <script src="firebase-config.js"></script>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -3218,18 +3220,12 @@
 
   <script>
     // ═══════════════════════════════════════════════════════════════
-    // FIREBASE CONFIG — REPLACE WITH YOUR PROJECT CONFIG
+    // FIREBASE — config + init centralizados em firebase-config.js
+    // (detecção automática staging vs produção pelo hostname).
+    // firebaseConfig vem de window.FIREBASE_CONFIG e é reusado pelo app
+    // 'secondary' (criação de usuário sem deslogar o admin).
     // ═══════════════════════════════════════════════════════════════
-    const firebaseConfig = {
-      apiKey: "AIzaSyCILbVvHuOgEaFsK-OrXCN7_NmJeMB5GKI",
-      authDomain: "crosstrainer-comissoes.firebaseapp.com",
-      projectId: "crosstrainer-comissoes",
-      storageBucket: "crosstrainer-comissoes.firebasestorage.app",
-      messagingSenderId: "909536955760",
-      appId: "1:909536955760:web:36a4d166aa747f5f9653b5"
-    };
-
-    firebase.initializeApp(firebaseConfig);
+    const firebaseConfig = window.FIREBASE_CONFIG;
     const auth = firebase.auth();
     const db = firebase.firestore();
 
