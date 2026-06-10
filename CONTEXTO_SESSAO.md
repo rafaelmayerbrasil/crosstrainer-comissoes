@@ -3,7 +3,32 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 07/06/2026 (sessão 24)
+## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 31)
+
+**Estado:** **Sprint 9 HOMOLOGADA na UI pelo cliente (2 pendentes validados) + 1 bug do R3 achado e corrigido.** Projeto ~99% pronto — homologação dos relatórios concluída.
+
+> 🎯 **Sessão 31 (10/06) — Homologação UI dos pendentes da Sprint 9 + fix de bug do R3.**
+>
+> Cliente validou via UI (janela anônima no staging) os 2 itens que faltavam:
+> - ✅ **R4 Recibo html2canvas** — render perfeito: header CrossTainer centralizado, acentos OK (PRÉVIA/VÍNCULO/LÍQUIDO), valor por extenso, 2 assinaturas, total preto/branco. Paridade 100% com `receipt.html` confirmada (ambos usam `.toFixed(2)`). ZIP gera 1 PDF por prof (fechamento 05/2026 tem 1 prof → 1 arquivo, correto).
+> - ✅ **R3 "Sem cadastro salarial"** — Pedro Lima (estagiário sem `teacher_salaries`) mostra "—" na tabela e no PDF.
+>
+> **🐛 Bug encontrado durante a homologação (corrigido):**
+> - R3 filtrava `['realizada','substituicao']`, mas `'substituicao'` **não existe** no sistema — o valor canônico é `'substituida'` (`allowed` em `professores-shared.js:1292` + fechamento Sprint 4a `:2020`). Toda aula de substituição era silenciosamente descartada do R3.
+> - Sintoma: período com 2 aulas `substituida` do Lucas Mendes dava "Nenhuma aula encontrada", enquanto R4/fechamento mostravam 2 aulas / R$ 240,00.
+> - Fix: `professores-shared.js` linhas 3688/3704/3800 `'substituicao'` → `'substituida'`. Commit **`bd80996`** no `main`. Deployado em staging (hosting). Validado via Admin SDK + UI: Lucas (R$ 240,00) + Pedro Lima ("—") aparecem corretos.
+>
+> **Cosmético anotado (não bloqueia):** recibos (individual + lote) mostram valores com ponto ("240.00") em vez de vírgula BR. Pré-existe no `receipt.html` de produção — polimento opcional futuro (mexeria em código já validado em prod).
+>
+> **Fixture limpa:** as 2 aulas do Pedro foram removidas do staging após o teste (cleanup rodado). Check do Excel do R3 ("Sem cadastro") segue como opcional — o "—" já foi validado em tabela e PDF.
+>
+> **Novo workstream — Navegação integrada (design aprovado):** brainstorming de reorganização da navegação do módulo. Spec commitado em `docs/superpowers/specs/2026-06-10-navegacao-shell-integrado-design.md` (commit `9644129`). Decisões: shell integrado com seletor de módulo (`moduleAccess` §4.6) · sidebar do Professores **por domínio** (Início · Agenda · Cadastros · Férias · Financeiro — resolve a duplicação OPERAÇÃO/FINANCEIRO, causa-raiz: render de `PAGE_DEFINITIONS` em ordem de array) · home como **centro de pendências** (substitui cards de sprint) · cadastros de sistema (Usuários/Perfis, Unidades, Auditoria) **compartilhados** em área de Administração (§4.5) · **dependência registrada:** evolução da tela de Usuários (`profiles[]`/`moduleAccess`/`professorId` — decisão (a) editar `index.html` vs (b) tela nova unificada, **a confirmar**).
+>
+> **Próxima ação:** (1) escrever o **plano de implementação** da navegação integrada (writing-plans); e/ou (2) **homologação completa** do módulo → decisão de deploy em produção (regra inviolável #7).
+
+---
+
+## 🔖 Sessão 30 (07/06/2026) — Sprint 9 entrega do time + 2 itens re-fixados
 
 **Estado:** **13 sprints validadas — Sprint 9 ✅ COMPLETA (com 2 fixes aplicados após inspeção)**. Projeto ~99% pronto.
 
