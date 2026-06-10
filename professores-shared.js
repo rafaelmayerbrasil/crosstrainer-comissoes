@@ -3685,7 +3685,7 @@ const ReportService = {
     if (teacherId) classes = classes.filter(c => c.teacherId === teacherId);
 
     // Só aulas com conteúdo (realizada, substituição)
-    classes = classes.filter(c => ['realizada', 'substituicao'].includes(c.status));
+    classes = classes.filter(c => ['realizada', 'substituida'].includes(c.status));
     classes.sort((a, b) => {
       const da = a.scheduledDate ? a.scheduledDate.toDate().getTime() : 0;
       const db2 = b.scheduledDate ? b.scheduledDate.toDate().getTime() : 0;
@@ -3701,7 +3701,7 @@ const ReportService = {
           .where('scheduledDate', '<=', firebase.firestore.Timestamp.fromDate(end))
           .get();
         classes = tSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        classes = classes.filter(c => ['realizada', 'substituicao'].includes(c.status));
+        classes = classes.filter(c => ['realizada', 'substituida'].includes(c.status));
         classes.sort((a, b) => {
           const da = a.scheduledDate ? a.scheduledDate.toDate().getTime() : 0;
           const db2 = b.scheduledDate ? b.scheduledDate.toDate().getTime() : 0;
@@ -3797,7 +3797,7 @@ const ReportService = {
         horas,
         valor,
         status: c.status,
-        isSubstitution: c.isSubstitution || c.status === 'substituicao',
+        isSubstitution: c.isSubstitution || c.status === 'substituida',
       });
     }
 

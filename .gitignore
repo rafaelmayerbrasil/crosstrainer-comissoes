@@ -34,3 +34,6 @@ dist/
 
 # Sprint 9 — Preview HTML temporário de recibos (descartável)
 tmp-preview-recibos/
+
+# Estado runtime das fixtures (não é código — rastreia docs criados pra cleanup)
+scripts/.fixture-*-state.json
