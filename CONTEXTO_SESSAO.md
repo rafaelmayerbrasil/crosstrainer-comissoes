@@ -3,7 +3,29 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 31)
+## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
+
+**Estado:** **Reorganização de navegação (shell integrado) em implementação na branch `feature/shell-integrado`. Planos A e B executados e validados em staging. Próximo: Plano C (home).** Produção intacta.
+
+> 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
+>
+> Specs/planos: design `docs/superpowers/specs/2026-06-10-navegacao-shell-integrado-design.md`; planos `docs/superpowers/plans/2026-06-10-shell-integrado-plano-a.md` e `-plano-b.md`.
+>
+> **Plano A ✅ (validado UI):** novo `professores-nav.js` (config + modelo puro + smoke `scripts/smoke-sidebar.js`); `buildSidebar` reescrito → **acabou a duplicação** de seções; agrupamento por domínio (Início · Agenda · Cadastros · Férias · Financeiro · Minhas aulas); seção **Administração · sistema** (admin → links pro Comissões); **seletor de módulo** (por `moduleAccess`); home estática → mensagem neutra; scrollbar fina + sidebar compacta. Paridade de permissões travada por teste (admin_gestao sem `pagamentos`).
+>
+> **Plano B ✅ (validado UI):** deep-link `index.html?page=...` no `showApp()` → links da Administração abrem direto a tela do Comissões.
+>
+> **🔴 Descoberta + fix (na branch):** o `index.html` usava config **hardcoded de produção** e NÃO o `firebase-config.js` → no staging o **Comissões falava com PRODUÇÃO** (furo de isolamento) e a sessão não era compartilhada com o Professores (staging), quebrando o deep-link. **Migrado:** `index.html` agora carrega `firebase-config.js` (detecção por hostname; `firebaseConfig` → `window.FIREBASE_CONFIG`, preservando app 'secondary'). Em produção (github.io) é inócuo (valores idênticos). Confirmado no console: `Ambiente: STAGING`.
+>
+> **Tech debt registrado (adiado pelo cliente):** o **Comissões no staging não tem dados configurados** (admin `abluir@gmail.com` com `allowedUnits: []`, 0 `periodos`) → Dashboard do Comissões dá "Erro ao carregar períodos". Só apareceu por causa do isolamento (antes lia prod). Não afeta navegação nem Professores.
+>
+> **Pendências de prod:** a migração de config do `index.html` (e futuramente `profiles[]`/`professorId` no form de Usuários — Plano D) vão pra produção junto com o módulo, via homologação (regra #7). Branch **não mergeada no `main`**.
+>
+> **Próxima ação:** **Plano C** — home "centro de pendências" (admin + professor). Código novo no Professores, zero risco de prod. Retomar na branch `feature/shell-integrado`.
+
+---
+
+## 🔖 Sessão 31 (10/06/2026) — Fix R3 + homologação Sprint 9 + design de navegação
 
 **Estado:** **Sprint 9 HOMOLOGADA na UI pelo cliente (2 pendentes validados) + 1 bug do R3 achado e corrigido.** Projeto ~99% pronto — homologação dos relatórios concluída.
 
