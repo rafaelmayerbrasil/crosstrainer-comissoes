@@ -19,6 +19,14 @@ m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: true, moduleAccess: { p
 assert.ok(sections(m).includes('Minhas aulas'), 'Admin com vínculo deve ver Minhas aulas');
 assert.ok(ids(m).includes('minha-agenda'), 'Admin com vínculo deve ver Minha Agenda');
 
+// 2b) Paridade de permissões: admin_gestao NÃO tem 'pagamentos', e o conjunto de
+// páginas renderizadas bate exatamente com PROF_PAGES (nada de novo acesso na reorg).
+const ag = Nav.buildSidebarModel(['admin_gestao'], { hasProfessorLink: true, moduleAccess: { professores: true } });
+const agIds = ids(ag).concat(ag.home ? ['home'] : []);
+assert.ok(!agIds.includes('pagamentos'), 'admin_gestao não deve ter Pagamentos (paridade de permissões)');
+assert.deepStrictEqual([...agIds].sort(), [...Nav.allowedPagesFor(['admin_gestao'])].sort(),
+  'admin_gestao: páginas renderizadas devem bater com PROF_PAGES');
+
 // 3) Seção de sistema só pra admin
 assert.ok(m.systemSection && m.systemSection.items.map(i => i.id).join(',') === 'users,units,audit',
   'Admin deve ter Administração com users,units,audit');
