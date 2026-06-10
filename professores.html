@@ -1684,23 +1684,23 @@
     .meus-recibos-card table { width:100%; border-collapse:collapse; font-size:13px; }
     .meus-recibos-card td { padding:8px 16px; border-bottom:1px solid var(--border); }
     /* ─── Sprint 6b — Bloco de Pagamento ──────────────────────────────────── */
-    .payment-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0; }
-    .payment-block h4 { margin: 0 0 12px 0; font-size: 15px; color: #1e293b; }
+    .payment-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .payment-block h4 { margin: 0 0 12px 0; font-size: 15px; color: var(--text); }
     .payment-mode-selector { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .payment-radio { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; cursor: pointer; background: #fff; transition: all 0.15s; }
-    .payment-radio.active { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }
-    .payment-radio input { accent-color: #3b82f6; }
-    .payment-preview { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
-    .payment-preview .preview-line { display: flex; justify-content: space-between; color: #475569; margin-bottom: 4px; }
-    .payment-preview .preview-sub { font-size: 11px; color: #94a3b8; margin-bottom: 4px; padding-left: 8px; }
-    .payment-preview .preview-total { display: flex; justify-content: space-between; font-weight: 700; color: #0f172a; font-size: 15px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
-    .payment-preview .preview-info { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-    .payment-preview .preview-error { color: #dc2626; font-size: 13px; }
-    .payment-preview .preview-loader { color: #94a3b8; font-size: 13px; }
+    .payment-radio { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; font-size: 13px; cursor: pointer; background: var(--surface); color: var(--text2); transition: all 0.15s; }
+    .payment-radio.active { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+    .payment-radio input { accent-color: var(--orange); }
+    .payment-preview { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
+    .payment-preview .preview-line { display: flex; justify-content: space-between; color: var(--text2); margin-bottom: 4px; }
+    .payment-preview .preview-sub { font-size: 11px; color: var(--text3); margin-bottom: 4px; padding-left: 8px; }
+    .payment-preview .preview-total { display: flex; justify-content: space-between; font-weight: 700; color: var(--text); font-size: 15px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+    .payment-preview .preview-info { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .payment-preview .preview-error { color: var(--red, #ef4444); font-size: 13px; }
+    .payment-preview .preview-loader { color: var(--text3); font-size: 13px; }
     .alert-warning { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; padding: 8px 12px; border-radius: 6px; font-size: 13px; margin: 8px 0; }
-    .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-    .helper-text { display: block; font-size: 11px; color: #64748b; margin-top: 4px; }
-    .ferias-approve-info { display: flex; gap: 16px; font-size: 13px; color: #475569; margin: 8px 0 16px 0; flex-wrap: wrap; }
+    .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text); }
+    .helper-text { display: block; font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .ferias-approve-info { display: flex; gap: 16px; font-size: 13px; color: var(--text2); margin: 8px 0 16px 0; flex-wrap: wrap; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
     /* ─── Sprint 6b — Coluna Pagamento ────────────────────────────────────── */
