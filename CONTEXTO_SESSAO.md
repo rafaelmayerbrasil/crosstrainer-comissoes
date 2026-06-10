@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
 
-**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A, B e C executados e validados em staging.** Produção intacta. 1 bug real de férias registrado (`task_a84f3e95`).
+**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A, B e C executados e validados em staging + bug de aprovação de férias corrigido.** Produção intacta.
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >
@@ -25,9 +25,9 @@
 >
 > **Polimento (dark mode):** modal "Aprovar Férias" (Sprint 6b) usava cores claras fixas → ilegível no dark. Convertido pra variáveis de tema (`.payment-*`/`.ferias-approve-info` em `professores.html`); radio ativo agora laranja.
 >
-> **🐛 BUG REAL registrado (tarefa `task_a84f3e95`):** aprovar férias COM pagamento ("Adiar" / "Aprovar e definir") falha com "Missing or insufficient permissions". `VacationService._respond` (`professores-shared.js:~2896/2952`) grava `status`+`payment` num único `update`, mas `firestore.rules` (`vacation_requests`, ~203-227) só permite essas mudanças **separadas**. Passou na Sprint 6b porque foi validado via Admin SDK (bypassa rules). Fix recomendado: dividir o write (status, depois payment). Não toca produção (módulo ainda não está em prod).
+> **🐛 BUG REAL de férias — CORRIGIDO (commit `a15d07a`, validado UI):** aprovar férias COM pagamento ("Adiar" / "Aprovar e definir") falhava com "Missing or insufficient permissions". Causa: `VacationService._respond` (`professores-shared.js`) gravava `status`+`payment` num único `update`, mas `firestore.rules` (`vacation_requests`, ~203-227) só permite essas mudanças **separadas**. Passou na Sprint 6b porque foi validado via Admin SDK (bypassa rules). **Fix:** o `_respond` agora faz 2 updates — 1º status (regra B), 2º payment isolado `{payment, updatedAt}` (regra A). Reject (sem payment) segue 1 write. Não-atômico (se o 2º falhar, fica aprovada com pagamento pendente — recuperável via editar pagamento).
 >
-> **Próxima ação:** Planos A/B/C entregues e validados na branch `feature/shell-integrado`. Pendências: (1) bug de férias acima (`task_a84f3e95`); (2) Plano D (form Usuários `profiles[]`/`professorId`); (3) tech debt Comissões-staging sem dados; (4) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
+> **Próxima ação:** Planos A/B/C + fix de férias entregues e validados na branch `feature/shell-integrado`. Pendências: (1) Plano D (form Usuários `profiles[]`/`professorId`); (2) tech debt Comissões-staging sem dados (admin sem unidades); (3) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
 
 ---
 
