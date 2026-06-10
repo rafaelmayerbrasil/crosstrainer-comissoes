@@ -2911,9 +2911,13 @@ const VacationService = {
         updatedAt: serverTs(),
       };
 
-      // Sprint 6b — se veio paymentData, inclui payment no mesmo update
+      // Sprint 6b — payment vai num UPDATE SEPARADO. As Security Rules de
+      // vacation_requests só permitem mexer em 'status' OU em 'payment' por
+      // write, nunca os dois juntos (ver firestore.rules). Por isso: 1º o
+      // status (regra B), depois o payment isolado (regra A).
+      let paymentObj = null;
       if (paymentData) {
-        after.payment = {
+        paymentObj = {
           mode: paymentData.mode,
           value: paymentData.value || 0,
           calculation: paymentData.calculation || null,
@@ -2944,12 +2948,17 @@ const VacationService = {
           details: `Definido pagamento de ${before.type} ${before.teacherName}: R$ ${(paymentData.value || 0).toFixed(2)} (${paymentData.mode})`,
           entityType: 'vacation_request', entityId: reqId,
           before: { payment: null },
-          after: { payment: after.payment },
+          after: { payment: paymentObj },
           module: 'ferias',
         });
       }
 
+      // 1º write: status e metadados de resposta (regra B — não toca payment)
       await ref.update(after);
+      // 2º write: payment isolado (regra A — hasOnly payment/paidInClosingIds/updatedAt)
+      if (paymentObj) {
+        await ref.update({ payment: paymentObj, updatedAt: serverTs() });
+      }
 
       await NotificationService.create({
         recipientUserId: before.requestedBy,
