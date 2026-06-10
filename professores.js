@@ -196,14 +196,15 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 function migrateUserProfile(profile) {
-  const role = profile.role;
+  const profiles = profile.profiles || (profile.role ? [profile.role] : []);
+  // Fonte única da derivação: user-model.js (mesma regra do form de Usuários).
+  const derived = (typeof UserModel !== 'undefined')
+    ? UserModel.deriveUserModel(profiles)
+    : { moduleAccess: { comissoes: ['admin', 'vendedor'].includes(profile.role), professores: profile.role === 'admin' } };
   return {
     ...profile,
-    profiles: profile.profiles || [role],
-    moduleAccess: profile.moduleAccess || {
-      comissoes:   ['admin', 'vendedor'].includes(role),
-      professores: role === 'admin',
-    },
+    profiles,
+    moduleAccess: profile.moduleAccess || derived.moduleAccess,
   };
 }
 
