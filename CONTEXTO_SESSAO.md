@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
 
-**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A, B e C executados e validados em staging + bug de aprovação de férias corrigido.** Produção intacta.
+**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A/B/C validados + bug de férias corrigido. Plano D (form de Usuários) IMPLEMENTADO e deployado em staging — AGUARDANDO VALIDAÇÃO do cliente (roteiro abaixo).** Produção intacta.
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >
@@ -29,7 +29,16 @@
 >
 > **Comissões staging destravado:** admin `abluir@gmail.com` recebeu `allowedUnits = [unit-cp, unit-norte, unit-pp]` (estava `[]`) → Dashboard do Comissões no staging abre sem "Erro ao carregar períodos". Ainda há 0 `periodos` (sem dados de vendas — esperado; fazer upload se quiser exercitar). Há 3 `units` duplicadas "CrossTainer CP" (REEnfj/d3Tl/hGIf) que são lixo de teste — deixadas como estão.
 >
-> **Próxima ação:** Planos A/B/C + fix de férias + destrave do Comissões staging entregues na branch `feature/shell-integrado`. Pendências: (1) Plano D (form Usuários `profiles[]`/`professorId`); (2) decisão de merge → homologação → deploy de prod (regra #7). Branch **não mergeada no `main`**.
+> **Plano D ✅ implementado (deployado em staging, commit `cefef06`; AGUARDANDO VALIDAÇÃO):** form de Usuários do Comissões evoluído. Novo `user-model.js` (derivação pura `profiles[]`→`{moduleAccess, role}`, smoke `scripts/smoke-user-model.js`), carregado em `index.html` + `professores.html`; `migrateUserProfile` (professores.js) alinhado à mesma derivação. Form (`index.html`): "Perfil" único virou **checkboxes multi** (6 perfis) + seletor **"Vincular ao professor"** (`professorId`, condicional). `createUser`/`editExistingUser` gravam `role`+`profiles`+`moduleAccess`+`professorId`; unidade só exigida se `moduleAccess.comissoes`. Lista mostra badges de perfis. **Segregação §4.7:** `index.html` agora bloqueia login de quem não tem `moduleAccess.comissoes` (`showNoComissoesAccess` → tela com link pro Professores). Mantém `role` (Comissões depende). NÃO em produção.
+>
+> **⏳ TESTAR AO VOLTAR (Plano D — janela anônima, staging):**
+> - **A) Form:** `index.html` (admin) → Usuários → "+ Novo Usuário". "Perfis" mostra 6 checkboxes; marcar **Professor** faz aparecer "Vincular ao professor". Criar (ex.: `prof.teste2@teste.com` + senha, vincular a um teacher; unidade NÃO exigida) → aparece na lista com badge "Professor".
+> - **B) Segregação:** logar como esse usuário no `index.html` → tela **"Sem acesso ao módulo Comissões"** + botão Professores (NÃO o dashboard).
+> - **C) Professor no módulo:** logar como ele em `professores.html` → entra, sidebar de professor, "Minha Agenda" carrega (professorId vinculado).
+> - **D) Não-regressão:** editar o **admin** → checkboxes refletem perfis; salvar mantém 2 módulos; login do admin no Comissões segue normal (não bloqueado).
+> - Obs.: após criar o professor, Claude pode rodar consulta Admin SDK pra mostrar os campos gravados (`profiles`/`moduleAccess`/`professorId`/`role`) — pedir o email usado.
+>
+> **Próxima ação:** **validar Plano D** (roteiro acima). Depois: decisão de merge `feature/shell-integrado` → homologação completa → deploy de prod (regra #7; inclui migração de config do `index.html` + usuários de prod ganhando `profiles[]`/`moduleAccess` via migração inline). Branch **não mergeada no `main`**.
 
 ---
 
