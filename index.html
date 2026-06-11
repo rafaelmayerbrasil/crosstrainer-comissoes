@@ -3609,7 +3609,9 @@
         html += sbItem('comparativo', '🔄', 'Comparativo');
         html += sbItem('upload', '📤', 'Upload');
         html += '<div class="sb-section">Admin</div>';
-        html += sbItem('users', '👥', 'Usuários');
+        // D10 (hub Pessoas): gestão de usuários migrou pro hub no app Professores.
+        // A tela page-users continua no código, sem entrada de menu.
+        html += `<a class="sb-item" href="professores.html?page=pessoas" style="text-decoration:none;color:inherit;"><span class="icon">👥</span>Pessoas</a>`;
         html += sbItem('units', '🏢', 'Unidades');
         html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
