@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
 
-**Estado:** **Shell integrado (branch `feature/shell-integrado`): Planos A/B/C validados + bug de férias corrigido + Plano D (form Usuários) implementado. 🔄 Cliente decidiu evoluir pra um HUB ÚNICO "Pessoas" (opção A — fazer certo de início, aceitando atraso na homologação) — próximo passo é DESENHAR esse hub.** Produção intacta.
+**Estado:** **Shell integrado (branch `feature/shell-integrado`): Planos A/B/C validados + bug de férias corrigido + Plano D implementado. 🔄 Em DESIGN de um HUB ÚNICO "Pessoas" (brainstorm em andamento — escopo, perfis simplificados e layout já travados; falta o wizard + spec).** Produção intacta.
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >
@@ -40,9 +40,18 @@
 >
 > **🔄 VIRADA DE RUMO (decisão do cliente):** em vez de manter Usuários (Comissões) + ficha do Professor separados, o cliente optou por um **hub único "Pessoas"** — "fazer certo já de início, mesmo que atrase a homologação" (opção A). Modelo aprovado: uma tela "Pessoas" (lista + "Nova pessoa" via **wizard** + ficha com **seções gated por perfil**: Identidade / Professor / Salário / Acesso). Segurança vem das **Security Rules** (a UI só esconde/bloqueia; o backend é a trava real). **A Plano D vira fundação** (user-model.js, multi-perfil, professorId, segregação são reaproveitados, não descartados). Implica substituir/redirecionar a tela de Usuários do Comissões + absorver a ficha atual → mexe nos DOIS módulos.
 >
-> **A resolver no DESIGN (próximo passo):** onde o hub mora (precisa ser acessível a gestão/supervisão, que não têm Comissões); o que acontece com a tela de Usuários do `index.html` (deprecar/redirecionar — produção); wizard + tratamento de erro entre passos (professor criado mas login falhou); vendedores num hub "Pessoas". Validar Plano D em isolado virou opcional (será reformulado no hub).
+> **DESIGN do hub (brainstorm EM ANDAMENTO — decisões já travadas):**
+> - **Escopo:** UMA lista "Pessoas" com TODOS (vendedores, admins, professores, supervisão). Página de SISTEMA servida no app Professores (único lugar que supervisão alcança); **substitui** "Gestão de Usuários" do Comissões + **absorve** a ficha do Professor.
+> - **Perfis SIMPLIFICADOS — cliente DROPOU `admin_gestao`:** restam `admin` (donos + dev = tudo, os 2 módulos), `supervisao` (operacional, **SEM criar login e SEM ver salário**), `professor`/`professor_estagiario`, `vendedor`. → limpar `admin_gestao` do código (entrou na Plano A/D: `user-model.js`, `professores-nav.js` PROF_PAGES).
+> - **Desenvolvedor (você, `abluir@gmail.com` = OWNER_EMAIL):** `admin` + flag de dono — preview de outros perfis (Visão Vendedor hoje; quer **Visão Professor** depois = **item PARQUEADO**, recurso à parte), não removível, perfil **NÃO replicável** (ninguém atribui "Desenvolvedor"; é amarrado ao email).
+> - **Ficha com 4 abas gated:** Identidade · Professor · 🔒 Salário · 🔑 Acesso (login/perfis). Abas Professor/Salário só aparecem se a pessoa for professor/estagiário. (Reusa o padrão que já existe: a aba Salarial já é gated por `canSeeSalary()`.)
+> - **Matriz:** admin = todas as abas. supervisão = só Identidade + Professor (Salário e Acesso ocultos). **Lista:** admin/dev vê todos; supervisão vê só professores. **Segurança real = Security Rules** (UI só reflete/esconde).
+> - **moduleAccess derivado dos perfis** (reusa `user-model.js` da Plano D): admin→{com✔,prof✔}, supervisao/professor→{com✗,prof✔}, vendedor→{com✔,prof✗}.
+> - Mockups salvos em `.superpowers/brainstorm/2537-1781139318/content/` (`hub-layout-v2.html` é o atual).
 >
-> **Próxima ação:** **desenhar o hub "Pessoas"** (brainstorm → spec → plano → implementar, como no shell). Só depois: merge → homologação → deploy de prod (regra #7). Branch `feature/shell-integrado` **não mergeada no `main`**.
+> **FALTA no design (retomar amanhã):** (1) fluxo do **wizard "Nova pessoa"** (marca perfis → se professor/estagiário, passos **entidade + salário** ANTES do **acesso**; senão direto pro acesso) + **tratamento de erro** (entidade criada mas login falhou = professor órfão); (2) destino concreto da tela de Usuários do `index.html` (deprecar/redirecionar) e da ficha atual de professor; (3) escrever o **spec** (`docs/superpowers/specs`) → revisar → plano → implementar.
+>
+> **Próxima ação:** retomar o brainstorm do hub **no wizard**, fechar o design, escrever o spec. (Pra reabrir os mockups: subir o servidor visual de novo — os HTMLs estão salvos.) Branch `feature/shell-integrado` **não mergeada no `main`**.
 
 ---
 
