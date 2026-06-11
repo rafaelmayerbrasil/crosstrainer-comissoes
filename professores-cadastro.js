@@ -921,12 +921,15 @@ const TeacherFormState = {
   selectedUnitIds: new Set(),
   selectedModalityIds: new Set(),
   primaryUnitId: null,
+  onSaved: null,   // hook do wizard Pessoas (D13): cb(teacherData) no lugar do refresh padrão
 };
 
 function $f(id) { return document.getElementById(id); }
 
 function openTeacherModal(id = null) {
-  if (!isAdminGestao()) {
+  // D5/D9 (hub Pessoas): admin cria e edita; supervisão SÓ edita existente
+  const canManage = isAdminGestao() || (id && isSupervisao());
+  if (!canManage) {
     toast('Você não tem permissão para gerenciar professores.', 'error');
     return;
   }
@@ -1009,6 +1012,7 @@ function openTeacherModal(id = null) {
 function closeTeacherModal() {
   $f('teacherModal').classList.remove('open');
   TeacherFormState.editingId = null;
+  TeacherFormState.onSaved = null;  // cancelar = abortar o wizard sem criar nada (D8)
 }
 
 function setTeacherType(type) {
@@ -1222,8 +1226,11 @@ async function saveTeacher() {
     ProfessoresState.historyCache.delete(TeacherFormState.editingId);
   }
 
+  const onSaved = TeacherFormState.onSaved;   // ler ANTES do close (que zera o hook)
+  TeacherFormState.onSaved = null;
   closeTeacherModal();
-  await renderProfessoresPage();
+  if (onSaved) await onSaved(result.data);    // wizard Pessoas segue o fluxo (D13)
+  else await renderProfessoresPage();
 }
 
 function validateTeacherForm(d) {
@@ -1264,6 +1271,7 @@ const SalaryFormState = {
   teacherType: null,
   isNew: false,
   otherBenefits: [],   // 🆕 B-02 — array de {nome, valor} editável no modal
+  onClosed: null,      // hook do wizard Pessoas (D13): dispara ao fechar (salvo OU pulado), 1x
 };
 
 const REMUN_TYPE_LABEL = {
@@ -1601,6 +1609,9 @@ function closeSalaryModal() {
   const modal = document.getElementById('salaryModal');
   if (modal) modal.classList.remove('open');
   SalaryFormState.teacherId = null;
+  const onClosed = SalaryFormState.onClosed;
+  SalaryFormState.onClosed = null;
+  if (onClosed) onClosed();   // wizard Pessoas: salvar OU fechar sem salvar = avança pro Acesso (D8/D13)
 }
 
 function applySalaryFieldsByType(type) {
