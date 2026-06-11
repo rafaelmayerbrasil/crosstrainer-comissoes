@@ -34,10 +34,10 @@ function hasProfile(p) {
   const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
   return profiles.includes(p);
 }
-function isAdminGestao() { return hasProfile('admin') || hasProfile('admin_gestao'); }
+function isAdminGestao() { return hasProfile('admin'); }  // admin_gestao dropado (D2) — nome mantido p/ não tocar os call sites
 function isSupervisao()  { return hasProfile('supervisao'); }
 function isProfessor()   { return hasProfile('professor') || hasProfile('professor_estagiario'); }
-function canSeeSalary()  { return hasProfile('admin') || hasProfile('admin_gestao'); }
+function canSeeSalary()  { return hasProfile('admin'); }  // D2: salário é só admin
 function isStrictAdmin() { return hasProfile('admin'); }  // Sprint 4a — apenas admin pode fechar mês (D1)
 
 // Sprint 3a — vínculo user logado → teacher
@@ -228,8 +228,9 @@ function showApp() {
   // Sprint 6b — contador de férias pendentes (admin/gestão)
   setupVacationCounter();
 
-  // Roteamento inicial — sempre 'home' por enquanto
-  navigateTo('home');
+  // Deep-link ?page=... (espelho do Plano B no Comissões) — ex.: vindo do menu do index.html
+  const wanted = new URLSearchParams(location.search).get('page');
+  navigateTo(wanted && getAllowedPages().includes(wanted) ? wanted : 'home');
 }
 
 /* ─── Sprint 3b — Sino de notificações in-app ────────────────────── */
@@ -367,7 +368,6 @@ function formatRoleLabel() {
   const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
   const labels = {
     'admin':                'Administrador',
-    'admin_gestao':         'Gestão',
     'supervisao':           'Supervisão',
     'professor':            'Professor',
     'professor_estagiario': 'Estagiário',
@@ -456,8 +456,8 @@ function navigateTo(pageId) {
     renderHomePage();
   } else if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
     renderModalidadesPage();
-  } else if (pageId === 'professores' && typeof renderProfessoresPage === 'function') {
-    renderProfessoresPage();
+  } else if (pageId === 'pessoas' && typeof renderPessoasPage === 'function') {
+    renderPessoasPage();
   } else if (pageId === 'agenda' && typeof renderAgendaPage === 'function') {
     renderAgendaPage();
   } else if (pageId === 'minha-agenda' && typeof renderMinhaAgendaPage === 'function') {
