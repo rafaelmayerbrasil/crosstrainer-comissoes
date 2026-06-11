@@ -432,5 +432,175 @@ async function savePessoaAccessProfiles(key) {
   } catch (e) { errEl.textContent = 'Erro: ' + e.message; }
 }
 
-// stub — substituído na Task 7
-function openPessoaWizard() { toast('Wizard em construção.', 'info'); }
+// ── Wizard "Nova pessoa" (D7/D9/D13) — admin-only, escritas progressivas ─
+function openPessoaWizard() {
+  if (!isStrictAdmin()) { toast('Apenas administradores podem criar pessoas.', 'error'); return; }
+  const cont = document.getElementById('wizardProfilesChecks');
+  cont.innerHTML = UserModel.PROFILE_ORDER.map(pr => `
+    <label style="display:block;margin:4px 0;">
+      <input type="checkbox" value="${pr}" onchange="wizardProfileToggle(this)"> ${UserModel.PROFILE_LABELS[pr]}
+    </label>`).join('');
+  document.getElementById('wizardError').textContent = '';
+  document.getElementById('pessoaWizardModal').classList.add('open');
+}
+
+function closePessoaWizard() {
+  document.getElementById('pessoaWizardModal').classList.remove('open');
+}
+
+function wizardProfileToggle(cb) {
+  if (!cb.checked) return;
+  const other = cb.value === 'professor' ? 'professor_estagiario'
+              : cb.value === 'professor_estagiario' ? 'professor' : null;
+  if (other) {
+    const o = document.querySelector(`#wizardProfilesChecks input[value="${other}"]`);
+    if (o) o.checked = false;
+  }
+}
+
+function wizardAdvance() {
+  const profiles = Array.from(document.querySelectorAll('#wizardProfilesChecks input:checked')).map(c => c.value);
+  const errEl = document.getElementById('wizardError');
+  if (profiles.length === 0) { errEl.textContent = 'Selecione ao menos um perfil.'; return; }
+  closePessoaWizard();
+  if (UserModel.isTeacherProfile(profiles)) startWizardTeacherStep(profiles);
+  else openAccessModal({ profiles, teacherId: null }); // caminho curto: Acesso obrigatório (D7)
+}
+
+// Caminho professor: teacherModal → salaryModal → Acesso, via hooks da Task 4
+function startWizardTeacherStep(profiles) {
+  TeacherFormState.onSaved = async (teacher) => {
+    const tRes = await TeacherService.list();           // openSalaryModal procura na lista
+    if (tRes.success) ProfessoresState.list = tRes.data;
+    toast(`Professor "${teacher.name}" criado. Agora o salário (feche o modal pra pular).`, 'info', 5000);
+    SalaryFormState.onClosed = () => openAccessModal({ profiles, teacherId: teacher.id });
+    openSalaryModal(teacher.id);
+  };
+  openTeacherModal();
+  if (profiles.includes('professor_estagiario')) setTeacherType('estagiario');
+}
+
+// ── Passo Acesso ────────────────────────────────────────────────────────
+function openAccessModal(opts) {
+  PessoasAccessCtx = opts;
+  const t = opts.teacherId ? ProfessoresState.list.find(x => x.id === opts.teacherId) : null;
+  const { moduleAccess } = UserModel.deriveUserModel(opts.profiles);
+
+  document.getElementById('accessResumo').innerHTML =
+    `${t ? `<strong>${escapeHtml(t.name)}</strong> · ` : ''}Perfis: ` +
+    opts.profiles.map(pr => UserModel.PROFILE_LABELS[pr] || pr).join(', ');
+  document.getElementById('accessNameWrap').style.display = t ? 'none' : '';
+  document.getElementById('accessName').value = '';
+  document.getElementById('accessEmail').value = t ? (t.email || '') : '';
+  document.getElementById('accessPass').value = '';
+  document.getElementById('accessError').textContent = '';
+
+  const unitsWrap = document.getElementById('accessUnitsWrap');
+  if (moduleAccess.comissoes) {
+    unitsWrap.style.display = '';
+    document.getElementById('accessUnitsChecks').innerHTML =
+      Array.from(ProfessoresState.unitsMap.values()).map(un => `
+        <label style="display:block;margin:4px 0;">
+          <input type="checkbox" value="${un.id}"> ${escapeHtml(un.name || un.id)}
+        </label>`).join('');
+  } else {
+    unitsWrap.style.display = 'none';
+  }
+
+  // "Pular" só existe no caminho professor (D7) — sem entidade, o login É o registro
+  document.getElementById('accessSkipBtn').style.display = opts.teacherId ? '' : 'none';
+  const btn = document.getElementById('accessSaveBtn');
+  btn.disabled = false; btn.textContent = 'Criar pessoa + acesso';
+  document.getElementById('pessoaAccessModal').classList.add('open');
+}
+
+function closeAccessModal() {
+  document.getElementById('pessoaAccessModal').classList.remove('open');
+}
+
+function skipAccess() {
+  const ctx = PessoasAccessCtx;
+  closeAccessModal();
+  toast('Pessoa criada sem acesso — o login pode ser criado depois pela ficha.', 'info', 5000);
+  PessoasState.selectedKey = ctx && ctx.teacherId ? 'T:' + ctx.teacherId : null;
+  renderPessoasPage();
+}
+
+// "Criar acesso" a partir da ficha (banner / aba Acesso) — D8: estado recuperável
+function pessoaCriarAcesso(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.teacherId) return;
+  openAccessModal({ profiles: p.profiles, teacherId: p.teacherId });
+}
+
+function mapAccessAuthError(e) {
+  const map = {
+    'auth/email-already-in-use': 'E-mail já existe no sistema de autenticação. Se um cadastro anterior falhou no meio, contate o desenvolvedor pra recuperar o login.',
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/weak-password': 'Senha muito fraca. Use ao menos 6 caracteres.',
+  };
+  return map[e.code] || ('Erro: ' + (e.code || e.message));
+}
+
+async function savePessoaAccess() {
+  const ctx = PessoasAccessCtx;
+  const errEl = document.getElementById('accessError');
+  errEl.textContent = '';
+  const t = ctx.teacherId ? ProfessoresState.list.find(x => x.id === ctx.teacherId) : null;
+  const name = t ? t.name : document.getElementById('accessName').value.trim();
+  const email = document.getElementById('accessEmail').value.trim();
+  const pass = document.getElementById('accessPass').value;
+
+  if (!name) { errEl.textContent = 'Informe o nome.'; return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'E-mail inválido.'; return; }
+  if (!pass || pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
+
+  const { moduleAccess, role } = UserModel.deriveUserModel(ctx.profiles);
+  let allowedUnits = [];
+  if (moduleAccess.comissoes) {
+    allowedUnits = Array.from(document.querySelectorAll('#accessUnitsChecks input:checked')).map(c => c.value);
+    if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade (acesso ao Comissões).'; return; }
+  }
+
+  const btn = document.getElementById('accessSaveBtn');
+  btn.disabled = true; btn.textContent = 'Criando…';
+
+  // ③ Auth user via app secondary (não desloga o admin)
+  let newUid = null;
+  try {
+    const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
+      || firebase.initializeApp(window.FIREBASE_CONFIG, 'secondary');
+    const secondaryAuth = secondaryApp.auth();
+    const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
+    newUid = cred.user.uid;
+    await secondaryAuth.signOut();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Criar pessoa + acesso';
+    errEl.textContent = mapAccessAuthError(e);
+    return; // D8: se a entidade existe, segue "sem acesso" — nada a desfazer
+  }
+
+  // ④ users doc gravado COMO ADMIN pelo db principal (rules: create só admin — §5 do spec)
+  try {
+    await db.collection('users').doc(newUid).set({
+      name, email, role,
+      profiles: ctx.profiles,
+      moduleAccess,
+      professorId: ctx.teacherId || null,
+      allowedUnits,
+      unitId: allowedUnits[0] || null,
+      status: 'ativo',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Criar pessoa + acesso';
+    errEl.textContent = 'Login criado no Auth, mas o perfil falhou: ' + e.message;
+    return;
+  }
+
+  closeAccessModal();
+  toast(`Pessoa "${name}" criada com acesso.`, 'success');
+  PessoasState.selectedKey = ctx.teacherId ? 'T:' + ctx.teacherId : 'U:' + newUid;
+  PessoasState.activeTab = 'identidade';
+  await renderPessoasPage();
+}

@@ -2393,6 +2393,61 @@
     </div>
   </div>
 
+  <!-- ═════════ Hub Pessoas — Wizard "Nova pessoa" (passo 1: perfis) ═════════ -->
+  <div class="modal" id="pessoaWizardModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Nova pessoa — Perfis</h3>
+        <button class="close-btn" onclick="closePessoaWizard()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Quais perfis essa pessoa tem? <span class="req">*</span></label>
+        <div id="wizardProfilesChecks"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">
+          Professor e Professor (Estagiário) são exclusivos entre si.
+          Se for professor, os próximos passos pedem os dados e o salário antes do acesso.
+        </div>
+      </div>
+      <div id="wizardError" style="color:var(--red);font-size:12px;min-height:16px;"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closePessoaWizard()">Cancelar</button>
+        <button class="btn" onclick="wizardAdvance()">Avançar →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ Hub Pessoas — Passo Acesso (login) ═════════ -->
+  <div class="modal" id="pessoaAccessModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔑 Acesso ao sistema</h3>
+        <button class="close-btn" onclick="closeAccessModal()">✕</button>
+      </div>
+      <div id="accessResumo" style="font-size:13px;border:1px dashed var(--text3);border-radius:6px;padding:8px;margin-bottom:10px;"></div>
+      <div class="form-group" id="accessNameWrap">
+        <label>Nome completo <span class="req">*</span></label>
+        <input type="text" id="accessName">
+      </div>
+      <div class="form-group">
+        <label>E-mail de login <span class="req">*</span></label>
+        <input type="email" id="accessEmail">
+      </div>
+      <div class="form-group">
+        <label>Senha provisória <span class="req">*</span> (mín. 6 caracteres)</label>
+        <input type="password" id="accessPass">
+      </div>
+      <div class="form-group" id="accessUnitsWrap" style="display:none;">
+        <label>Unidades (Comissões) <span class="req">*</span></label>
+        <div id="accessUnitsChecks"></div>
+      </div>
+      <div id="accessError" style="color:var(--red);font-size:12px;min-height:16px;"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="accessSkipBtn" onclick="skipAccess()">Pular — criar sem acesso</button>
+        <button class="btn" id="accessSaveBtn" onclick="savePessoaAccess()">Criar pessoa + acesso</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═════════ Firebase Config + Módulos JS ═════════ -->
   <script src="firebase-config.js"></script>
   <script src="professores-shared.js"></script>
