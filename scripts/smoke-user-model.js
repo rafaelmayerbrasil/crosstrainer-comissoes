@@ -11,15 +11,18 @@ function check(profiles, expModule, expRole) {
 
 check(['admin'],                 { comissoes: true,  professores: true  }, 'admin');
 check(['vendedor'],              { comissoes: true,  professores: false }, 'vendedor');
-check(['admin_gestao'],          { comissoes: false, professores: true  }, 'admin_gestao');
 check(['supervisao'],            { comissoes: false, professores: true  }, 'supervisao');
 check(['professor'],             { comissoes: false, professores: true  }, 'professor');
 check(['professor_estagiario'],  { comissoes: false, professores: true  }, 'professor_estagiario');
 check(['admin', 'professor'],    { comissoes: true,  professores: true  }, 'admin');     // admin domina o role
-check(['vendedor', 'supervisao'],{ comissoes: true,  professores: true  }, 'vendedor');  // vendedor domina admin sobre o primeiro
+check(['vendedor', 'supervisao'],{ comissoes: true,  professores: true  }, 'vendedor');  // vendedor domina sobre o primeiro
 
-// Rótulos existem pros 6 perfis
-['admin', 'admin_gestao', 'supervisao', 'professor', 'professor_estagiario', 'vendedor']
+// admin_gestao foi DROPADO (D2 do hub Pessoas) — não pode existir no modelo
+assert.ok(!UM.PROFILE_LABELS.admin_gestao, 'admin_gestao não pode ter label');
+assert.ok(!UM.PROFILE_ORDER.includes('admin_gestao'), 'admin_gestao não pode estar em PROFILE_ORDER');
+
+// Rótulos existem pros 5 perfis
+['admin', 'supervisao', 'professor', 'professor_estagiario', 'vendedor']
   .forEach(p => assert.ok(UM.PROFILE_LABELS[p], 'falta label p/ ' + p));
 
 console.log('✓ smoke-user-model: todos os casos passaram');

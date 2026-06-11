@@ -14,7 +14,6 @@
 
   const PROFILE_LABELS = {
     admin:                'Administrador',
-    admin_gestao:         'Admin/Gestão',
     supervisao:           'Supervisão',
     professor:            'Professor',
     professor_estagiario: 'Professor (Estagiário)',
@@ -22,10 +21,11 @@
   };
 
   // Ordem canônica de exibição/seleção dos perfis no form.
-  const PROFILE_ORDER = ['admin', 'admin_gestao', 'supervisao', 'professor', 'professor_estagiario', 'vendedor'];
+  // admin_gestao foi dropado (hub Pessoas, D2 — 11/06/2026).
+  const PROFILE_ORDER = ['admin', 'supervisao', 'professor', 'professor_estagiario', 'vendedor'];
 
   const COMISSOES_PROFILES   = ['admin', 'vendedor'];
-  const PROFESSORES_PROFILES = ['admin', 'admin_gestao', 'supervisao', 'professor', 'professor_estagiario'];
+  const PROFESSORES_PROFILES = ['admin', 'supervisao', 'professor', 'professor_estagiario'];
   const TEACHER_PROFILES     = ['professor', 'professor_estagiario'];
 
   // profiles[] → { moduleAccess, role }. role primário mantém compat com o Comissões.
