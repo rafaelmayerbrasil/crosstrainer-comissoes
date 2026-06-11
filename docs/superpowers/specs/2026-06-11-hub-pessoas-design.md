@@ -34,6 +34,8 @@ Cadastrar um professor que usa o sistema exige passar pelas duas telas, em módu
 | D10 | Tela de Usuários do Comissões | Link "Usuários" da Administração passa a apontar pro hub Pessoas; tela antiga do `index.html` **fica no código, sem entrada de menu** (toque mínimo — regra inviolável #1) |
 | D11 | Entrada "Professores" no menu | **Some** — Pessoas assume (lista filtrável por perfil). Uma única porta de entrada |
 | D12 | Modelo de dados | **União das 2 coleções** (`teachers` ⊕ `users` via `professorId`). Sem coleção nova, sem migração |
+| D13 | Escritas do wizard | **Progressivas com reuso dos modais existentes** (teacherModal + salaryModal): cada passo grava ao salvar. D8 tornou todo estado parcial válido/recuperável, eliminando o motivo do "só na conclusão". Decidido em 11/06 ao mapear o código |
+| D14 | Posição no menu | "Pessoas" entra na seção **Cadastros** (no lugar de "Professores"), visível pra admin E supervisão. A seção Administração · sistema fica só com Unidades + Auditoria (o link "Usuários e Perfis" sai — virou o próprio hub). Decidido em 11/06 |
 
 ---
 
@@ -60,7 +62,7 @@ Regras do modelo:
 
 ## 4. Lista Pessoas
 
-- **Local:** página nova `pessoas` no app Professores, seção **Administração · sistema** da sidebar (substitui o link "Usuários e Perfis" e a entrada "Professores" de Cadastros — D10/D11).
+- **Local:** página nova `pessoas` no app Professores, seção **Cadastros** da sidebar, no lugar da entrada "Professores" (D11/D14) — visível pra admin e supervisão. A seção Administração · sistema perde o link "Usuários e Perfis" (ficam Unidades + Auditoria).
 - **Colunas:** Nome · Perfis (badges, reusa as da Plano D) · Acesso (✓ tem login / "—" sem acesso) · ação abrir ficha.
 - **Busca** por nome/email + **filtro por perfil**.
 - **Visibilidade:** admin vê todos. **Supervisão vê só professores — e a lista dela consulta apenas `teachers`**, sem read em `users` (simplifica as Rules, §7).
@@ -79,13 +81,14 @@ Regras do modelo:
 ### Caminho não-professor — 2 passos
 1. **Perfis** → 2. **🔑 Acesso (obrigatório)** — sem botão pular (D7).
 
-### Escritas — só na conclusão, nesta ordem
-① teacher doc → ② salary doc (`teacher_salaries`) → ③ Auth user (app Firebase `secondary`, mesmo padrão do `createUser` atual — não desloga o admin) → ④ users doc `{profiles, role, moduleAccess, professorId}`.
+### Escritas — progressivas, com reuso dos modais existentes (D13)
+Os passos 2 e 3 **reusam o teacherModal e o salaryModal** atuais (validações, máscaras, chips, `effectiveDate` já testados): cada "Salvar" grava na hora — ① teacher doc no passo 2, ② salary doc no passo 3, ③ Auth user + ④ users doc no passo 4 (Auth via app `secondary` pra não deslogar o admin; **users doc gravado pelo `db` principal como admin** — as rules atuais só permitem create por admin, diferente do padrão legado do `createUser` que gravava como o usuário novo).
 
-### Falhas parciais (D8 — sem rollback)
-- Falha em ③ ou ④ → pessoa existe **sem acesso**: toast explicando + ficha aberta na aba Acesso com banner "Criar acesso".
-- Falha em ② → professor criado com aba Salário vazia (relatórios já mostram "Sem cadastro" — comportamento da Sprint 9); toast orienta completar pela ficha.
-- "Pular" no passo 4 → fluxo termina após ②, estado "sem acesso" por escolha.
+### Falhas/abandono parciais (D8 — sem rollback)
+- Falha em ③ ou ④ → pessoa existe **sem acesso**: erro no modal + ficha com banner "Criar acesso".
+- Fechar o salaryModal sem salvar → wizard segue pro passo Acesso; professor fica com aba Salário vazia (relatórios mostram "Sem cadastro" — Sprint 9), recuperável pela ficha.
+- Fechar o teacherModal sem salvar → wizard aborta sem criar nada.
+- "Pular" no passo 4 → estado "sem acesso" por escolha.
 
 ---
 
