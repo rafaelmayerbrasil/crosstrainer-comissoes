@@ -9,10 +9,10 @@
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   'use strict';
 
+  // admin_gestao dropado + 'professores' absorvido pelo hub 'pessoas' (D2/D11 — 11/06/2026)
   const PROF_PAGES = {
-    admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-    admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-    supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
+    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
+    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
     professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
     professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
   };
@@ -23,7 +23,7 @@
     { id: 'agenda',         label: 'Agenda',            icon: '📅', section: 'Agenda' },
     { id: 'agenda-geral',   label: 'Agenda Geral',      icon: '🌐', section: 'Agenda' },
     { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Agenda' },
-    { id: 'professores',    label: 'Professores',       icon: '👥', section: 'Cadastros' },
+    { id: 'pessoas',        label: 'Pessoas',           icon: '👥', section: 'Cadastros' },
     { id: 'modalidades',    label: 'Modalidades',       icon: '🏷️', section: 'Cadastros' },
     { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Férias' },
     { id: 'saldos-gestao',  label: 'Saldos de Férias',  icon: '📊', section: 'Férias' },
@@ -41,10 +41,10 @@
   // (deep-link só funciona após o Plano B; antes disso cai na home do Comissões).
   const SYSTEM_SECTION = {
     label: 'Administração · sistema',
+    // "Usuários e Perfis" saiu — virou o próprio hub Pessoas (D14).
     items: [
-      { id: 'users', label: 'Usuários e Perfis', icon: '🔑', href: 'index.html?page=users' },
-      { id: 'units', label: 'Unidades',          icon: '🏢', href: 'index.html?page=units' },
-      { id: 'audit', label: 'Auditoria',         icon: '📜', href: 'index.html?page=audit' },
+      { id: 'units', label: 'Unidades',  icon: '🏢', href: 'index.html?page=units' },
+      { id: 'audit', label: 'Auditoria', icon: '📜', href: 'index.html?page=audit' },
     ],
   };
 
@@ -57,10 +57,10 @@
   }
 
   function isManagement(profiles) {
-    return (profiles || []).some(p => ['admin', 'admin_gestao', 'supervisao'].includes(p));
+    return (profiles || []).some(p => ['admin', 'supervisao'].includes(p));
   }
   function isAdmin(profiles) {
-    return (profiles || []).some(p => ['admin', 'admin_gestao'].includes(p));
+    return (profiles || []).some(p => p === 'admin');
   }
 
   // Modelo puro da sidebar. ctx: { hasProfessorLink, moduleAccess }

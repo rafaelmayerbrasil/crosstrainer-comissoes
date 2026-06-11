@@ -14,30 +14,39 @@ assert.deepStrictEqual(secs, ['Agenda', 'Cadastros', 'Férias', 'Financeiro'], '
 assert.ok(!ids(m).includes('minha-agenda'), 'Admin sem vínculo não deve ver Minha Agenda');
 assert.ok(!ids(m).includes('home'), 'Início não entra em grupo (é item solto)');
 
+// 1b) Hub Pessoas (D11/D14): 'pessoas' em Cadastros, 'professores' NÃO existe mais
+assert.ok(ids(m).includes('pessoas'), 'Admin deve ver Pessoas');
+assert.ok(!ids(m).includes('professores'), 'Entrada Professores foi absorvida pelo hub (D11)');
+const cadastros = m.groups.find(g => g.section === 'Cadastros');
+assert.ok(cadastros.items.some(i => i.id === 'pessoas'), 'Pessoas fica na seção Cadastros (D14)');
+
 // 2) Admin COM vínculo: ganha grupo "Minhas aulas" com minha-agenda
 m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: true, moduleAccess: { professores: true } });
 assert.ok(sections(m).includes('Minhas aulas'), 'Admin com vínculo deve ver Minhas aulas');
 assert.ok(ids(m).includes('minha-agenda'), 'Admin com vínculo deve ver Minha Agenda');
 
-// 2b) Paridade de permissões: admin_gestao NÃO tem 'pagamentos', e o conjunto de
-// páginas renderizadas bate exatamente com PROF_PAGES (nada de novo acesso na reorg).
-const ag = Nav.buildSidebarModel(['admin_gestao'], { hasProfessorLink: true, moduleAccess: { professores: true } });
-const agIds = ids(ag).concat(ag.home ? ['home'] : []);
-assert.ok(!agIds.includes('pagamentos'), 'admin_gestao não deve ter Pagamentos (paridade de permissões)');
-assert.deepStrictEqual([...agIds].sort(), [...Nav.allowedPagesFor(['admin_gestao'])].sort(),
-  'admin_gestao: páginas renderizadas devem bater com PROF_PAGES');
+// 2b) admin_gestao DROPADO (D2): não existe em PROF_PAGES
+assert.ok(!Nav.PROF_PAGES.admin_gestao, 'admin_gestao não pode existir em PROF_PAGES');
 
-// 3) Seção de sistema só pra admin
-assert.ok(m.systemSection && m.systemSection.items.map(i => i.id).join(',') === 'users,units,audit',
-  'Admin deve ter Administração com users,units,audit');
+// 2c) Supervisão: vê Pessoas, mas NÃO vê fechamento/pagamentos/relatórios/modalidades
+const sup = Nav.buildSidebarModel(['supervisao'], { hasProfessorLink: false, moduleAccess: { professores: true } });
+const supIds = ids(sup);
+assert.ok(supIds.includes('pessoas'), 'Supervisão deve ver Pessoas (D5)');
+['fechamento', 'pagamentos', 'relatorios', 'modalidades'].forEach(id =>
+  assert.ok(!supIds.includes(id), `Supervisão não pode ver ${id}`));
+assert.strictEqual(sup.systemSection, null, 'Supervisão NÃO tem seção de sistema');
+
+// 3) Seção de sistema só pra admin — e SEM o link de Usuários (virou o hub — D14)
+assert.ok(m.systemSection && m.systemSection.items.map(i => i.id).join(',') === 'units,audit',
+  'Admin deve ter Administração apenas com units,audit');
 const prof = Nav.buildSidebarModel(['professor'], { hasProfessorLink: true, moduleAccess: { professores: true } });
 assert.strictEqual(prof.systemSection, null, 'Professor NÃO pode ter seção de sistema');
 
-// 4) Professor: itens corretos, sem cadastros/fechamento
+// 4) Professor: itens corretos, sem cadastros/fechamento/pessoas
 const pIds = ids(prof);
 assert.ok(pIds.includes('agenda-geral') && pIds.includes('minha-agenda') && pIds.includes('meus-pagamentos')
   && pIds.includes('ferias') && pIds.includes('meu-saldo'), 'Professor: itens faltando');
-assert.ok(!pIds.includes('fechamento') && !pIds.includes('professores') && !pIds.includes('modalidades'),
+assert.ok(!pIds.includes('fechamento') && !pIds.includes('pessoas') && !pIds.includes('modalidades'),
   'Professor não pode ver itens de gestão');
 
 // 5) Seletor de módulo: aparece só com 2+ módulos
