@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
 
-**Estado:** **Reorganização de navegação (shell integrado) na branch `feature/shell-integrado`. Planos A/B/C validados + bug de férias corrigido. Plano D (form de Usuários) IMPLEMENTADO e deployado em staging — AGUARDANDO VALIDAÇÃO do cliente (roteiro abaixo).** Produção intacta.
+**Estado:** **Shell integrado (branch `feature/shell-integrado`): Planos A/B/C validados + bug de férias corrigido + Plano D (form Usuários) implementado. 🔄 Cliente decidiu evoluir pra um HUB ÚNICO "Pessoas" (opção A — fazer certo de início, aceitando atraso na homologação) — próximo passo é DESENHAR esse hub.** Produção intacta.
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >
@@ -38,7 +38,11 @@
 > - **D) Não-regressão:** editar o **admin** → checkboxes refletem perfis; salvar mantém 2 módulos; login do admin no Comissões segue normal (não bloqueado).
 > - Obs.: após criar o professor, Claude pode rodar consulta Admin SDK pra mostrar os campos gravados (`profiles`/`moduleAccess`/`professorId`/`role`) — pedir o email usado.
 >
-> **Próxima ação:** **validar Plano D** (roteiro acima). Depois: decisão de merge `feature/shell-integrado` → homologação completa → deploy de prod (regra #7; inclui migração de config do `index.html` + usuários de prod ganhando `profiles[]`/`moduleAccess` via migração inline). Branch **não mergeada no `main`**.
+> **🔄 VIRADA DE RUMO (decisão do cliente):** em vez de manter Usuários (Comissões) + ficha do Professor separados, o cliente optou por um **hub único "Pessoas"** — "fazer certo já de início, mesmo que atrase a homologação" (opção A). Modelo aprovado: uma tela "Pessoas" (lista + "Nova pessoa" via **wizard** + ficha com **seções gated por perfil**: Identidade / Professor / Salário / Acesso). Segurança vem das **Security Rules** (a UI só esconde/bloqueia; o backend é a trava real). **A Plano D vira fundação** (user-model.js, multi-perfil, professorId, segregação são reaproveitados, não descartados). Implica substituir/redirecionar a tela de Usuários do Comissões + absorver a ficha atual → mexe nos DOIS módulos.
+>
+> **A resolver no DESIGN (próximo passo):** onde o hub mora (precisa ser acessível a gestão/supervisão, que não têm Comissões); o que acontece com a tela de Usuários do `index.html` (deprecar/redirecionar — produção); wizard + tratamento de erro entre passos (professor criado mas login falhou); vendedores num hub "Pessoas". Validar Plano D em isolado virou opcional (será reformulado no hub).
+>
+> **Próxima ação:** **desenhar o hub "Pessoas"** (brainstorm → spec → plano → implementar, como no shell). Só depois: merge → homologação → deploy de prod (regra #7). Branch `feature/shell-integrado` **não mergeada no `main`**.
 
 ---
 
