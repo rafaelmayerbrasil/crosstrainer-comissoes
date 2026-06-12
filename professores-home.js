@@ -70,7 +70,7 @@ async function _renderHomeAdmin() {
     db.collection('substitutions').where('status', '==', 'pending').get());
 
   const chips = [];
-  if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'férias a aprovar' : 'férias a aprovar', "navigateTo('ferias')"));
+  if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'pedido de férias a aprovar' : 'pedidos de férias a aprovar', "navigateTo('ferias')"));
   if (subs) chips.push(_homeChip(subs, subs === 1 ? 'substituição pendente' : 'substituições pendentes', "navigateTo('agenda-geral')"));
 
   const pend = chips.length

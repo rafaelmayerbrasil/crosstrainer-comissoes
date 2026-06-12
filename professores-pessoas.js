@@ -604,3 +604,12 @@ async function savePessoaAccess() {
   PessoasState.activeTab = 'identidade';
   await renderPessoasPage();
 }
+
+// ── ESC fecha os modais do hub (paridade com os modais do cadastro) ─────
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const accessModal = document.getElementById('pessoaAccessModal');
+  if (accessModal && accessModal.classList.contains('open')) { closeAccessModal(); return; }
+  const wizardModal = document.getElementById('pessoaWizardModal');
+  if (wizardModal && wizardModal.classList.contains('open')) closePessoaWizard();
+});

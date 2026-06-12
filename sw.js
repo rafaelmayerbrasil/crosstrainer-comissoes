@@ -1,9 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-// CrossTrainer — Service Worker (PWA)
+// CrossTainer — Service Worker (PWA)
 // Cache-first for static assets, network-first for API calls
+// v3.1 (12/06/2026): JS do próprio app vira network-first — o cache-first
+// antigo servia professores*.js/user-model.js velhos por dias (tech debt #2).
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crosstrainer-v3.0';
+const CACHE_NAME = 'crosstrainer-v3.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -53,11 +55,12 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // NETWORK-FIRST for HTML and JS app files (prevents stale cache!)
+  // NETWORK-FIRST for HTML and ALL same-origin JS app files (prevents stale cache!)
+  // CDNs (xlsx, chart.js, fontes) continuam cache-first no bloco abaixo.
   if (event.request.mode === 'navigate' ||
       url.pathname.endsWith('.html') ||
       url.pathname.endsWith('/') ||
-      url.pathname.endsWith('commission.js')) {
+      (url.origin === self.location.origin && url.pathname.endsWith('.js'))) {
     event.respondWith(
       fetch(event.request).then(response => {
         if (response.ok) {

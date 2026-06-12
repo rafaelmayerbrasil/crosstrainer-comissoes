@@ -4,12 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CROSSTRAINER ELITE — Performance</title>
+  <title>CROSSTAINER ELITE — Performance</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CROSSTRAINER ELITE">
+  <meta name="apple-mobile-web-app-title" content="CROSSTAINER ELITE">
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -1986,7 +1986,7 @@
             <h3
               style="font-size:20px; color:var(--orange); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
               📜 Regras da Elite</h3>
-            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CROSSTRAINER ELITE — Performance, Metas e
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CROSSTAINER ELITE — Performance, Metas e
               Conquistas
             </div>
           </div>
@@ -2665,7 +2665,7 @@
           </svg>
         </div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--orange);">
-          CROSSTRAINER <span style="color:var(--text)">ELITE</span></div>
+          CROSSTAINER <span style="color:var(--text)">ELITE</span></div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">Performance, Metas e Conquistas.</div>
       </div>
       <div
@@ -2854,7 +2854,7 @@
   <!-- LOGIN PAGE -->
   <div class="login-page" id="loginPage">
     <div class="login-box">
-      <div class="logo">CROSSTRAINER <span>ELITE</span></div>
+      <div class="logo">CROSSTAINER <span>ELITE</span></div>
       <div class="sub">Performance, Metas e Conquistas</div>
       <div id="loginForm">
         <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com">
@@ -2879,7 +2879,7 @@
             <rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2" />
             <path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
           </svg></div>
-        <div class="sb-logo-text">CROSSTRAINER <span>ELITE</span></div>
+        <div class="sb-logo-text">CROSSTAINER <span>ELITE</span></div>
       </div>
       <nav class="sb-nav" id="sidebarNav"></nav>
       <div class="sb-user">
@@ -4056,8 +4056,10 @@
         const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
-        await secondaryDb.collection('users').doc(newUid).set({
+        // Grava o perfil como ADMIN pelo db principal — as rules atuais só permitem
+        // create por admin (o padrão antigo de gravar como o usuário novo era negado
+        // e deixava Auth órfão — achado do check geral 11/06).
+        await db.collection('users').doc(newUid).set({
           name, email, cpf, pix, role, profiles, moduleAccess, professorId,
           allowedUnits,
           unitId: allowedUnits[0] || null,
@@ -4089,7 +4091,7 @@
         }
 
         toast(`Usuário ${name} criado com sucesso!`, 'success');
-        logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidade: ${unitId}`);
+        logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidades: ${allowedUnits.join(', ') || '—'}`);
         document.getElementById('addUserForm').style.display = 'none';
         document.getElementById('newUserName').value = '';
         document.getElementById('newUserEmail').value = '';
