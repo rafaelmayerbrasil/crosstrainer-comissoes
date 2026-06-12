@@ -218,6 +218,12 @@
       text-align: center
     }
 
+    /* Seletor de módulo (Comissões ↔ Professores) — espelho do professores.html */
+    .sb-switcher { display: flex; gap: 6px; padding: 8px 12px 4px; }
+    .sb-switcher a { font-size: 11px; padding: 3px 10px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--text3); }
+    .sb-switcher a.active { background: var(--orange); color: #1e293b; border-color: var(--orange); font-weight: 700; }
+
     .sb-section {
       font-size: 10px;
       background: var(--surface2);
@@ -3608,6 +3614,15 @@
       const nav = document.getElementById('sidebarNav');
       const isAdmin = userProfile.role === 'admin';
       let html = '';
+      // Seletor de módulo (espelho do professores.html) — só pra quem tem 2+ módulos
+      const _maSw = userProfile.moduleAccess
+        || UserModel.deriveUserModel(userProfile.profiles || (userProfile.role ? [userProfile.role] : [])).moduleAccess;
+      if (_maSw.comissoes && _maSw.professores) {
+        html += `<div class="sb-switcher">
+          <a class="active" href="index.html">Comissões</a>
+          <a href="professores.html">Professores</a>
+        </div>`;
+      }
       if (isAdmin) {
         html += '<div class="sb-section">Gestão</div>';
         html += sbItem('dashboard', '📊', 'Dashboard');
