@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 11/06/2026 (sessão 33)
 
-**Estado:** **Hub Pessoas: design FECHADO (spec D1–D14) + plano de 12 tasks escrito + Tasks 1–8 EXECUTADAS e commitadas (código local completo). ⏸️ PAUSADO antes da Task 9 — falta só o bloco de staging (Tasks 9–12).** Produção intacta.
+**Estado:** **Hub Pessoas: PLANO 100% EXECUTADO (Tasks 1–12). Deployado em staging (hosting + rules), validação REST 8/8 ✅. ⏳ AGUARDANDO homologação UI pelo cliente (roteiro de 9 passos abaixo). 🧹 FIXTURE VIVA no staging — rodar `node scripts/fixture-pessoas.js --cleanup` APÓS a homologação.** Produção intacta.
 
 > 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
 >
@@ -23,11 +23,24 @@
 > - `3a8ec2b` wizard "Nova pessoa" + modal Acesso (markup em professores.html; Auth via app 'secondary'; users doc gravado COMO ADMIN — rules atuais só permitem create por admin, diferente do createUser legado que grava como o usuário novo)
 > - `5517621` index.html: troca cirúrgica do menu (diff de 3 linhas conferido — regra #1)
 >
-> **⏭️ PRÓXIMA AÇÃO — retomar na Task 9 do plano (bloco de staging, rodar CONTÍGUO):**
-> 1. **Task 9:** criar+rodar `scripts/audit-admin-gestao.js` — se achar usuário com admin_gestao, PARAR e perguntar ao cliente
-> 2. **Task 10:** firestore.rules (`isAdmin()` sem admin_gestao + teachers update p/ supervisão) + `firebase deploy --only firestore:rules`
-> 3. **Task 11:** `scripts/fixture-pessoas.js` + `scripts/validate-pessoas-rules.js` (REST, 8 asserções)
-> 4. **Task 12:** `firebase deploy --only hosting` + roteiro UI de 9 passos (absorve a validação pendente da Plano D) + `fixture-pessoas.js --cleanup` + atualizar este arquivo
+> **Tasks 9–12 ✅ executadas (bloco de staging):**
+> - `77773fe` auditoria admin_gestao nos dados: **0 usuários** — limpeza segura
+> - `48da255` rules: `isAdmin()` só admin + `teachers` update p/ supervisão · deployadas (`--only firestore:rules`)
+> - `17bb633` fixture (3 estados + supervisão) + **validação REST 8/8 ✅** (supervisão sem salários/sem criar users; professor travado). Bug achado e corrigido no script: regex pegava a apiKey de PROD (1ª do firebase-config.js) — agora extrai a do bloco staging
+> - hosting deployado em `crosstrainer-comissoes-staging.web.app`
+>
+> **⏭️ PRÓXIMA AÇÃO — homologação UI pelo cliente (janela anônima no staging), roteiro de 9 passos:**
+> 1. Admin → professores.html: sidebar com **Cadastros → Pessoas** (sem "Professores"); Administração só Unidades+Auditoria
+> 2. Lista Pessoas: todos com badges; "Fixture Pessoas SemAcesso" com badge SEM ACESSO
+> 3. Wizard professor: + Nova pessoa → Professor → modal professor → salvar → modal salarial → salvar/fechar → Acesso → **Pular** → ficha com banner
+> 4. "Criar acesso" depois pela ficha → vira "Com acesso"
+> 5. Wizard vendedor: caminho curto, sem Pular, exige unidade
+> 6. Segregação: `fix.pessoas.prof@teste.com`/`fixprof123` no index.html → tela "Sem acesso"; no professores.html → sidebar professor + Minha Agenda
+> 7. Supervisão: `fix.pessoas.superv@teste.com`/`fixsuperv123` → só professores na lista, sem abas Salário/Acesso, sem "+ Nova pessoa", consegue editar professor
+> 8. Comissões (admin) → menu "Pessoas" → abre o hub direto (deep-link)
+> 9. Dark mode nos modais novos
+>
+> **🧹 APÓS homologar: `node scripts/fixture-pessoas.js --cleanup` (obrigatório — padrão do projeto).** IDs da fixture: teachers `ZTxqOGajoT3qXe4Qh7ks` (sem acesso) e `JMrW2tpO4muhmVWSZlqz` (vinculado), uids `MAP1xAYmbUhFLh1ricWRZpnVlN33` (prof) e `ii2tnvfcr3Ygmz71Z38cks86hyw1` (superv).
 >
 > **Decisões de processo:** validação UI da Plano D foi ABSORVIDA pelo roteiro do hub (não validar 2x a mesma fundação). Limpeza de admin_gestao em `functions/index.js`, `storage.rules` e queries legadas do `professores-shared.js` ficou FORA de escopo (ramos mortos inofensivos; mexer exigiria redeploy de CFs).
 > Branch `feature/shell-integrado` **não mergeada no `main`**.
