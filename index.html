@@ -3286,7 +3286,12 @@
             // Segregação (§4.7): quem não tem acesso ao Comissões não entra aqui.
             const _ma = userProfile.moduleAccess
               || UserModel.deriveUserModel(userProfile.profiles || (userProfile.role ? [userProfile.role] : [])).moduleAccess;
-            if (!_ma.comissoes) { showNoComissoesAccess(); return; }
+            if (!_ma.comissoes) {
+              // Professor entra pelo link principal → vai direto pro módulo dele, sem clique.
+              if (_ma.professores) { location.replace('professores.html'); return; }
+              showNoComissoesAccess(); // sem acesso a módulo nenhum → tela explicativa
+              return;
+            }
             const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : ['cp']);
             if (!allowed.includes(currentUnitId)) {
               currentUnitId = allowed[0];

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CROSSTAINER — Roteiro de Homologação</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0a; --surface:#131315; --surface2:#1a1a1e; --border:#2a2a30;
+      --text:#eee9e0; --text2:#908a82; --text3:#5a5650;
+      --orange:#E8920D; --green:#5cb85c; --red:#e05a3a; --blue:#5b9bd5; --yellow:#FDD835;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; line-height:1.7; }
+    .wrap { max-width:820px; margin:0 auto; padding:32px 20px 80px; }
+    .hero { padding:28px; background:linear-gradient(135deg, rgba(92,184,92,.12), rgba(92,184,92,.02)); border:1px solid var(--border); border-radius:12px; margin-bottom:28px; }
+    h1 { font-family:'Bebas Neue',sans-serif; font-size:34px; letter-spacing:1.5px; color:var(--green); }
+    .sub { font-size:13px; color:var(--text2); margin-top:4px; }
+    .step { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 20px; margin-bottom:14px; }
+    .step-head { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .num { min-width:34px; height:34px; border-radius:50%; background:rgba(232,146,13,.15); color:var(--orange); font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; }
+    .step h3 { font-size:15px; font-weight:700; }
+    .step p, .step li { font-size:13px; color:var(--text2); }
+    .step ol, .step ul { margin:6px 0 0 20px; }
+    .step li { margin-bottom:5px; }
+    strong { color:var(--text); }
+    .key { margin-top:10px; border-left:3px solid var(--green); background:rgba(92,184,92,.06); border-radius:0 8px 8px 0; padding:10px 14px; font-size:12.5px; color:var(--text2); }
+    .key b { color:var(--green); }
+    .intro { border-left:3px solid var(--blue); background:rgba(91,155,213,.06); border-radius:0 8px 8px 0; padding:14px 16px; font-size:13px; color:var(--text2); margin-bottom:22px; }
+    .final { background:var(--surface); border:1px solid var(--green); border-radius:10px; padding:18px 20px; margin-top:26px; }
+    .final p { font-size:13px; color:var(--text2); }
+    a { color:var(--orange); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>✅ Roteiro de Homologação</h1>
+    <div class="sub">CrossTainer — Comissões + Professores · ~30 minutos · ambiente de testes com dados fictícios</div>
+  </div>
+
+  <div class="intro">
+    <strong>Como funciona:</strong> este é o ambiente de homologação — os dados (professores, aulas, valores) são fictícios e nada aqui afeta a operação real. Use o sistema como se fosse o seu dia a dia e siga os 7 passos abaixo. Em cada um há uma <strong>pergunta-chave</strong>: se a resposta for "sim", o passo está aprovado. Qualquer coisa estranha, <strong>tire um print e anote o passo</strong> — será corrigido antes da versão definitiva.
+    <br><br>📖 Antes de começar, vale folhear o <a href="manual-admin.html">manual do administrador</a> (5 min).
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">1</div><h3>Resolva as pendências da tela de Início</h3></div>
+    <p>Ao entrar no módulo <strong>Professores</strong>, a home mostra "⚠ Precisam de você" com um <strong>pedido de férias</strong> e uma <strong>substituição</strong> pendentes.</p>
+    <ol>
+      <li>Clique no pedido de férias (Marcos Estrela, julho) → <strong>aprove</strong> e escolha como tratar o pagamento.</li>
+      <li>Veja a substituição pendente na Agenda Geral.</li>
+    </ol>
+    <div class="key"><b>Pergunta-chave:</b> é assim que vocês decidem férias e substituições na vida real? O fluxo faz sentido?</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">2</div><h3>Cadastre uma pessoa do zero</h3></div>
+    <p><strong>Cadastros → Pessoas → + Nova pessoa.</strong> Crie um professor fictício completo: perfil, dados, salário e acesso (ou clique em "Pular" e depois crie o acesso pela ficha — teste os dois caminhos se quiser).</p>
+    <div class="key"><b>Pergunta-chave:</b> os campos pedidos são os que vocês precisam pra contratar alguém? Falta algo? Sobra algo?</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">3</div><h3>Confira o Fechamento do mês — O PASSO MAIS IMPORTANTE</h3></div>
+    <p><strong>Financeiro → Fechamento</strong>, unidade <strong>CrossTainer CP</strong>, mês <strong>Junho/2026</strong>. A prévia deve mostrar <strong>24 aulas · 24 horas · R$ 3.300,00</strong>.</p>
+    <ul>
+      <li>Abra o detalhe por professor e confira na calculadora: Lucas (9h × R$120), Marcos (R$70/h, incluindo uma aula em que ele <strong>substituiu</strong> o Lucas), Ana Paula (estagiária — bolsa proporcional).</li>
+      <li>Repare no <strong>Pedro Lima</strong>: aparece "Sem cadastro" porque o salário dele não foi lançado — é proposital, pra mostrar como o sistema avisa.</li>
+    </ul>
+    <div class="key"><b>Pergunta-chave:</b> é <u>exatamente assim</u> que vocês pagam professor? Hora-aula, bolsa de estagiário, substituições, pesos de sábado/feriado — a matemática reflete a regra da academia? <strong>Erro aqui é erro em folha de pagamento — invista tempo neste passo.</strong></div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">4</div><h3>Gere relatórios</h3></div>
+    <p><strong>Financeiro → Relatórios → R3 (Horas por Professor)</strong>, período de junho. Exporte em <strong>Excel e PDF</strong> e abra os arquivos.</p>
+    <div class="key"><b>Pergunta-chave:</b> esses relatórios servem pro contador e pra gestão? O formato é utilizável?</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">5</div><h3>Veja um recibo</h3></div>
+    <p><strong>Financeiro → Pagamentos</strong>, mês <strong>Maio/2026</strong> (já fechado, R$ 240,00). Abra o recibo do professor.</p>
+    <div class="key"><b>Pergunta-chave:</b> esse recibo pode ser impresso, assinado e arquivado como documento oficial da academia?</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">6</div><h3>Olhe com olho de dono</h3></div>
+    <p>Navegue livre: agenda da semana, escalas, saldos de férias, modalidades. Alterne <strong>tema claro/escuro</strong>. Abra no <strong>celular</strong> também.</p>
+    <div class="key"><b>Pergunta-chave:</b> textos, nomes de menu e visual estão à altura da marca? Anote qualquer detalhe que incomode — "bobagem" também conta.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><div class="num">7</div><h3>Dois minutos no Comissões</h3></div>
+    <p>Pelo <strong>seletor de módulo</strong>, volte ao Comissões: dashboard abre, e o menu <strong>"Pessoas"</strong> leva de volta ao cadastro unificado.</p>
+    <div class="key"><b>Pergunta-chave:</b> o Comissões continua exatamente como vocês conhecem? (Nada da novidade pode ter mexido na rotina de vendas.)</div>
+  </div>
+
+  <div class="final">
+    <h3 style="color:var(--green); margin-bottom:6px;">🏁 Critério de aprovação</h3>
+    <p>Completou os 7 passos sem susto e respondeu "sim" às perguntas-chave? <strong>O sistema está aprovado pra entrar em produção.</strong> Encontrou algo? Mande o print + número do passo — correção e re-teste acontecem ainda em homologação, antes de qualquer dado real entrar no sistema.</p>
+  </div>
+
+  <div style="margin-top:40px; text-align:center; font-size:11px; color:var(--text3);">
+    CrossTainer · roteiro de homologação · manuais: <a href="manual-admin.html">administrador</a> · <a href="manual-professores.html">professor</a>
+  </div>
+</div>
+</body>
+</html>

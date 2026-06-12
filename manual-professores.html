@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CROSSTAINER — Manual do Professor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0a; --surface:#131315; --surface2:#1a1a1e; --border:#2a2a30;
+      --text:#eee9e0; --text2:#908a82; --text3:#5a5650;
+      --orange:#E8920D; --green:#5cb85c; --red:#e05a3a; --blue:#5b9bd5; --yellow:#FDD835;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; line-height:1.7; }
+    .wrap { max-width:820px; margin:0 auto; padding:32px 20px 80px; }
+    .hero { padding:28px; background:linear-gradient(135deg, rgba(232,146,13,.12), rgba(232,146,13,.02)); border:1px solid var(--border); border-radius:12px; margin-bottom:28px; }
+    h1 { font-family:'Bebas Neue',sans-serif; font-size:34px; letter-spacing:1.5px; color:var(--orange); }
+    .sub { font-size:13px; color:var(--text2); margin-top:4px; }
+    h2 { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:1px; color:var(--text); margin:34px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 18px; margin-bottom:12px; }
+    .card h3 { font-size:14px; font-weight:700; margin-bottom:6px; }
+    .card p, .card li { font-size:13px; color:var(--text2); }
+    .card ul, .card ol { margin:8px 0 0 20px; }
+    .card li { margin-bottom:6px; }
+    strong { color:var(--text); }
+    .tip { border-left:3px solid var(--blue); background:rgba(91,155,213,.06); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--text2); margin-bottom:12px; }
+    .warn { border-left:3px solid var(--yellow); background:rgba(253,216,53,.05); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--text2); margin-bottom:12px; }
+    .pill { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; margin-right:4px; }
+    .p-prev { background:rgba(91,155,213,.15); color:var(--blue); }
+    .p-real { background:rgba(92,184,92,.15); color:var(--green); }
+    .p-sub  { background:rgba(253,216,53,.12); color:var(--yellow); }
+    .p-canc { background:rgba(224,90,58,.12); color:var(--red); }
+    code { background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:12px; color:var(--orange); }
+    .toc { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .toc a { display:block; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--text2); text-decoration:none; }
+    .toc a:hover { border-color:var(--orange); color:var(--text); }
+    @media (max-width:600px) { .toc { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>📅 Manual do Professor</h1>
+    <div class="sub">CrossTainer — Módulo Professores · como usar o sistema no dia a dia</div>
+  </div>
+
+  <div class="toc">
+    <a href="#entrar">🔑 1. Entrar no sistema</a>
+    <a href="#inicio">🏠 2. Tela de Início</a>
+    <a href="#agenda">📅 3. Minha Agenda</a>
+    <a href="#substituicao">🔄 4. Substituições</a>
+    <a href="#ferias">🏖️ 5. Férias e Recesso</a>
+    <a href="#saldo">📊 6. Meu Saldo</a>
+    <a href="#pagamentos">💳 7. Meus Pagamentos</a>
+    <a href="#dicas">💡 8. Dicas</a>
+  </div>
+
+  <h2 id="entrar">🔑 1. Entrar no sistema</h2>
+  <div class="card">
+    <ol>
+      <li>Abra o endereço do sistema no navegador (funciona no celular e no computador).</li>
+      <li>Digite o <strong>email e a senha</strong> que a administração te passou.</li>
+      <li>Você cai direto na sua área de professor — agenda, férias e pagamentos.</li>
+    </ol>
+  </div>
+  <div class="tip">💡 Primeira vez? A senha é provisória — você pode trocá-la depois em "Esqueci minha senha" na tela de login.</div>
+
+  <h2 id="inicio">🏠 2. Tela de Início</h2>
+  <div class="card">
+    <p>É o seu resumo do dia: mostra <strong>suas aulas de hoje</strong> (horário e modalidade), avisos de <strong>substituições aguardando sua resposta</strong> e atalhos pras telas que você mais usa.</p>
+  </div>
+  <div class="card">
+    <h3>🔔 Sininho de notificações</h3>
+    <p>No topo da tela. Avisa quando alguém pede que você substitua uma aula, quando suas férias são aprovadas/recusadas e outros eventos. Clique na notificação pra ir direto ao assunto.</p>
+  </div>
+
+  <h2 id="agenda">📅 3. Minha Agenda</h2>
+  <div class="card">
+    <p>Mostra <strong>todas as suas aulas</strong> — semana anterior, semana atual, próxima semana ou o mês inteiro. Cada aula tem um status:</p>
+    <ul>
+      <li><span class="pill p-prev">PREVISTA</span> aula futura, gerada automaticamente pela escala.</li>
+      <li><span class="pill p-real">REALIZADA</span> aula que aconteceu — é o que conta nas suas horas do mês.</li>
+      <li><span class="pill p-sub">SUBSTITUÍDA</span> outra pessoa deu essa aula no seu lugar (ou você no lugar de alguém).</li>
+      <li><span class="pill p-canc">CANCELADA</span> aula que não aconteceu (feriado, imprevisto).</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>🌐 Agenda Geral</h3>
+    <p>A grade de <strong>todos os professores</strong>, por unidade e modalidade. Útil pra ver quem dá aula quando — e é por ela que você encontra aulas precisando de cobertura.</p>
+  </div>
+
+  <h2 id="substituicao">🔄 4. Substituições — "não posso dar essa aula"</h2>
+  <div class="card">
+    <h3>Pedir substituição direta</h3>
+    <ol>
+      <li>Abra a aula na <strong>Minha Agenda</strong>.</li>
+      <li>Toque em <strong>Pedir substituição</strong> e escolha o colega.</li>
+      <li>Ele recebe a notificação e aceita (ou recusa) — você acompanha o status na própria aula.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>Oferecer pra quem quiser (cobertura)</h3>
+    <p>Se você não sabe quem pode te cobrir, abra a aula como <strong>cobertura</strong>: ela fica visível pros colegas se candidatarem, e a administração confirma quem assume.</p>
+  </div>
+  <div class="warn">⚠️ A aula substituída conta nas horas <strong>de quem deu a aula</strong>, não de quem estava escalado. Isso aparece certinho no fechamento do mês.</div>
+
+  <h2 id="ferias">🏖️ 5. Férias e Recesso</h2>
+  <div class="card">
+    <h3>Solicitar</h3>
+    <ol>
+      <li>Menu <strong>Férias e Recesso → + Nova solicitação</strong>.</li>
+      <li>Escolha o período (pode dividir em mais de um período, estilo CLT).</li>
+      <li>Envie — o pedido fica <strong>Pendente</strong> até a administração aprovar.</li>
+    </ol>
+    <p style="margin-top:8px;">Enquanto estiver pendente, você ainda pode <strong>cancelar</strong> o pedido. Depois de aprovado, as suas aulas do período são automaticamente puladas pela escala.</p>
+  </div>
+  <div class="tip">💡 Professores CLT têm férias com 1/3 — estagiários têm <strong>recesso</strong>. O sistema sabe qual é o seu caso e calcula sozinho.</div>
+
+  <h2 id="saldo">📊 6. Meu Saldo</h2>
+  <div class="card">
+    <p>Mostra quantos <strong>dias de férias você tem disponíveis</strong> e o período aquisitivo (a "janela" CLT em que esses dias valem). Se o prazo estiver chegando perto de vencer, o sistema avisa a administração.</p>
+  </div>
+
+  <h2 id="pagamentos">💳 7. Meus Pagamentos</h2>
+  <div class="card">
+    <p>Depois que a administração <strong>fecha o mês</strong>, seus recibos aparecem aqui: horas dadas, valor por hora (ou bolsa), substituições e o total. Cada recibo pode ser aberto e impresso.</p>
+  </div>
+
+  <h2 id="dicas">💡 8. Dicas rápidas</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Tema claro/escuro:</strong> botão de alternância no menu lateral.</li>
+      <li><strong>Celular:</strong> o sistema funciona no navegador do celular — o menu abre pelo botão ☰ no topo.</li>
+      <li><strong>Algo estranho?</strong> Tire um print e mande pra administração — quanto mais cedo avisar, mais rápido se resolve.</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:40px; text-align:center; font-size:11px; color:var(--text3);">
+    CrossTainer · Módulo Professores · manual do professor
+  </div>
+</div>
+</body>
+</html>
