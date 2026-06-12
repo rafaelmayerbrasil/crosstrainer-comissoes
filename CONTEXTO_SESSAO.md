@@ -5,7 +5,7 @@
 
 ## 🔖 ONDE PARAMOS — última sessão 11/06/2026 (sessão 33)
 
-**Estado:** **Hub Pessoas: PLANO 100% EXECUTADO (Tasks 1–12). Deployado em staging (hosting + rules), validação REST 8/8 ✅. ⏳ AGUARDANDO homologação UI pelo cliente (roteiro de 9 passos abaixo). 🧹 FIXTURE VIVA no staging — rodar `node scripts/fixture-pessoas.js --cleanup` APÓS a homologação.** Produção intacta.
+**Estado:** **Hub Pessoas: PLANO 100% EXECUTADO + deployado em staging (hosting + rules) + REST 8/8 ✅ + ROTEIRO UI 9/9 ✅ VALIDADO POR AUTOMAÇÃO (browser preview controlado pelo Claude, localhost→staging) + fixture LIMPA. ⏳ Falta só o aceite visual do cliente (opcional re-olhar) → depois homologação completa do módulo → produção (regra #7).** Produção intacta.
 
 > 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
 >
@@ -40,7 +40,9 @@
 > 8. Comissões (admin) → menu "Pessoas" → abre o hub direto (deep-link)
 > 9. Dark mode nos modais novos
 >
-> **🧹 APÓS homologar: `node scripts/fixture-pessoas.js --cleanup` (obrigatório — padrão do projeto).** IDs da fixture: teachers `ZTxqOGajoT3qXe4Qh7ks` (sem acesso) e `JMrW2tpO4muhmVWSZlqz` (vinculado), uids `MAP1xAYmbUhFLh1ricWRZpnVlN33` (prof) e `ii2tnvfcr3Ygmz71Z38cks86hyw1` (superv).
+> **✅ ROTEIRO UI EXECUTADO POR AUTOMAÇÃO (9/9, mesmo dia):** Claude controlou o browser de preview (servidor estático local na porta 8123 → `firebase-config.js` detecta localhost → STAGING real). Resultados: (1) sidebar admin OK; (2) lista união 9 pessoas + badges + "4 sem acesso"; (3) wizard professor completo — XOR perfis, teacherModal→salaryModal→Acesso encadeados pelos hooks, Pular→banner na ficha; (4) "Criar acesso" pela ficha — banner some, pill "● Com acesso", **admin não foi deslogado** (app secondary OK); (5) wizard vendedor — caminho curto sem Pular, validação de unidade obrigatória funcionou; (6) segregação §4.7 — professor no index.html cai em "Sem acesso ao módulo Comissões" + Minha Agenda carrega com professorId (era a validação B/C pendente da Plano D); (7) supervisão — lista SÓ professores sem badges de acesso, ficha só Identidade+Professor, sem "+ Nova pessoa", edita professor; (8) menu "Pessoas" no Comissões + deep-link abre o hub direto; (9) dark E light mode legíveis.
+> **Cosmético anotado (não bloqueia):** checkboxes dos modais novos alinham à direita do rótulo (padrão do CSS de form-group) — polimento opcional.
+> **🧹 Fixture LIMPA (cleanup estendido):** 5 logins (`fix.pessoas.*` + `fix.wizard.*`) + 3 teachers + salários + audit entries removidos do staging. Pra re-testar visualmente: `node scripts/fixture-pessoas.js` recria em segundos. Servidor local de preview: `.claude/launch.json` (`crosstrainer-static`, porta 8123).
 >
 > **Decisões de processo:** validação UI da Plano D foi ABSORVIDA pelo roteiro do hub (não validar 2x a mesma fundação). Limpeza de admin_gestao em `functions/index.js`, `storage.rules` e queries legadas do `professores-shared.js` ficou FORA de escopo (ramos mortos inofensivos; mexer exigiria redeploy de CFs).
 > Branch `feature/shell-integrado` **não mergeada no `main`**.

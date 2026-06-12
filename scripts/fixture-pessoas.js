@@ -11,6 +11,7 @@ const FIX = {
   teacherSemAcesso: { name: 'Fixture Pessoas SemAcesso', email: 'fix.pessoas.semacesso@teste.com' },
   teacherVinculado: { name: 'Fixture Pessoas Vinculado', email: 'fix.pessoas.prof@teste.com', pass: 'fixprof123' },
   supervisao:       { name: 'Fixture Pessoas Supervisao', email: 'fix.pessoas.superv@teste.com', pass: 'fixsuperv123' },
+  admin:            { name: 'Fixture Pessoas Admin',      email: 'fix.pessoas.admin@teste.com', pass: 'fixadmin123' },
 };
 
 async function firstIds() {
@@ -33,6 +34,19 @@ function teacherDoc(name, email, ids) {
 async function ensureAuthUser(email, pass, name) {
   try { const u = await auth.getUserByEmail(email); return u.uid; }
   catch { const u = await auth.createUser({ email, password: pass, displayName: name }); return u.uid; }
+}
+
+// Cria SÓ o admin de fixture (p/ validação UI automatizada) — não duplica teachers
+async function createAdminOnly() {
+  const uid = await ensureAuthUser(FIX.admin.email, FIX.admin.pass, FIX.admin.name);
+  await db.collection('users').doc(uid).set({
+    name: FIX.admin.name, email: FIX.admin.email,
+    role: 'admin', profiles: ['admin'],
+    moduleAccess: { comissoes: true, professores: true },
+    professorId: null, allowedUnits: [], unitId: null, status: 'ativo',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  console.log(JSON.stringify({ adminUid: uid, adminEmail: FIX.admin.email, adminPass: FIX.admin.pass }, null, 2));
 }
 
 async function create() {
@@ -67,17 +81,29 @@ async function create() {
 }
 
 async function cleanup() {
-  for (const f of [FIX.teacherSemAcesso, FIX.teacherVinculado, FIX.supervisao]) {
+  // Logins criados pela validação UI automatizada (wizard) também entram
+  const emails = [FIX.teacherSemAcesso, FIX.teacherVinculado, FIX.supervisao, FIX.admin]
+    .map(f => f.email)
+    .concat(['fix.wizard.prof@teste.com', 'fix.wizard.vend@teste.com']);
+  for (const email of emails) {
     try {
-      const u = await auth.getUserByEmail(f.email);
+      const u = await auth.getUserByEmail(email);
       await auth.deleteUser(u.uid);
       await db.collection('users').doc(u.uid).delete();
-      console.log('auth+user removido:', f.email);
+      console.log('auth+user removido:', email);
     } catch {}
   }
   const snap = await db.collection('teachers').where('notes', '==', 'FIXTURE pessoas — pode apagar').get();
-  for (const d of snap.docs) { await d.ref.delete(); console.log('teacher removido:', d.id); }
+  for (const d of snap.docs) {
+    await db.collection('teacher_salaries').doc(d.id).delete().catch(() => {});
+    const audits = await db.collection('audit_log').where('entityId', '==', d.id).get();
+    for (const a of audits.docs) await a.ref.delete();
+    await d.ref.delete();
+    console.log('teacher + salário + audit removidos:', d.id);
+  }
   console.log('✓ cleanup completo');
 }
 
-(process.argv.includes('--cleanup') ? cleanup() : create()).then(() => process.exit());
+(process.argv.includes('--cleanup') ? cleanup()
+  : process.argv.includes('--admin-only') ? createAdminOnly()
+  : create()).then(() => process.exit());
