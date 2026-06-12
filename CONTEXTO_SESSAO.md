@@ -3,9 +3,9 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 11/06/2026 (sessão 33)
+## 🔖 ONDE PARAMOS — última sessão 11–12/06/2026 (sessão 33)
 
-**Estado:** **Hub Pessoas: PLANO 100% EXECUTADO + deployado em staging (hosting + rules) + REST 8/8 ✅ + ROTEIRO UI 9/9 ✅ VALIDADO POR AUTOMAÇÃO (browser preview controlado pelo Claude, localhost→staging) + fixture LIMPA. ⏳ Falta só o aceite visual do cliente (opcional re-olhar) → depois homologação completa do módulo → produção (regra #7).** Produção intacta.
+**Estado:** **SISTEMA PRONTO PRA HOMOLOGAÇÃO FINAL INTEGRADA (12/06).** Hub Pessoas completo (REST 8/8 + UI 9/9) + **check geral com 3 bugs reais corrigidos** (tela Pagamentos quebrada desde a 4b · índice de férias ausente · listener órfão no logout — `docs/check-geral-2026-06-11.md`) + **pacote de entrega `e9a61ed`**: branding CROSSTAINER no index.html (6 strings visíveis), createUser legado gravando como admin (era órfão de Auth) + bug `${unitId}` no logAudit, **sw.js v3.1** (JS próprio network-first — fix estrutural do tech debt #2, autorizado), cache do hosting JS/CSS 7d→**5min**, ESC nos modais do hub, plural no chip da home. **Revalidação integrada pós-pacote: Comissões ✓ (branding, menu Pessoas, tela legada criou usuária completa sem órfão) + Professores admin 11/11 ✓ + professor 6/6 ✓ + console limpo + índice de férias servindo no cliente.** Fixture 100% limpa. **Checklist de deploy em produção: `docs/checklist-deploy-producao.md`** (inclui as 2 decisões pendentes: antecedência de férias 5→30 e destino final da tela legada). Produção intacta — **falta SÓ o aceite do cliente no staging → seguir o checklist.**
 
 > 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
 >
