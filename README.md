@@ -43,13 +43,16 @@ Plataforma completa de gestão de professores: cadastro, agenda, substituições
 14. **Férias e Recesso (Sprint 6a)** — workflow CLT completo: professor solicita até 3 períodos, admin aprova/recusa, CF pula classes nas datas aprovadas
 15. **Pagamento de Férias (Sprint 6b)** — cálculo automático para efetivo (média 12 meses + 1/3 CLT) e estagiário (bolsa proporcional, Lei 11.788). Modo manual + sem pagamento + adiar. Integra com fechamento mensal + recibo A4. Rateio proporcional quando férias atravessa 2 meses
 16. **Controle Anual de Saldo (Sprint 6c)** — painel admin "📊 Saldos de Férias" com badges 🟢🟡🔴 por professor. Painel professor "📊 Meu Saldo" com período aquisitivo CLT (12 meses de admissão) + histórico. Soft warning ao exceder saldo (alerta + justificativa obrigatória). Alerta automático de **férias vencidas** (CLT Art. 134 — pagamento dobrado se concessivo expirar)
+17. **Relatórios e Exportações (Sprint 8)** — R1 Fechamentos · R2 Aulas · R3 Horas por Professor · R4 Recibos em lote (ZIP), tudo em Excel + PDF client-side com fallback local de libs (`/vendor`)
+18. **Shell integrado (sessão 32)** — navegação unificada dos 2 módulos: sidebar por domínio, seletor de módulo por `moduleAccess`, home como centro de pendências, deep-links entre módulos
+19. **Hub Pessoas (sessão 33)** — cadastro unificado de TODOS (professores, vendedoras, admins, supervisão): lista única (união `teachers`⊕`users`), wizard "Nova pessoa" (perfis → dados → 🔒salário → 🔑acesso opcional), ficha com 4 abas gated. Substituiu as telas "Professores" e "Gestão de Usuários"
 
 **Em desenvolvimento ou pendentes:**
 
-- Sprint 5b (opcional) — Workflow de aceite/recusa pelo professor + alocação automática
-- Sprint 7 — Notificações por email (Brevo + Trigger Email)
-- Sprint 8 — Relatórios + Exportações
-- Polimentos finais — UX, bugs cosméticos, tech debt registrado em CLAUDE.md
+- **Homologação do cliente** — roteiro de 8 passos publicado (`roteiro-homologacao.html`) + manuais (`manual-admin.html`, `manual-professores.html`) + dados de demo no staging
+- Deploy em produção — após aprovação, seguir `docs/checklist-deploy-producao.md`
+- **Visão do professor otimizada pra celular** — compromisso pós-aprovação
+- Sprint 5b (opcional) — Workflow de aceite/recusa pelo professor · Sprint 7 — Notificações por email
 
 📄 Detalhamento técnico: [DOCUMENTACAO.md](DOCUMENTACAO.md) § Módulo Professores
 
@@ -75,18 +78,24 @@ Detecção automática de ambiente via `firebase-config.js` (regra inviolável: 
 crosstrainer-comissoes/
 ├── index.html, commission.js, sw.js, manifest.json   → Módulo Comissões (produção)
 ├── professores.html, professores-*.js                → Módulo Professores (staging)
+├── pessoas-model.js, user-model.js                    → Modelos puros (junção pessoas · derivação de acesso) com smokes
+├── manual-admin.html, manual-professores.html         → Manuais de uso (identidade visual do sistema)
+├── roteiro-homologacao.html                           → Roteiro de homologação do cliente (8 passos)
 ├── receipt.html                                       → Página standalone de impressão de recibos
+├── vendor/                                            → Fallback local das libs CDN (xlsx, jspdf, jszip…)
 ├── functions/                                         → Cloud Functions (Node 22)
 │   └── index.js                                       → healthCheck, generateClasses*, processSubstitutionAcceptance, closeMonth, etc.
 ├── scripts/                                           → Utilitários Node.js (Admin SDK)
-│   ├── admin.js                                       → Smoke tests automatizados (Sprints 4a, 4b, 5a)
-│   ├── seed-special-scale-types.js                    → Popula tipos de escala especial
-│   └── migrate-users-to-profiles.js                   → Migração de schema users
+│   ├── smoke-{user-model,sidebar,pessoas-model}.js    → Smokes dos modelos puros
+│   ├── fixture-pessoas.js, seed-demo.js               → Fixture de validação + dados de demonstração (--cleanup)
+│   ├── validate-pessoas-rules.js                      → Validação das Security Rules via REST (auth real)
+│   ├── audit-{admin-gestao,units-duplicadas}.js       → Auditorias de dados
+│   └── admin.js, migrate-*.js, seed-special-*.js      → Smoke tests + migrações + seeds
 ├── firestore.rules, firestore.indexes.json            → Configuração do Firestore
 ├── CLAUDE.md, CONTEXTO_SESSAO.md                      → Estado do desenvolvimento (memória do projeto)
 ├── DOCUMENTACAO.md                                    → Detalhes técnicos de cada módulo
-├── sprint-*.md, runbook-*.md                          → Playbooks de cada sprint (8 sprints documentadas)
-└── docs/                                              → Specs funcionais + técnicas do cliente
+├── sprint-*.md, runbook-*.md                          → Playbooks das sprints (13 documentadas)
+└── docs/                                              → Specs do cliente + checklist-deploy-producao.md + superpowers/{specs,plans}
 ```
 
 ## 🚦 Pra começar (desenvolvimento)

@@ -56,12 +56,12 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
    - **ERRADO:** ~~`CrossTrainer`~~ · ~~`CROSSTRAINER`~~
    - Todo texto **visível ao usuário** em qualquer arquivo novo DEVE usar `CrossTainer` / `CROSSTAINER`.
    - IDs técnicos do Firebase (`crosstrainer-comissoes`, `crosstrainer-comissoes-staging`) **permanecem como estão** — são IDs estáveis e mudá-los seria caro/arriscado.
-   - Arquivos de produção atuais (`index.html`, `manifest.json`) com o nome errado serão corrigidos no momento do deploy do módulo de Professores em produção — registrado em `CONTEXTO_SESSAO.md` como pendência.
+   - ✅ Branding dos arquivos de produção **corrigido em 12/06/2026** na branch (`index.html` 6 strings visíveis + `sw.js` header; `manifest.json` já estava certo) — vai pra produção junto com o módulo.
    - Wireframe `AgendaWireframes_design.html` tem o nome errado — não modificar (é referência do designer).
 
 ## 🧠 Estado atual em uma frase
 
-**12 sprints completas em staging (07/06/2026). Sprint 9 ✅ concluída. Projeto ~99% pronto — aguardando homologação final.**
+**SISTEMA COMPLETO em staging (12/06/2026): 13 sprints + shell integrado + hub Pessoas + kit de homologação, tudo na branch `feature/shell-integrado` (não mergeada). Aguardando homologação do CLIENTE (roteiro publicado) → depois `docs/checklist-deploy-producao.md`.**
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -78,13 +78,16 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 6c | Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas) | ✅ 12/12 + 3 visuais |
 | **8** | **Relatórios e Exportações (4 relatórios em Excel + PDF, client-side, lazy load CDN)** | **✅ R1·R2·R3·R4** |
 | **9** | **Polimentos Finais (branding CrossTainer + empty states + recibo R4 html2canvas + CDN fallback + migrations + vendor/)** | **✅ deployado** |
+| **Shell** | **Navegação integrada: sidebar por domínio + seletor de módulo + home centro de pendências + deep-links (sessão 32)** | **✅ validado** |
+| **Hub** | **Hub Pessoas: cadastro unificado (união `teachers`⊕`users`), wizard, ficha 4 abas gated, `admin_gestao` DROPADO (sessão 33)** | **✅ REST 8/8 · UI 9/9** |
+| **Entrega** | **Check geral (3 bugs corrigidos) + branding index.html + sw v3.1 + cache 5min + seed demo + manuais + roteiro (sessão 33)** | **✅ publicado** |
 
-**Próxima ação:** homologação completa do módulo pelo cliente. Depois deploy em produção (regra inviolável #7).
+**Próxima ação:** cliente homologa pelo `roteiro-homologacao.html` no staging (acessos de demo: `dono.teste@` e `professor.teste@crosstainer.com`). Aprovado → executar `docs/checklist-deploy-producao.md` (2 decisões pendentes lá: antecedência de férias 5→30 dias · destino da tela legada de Usuários). **Compromisso pós-aprovação: visão do professor otimizada pra celular.**
 
 ## 🔧 Tech debt registrado (não bloqueia)
 
 1. **Classes legadas em UTC midnight** (pré-Sprint 17 bug D fix): ✅ Migração aplicada em staging (18 classes, +3h). Produção nunca teve esse bug.
-2. **`sw.js` do módulo Comissões cacheia agressivamente** arquivos de `professores.*`. Workaround em dev: DevTools → Application → Service Workers → Unregister + Clear site data. Fix estrutural (excluir `professores.*` do scope) requer autorização explícita pra tocar no sw.js (regra inviolável #1).
+2. ~~`sw.js` cacheia agressivamente `professores.*`~~ ✅ **RESOLVIDO (12/06, autorizado):** sw v3.1 — JS same-origin é network-first; CDNs seguem cache-first. Cache de JS/CSS do hosting também caiu de 7 dias → 5 min (`firebase.json`).
 3. **Audit log entries antigas** (Sprint 2/3a/3b) com `module: 'professores'` em vez de `'agenda'`: ✅ Migração aplicada em staging (35 entries, `professores` → `agenda`). Production mantém entries legadas.
 4. **CDN externo como dependência** (Sprint 8): ✅ Fallback local em `/vendor/` (5 libs) + CDN como backup.
 5. **CreditService race condition rara** no abate de créditos: aceito como tech debt (1 admin por vez em produção realística).
