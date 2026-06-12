@@ -625,6 +625,29 @@
     }
     .form-actions .btn { width: auto; padding: 10px 20px; }
 
+    /* Hub Pessoas — linha de checkbox (checkbox à esquerda, rótulo ao lado).
+       Especificidade > .form-group label / .form-group input (que são block/width:100%). */
+    .check-row,
+    .form-group label.check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px;
+      cursor: pointer;
+      text-transform: none;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0;
+    }
+    .check-row input[type="checkbox"],
+    .form-group .check-row input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: var(--orange);
+    }
+
     /* ─── PAGE TOOLBAR (header com botão de ação) ─── */
     .page-toolbar {
       display: flex;

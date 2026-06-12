@@ -373,7 +373,7 @@ function renderPessoaTabAcesso(p) {
     <div class="form-group" style="margin-top:12px;"><label>Perfis</label>
       <div id="pessoaProfilesChecks">
         ${UserModel.PROFILE_ORDER.map(pr => `
-          <label style="display:block;margin:4px 0;">
+          <label class="check-row">
             <input type="checkbox" value="${pr}" ${profiles.includes(pr) ? 'checked' : ''} ${dis}
                    onchange="pessoaProfileToggle(this)"> ${UserModel.PROFILE_LABELS[pr]}
           </label>`).join('')}
@@ -383,7 +383,7 @@ function renderPessoaTabAcesso(p) {
       <label>Unidades (Comissões)</label>
       <div id="pessoaUnitsChecks">
         ${Array.from(ProfessoresState.unitsMap.values()).map(un => `
-          <label style="display:block;margin:4px 0;">
+          <label class="check-row">
             <input type="checkbox" value="${un.id}" ${((u.allowedUnits || []).includes(un.id)) ? 'checked' : ''} ${dis}> ${escapeHtml(un.name || un.id)}
           </label>`).join('')}
       </div>
@@ -437,7 +437,7 @@ function openPessoaWizard() {
   if (!isStrictAdmin()) { toast('Apenas administradores podem criar pessoas.', 'error'); return; }
   const cont = document.getElementById('wizardProfilesChecks');
   cont.innerHTML = UserModel.PROFILE_ORDER.map(pr => `
-    <label style="display:block;margin:4px 0;">
+    <label class="check-row">
       <input type="checkbox" value="${pr}" onchange="wizardProfileToggle(this)"> ${UserModel.PROFILE_LABELS[pr]}
     </label>`).join('');
   document.getElementById('wizardError').textContent = '';
@@ -500,7 +500,7 @@ function openAccessModal(opts) {
     unitsWrap.style.display = '';
     document.getElementById('accessUnitsChecks').innerHTML =
       Array.from(ProfessoresState.unitsMap.values()).map(un => `
-        <label style="display:block;margin:4px 0;">
+        <label class="check-row">
           <input type="checkbox" value="${un.id}"> ${escapeHtml(un.name || un.id)}
         </label>`).join('');
   } else {
