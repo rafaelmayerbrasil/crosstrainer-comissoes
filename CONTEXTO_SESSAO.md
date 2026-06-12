@@ -9,6 +9,8 @@
 
 > **📦 KIT DE HOMOLOGAÇÃO (12/06, commit `cce1e56`):** redirect automático no `index.html` (professor que loga no link principal cai direto no professores.html — validado E2E) + 3 páginas publicadas no staging com a identidade visual do sistema: **`/manual-admin.html`** (10 seções, dois módulos), **`/manual-professores.html`** (8 seções) e **`/roteiro-homologacao.html`** (7 passos com perguntas-chave, aponta os dados de demo). Cliente recebe só os links.
 >
+> **👤 ACESSOS DO CLIENTE no staging (12/06, `seed-demo.js --users`, validados E2E):** `dono.teste@crosstainer.com` (admin, 3 unidades) e `professor.teste@crosstainer.com` (professor → vinculado ao Marcos Estrela: aulas de sábado, substituição e o pedido de férias do roteiro). Senha de ambos: `crosstainer2026`. Roteiro ganhou o **passo 8** (entrar como professor) + nota: pós-aprovação vem a **visão do professor otimizada pra celular** (compromisso assumido com o cliente). Remoção: `seed-demo.js --cleanup` (cobre os 2 users).
+>
 > **🎬 DADOS DE DEMO no staging (12/06, `scripts/seed-demo.js`):** 56 aulas de Jun/2026 (realizadas até dia 11 → fechamento preview unit-cp dá 24 aulas · 24h · R$ 3.300; previstas dia 12+), 1 aula substituída, salário do Marcos (R$70/h; **Pedro Lima sem salário de propósito** — demonstra "Sem cadastro"), 1 férias pendente + 1 substituição pendente (home do admin acende "Precisam de você"). Tudo etiquetado `seed-demo` — remover depois da homologação com `node scripts/seed-demo.js --cleanup`.
 
 > 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
