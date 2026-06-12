@@ -24,7 +24,7 @@ service cloud.firestore {
       return (u.profiles != null && p in u.profiles) || u.role == p;
     }
 
-    function isAdmin()      { return hasP('admin') || hasP('admin_gestao'); }
+    function isAdmin()      { return hasP('admin'); }   // admin_gestao dropado (hub Pessoas D2)
     function isStrictAdmin(){ return hasP('admin'); }
     function isSuperv()     { return hasP('supervisao'); }
     function isProf()       { return hasP('professor') || hasP('professor_estagiario'); }
@@ -80,9 +80,10 @@ service cloud.firestore {
     }
 
     match /teachers/{id} {
-      allow read:           if isAuth() && hasProfModule();
-      allow create, update: if isAuth() && isAdmin();
-      allow delete:         if false;
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && isAdmin();                  // D9: só admin cria (wizard)
+      allow update: if isAuth() && (isAdmin() || isSuperv());  // D5: supervisão edita Identidade/Professor
+      allow delete: if false;
     }
 
     match /modalities/{id} {
