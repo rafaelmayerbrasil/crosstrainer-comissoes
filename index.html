@@ -3702,7 +3702,9 @@
           if (bDash) { bDash.textContent = unitName; bDash.style.display = 'inline-block'; }
           if (bVend) { bVend.textContent = unitName; bVend.style.display = 'inline-block'; }
         } else {
-          await db.collection('units').doc(currentUnitId).set({ name: 'CrossTainer CP', config: CommissionEngine.defaultConfig });
+          // Unidade inexistente: usa config default só em memória, SEM gravar.
+          // O set() antigo "ressuscitava" units órfãs como "CrossTainer CP" inativas
+          // a cada login com allowedUnits[0] apontando pra doc inexistente (bug 11/06/2026).
           unitConfig = CommissionEngine.defaultConfig;
         }
       } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
