@@ -129,6 +129,14 @@
       "collectionGroup": "vacation_requests",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "teacherId",   "order": "ASCENDING" },
+        { "fieldPath": "requestedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "vacation_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "status",           "order": "ASCENDING" },
         { "fieldPath": "firstPeriodStart", "order": "ASCENDING" }
       ]

@@ -151,6 +151,8 @@ auth.onAuthStateChanged(async (user) => {
     }
     AppState.currentUser = null;
     AppState.userProfile = null;
+    // Derruba listeners do usuário anterior (senão tomam permission-denied em loop)
+    if (typeof _vacationUnsub === 'function') { _vacationUnsub(); _vacationUnsub = null; }
     return;
   }
 
@@ -543,11 +545,13 @@ function updateEnvBadges() {
 // ─── Sprint 6b — Contador de férias pendentes (sidebar) ─────────────
 
 let _vacationPendingCount = 0;
+let _vacationUnsub = null;  // unsubscribe do onSnapshot — evita listener órfão após logout (check geral 11/06)
 
 function setupVacationCounter() {
+  if (_vacationUnsub) { _vacationUnsub(); _vacationUnsub = null; }
   if (!isAdminGestao()) return;
 
-  db.collection('vacation_requests')
+  _vacationUnsub = db.collection('vacation_requests')
     .where('status', '==', 'aprovada')
     .onSnapshot(snap => {
       _vacationPendingCount = 0;
