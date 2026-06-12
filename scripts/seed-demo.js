@@ -144,4 +144,46 @@ async function cleanup() {
   console.log('✓ cleanup seed-demo completo (salário do Marcos mantido — cadastro básico)');
 }
 
-(process.argv.includes('--cleanup') ? cleanup() : create()).then(() => process.exit());
+// ── Usuários de demonstração pro CLIENTE (visão admin + visão professor) ──
+const DEMO_USERS = [
+  { email: 'dono.teste@crosstainer.com', pass: 'crosstainer2026', name: 'Dono (Teste)',
+    profiles: ['admin'], role: 'admin',
+    moduleAccess: { comissoes: true, professores: true },
+    professorId: null, allowedUnits: ['unit-cp', 'unit-norte', 'unit-pp'], unitId: 'unit-cp' },
+  { email: 'professor.teste@crosstainer.com', pass: 'crosstainer2026', name: 'Marcos Estrela',
+    profiles: ['professor'], role: 'professor',
+    moduleAccess: { comissoes: false, professores: true },
+    professorId: T.marcos.id, allowedUnits: [], unitId: null },
+];
+
+async function createUsers() {
+  const auth = admin.auth();
+  for (const u of DEMO_USERS) {
+    let uid;
+    try { uid = (await auth.getUserByEmail(u.email)).uid; }
+    catch { uid = (await auth.createUser({ email: u.email, password: u.pass, displayName: u.name })).uid; }
+    await db.collection('users').doc(uid).set({
+      name: u.name, email: u.email, role: u.role, profiles: u.profiles,
+      moduleAccess: u.moduleAccess, professorId: u.professorId,
+      allowedUnits: u.allowedUnits, unitId: u.unitId, status: 'ativo',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    console.log(`✓ ${u.email} (${u.profiles.join(',')})${u.professorId ? ' → vinculado ao Marcos Estrela' : ''}`);
+  }
+}
+
+async function cleanupUsers() {
+  const auth = admin.auth();
+  for (const u of DEMO_USERS) {
+    try {
+      const a = await auth.getUserByEmail(u.email);
+      await auth.deleteUser(a.uid);
+      await db.collection('users').doc(a.uid).delete();
+      console.log('✓ removido:', u.email);
+    } catch {}
+  }
+}
+
+(process.argv.includes('--cleanup') ? cleanup().then(cleanupUsers)
+  : process.argv.includes('--users') ? createUsers()
+  : create()).then(() => process.exit());
