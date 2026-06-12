@@ -3,9 +3,40 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 32)
+## 🔖 ONDE PARAMOS — última sessão 11/06/2026 (sessão 33)
 
-**Estado:** **Shell integrado (branch `feature/shell-integrado`): Planos A/B/C validados + bug de férias corrigido + Plano D implementado. 🔄 Em DESIGN de um HUB ÚNICO "Pessoas" (brainstorm em andamento — escopo, perfis simplificados e layout já travados; falta o wizard + spec).** Produção intacta.
+**Estado:** **Hub Pessoas: design FECHADO (spec D1–D14) + plano de 12 tasks escrito + Tasks 1–8 EXECUTADAS e commitadas (código local completo). ⏸️ PAUSADO antes da Task 9 — falta só o bloco de staging (Tasks 9–12).** Produção intacta.
+
+> 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
+>
+> **Design fechado (decisões D7–D14, todas aprovadas pelo cliente):** D7 Acesso opcional no caminho professor ("Pular — criar sem acesso") e obrigatório no não-professor; D8 professor órfão NÃO é erro (vira estado "sem acesso" recuperável pela ficha, sem rollback); D9 wizard admin-only (supervisão só edita existentes); D10 menu "Usuários" do Comissões vira link `professores.html?page=pessoas` (tela antiga fica no código sem menu); D11 entrada "Professores" some (Pessoas assume); D12 modelo = UNIÃO `teachers`⊕`users` via `professorId` (sem migração); D13 escritas PROGRESSIVAS reusando teacherModal/salaryModal via hooks `onSaved`/`onClosed`; D14 "Pessoas" na seção Cadastros (supervisão alcança; Administração fica com Unidades+Auditoria).
+>
+> **Artefatos:** spec `docs/superpowers/specs/2026-06-11-hub-pessoas-design.md` · plano `docs/superpowers/plans/2026-06-11-hub-pessoas.md` (12 tasks, código completo, nota de progresso no topo).
+>
+> **Tasks 1–8 ✅ executadas (smokes todos verdes):**
+> - `3c86e64` user-model.js sem admin_gestao (5 perfis) + smoke
+> - `73184cc` professores-nav.js: 'pessoas' em Cadastros, sem 'professores', SYSTEM_SECTION só units+audit + smoke
+> - `c9ab33f` **pessoas-model.js** novo (junção pura, 3 estados) + smoke-pessoas-model.js
+> - `0321f57` professores-cadastro.js: hooks TeacherFormState.onSaved / SalaryFormState.onClosed + supervisão edita professor (gate)
+> - `798500e` **professores-pessoas.js** novo (lista união + busca/filtro) + div/scripts no professores.html + dispatch 'pessoas' + deep-link `?page=` no showApp + helpers de professores.js sem admin_gestao (canSeeSalary = só admin)
+> - `82030ed` ficha 4 abas gated (Identidade · Professor · 🔒Salário · 🔑Acesso; owner lock D3; XOR professor/estagiário)
+> - `3a8ec2b` wizard "Nova pessoa" + modal Acesso (markup em professores.html; Auth via app 'secondary'; users doc gravado COMO ADMIN — rules atuais só permitem create por admin, diferente do createUser legado que grava como o usuário novo)
+> - `5517621` index.html: troca cirúrgica do menu (diff de 3 linhas conferido — regra #1)
+>
+> **⏭️ PRÓXIMA AÇÃO — retomar na Task 9 do plano (bloco de staging, rodar CONTÍGUO):**
+> 1. **Task 9:** criar+rodar `scripts/audit-admin-gestao.js` — se achar usuário com admin_gestao, PARAR e perguntar ao cliente
+> 2. **Task 10:** firestore.rules (`isAdmin()` sem admin_gestao + teachers update p/ supervisão) + `firebase deploy --only firestore:rules`
+> 3. **Task 11:** `scripts/fixture-pessoas.js` + `scripts/validate-pessoas-rules.js` (REST, 8 asserções)
+> 4. **Task 12:** `firebase deploy --only hosting` + roteiro UI de 9 passos (absorve a validação pendente da Plano D) + `fixture-pessoas.js --cleanup` + atualizar este arquivo
+>
+> **Decisões de processo:** validação UI da Plano D foi ABSORVIDA pelo roteiro do hub (não validar 2x a mesma fundação). Limpeza de admin_gestao em `functions/index.js`, `storage.rules` e queries legadas do `professores-shared.js` ficou FORA de escopo (ramos mortos inofensivos; mexer exigiria redeploy de CFs).
+> Branch `feature/shell-integrado` **não mergeada no `main`**.
+
+---
+
+## 🔖 Sessão 32 (10/06/2026) — Navegação integrada (Planos A–D) + virada pro hub Pessoas
+
+**Estado:** Shell integrado: Planos A/B/C validados + bug de férias corrigido + Plano D implementado. Hub único "Pessoas" em design (concluído na sessão 33).
 
 > 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
 >

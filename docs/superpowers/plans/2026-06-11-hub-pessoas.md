@@ -11,6 +11,10 @@
 **Spec:** `docs/superpowers/specs/2026-06-11-hub-pessoas-design.md` (D1–D14)
 **Branch:** `feature/shell-integrado` · **Staging only** — produção apenas via homologação (regra inviolável #7)
 
+> **📍 PROGRESSO (11/06/2026):** Tasks 1–8 ✅ EXECUTADAS E COMMITADAS (`3c86e64`→`5517621`), todos os smokes verdes.
+> **RETOMAR NA TASK 9** (bloco de staging: auditoria de dados → rules+deploy → fixture+REST → hosting+UI+cleanup).
+> O bloco 9–12 deve rodar contíguo (entre criar a fixture e o cleanup não pausar).
+
 **Regras do projeto que este plano respeita:**
 - `index.html` recebe **uma única troca de link de menu** (regra inviolável #1, D10).
 - Deploy de rules **separado e explícito** (`firebase deploy --only firestore:rules`) + validação REST (Admin SDK bypassa rules).
