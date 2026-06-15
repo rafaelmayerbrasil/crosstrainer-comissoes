@@ -3,7 +3,24 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 11–12/06/2026 (sessão 33)
+## 🔖 ONDE PARAMOS — sessão 34 (15/06/2026) — Hotfix de segurança em PRODUÇÃO
+
+**Estado: HOTFIX DE SEGURANÇA DEPLOYADO EM PRODUÇÃO (15/06).** Fechada falha real: a regra viva de prod (`/users` create) permitia `request.auth.uid == userId` → um colaborador demitido, com login do Firebase Auth ainda ativo, recriava o próprio perfil como **admin** pelo formulário de recuperação. Confirmado explorável via Firebase Rules Test API (e o controle provou que a regra antiga deixava ALLOW).
+
+**Deployado em produção:**
+- **Regras** (Firebase `crosstrainer-comissoes`): `/users` → `allow create: if isAdmin();`. Patch **mínimo** sobre as regras VIVAS de prod (buscadas pela Rules API), NÃO a versão endurecida do módulo. Ruleset `01538012…`, verificado pós-deploy (linha ativa = `isAdmin()`, self-create bloqueado).
+- **Frontend** (`origin/main` `6f0a15b`→`02e0909`, push fast-forward, GitHub Pages): `createUser` e `activateUser` gravam o doc como **admin** (app secundário, sem trocar a sessão); `showProfileRecovery` virou aviso "Acesso indisponível"; `doProfileRecovery` neutralizada. Verificado: produção serve a versão nova (form vulnerável sumiu).
+- **Efeito:** "Remover" + a regra já bloqueiam o acesso ao app (perfil removido + sem auto-recriação) **sem precisar do Console**. Disable real do Auth (matar a credencial) = Cloud Function → fica pro deploy do módulo (CFs nunca rodaram em prod + exige Blaze).
+
+**Branch do módulo alinhada:** `feature/shell-integrado` recebeu o port (commit `2eed9d6`: `activateUser` + form de recuperação; `createUser` já gravava como admin). **Staging redeployado** (hosting) com o fix — antes disso, `activateUser` e o form estavam **quebrados no staging desde 12/06** (a regra endurecida já estava lá), o que afetaria a homologação do cliente.
+
+**⚠️ ACHADO CRÍTICO DO REPO:** `main` local está **26 commits À FRENTE de `origin/main`** — é o **módulo Professores inteiro** (Sprints 4b–9 + shell) commitado mas **NUNCA publicado**. Produção (`origin/main`) é um frontend "puro" no GitHub Pages (sem `firestore.rules`/`firebase.json`/`.firebaserc` — a infra Firebase só existe no main local/branch). **Reconciliar antes do deploy do módulo:** `origin/main` ganhou o hotfix `02e0909` que o main local e a branch não têm (a branch tem o equivalente `2eed9d6`).
+
+**Pendências menores:** resíduo de worktrees `.claude/worktrees/hotfix-*` (OneDrive travou a remoção; `git worktree prune` + `git branch -D hotfix/*` quando soltar) · CF de disable do Auth escopar pro módulo. Detalhe na memória `hotfix-users-create-rule.md`.
+
+---
+
+## 🔖 Sessão 33 (11–12/06/2026)
 
 **Estado:** **SISTEMA PRONTO PRA HOMOLOGAÇÃO FINAL INTEGRADA (12/06).** Hub Pessoas completo (REST 8/8 + UI 9/9) + **check geral com 3 bugs reais corrigidos** (tela Pagamentos quebrada desde a 4b · índice de férias ausente · listener órfão no logout — `docs/check-geral-2026-06-11.md`) + **pacote de entrega `e9a61ed`**: branding CROSSTAINER no index.html (6 strings visíveis), createUser legado gravando como admin (era órfão de Auth) + bug `${unitId}` no logAudit, **sw.js v3.1** (JS próprio network-first — fix estrutural do tech debt #2, autorizado), cache do hosting JS/CSS 7d→**5min**, ESC nos modais do hub, plural no chip da home. **Revalidação integrada pós-pacote: Comissões ✓ (branding, menu Pessoas, tela legada criou usuária completa sem órfão) + Professores admin 11/11 ✓ + professor 6/6 ✓ + console limpo + índice de férias servindo no cliente.** Fixture 100% limpa. **Checklist de deploy em produção: `docs/checklist-deploy-producao.md`** (inclui as 2 decisões pendentes: antecedência de férias 5→30 e destino final da tela legada). Produção intacta — **falta SÓ o aceite do cliente no staging → seguir o checklist.**
 
