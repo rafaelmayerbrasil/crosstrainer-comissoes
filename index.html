@@ -3309,26 +3309,18 @@
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('loginError').textContent = '';
 
+      // Hotfix segurança (15/06/2026): a recriação self-service de perfil era o vetor de
+      // escalada (demitido com login ativo se recriava como admin). A regra agora exige
+      // admin no create, então o formulário deixou de existir — mostramos só um aviso.
+      // Recuperação legítima é feita por um administrador (dono: pelo Console do Firebase).
       const recoveryHtml = `
         <div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:16px;margin-bottom:16px;text-align:left">
-          <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠ Perfil não encontrado</div>
+          <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠ Acesso indisponível</div>
           <div style="font-size:11px;color:var(--text2);line-height:1.6">
-            O login de <strong>${email}</strong> existe, mas o perfil foi removido do sistema.<br>
-            Preencha abaixo para recriar seu acesso.
+            O login de <strong>${email}</strong> não tem um perfil ativo no sistema.<br>
+            Se você ainda deveria ter acesso, procure um <strong>administrador</strong> para restaurar seu cadastro.
           </div>
         </div>
-        <div class="input-group"><label>Seu Nome</label><input id="recoveryName" placeholder="Nome completo" value="Rafael Mayer Brasil"></div>
-        <div class="input-group"><label>Email</label><input type="email" id="recoveryEmail" value="${email}" disabled style="opacity:.6"></div>
-        <div class="input-group"><label>Senha atual</label><input type="password" id="recoveryPass" placeholder="Sua senha de login"></div>
-        <div class="input-group">
-          <label>Perfil</label>
-          <select id="recoveryRole">
-            <option value="admin" selected>Administrador</option>
-            <option value="vendedor">Vendedor(a)</option>
-          </select>
-        </div>
-        <button class="btn" onclick="doProfileRecovery('${email}')">✅ Recriar Perfil e Entrar</button>
-        <div class="error-msg" id="recoveryError"></div>
         <div class="link-btn" onclick="document.getElementById('loginForm').style.display='';document.getElementById('recoveryForm').style.display='none'">← Voltar ao login</div>
       `;
 
@@ -3342,46 +3334,11 @@
       recDiv.style.display = '';
     }
 
+    // Hotfix segurança (15/06/2026): desativada. A recriação self-service de perfil era o
+    // vetor de escalada de privilégio (auto-promoção a admin). A regra de create agora exige
+    // admin; perfis são restaurados por um administrador. Mantida só como guarda inerte.
     async function doProfileRecovery(email) {
-      const name = document.getElementById('recoveryName').value.trim();
-      const pass = document.getElementById('recoveryPass').value;
-      const role = document.getElementById('recoveryRole').value;
-      const errEl = document.getElementById('recoveryError');
-      errEl.textContent = '';
-
-      if (!name || !pass) { errEl.textContent = 'Preencha nome e senha.'; return; }
-
-      try {
-        // Re-authenticate
-        const cred = await auth.signInWithEmailAndPassword(email, pass);
-        const uid = cred.user.uid;
-
-        // Fetch existing units to assign access
-        const unitsSnap = await db.collection('units').get();
-        const allUnitIds = [];
-        unitsSnap.forEach(d => allUnitIds.push(d.id));
-
-        // Create Firestore profile
-        await db.collection('users').doc(uid).set({
-          name,
-          email,
-          role,
-          allowedUnits: allUnitIds,
-          unitId: allUnitIds[0] || 'cp',
-          status: 'ativo',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        toast(`Perfil de ${name} recriado com sucesso!`, 'success');
-        // onAuthStateChanged will trigger and call showApp()
-      } catch (e) {
-        const msgs = {
-          'auth/wrong-password': 'Senha incorreta.',
-          'auth/invalid-email': 'Email inválido.',
-          'auth/user-not-found': 'Usuário não encontrado no Auth.',
-        };
-        errEl.textContent = msgs[e.code] || e.message;
-      }
+      toast('Recuperação de perfil é feita por um administrador.', 'info');
     }
 
     async function doLogin() {
@@ -3834,12 +3791,19 @@
       const pass = prompt(`Defina a senha inicial para ${name} (mín. 6 caracteres):`);
       if (!pass || pass.length < 6) { alert('Senha deve ter ao menos 6 caracteres.'); return; }
       try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        // Hotfix segurança (15/06/2026): cria o Auth via app secundário pra NÃO trocar a
+        // sessão do admin (antes usava o auth principal e deslogava o admin) e grava o doc
+        // pela sessão do admin (db principal) — a regra de create agora exige admin.
+        const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
+          || firebase.initializeApp(firebaseConfig, 'secondary');
+        const secondaryAuth = secondaryApp.auth();
+        const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         await db.collection('users').doc(cred.user.uid).set({
           name, email, role: 'vendedor', unitId: currentUnitId,
           status: 'ativo', autoCreated: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        await secondaryAuth.signOut();
         // Remove the pending placeholder doc
         await db.collection('users').doc(uid).delete();
         toast(`Acesso configurado para ${name}!`, 'success');
@@ -3964,14 +3928,16 @@
         const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
           || firebase.initializeApp(firebaseConfig, 'secondary');
         const secondaryAuth = secondaryApp.auth();
-        const secondaryDb = firebase.firestore(secondaryApp);
 
         // Create auth user via secondary app
         const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
-        await secondaryDb.collection('users').doc(newUid).set({
+        // Hotfix segurança (15/06/2026): grava o perfil pela sessão do ADMIN (db principal),
+        // não mais pela do novo usuário (secondaryDb). A regra de create passou a exigir admin,
+        // então a gravação como o próprio usuário seria negada. O admin continua logado no db
+        // principal (secondaryApp serve só pra criar o Auth sem trocar a sessão atual).
+        await db.collection('users').doc(newUid).set({
           name, email, cpf, pix, role, 
           allowedUnits,
           unitId: allowedUnits[0], 
