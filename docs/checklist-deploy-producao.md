@@ -1,7 +1,14 @@
 # Checklist — Deploy em Produção (módulo Professores + shell integrado)
 
 > **Pré-requisito inviolável (regra #7):** homologação completa do cliente em staging APROVADA explicitamente.
-> Produção = projeto Firebase `crosstrainer-comissoes` + GitHub Pages (github.io serve o `main`).
+> Produção = projeto Firebase `crosstrainer-comissoes` + GitHub Pages (github.io serve o `origin/main`).
+
+> **⚠️ HOTFIX DE SEGURANÇA JÁ EM PRODUÇÃO (15/06/2026) — LER ANTES DO MERGE.**
+> Foi deployado um hotfix pontual fora deste fluxo (falha de auto-promoção a admin no `/users` create):
+> - **Regras de prod** já estão com `/users` `allow create: if isAdmin();` (patch mínimo sobre as regras antigas). O `firebase deploy --only firestore:rules` do passo 2 **substitui** isso pela versão endurecida do módulo — OK, é superset; só esteja ciente.
+> - **`origin/main` (produção) ganhou o commit `02e0909`** (frontend do hotfix) que o **`main` local NÃO tem**. O `main` local está 26 commits à frente de `origin/main` (o módulo inteiro, não publicado) **e não inclui o hotfix**. A branch `feature/shell-integrado` tem o **port equivalente** (`2eed9d6`).
+> - **CONSEQUÊNCIA:** o `git push origin main` do passo 3 vai ser **non-fast-forward** (origin tem `02e0909`). **Reconciliar antes:** `git checkout main && git merge origin/main` (traz o hotfix) e resolver o overlap nas funções `createUser`/`activateUser`/`showProfileRecovery` (a branch já tem a versão correta — manter a da branch). Validar que o resultado final tem o fix antes de publicar.
+> - Detalhes: memória `hotfix-users-create-rule.md`.
 
 ## 0. Decisões a confirmar com o cliente ANTES do deploy
 
@@ -11,8 +18,10 @@
 ## 1. Pré-merge
 
 - [ ] Smokes verdes: `node scripts/smoke-user-model.js && node scripts/smoke-sidebar.js && node scripts/smoke-pessoas-model.js`
+- [ ] **Reconciliar hotfix:** `git checkout main && git merge origin/main` (traz o `02e0909` do hotfix de segurança que está em prod mas não no main local) — ver aviso no topo
 - [ ] `git diff main..feature/shell-integrado --stat` revisado (sem arquivo inesperado)
 - [ ] Merge: `git checkout main && git merge feature/shell-integrado` (sem squash — preservar histórico das sessões)
+- [ ] Confirmar pós-merge que `/users` create exige admin e que `createUser`/`activateUser`/form de recuperação têm o fix (não regrediram)
 
 ## 2. Deploys Firebase (SEMPRE com `--project production` explícito)
 

@@ -99,6 +99,14 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 - Commit `6f0a15b` no `main` — regex word-boundary em `commission.js` corrige detecção de BIANUAL (era sobrescrita por ANUAL via substring). Identificado em prod com Isabella Haise · PP · Abr/2026 (Augusto César +R$ 35). Migração de 1 registro feita.
 - Pendência: rodar audit BIANUAL legacy em outros meses/unidades (4 casos identificados em CP Abr não migrados).
 
+## 🔐 Hotfix de segurança em produção (15/06/2026)
+
+Falha real fechada: a regra de `/users` create em prod permitia `request.auth.uid == userId` → demitido com login Auth ativo recriava o próprio perfil como **admin** pelo form de recuperação. Confirmado explorável (Firebase Rules Test API).
+
+**Deployado em prod:** regra `/users` → `allow create: if isAdmin();` (patch mínimo sobre as regras VIVAS de prod, ruleset `01538012…`) + frontend (`origin/main` `6f0a15b`→`02e0909`): `createUser`/`activateUser` gravam como admin (app secundário); form de recuperação neutralizado. Efeito: "Remover" + a regra já bloqueiam o acesso ao app sem o Console. Disable real do Auth = CF, fica pro módulo.
+
+**⚠️ Pré-deploy do módulo:** a branch já tem o port equivalente (`2eed9d6`), mas `origin/main` ganhou `02e0909` que o `main` local NÃO tem (o `main` local está 26 commits à frente de `origin/main` = o módulo inteiro, não publicado). **Reconciliar antes de subir o módulo.** Detalhes: `docs/checklist-deploy-producao.md` + memória `hotfix-users-create-rule.md`.
+
 Para detalhes completos: leia `CONTEXTO_SESSAO.md` (seção 🔖 ONDE PARAMOS).
 Para visão técnica: leia `DOCUMENTACAO.md`.
 Para índice do projeto: leia `README.md`.
