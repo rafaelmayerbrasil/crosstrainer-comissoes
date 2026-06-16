@@ -3,7 +3,20 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 34 (15/06/2026) — Hotfix de segurança em PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 35 (16/06/2026) — Fixes de split/BIANUAL/recálculo em PRODUÇÃO
+
+**Estado: PACOTE DE FIXES DO COMISSÕES DEPLOYADO EM PRODUÇÃO (16/06) E PORTADO PRO MÓDULO.** Achados pelo cliente ao pagar comissões. Corrigidos e validados (detalhe na memória `fix-split-bianual-recalc.md`):
+- **B1** split pagava o bônus P2 em dobro (cada perna recebia o bônus cheio) · **B2** BIANUAL legado virava ANUAL no recálculo · **B3** recálculo carregava conjunto incompleto (cache filtrado por uploadId) → corrompia meta/P3 da unidade · **RAIZ** upload re-quebrava splits (re-adicionava o cheio + deletava a perna) · **aba "Divisões" 🔀** nova (lista splits + alerta se % ≠ 100%) + U1/U2 de UI.
+- Deploy: `origin/main` (`3d6a30d`..`f6f23d5`) + **portado pra `feature/shell-integrado`** (cherry-pick → `e4514bb`..`3b35d06`, sw.js mantido v3.1, branding CrossTainer preservado). Motor Node-testado, sintaxe OK.
+- **Maio remediado** (CP R$4.598,63/69 ativ · PP R$1.973,19/30 ativ) por `backups/_remediar_maio.js`.
+
+**Pendências do CLIENTE:** GISELE (CP) ajustar caixa 618→359 (tirar 2ª parcela) + refazer split 70/30 · Francini PP registrar 1 pagamento limpo de R$52,46 (limpei os 4 recibos bagunçados, inclusive um errado de R$5.246,00) · conferir aba Divisões.
+
+**Reconciliação pré-deploy do módulo (atualizada):** tanto o hotfix de segurança quanto estes fixes estão em `origin/main` (commits que o `main` LOCAL não tem) E portados na branch (hashes diferentes, mesmo conteúdo). Ver `docs/checklist-deploy-producao.md`.
+
+---
+
+## 🔖 Sessão 34 (15/06/2026) — Hotfix de segurança em PRODUÇÃO
 
 **Estado: HOTFIX DE SEGURANÇA DEPLOYADO EM PRODUÇÃO (15/06).** Fechada falha real: a regra viva de prod (`/users` create) permitia `request.auth.uid == userId` → um colaborador demitido, com login do Firebase Auth ainda ativo, recriava o próprio perfil como **admin** pelo formulário de recuperação. Confirmado explorável via Firebase Rules Test API (e o controle provou que a regra antiga deixava ALLOW).
 

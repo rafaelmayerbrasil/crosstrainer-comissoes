@@ -9,6 +9,8 @@
 > - **`origin/main` (produção) ganhou o commit `02e0909`** (frontend do hotfix) que o **`main` local NÃO tem**. O `main` local está 26 commits à frente de `origin/main` (o módulo inteiro, não publicado) **e não inclui o hotfix**. A branch `feature/shell-integrado` tem o **port equivalente** (`2eed9d6`).
 > - **CONSEQUÊNCIA:** o `git push origin main` do passo 3 vai ser **non-fast-forward** (origin tem `02e0909`). **Reconciliar antes:** `git checkout main && git merge origin/main` (traz o hotfix) e resolver o overlap nas funções `createUser`/`activateUser`/`showProfileRecovery` (a branch já tem a versão correta — manter a da branch). Validar que o resultado final tem o fix antes de publicar.
 > - Detalhes: memória `hotfix-users-create-rule.md`.
+>
+> **⚠️ FIXES DE COMISSÕES TAMBÉM EM PRODUÇÃO (16/06/2026).** Além do hotfix, `origin/main` ganhou `3d6a30d`..`f6f23d5` (split P2, BIANUAL, recálculo completo, **raiz do upload preservando splits**, aba Divisões, fixes de UI) — também NÃO no `main` local. A branch `feature/shell-integrado` JÁ tem o port (cherry-pick `e4514bb`..`3b35d06`; sw.js mantido v3.1; branding CrossTainer preservado). Então o `git merge origin/main` da reconciliação vai casar conteúdo igual (hashes diferentes) — overlap em `commission.js`/`index.html`/`sw.js`: **manter a versão da branch** (já é a correta + tem branding + v3.1). Detalhes: memória `fix-split-bianual-recalc.md`.
 
 ## 0. Decisões a confirmar com o cliente ANTES do deploy
 
