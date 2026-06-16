@@ -7240,9 +7240,9 @@
             const pct = d.splitAtivacao != null && d.splitAtivacao !== '' ? Math.round(d.splitAtivacao * 100) + '%' : '—';
             const tot = (d.p1valor || 0) + (d.p2bonus || 0);
             html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
-              + '<td style="padding:6px 10px">' + (idx === 0 ? (d.cliente || '') : '') + '</td>'
-              + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);max-width:230px">' + (idx === 0 ? stripSplit(d.item) : '') + '</td>'
-              + '<td style="padding:6px 10px">' + (d.vendedor || '') + '</td>'
+              + '<td style="padding:6px 10px;vertical-align:top;word-break:break-word;white-space:normal;max-width:160px">' + (idx === 0 ? (d.cliente || '') : '') + '</td>'
+              + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);width:230px;max-width:230px;word-break:break-word;white-space:normal;vertical-align:top">' + (idx === 0 ? stripSplit(d.item) : '') + '</td>'
+              + '<td style="padding:6px 10px;vertical-align:top;word-break:break-word;white-space:normal;max-width:140px">' + (d.vendedor || '') + '</td>'
               + '<td style="padding:6px 10px;text-align:right">' + pct + '</td>'
               + '<td style="padding:6px 10px;text-align:right;font-family:monospace">' + fmtv(d.valorCaixa) + '</td>'
               + '<td style="padding:6px 10px;text-align:right;font-family:monospace;color:var(--green)">' + fmtv(d.p1valor) + '</td>'
