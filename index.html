@@ -5502,10 +5502,13 @@
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
       Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
 
+      // Arredonda contadores a 2 casas — remove ruído de float dos splits (0.30000000000000004)
+      // sem esconder fração real (um 0.5 órfão ainda apareceria). Fix 16/06/2026.
+      const r2 = x => Math.round((x || 0) * 100) / 100;
       const vendorSummary = Object.fromEntries(Object.entries(vendorData).map(([name, v]) => [name, {
         p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
-        grandTotal: v.grandTotal, ativacoes: v.ativacoes,
-        novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
+        grandTotal: v.grandTotal, ativacoes: r2(v.ativacoes),
+        novos: r2(v.novos), renovacoes: r2(v.renovacoes), retornos: r2(v.retornos), vouchers: r2(v.vouchers),
         caixa: v.caixaTotal,
         p3base: v.caixaP3Eligible || 0,
         isNaoCom: v.isNaoCom,
@@ -5518,7 +5521,7 @@
       }]));
 
       const rawUpdateData = {
-        totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
+        totals: { unitAtivacoes: r2(unitAtivacoes), unitNovosRetorno: r2(unitNovosRetorno), unitRenovacoes: r2(unitRenovacoes), unitVouchers: r2(unitVouchers), unitCaixa: r2(unitCaixa) },
         vendorSummary,
         p4result: {
           ...p4result,
