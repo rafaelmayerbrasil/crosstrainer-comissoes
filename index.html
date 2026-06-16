@@ -5424,8 +5424,11 @@
         logAudit(id ? 'record_edit' : 'record_add', `${id ? 'Editou' : 'Novo'} lançamento: ${data.vendedor} · ${data.cliente} · R$ ${fmt(data.valorCaixa)} `);
 
         if (targetPeriodId !== currentPeriodId) {
-          await recalculatePeriod(currentPeriodId, { type: 'item_delete', label: 'Item movido para outro período' });
-          await recalculatePeriod(targetPeriodId, { type: 'item_add', label: 'Item recebido de outro período' });
+          // U2 (15/06/2026): inclui o cliente no título do evento de movimentação,
+          // pra o histórico mostrar de quem é o lançamento que mudou de período.
+          const cliLabel = data.cliente ? ` — ${data.cliente}` : '';
+          await recalculatePeriod(currentPeriodId, { type: 'item_delete', label: `Item movido para outro período${cliLabel}` });
+          await recalculatePeriod(targetPeriodId, { type: 'item_add', label: `Item recebido de outro período${cliLabel}` });
           toast('Lançamento salvo num novo período. Atualizando lista...', 'info');
           await loadPeriods();
           
@@ -5515,21 +5518,18 @@
       const pDoc = await db.collection('periodos').doc(periodId).get();
       if (!pDoc.exists) return;
       const pData = pDoc.data();
-      const currentUploadId = pData.uploadId;
       const beforeVendorSummary = pData.vendorSummary || {};
 
-      let items = globalPeriodsCache[periodId];
-      if (!items) {
-        const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
-        items = [];
-        itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-        // Include items from current upload, manually added (no uploadId), or split partners
-        if (currentUploadId) {
-          items = items.filter(d => !d.uploadId || d.uploadId === currentUploadId || d.originalSplitId);
-        }
-        globalPeriodsCache[periodId] = items;
-      }
-      
+      // B3 (15/06/2026): o recálculo SEMPRE carrega o conjunto COMPLETO do Firestore.
+      // Antes confiava no globalPeriodsCache, populado por uma query filtrada por uploadId
+      // (renderRecordsTable) que PERDIA pernas de split com uploadId defasado → ativações
+      // subcontadas → a faixa de meta caía → o P3 de todos despencava num split/edição.
+      // Itens removidos já são deletados no upload, então não há órfãos a filtrar.
+      let items = [];
+      const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+      globalPeriodsCache[periodId] = items;
+
       const processed = items.filter(d => d.type === 'processed');
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
 
@@ -6043,16 +6043,9 @@
 
       try {
         if (forceRefresh || !globalPeriodsCache[periodId]) {
-          const pDoc = await db.collection('periodos').doc(periodId).get();
-          const pData = pDoc.exists ? pDoc.data() : {};
-          const currentUploadId = pData.uploadId;
-
-          let query = db.collection('periodos').doc(periodId).collection('itens');
-          if (currentUploadId) {
-            query = query.where('uploadId', '==', currentUploadId);
-          }
-
-          const itemsSnap = await query.get();
+          // B3 (15/06/2026): carrega TODOS os itens (sem filtro por uploadId), pra a lista
+          // mostrar as pernas de split que o filtro escondia (e bater com o total do vendedor).
+          const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
           const items = [];
           itemsSnap.forEach(doc => {
             items.push({ _docId: doc.id, ...doc.data() });
@@ -8663,7 +8656,7 @@
           html += `<tr>
             <td>${r.data || ''}</td>
             <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
-            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}${r.splitWith ? `<br><span style="color:var(--orange);font-weight:700">↔ split com ${r.splitWith}</span>` : ''}</td>
             <td><span class="pill ${pillCls}">${r.label || r.category || ''}</span></td>
             <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
             <td style="text-align:right;color:var(--text3);font-size:10px">${((r.p1pct || 0) * 100).toFixed(1)}%</td>
