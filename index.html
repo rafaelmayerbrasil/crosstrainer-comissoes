@@ -4709,6 +4709,25 @@
         });
         console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
 
+        // ── FIX RAIZ (16/06/2026): PRESERVAR SPLITS no re-upload ──
+        // Antes, ao re-subir a carga, o registro CHEIO da venda (sem "(Split: X%)") não casava
+        // com as pernas de split (que têm o sufixo no item) → o sistema re-adicionava o cheio e
+        // deletava a perna original, duplicando/quebrando a divisão. Agora reconhecemos a venda
+        // já dividida por uma chave-base (cliente + data + item SEM o "(Split: X%)") e:
+        //  (1) NÃO re-adicionamos o cheio; (2) NÃO deletamos as pernas do split.
+        const splitBaseKey = (d) => {
+          const baseItem = String(d.item || '').replace(/\s*\(Split:[^)]*\)\s*$/i, '').trim().toUpperCase();
+          return String(d.cliente || '').trim().toUpperCase() + '|' + String(d.data || '').replace(/\//g, '') + '|' + baseItem;
+        };
+        const existingSplitBases = new Set();
+        existingSnap.forEach(doc => {
+          const d = doc.data();
+          if ((d.type || 'processed') === 'processed' && (d.originalSplitId || String(d.item || '').includes('(Split:'))) {
+            existingSplitBases.add(splitBaseKey(d));
+          }
+        });
+        if (existingSplitBases.size) console.log(`[confirmUpload] ${existingSplitBases.size} venda(s) já divididas — preservadas (não re-adiciona o cheio).`);
+
         // Save items in batches (with dedup logic)
         console.log('[confirmUpload] Salvando itens no banco...');
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
@@ -4728,6 +4747,12 @@
           allItems.slice(i, i + 400).forEach(item => {
             const stableId = generateStableId(item);
             const existingType = existingMap[stableId];
+
+            // FIX RAIZ: venda já dividida (split) → NÃO re-adicionar o registro cheio.
+            if (item.type === 'processed' && existingSplitBases.has(splitBaseKey(item))) {
+              skipped++;
+              return;
+            }
 
             // Dedup logic:
             // - Se já existe e está ATIVO (processed) → ignorar o novo
@@ -4774,6 +4799,7 @@
           const stableId = generateStableId(item);
           if (existingMap[stableId] === 'processed') return; // match exato, já existe
           if (existingSoftMap[generateSoftId(item)]) return; // soft match (valor alterado), registrado separadamente
+          if (existingSplitBases.has(splitBaseKey(item))) return; // FIX RAIZ: venda já dividida, não é "adicionado"
           uploadItemDeltas.push({
             vendorId: item.vendedor || '',
             vendorName: item.vendedor || '',
@@ -4824,6 +4850,7 @@
           if (newUploadIds.has(id)) return false; // match exato → manter
           if (newSoftIds.has(generateSoftId(existingProcessedData[id]))) return false; // soft match → manter original
           if (existingProcessedData[id].originalSplitId) return false; // perna clonada de split (doc auto-gerado, nunca casa por stableId/softId) → manter
+          if (String(existingProcessedData[id].item || '').includes('(Split:')) return false; // FIX RAIZ: perna ORIGINAL do split (tem "(Split:" no item) → manter
           return true; // sumiu do arquivo → deletar
         });
         if (removedStableIds.length > 0) {
