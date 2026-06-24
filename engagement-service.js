@@ -58,5 +58,56 @@
   // a entry antiga fica órfã (este upsert não apaga). Tratar quando houver
   // edição de chamada na UI (plano de telas).
 
-  return { getConfig, saveConfig, recordAttendance };
+  async function awardSubstitution(subId, personId, dateISO, deps) {
+    try {
+      const cfg = (await getConfig(deps)).data;
+      const e = rPE(deps).entryForSubstitution(subId, personId, dateISO, cfg);
+      await rdb(deps).collection('point_entries').doc(e.id).set({
+        personId: e.personId, tipo: e.tipo, refDate: e.refDate,
+        pontos: e.pontos, origem: e.origem, createdAt: rts(deps),
+      });
+      return { success: true, data: { id: e.id } };
+    } catch (err) { return { success: false, error: err.message }; }
+  }
+
+  async function entriesForPerson(personId, deps) {
+    const snap = await rdb(deps).collection('point_entries').where('personId', '==', personId).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
+  async function scoreboard(personId, admissaoISO, cycle, deps) {
+    try {
+      const cfg = (await getConfig(deps)).data;
+      const entries = await entriesForPerson(personId, deps);
+      const tempoCasa = rPE(deps).tempoDeCasaPontos(admissaoISO, cycle.fim, cfg);
+      return { success: true, data: rPE(deps).scoreboard(entries, cycle, tempoCasa) };
+    } catch (err) { return { success: false, error: err.message }; }
+  }
+
+  async function listCycles(deps) {
+    try {
+      const snap = await rdb(deps).collection('point_cycles').orderBy('inicio').get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) { return { success: false, error: err.message }; }
+  }
+
+  async function saveCycle(cycle, deps) {
+    try {
+      const database = rdb(deps);
+      const id = cycle.id || database.collection('point_cycles').doc().id;
+      await database.collection('point_cycles').doc(id).set({
+        inicio: cycle.inicio, fim: cycle.fim, label: cycle.label || '',
+        updatedAt: rts(deps), updatedBy: ruid(deps),
+      });
+      return { success: true, data: { id } };
+    } catch (err) { return { success: false, error: err.message }; }
+  }
+
+  function currentCycle(cycles, refISO) {
+    const PEref = (typeof PointsEngine !== 'undefined') ? PointsEngine : require('./points-engine.js');
+    const id = PEref.cycleIdFor(refISO, cycles);
+    return cycles.find(c => c.id === id) || null;
+  }
+
+  return { getConfig, saveConfig, recordAttendance, awardSubstitution, entriesForPerson, scoreboard, listCycles, saveCycle, currentCycle };
 });

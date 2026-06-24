@@ -47,4 +47,26 @@ function mkDeps(db) { return { db, ts: () => 'TS', uid: () => 'tester', PE, EC }
   assert.strictEqual(total, 2, 'sem duplicação (ainda 2 entries: att1:p1, att1:p2)');
 
   console.log('✓ smoke-engagement-service: recordAttendance OK');
+
+  // ── Substituição (proatividade) ──
+  const sub = await ES.awardSubstitution('sub42', 'p1', '2026-03-12', deps);
+  assert.strictEqual(sub.data.id, 'sub:sub42:p1');
+  const subDoc = await db.collection('point_entries').doc('sub:sub42:p1').get();
+  assert.strictEqual(subDoc.data().pontos, 3, 'proatividade = 3 pts');
+
+  // ── Ciclos ──
+  await ES.saveCycle({ id: 'c1', inicio: '2026-01-01', fim: '2026-06-30', label: '1º sem' }, deps);
+  await ES.saveCycle({ id: 'c2', inicio: '2026-07-01', fim: '2026-12-31', label: '2º sem' }, deps);
+  const cyc = await ES.listCycles(deps);
+  assert.strictEqual(cyc.data.length, 2, '2 ciclos');
+  assert.strictEqual(ES.currentCycle(cyc.data, '2026-03-15').id, 'c1', 'ciclo atual por data');
+
+  // ── Placar ── (p1: líder 1pt[att] já virou 1 + proatividade 3 = 4; + tempo de casa)
+  // admissão 2024-06-01, fim do ciclo 2026-06-30 → 2 anos completos → faixa 1 → 20 pts
+  const sb = await ES.scoreboard('p1', '2024-06-01', cyc.data[0], deps);
+  assert.strictEqual(sb.data.tempoCasa, 20, 'tempo de casa');
+  assert.strictEqual(sb.data.porTipo.proatividade_substituicao, 3);
+  assert.strictEqual(sb.data.total, 1 /*escola_interna*/ + 3 /*subst*/ + 20 /*casa*/, 'total do placar');
+
+  console.log('✓ smoke-engagement-service: placar/ciclos OK');
 })();
