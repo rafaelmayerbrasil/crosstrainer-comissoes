@@ -31,5 +31,17 @@
     return (entries || []).filter(e => e.refDate >= cycle.inicio && e.refDate <= cycle.fim);
   }
 
-  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle };
+  function scoreboard(entries, cycle, tempoCasaPts) {
+    const noCiclo = entriesForCycle(entries, cycle);
+    const porTipo = {};
+    let somaEntries = 0;
+    noCiclo.forEach(e => {
+      porTipo[e.tipo] = (porTipo[e.tipo] || 0) + e.pontos;
+      somaEntries += e.pontos;
+    });
+    const tempoCasa = tempoCasaPts || 0;
+    return { porTipo, tempoCasa, total: somaEntries + tempoCasa };
+  }
+
+  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard };
 });

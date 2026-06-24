@@ -32,3 +32,22 @@ assert.strictEqual(PE.entriesForCycle(entries, cycles[0]).length, 1, 'só 1 entr
 assert.strictEqual(PE.entriesForCycle(entries, cycles[0])[0].refDate, '2026-03-01');
 
 console.log('✓ smoke-points-engine: ciclos OK');
+
+// ── Placar ──
+const sbEntries = [
+  { personId: 'p1', tipo: 'escola_interna', refDate: '2026-03-01', pontos: 1 },
+  { personId: 'p1', tipo: 'escola_interna', refDate: '2026-03-02', pontos: 1 },
+  { personId: 'p1', tipo: 'reuniao',        refDate: '2026-03-10', pontos: 8 },
+  { personId: 'p1', tipo: 'penalidade_treino', refDate: '2026-03-20', pontos: -15 },
+  { personId: 'p1', tipo: 'evento',         refDate: '2026-09-01', pontos: 8 }, // fora do ciclo
+];
+const sb = PE.scoreboard(sbEntries, cycles[0], 20); // 20 = tempo de casa
+assert.strictEqual(sb.tempoCasa, 20);
+assert.strictEqual(sb.porTipo.escola_interna, 2, 'soma 2 dias de escola interna');
+assert.strictEqual(sb.porTipo.reuniao, 8);
+assert.strictEqual(sb.porTipo.penalidade_treino, -15);
+assert.strictEqual(sb.porTipo.evento, undefined, 'evento fora do ciclo não entra');
+// total = entries do ciclo (2+8-15 = -5) + tempo de casa (20) = 15
+assert.strictEqual(sb.total, 15, 'total = entries do ciclo + tempo de casa');
+
+console.log('✓ smoke-points-engine: placar OK');
