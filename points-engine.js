@@ -43,5 +43,34 @@
     return { porTipo, tempoCasa, total: somaEntries + tempoCasa };
   }
 
-  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard };
+  function entriesFromAttendance(att, cfg) {
+    const out = [];
+    const mk = (personId, tipo, pontos) => ({
+      id: `${att.id}:${personId}`, personId, tipo, refDate: att.date, pontos, origem: att.id,
+    });
+    (att.records || []).forEach(rec => {
+      const p = rec.personId;
+      switch (att.kind) {
+        case 'escola_interna':
+          if (rec.status === 'presente' && rec.role === 'lider') out.push(mk(p, 'escola_interna_lider', cfg.pts.escolaInternaLiderar));
+          else if (rec.status === 'presente') out.push(mk(p, 'escola_interna', cfg.pts.escolaInternaParticipar));
+          else if (rec.status === 'aluno_outro') out.push(mk(p, 'treinar_como_aluno', cfg.pts.treinarComoAlunoEmOutro));
+          break;
+        case 'reuniao':
+          if (att.confirmedBy && rec.status === 'presente') out.push(mk(p, 'reuniao', cfg.pts.reuniaoStaff));
+          break;
+        case 'evento':
+          if (rec.status === 'presente') out.push(mk(p, 'evento', cfg.pts.eventoInterno));
+          break;
+        case 'treinamento_obrigatorio':
+          if (rec.status === 'presente') out.push(mk(p, 'treinamento_presenca', cfg.pts.treinamentoObrigatorioPresenca));
+          else if (rec.status === 'falta_justificada') out.push(mk(p, 'penalidade_treino', cfg.penalidade.treinoFaltaJustificada));
+          else if (rec.status === 'falta_sem_aviso') out.push(mk(p, 'penalidade_treino', cfg.penalidade.treinoFaltaSemAviso));
+          break;
+      }
+    });
+    return out;
+  }
+
+  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard, entriesFromAttendance };
 });

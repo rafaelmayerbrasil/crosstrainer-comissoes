@@ -51,3 +51,47 @@ assert.strictEqual(sb.porTipo.evento, undefined, 'evento fora do ciclo não entr
 assert.strictEqual(sb.total, 15, 'total = entries do ciclo + tempo de casa');
 
 console.log('✓ smoke-points-engine: placar OK');
+
+// ── Geração a partir de chamada ──
+const attEscola = {
+  id: 'att1', kind: 'escola_interna', date: '2026-03-05', unitId: 'unit-cp',
+  records: [
+    { personId: 'p1', status: 'presente', role: 'lider' },
+    { personId: 'p2', status: 'presente' },
+    { personId: 'p3', status: 'aluno_outro' },
+  ],
+};
+const e1 = PE.entriesFromAttendance(attEscola, cfg);
+assert.strictEqual(e1.length, 3);
+assert.deepStrictEqual(e1.find(x => x.personId === 'p1'), {
+  id: 'att1:p1', personId: 'p1', tipo: 'escola_interna_lider', refDate: '2026-03-05', pontos: 2, origem: 'att1',
+});
+assert.strictEqual(e1.find(x => x.personId === 'p2').pontos, 1);
+assert.strictEqual(e1.find(x => x.personId === 'p3').tipo, 'treinar_como_aluno');
+
+// Reunião sem confirmação da gestão → nada
+const attReuSemConf = { id: 'r1', kind: 'reuniao', date: '2026-03-10', records: [{ personId: 'p1', status: 'presente' }] };
+assert.strictEqual(PE.entriesFromAttendance(attReuSemConf, cfg).length, 0, 'reunião sem confirmedBy não pontua');
+const attReu = { ...attReuSemConf, confirmedBy: 'admin1' };
+assert.strictEqual(PE.entriesFromAttendance(attReu, cfg)[0].pontos, 8, 'reunião confirmada = 8');
+
+// Treinamento obrigatório: presença + faltas
+const attTrein = {
+  id: 'tr1', kind: 'treinamento_obrigatorio', date: '2026-06-27',
+  records: [
+    { personId: 'p1', status: 'presente' },
+    { personId: 'p2', status: 'falta_justificada' },
+    { personId: 'p3', status: 'falta_sem_aviso' },
+  ],
+};
+const e3 = PE.entriesFromAttendance(attTrein, cfg);
+assert.strictEqual(e3.find(x => x.personId === 'p1').pontos, 8);
+assert.strictEqual(e3.find(x => x.personId === 'p2').pontos, 0);
+assert.strictEqual(e3.find(x => x.personId === 'p3').pontos, -15);
+assert.strictEqual(e3.find(x => x.personId === 'p3').tipo, 'penalidade_treino');
+
+// Idempotência: reprocessar a mesma chamada dá os mesmos ids
+const again = PE.entriesFromAttendance(attEscola, cfg);
+assert.deepStrictEqual(again.map(x => x.id), ['att1:p1', 'att1:p2', 'att1:p3'], 'ids estáveis');
+
+console.log('✓ smoke-points-engine: geração por chamada OK');
