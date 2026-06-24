@@ -72,5 +72,12 @@
     return out;
   }
 
-  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard, entriesFromAttendance };
+  function entryForSubstitution(subId, personId, dateISO, cfg) {
+    return {
+      id: `sub:${subId}:${personId}`, personId, tipo: 'proatividade_substituicao',
+      refDate: dateISO, pontos: cfg.pts.proatividadeSubstituicao, origem: subId,
+    };
+  }
+
+  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard, entriesFromAttendance, entryForSubstitution };
 });

@@ -95,3 +95,12 @@ const again = PE.entriesFromAttendance(attEscola, cfg);
 assert.deepStrictEqual(again.map(x => x.id), ['att1:p1', 'att1:p2', 'att1:p3'], 'ids estáveis');
 
 console.log('✓ smoke-points-engine: geração por chamada OK');
+
+// ── Proatividade (substituição) ──
+const sub = PE.entryForSubstitution('sub42', 'p1', '2026-03-12', cfg);
+assert.deepStrictEqual(sub, {
+  id: 'sub:sub42:p1', personId: 'p1', tipo: 'proatividade_substituicao',
+  refDate: '2026-03-12', pontos: 3, origem: 'sub42',
+});
+
+console.log('✓ smoke-points-engine: proatividade OK');
