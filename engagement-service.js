@@ -32,5 +32,31 @@
     } catch (err) { return { success: false, error: err.message }; }
   }
 
-  return { getConfig, saveConfig };
+  async function recordAttendance(att, deps) {
+    try {
+      const database = rdb(deps);
+      const cfg = (await getConfig(deps)).data;
+      const entries = rPE(deps).entriesFromAttendance(att, cfg);
+      const batch = database.batch();
+      batch.set(database.collection('attendance').doc(att.id), {
+        kind: att.kind, date: att.date, unitId: att.unitId || null,
+        records: att.records || [], confirmedBy: att.confirmedBy || null,
+        updatedAt: rts(deps), updatedBy: ruid(deps),
+      });
+      entries.forEach(e => {
+        batch.set(database.collection('point_entries').doc(e.id), {
+          personId: e.personId, tipo: e.tipo, refDate: e.refDate,
+          pontos: e.pontos, origem: e.origem, createdAt: rts(deps),
+        });
+      });
+      await batch.commit();
+      return { success: true, data: { entriesCount: entries.length } };
+    } catch (err) { return { success: false, error: err.message }; }
+  }
+
+  // NOTA (tech-debt): se um personId for REMOVIDO dos records num reprocesso,
+  // a entry antiga fica órfã (este upsert não apaga). Tratar quando houver
+  // edição de chamada na UI (plano de telas).
+
+  return { getConfig, saveConfig, recordAttendance };
 });
