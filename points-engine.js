@@ -22,5 +22,14 @@
     return (faixa + 1) * cfg.pts.tempoCasaPorFaixa;
   }
 
-  return { completedYears, tempoDeCasaPontos };
+  function cycleIdFor(refISO, cycles) {
+    const found = (cycles || []).find(c => refISO >= c.inicio && refISO <= c.fim);
+    return found ? found.id : null;
+  }
+
+  function entriesForCycle(entries, cycle) {
+    return (entries || []).filter(e => e.refDate >= cycle.inicio && e.refDate <= cycle.fim);
+  }
+
+  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle };
 });
