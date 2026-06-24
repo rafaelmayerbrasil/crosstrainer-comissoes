@@ -9,6 +9,7 @@
   // anos completos entre duas datas ISO (YYYY-MM-DD)
   function completedYears(fromISO, toISO) {
     const a = new Date(fromISO), b = new Date(toISO);
+    if (isNaN(a) || isNaN(b)) return 0; // data inválida não propaga NaN
     let years = b.getFullYear() - a.getFullYear();
     const anniv = new Date(b.getFullYear(), a.getMonth(), a.getDate());
     if (b < anniv) years -= 1;
@@ -17,16 +18,20 @@
 
   function tempoDeCasaPontos(admissaoISO, refISO, cfg) {
     if (!admissaoISO) return 0;
+    const a = new Date(admissaoISO), b = new Date(refISO);
+    if (isNaN(a) || isNaN(b) || a > b) return 0; // data inválida ou admissão futura → sem pontos
     const anos = completedYears(admissaoISO, refISO);
     const faixa = Math.floor(anos / cfg.faixaAnos);
     return (faixa + 1) * cfg.pts.tempoCasaPorFaixa;
   }
 
+  // atenção: comparação lexicográfica — datas devem estar em YYYY-MM-DD com zero-padding
   function cycleIdFor(refISO, cycles) {
     const found = (cycles || []).find(c => refISO >= c.inicio && refISO <= c.fim);
     return found ? found.id : null;
   }
 
+  // atenção: comparação lexicográfica — datas devem estar em YYYY-MM-DD com zero-padding
   function entriesForCycle(entries, cycle) {
     return (entries || []).filter(e => e.refDate >= cycle.inicio && e.refDate <= cycle.fim);
   }
@@ -36,8 +41,9 @@
     const porTipo = {};
     let somaEntries = 0;
     noCiclo.forEach(e => {
-      porTipo[e.tipo] = (porTipo[e.tipo] || 0) + e.pontos;
-      somaEntries += e.pontos;
+      const p = Number(e.pontos) || 0; // pontos ausente/inválido não vira NaN
+      porTipo[e.tipo] = (porTipo[e.tipo] || 0) + p;
+      somaEntries += p;
     });
     const tempoCasa = tempoCasaPts || 0;
     return { porTipo, tempoCasa, total: somaEntries + tempoCasa };

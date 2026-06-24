@@ -104,3 +104,18 @@ assert.deepStrictEqual(sub, {
 });
 
 console.log('✓ smoke-points-engine: proatividade OK');
+
+// ── Robustez (datas inválidas / futuras / pontos ausentes) ──
+assert.strictEqual(PE.completedYears('data-invalida', '2026-06-01'), 0, 'data inválida em completedYears = 0, não NaN');
+assert.strictEqual(PE.tempoDeCasaPontos('data-invalida', '2026-06-01', cfg), 0, 'admissão inválida = 0, não NaN');
+assert.strictEqual(PE.tempoDeCasaPontos('2030-01-01', '2026-06-01', cfg), 0, 'admissão futura = 0');
+assert.strictEqual(PE.tempoDeCasaPontos('2026-06-01', '2026-06-01', cfg), 10, 'admissão = referência ainda ganha faixa 0 = 10');
+
+const sbSemPontos = PE.scoreboard(
+  [{ personId: 'p', tipo: 'evento', refDate: '2026-03-01' }],
+  { id: 'c1', inicio: '2026-01-01', fim: '2026-06-30' },
+  0
+);
+assert.strictEqual(sbSemPontos.total, 0, 'entry sem pontos não gera NaN no total');
+
+console.log('✓ smoke-points-engine: robustez OK');
