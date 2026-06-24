@@ -187,6 +187,40 @@ service cloud.firestore {
       }
     }
 
+    // ─── Engajamento / Pontos (módulo novo) ───────────────────────────
+    // Config calibrável dos pontos + ciclos de reset: leitura p/ todo o módulo
+    // (professor precisa pra ver o próprio placar), escrita só admin.
+    match /engagement_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    match /point_cycles/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    // Livro-razão dos pontos: professor lê só os DELE; gestão lança (ticando
+    // chamada / confirmando reunião / creditando substituição). Sem delete
+    // (preserva trilha; limpeza de órfãs será operação admin futura).
+    match /point_entries/{id} {
+      allow read:   if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      resource.data.personId == uData().professorId
+                    );
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    // Chamadas (escola interna / reunião / treinamento / evento): leitura p/ o
+    // módulo, escrita pela gestão. (Self-mark de reunião pelo colaborador será
+    // refinado quando a tela de reunião for construída.)
+    match /attendance/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
     // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
     match /meta/{doc} {
       allow read:  if isAuth() && hasProfModule() && doc.matches('holidays_cache_.*');
