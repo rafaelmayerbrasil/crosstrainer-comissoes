@@ -487,6 +487,12 @@ function navigateTo(pageId) {
     renderSaldosGestaoPage();
   } else if (pageId === 'relatorios' && typeof renderRelatoriosPage === 'function') {
     renderRelatoriosPage();
+  } else if (pageId === 'engaj-config' && typeof renderEngajConfigPage === 'function') {
+    renderEngajConfigPage();
+  } else if (pageId === 'engaj-chamada' && typeof renderEngajChamadaPage === 'function') {
+    renderEngajChamadaPage();
+  } else if (pageId === 'engaj-placar' && typeof renderEngajPlacarPage === 'function') {
+    renderEngajPlacarPage();
   }
 
   // Fecha menu mobile se estiver aberto
