@@ -474,6 +474,8 @@ function navigateTo(pageId) {
     renderMeusPagamentosPage();
   } else if (pageId === 'escalas' && typeof renderEscalasPage === 'function') {
     renderEscalasPage();
+  } else if (pageId === 'escala-smart' && typeof renderEscalaSmartPage === 'function') {
+    renderEscalaSmartPage();
   } else if (pageId === 'ferias' && typeof renderFeriasGestaoPage === 'function' && typeof renderMinhasFeriasPage === 'function') {
     // Admin/Gestão/Supervisão veem tela de gestão; Professor vê "Minhas Férias"
     if (isAdminGestao() || isSupervisao()) {

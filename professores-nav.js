@@ -11,10 +11,10 @@
 
   // admin_gestao dropado + 'professores' absorvido pelo hub 'pessoas' (D2/D11 — 11/06/2026)
   const PROF_PAGES = {
-    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar'],
-    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar'],
-    professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
-    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar'],
+    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar'],
+    professor:            ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
   };
 
   // section agora reflete o agrupamento por DOMÍNIO (decisão D3 do design).
@@ -23,6 +23,7 @@
     { id: 'agenda',         label: 'Agenda',            icon: '📅', section: 'Agenda' },
     { id: 'agenda-geral',   label: 'Agenda Geral',      icon: '🌐', section: 'Agenda' },
     { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Agenda' },
+    { id: 'escala-smart',   label: 'Escala Inteligente',icon: '🗓️', section: 'Agenda' },
     { id: 'pessoas',        label: 'Pessoas',           icon: '👥', section: 'Cadastros' },
     { id: 'modalidades',    label: 'Modalidades',       icon: '🏷️', section: 'Cadastros' },
     { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Férias' },
