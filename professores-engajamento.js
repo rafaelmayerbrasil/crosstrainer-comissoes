@@ -346,27 +346,104 @@ async function saveChamada() {
 }
 
 /* ─── Placar (todos) ───────────────────────────────────────────────── */
-function renderEngajPlacarPage() {
+const EngajPlacarState = { cycleId: null, cycles: [] };
+// fallback quando não há ciclos cadastrados: cobre todo o histórico até HOJE
+// (fim = hoje pra o tempo de casa não projetar pro futuro).
+
+function engajHireISO(t) {
+  const d = t.hireDate || t.internshipStartDate;
+  if (!d) return null;
+  if (d.toDate) return d.toDate().toISOString().slice(0, 10);
+  if (typeof d === 'string') return d.slice(0, 10);
+  return null;
+}
+
+function engajIsManagement() {
+  return (typeof isAdminGestao === 'function' && isAdminGestao()) ||
+         (typeof isSupervisao === 'function' && isSupervisao());
+}
+
+async function renderEngajPlacarPage() {
   const container = document.getElementById('page-engaj-placar');
   if (!container) return;
+  const mgmt = engajIsManagement();
 
   container.innerHTML = `
-    <div class="page-hdr">
-      <h1>🏆 Placar</h1>
-      <p>Acompanhe a pontuação do ciclo atual por pessoa.</p>
-    </div>
+    <div class="page-hdr"><h1>🏆 Placar</h1><p>${mgmt ? 'Pontuação por colaborador no ciclo.' : 'Sua pontuação no ciclo.'}</p></div>
+    <div class="loading"><div class="spinner"></div> Calculando placar…</div>`;
 
-    <div class="page-toolbar">
-      <div class="lhs">
-        <h2>Em construção</h2>
-      </div>
-    </div>
+  const [cyclesRes, teachersRes] = await Promise.all([
+    EngagementService.listCycles(),
+    TeacherService.list(),
+  ]);
 
-    <p style="padding:24px;color:var(--text2);">
-      🚧 Em construção (T1 scaffold). Esta tela vai listar o placar por ciclo
-      (<code>EngagementService.scoreboard</code>), com o professor vendo só o próprio total.
-    </p>
-  `;
+  let cycles = cyclesRes.success && cyclesRes.data.length
+    ? cyclesRes.data
+    : [{ id: '_all', inicio: '1900-01-01', fim: chamadaTodayISO(), label: 'Todos os lançamentos' }];
+  if (!EngajPlacarState.cycleId || !cycles.find(c => c.id === EngajPlacarState.cycleId)) {
+    const cur = (typeof PointsEngine === 'object') ? PointsEngine.cycleIdFor(chamadaTodayISO(), cycles) : null;
+    EngajPlacarState.cycleId = cur || cycles[0].id;
+  }
+  const cycle = cycles.find(c => c.id === EngajPlacarState.cycleId) || cycles[0];
+  EngajPlacarState.cycles = cycles;
+
+  let teachers = (teachersRes.success ? teachersRes.data : []).filter(t => t.isActive !== false);
+  if (!mgmt) {
+    const pid = (typeof AppState === 'object' && AppState.userProfile) ? AppState.userProfile.professorId : null;
+    teachers = teachers.filter(t => t.id === pid);
+  }
+
+  const rows = await Promise.all(teachers.map(async t => {
+    const r = await EngagementService.scoreboard(t.id, engajHireISO(t), cycle);
+    return { t, sb: r.success ? r.data : { porTipo: {}, tempoCasa: 0, total: 0 } };
+  }));
+  rows.sort((a, b) => b.sb.total - a.sb.total);
+
+  renderPlacarContent(container, rows, cycles, cycle, mgmt);
+}
+
+function placarRow(r) {
+  const pt = r.sb.porTipo || {};
+  const escola = (pt.escola_interna || 0) + (pt.escola_interna_lider || 0) + (pt.treinar_como_aluno || 0) + (pt.toi_aluno || 0);
+  const reun = pt.reuniao || 0, pro = pt.proatividade_substituicao || 0, ev = pt.evento || 0, tr = pt.treinamento_presenca || 0, pen = pt.penalidade_treino || 0;
+  const cell = (v) => `<td style="text-align:center;color:${v ? 'var(--text)' : 'var(--text3)'};">${v || '—'}</td>`;
+  return `<tr>
+    <td style="font-weight:600;">${r.t.name || '—'}</td>
+    ${cell(r.sb.tempoCasa)}${cell(escola)}${cell(reun)}${cell(pro)}${cell(ev)}${cell(tr)}
+    <td style="text-align:center;color:${pen < 0 ? 'var(--red)' : 'var(--text3)'};">${pen || '—'}</td>
+    <td style="text-align:center;font-weight:700;color:var(--blue);">${r.sb.total}</td>
+  </tr>`;
+}
+
+function renderPlacarContent(container, rows, cycles, cycle, mgmt) {
+  const cycleOpts = cycles.map(c => `<option value="${c.id}" ${c.id === cycle.id ? 'selected' : ''}>${c.label || (c.inicio + ' a ' + c.fim)}</option>`).join('');
+  let body;
+  if (rows.length === 0) {
+    body = `<p style="padding:24px;color:var(--text2);">${mgmt ? 'Nenhum colaborador ativo.' : 'Você ainda não tem pontos neste ciclo.'}</p>`;
+  } else {
+    body = `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Colaborador</th>
+        <th style="text-align:center;">Tempo casa</th><th style="text-align:center;">Escola int.</th>
+        <th style="text-align:center;">Reunião</th><th style="text-align:center;">Proativ.</th>
+        <th style="text-align:center;">Eventos</th><th style="text-align:center;">Treino</th>
+        <th style="text-align:center;">Penal.</th><th style="text-align:center;">Total</th>
+      </tr></thead>
+      <tbody>${rows.map(placarRow).join('')}</tbody>
+    </table></div>`;
+  }
+  container.innerHTML = `
+    <div class="page-hdr"><h1>🏆 Placar</h1><p>${mgmt ? 'Pontuação por colaborador no ciclo. Tempo de casa entra sempre (fora do reset).' : 'Sua pontuação no ciclo.'}</p></div>
+    <div style="display:flex;gap:12px;align-items:end;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;"><label>Ciclo</label><select id="placarCycle" class="input" onchange="onPlacarCycleChange()">${cycleOpts}</select></div>
+    </div>
+    ${body}`;
+}
+
+function onPlacarCycleChange() {
+  const el = document.getElementById('placarCycle');
+  if (el) EngajPlacarState.cycleId = el.value;
+  renderEngajPlacarPage();
 }
 
 // Expor funções globalmente (chamadas via navigateTo)
@@ -382,5 +459,7 @@ window.onChamadaToolbarChange = onChamadaToolbarChange;
 window.setChamadaMark = setChamadaMark;
 window.toggleChamadaLider = toggleChamadaLider;
 window.saveChamada = saveChamada;
+// Placar
+window.onPlacarCycleChange = onPlacarCycleChange;
 
 console.log('[CrossTainer Professores] professores-engajamento.js carregado · T1 scaffold');
