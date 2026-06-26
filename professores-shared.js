@@ -1571,6 +1571,19 @@ const SubstitutionService = {
           link: { type: 'substitution', id: subId },
         });
       }
+      // Engajamento (5c): aceitar cobrir colega = ponto de proatividade pro substituto.
+      // Não-bloqueante e idempotente (awardSubstitution usa id estável por substituição).
+      if (newStatus === 'accepted' && before.substituteTeacherId && typeof EngagementService === 'object') {
+        try {
+          let dateISO = new Date().toISOString().slice(0, 10);
+          try {
+            const cd = await db.collection('classes').doc(before.classId).get();
+            const sd = cd.exists ? cd.data().scheduledDate : null;
+            if (sd) { const d = sd.toDate ? sd.toDate() : new Date(sd); dateISO = d.toISOString().slice(0, 10); }
+          } catch (e) { /* sem a aula, usa hoje */ }
+          await EngagementService.awardSubstitution(subId, before.substituteTeacherId, dateISO);
+        } catch (e) { console.error('[proatividade/substituicao]', e); }
+      }
       return { success: true };
     } catch (err) {
       console.error('[SubstitutionService._respond]', err);
