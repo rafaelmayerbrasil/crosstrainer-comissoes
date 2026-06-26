@@ -14,6 +14,14 @@
   function rPE(deps)  { if (deps && deps.PE) return deps.PE; return PointsEngine; }
   function rEC(deps)  { if (deps && deps.EC) return deps.EC; return EngagementConfig; }
 
+  // Auditoria fire-and-forget. Guardada por typeof (no Node/smoke AuditService
+  // não existe → no-op). Falha de auditoria nunca bloqueia a operação.
+  async function engajAudit(entry) {
+    if (typeof AuditService === 'object' && AuditService && typeof AuditService.log === 'function') {
+      try { await AuditService.log(entry); } catch (e) { console.error('[EngagementService.audit]', e); }
+    }
+  }
+
   const CONFIG_DOC = 'current';
 
   async function getConfig(deps) {
@@ -21,15 +29,16 @@
       const doc = await rdb(deps).collection('engagement_config').doc(CONFIG_DOC).get();
       const overrides = doc.exists ? (doc.data().overrides || {}) : {};
       return { success: true, data: rEC(deps).mergeConfig(overrides) };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.getConfig]', err); return { success: false, error: err.message }; }
   }
 
   async function saveConfig(overrides, deps) {
     try {
       await rdb(deps).collection('engagement_config').doc(CONFIG_DOC)
         .set({ overrides: overrides || {}, updatedAt: rts(deps), updatedBy: ruid(deps) });
+      await engajAudit({ type: 'engagement_config_updated', details: 'Configuração de pontos atualizada', entityType: 'engagement_config', entityId: CONFIG_DOC, after: { overrides: overrides || {} } });
       return { success: true };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.saveConfig]', err); return { success: false, error: err.message }; }
   }
 
   async function recordAttendance(att, deps) {
@@ -50,8 +59,9 @@
         });
       });
       await batch.commit();
+      await engajAudit({ type: 'engagement_attendance_recorded', details: `Chamada ${att.kind} em ${att.date} (${entries.length} lançamento(s))`, entityType: 'attendance', entityId: att.id, after: { kind: att.kind, date: att.date, entriesCount: entries.length } });
       return { success: true, data: { entriesCount: entries.length } };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.recordAttendance]', err); return { success: false, error: err.message }; }
   }
 
   // NOTA (tech-debt): se um personId for REMOVIDO dos records num reprocesso,
@@ -66,8 +76,9 @@
         personId: e.personId, tipo: e.tipo, refDate: e.refDate,
         pontos: e.pontos, origem: e.origem, createdAt: rts(deps),
       });
+      await engajAudit({ type: 'engagement_substitution_awarded', details: `Proatividade creditada (substituição ${subId})`, entityType: 'point_entry', entityId: e.id, after: { personId, pontos: e.pontos } });
       return { success: true, data: { id: e.id } };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.awardSubstitution]', err); return { success: false, error: err.message }; }
   }
 
   async function entriesForPerson(personId, deps) {
@@ -81,14 +92,14 @@
       const entries = await entriesForPerson(personId, deps);
       const tempoCasa = rPE(deps).tempoDeCasaPontos(admissaoISO, cycle.fim, cfg);
       return { success: true, data: rPE(deps).scoreboard(entries, cycle, tempoCasa) };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.scoreboard]', err); return { success: false, error: err.message }; }
   }
 
   async function listCycles(deps) {
     try {
       const snap = await rdb(deps).collection('point_cycles').orderBy('inicio').get();
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.listCycles]', err); return { success: false, error: err.message }; }
   }
 
   async function saveCycle(cycle, deps) {
@@ -99,13 +110,15 @@
         inicio: cycle.inicio, fim: cycle.fim, label: cycle.label || '',
         updatedAt: rts(deps), updatedBy: ruid(deps),
       });
+      await engajAudit({ type: 'engagement_cycle_saved', details: `Ciclo "${cycle.label || id}" (${cycle.inicio} a ${cycle.fim})`, entityType: 'point_cycle', entityId: id, after: { inicio: cycle.inicio, fim: cycle.fim } });
       return { success: true, data: { id } };
-    } catch (err) { return { success: false, error: err.message }; }
+    } catch (err) { console.error('[EngagementService.saveCycle]', err); return { success: false, error: err.message }; }
   }
 
   async function deleteCycle(id, deps) {
     try {
       await rdb(deps).collection('point_cycles').doc(id).delete();
+      await engajAudit({ type: 'engagement_cycle_deleted', details: `Ciclo removido (${id})`, entityType: 'point_cycle', entityId: id });
       return { success: true };
     } catch (err) {
       console.error('[EngagementService.deleteCycle]', err);
