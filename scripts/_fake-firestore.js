@@ -8,12 +8,16 @@ module.exports = function makeFakeDb() {
 
   function docRef(name, id) {
     return {
-      _col: name, _id: id,
+      _col: name, _id: id, id,
       async get() {
         const data = col(name)[id];
         return { exists: data !== undefined, id, data: () => data };
       },
-      async set(obj) { col(name)[id] = JSON.parse(JSON.stringify(obj)); },
+      async set(obj, opts) {
+        const clone = JSON.parse(JSON.stringify(obj));
+        if (opts && opts.merge) col(name)[id] = Object.assign({}, col(name)[id] || {}, clone);
+        else col(name)[id] = clone;
+      },
       async delete() { delete col(name)[id]; },
     };
   }
