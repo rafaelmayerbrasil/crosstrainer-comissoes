@@ -51,3 +51,22 @@ assert.strictEqual(rDiv.assignments[0].personId, 'fab', 'maior dívida escolhe p
 assert.strictEqual(rDiv.fairnessDelta.fab.dividaResolvida, 1, 'dívida resolvida no delta');
 
 console.log('✓ smoke-scale-engine: piso de justiça OK');
+
+// ── Preferência e unidade alternada (desempate, mesmo mérito/piso) ──
+const b3 = (over) => Object.assign({ modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 20, diasTrabalhados: 5, divida: 0, pref: null }, over);
+// Mesmo mérito; gabi quer, hugo neutro → gabi
+const rPref = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+  [b3({ id: 'gabi', pref: 'quer' }), b3({ id: 'hugo', pref: null })], {});
+assert.strictEqual(rPref.assignments[0].personId, 'gabi', 'quem marcou "quer" desempata pra cima');
+
+// nao_quer vai pro fim (mesmo mérito)
+const rNao = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+  [b3({ id: 'ian', pref: 'nao_quer' }), b3({ id: 'joa', pref: null })], {});
+assert.strictEqual(rNao.assignments[0].personId, 'joa', '"nao_quer" cede a vaga');
+
+// unidade alternada desempata quando mérito e preferência empatam
+const rAlt = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+  [b3({ id: 'kim', primaryUnitId: 'cp' }), b3({ id: 'leo', primaryUnitId: 'norte' })], {});
+assert.strictEqual(rAlt.assignments[0].personId, 'leo', 'quem é de outra unidade (alternada) desempata');
+
+console.log('✓ smoke-scale-engine: preferência/unidade alternada OK');
