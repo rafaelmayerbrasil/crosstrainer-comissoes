@@ -60,5 +60,87 @@
   async function openElection(id, deps)  { return setStatus(id, 'janela_aberta', deps); }
   async function closeElection(id, deps) { return setStatus(id, 'rascunho', deps); }
 
-  return { templateSlots, createScale, getScale, listScales, openElection, closeElection, setStatus };
+  async function setPreference(scaleId, personId, pref, deps) {
+    try {
+      await rdb(deps).collection('scale_preferences').doc(`${scaleId}__${personId}`)
+        .set({ scaleId, personId, pref, updatedAt: rts(deps) });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.setPreference]', err); return { success: false, error: err.message }; }
+  }
+
+  async function listPreferences(scaleId, deps) {
+    try {
+      const snap = await rdb(deps).collection('scale_preferences').where('scaleId', '==', scaleId).get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) { console.error('[ScaleService.listPreferences]', err); return { success: false, error: err.message }; }
+  }
+
+  async function getFairness(personId, deps) {
+    try {
+      const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
+      const base = { personId, diasTrabalhados: 0, divida: 0 };
+      return { success: true, data: doc.exists ? Object.assign(base, doc.data()) : base };
+    } catch (err) { console.error('[ScaleService.getFairness]', err); return { success: false, error: err.message }; }
+  }
+
+  async function saveFairness(personId, vals, deps) {
+    try {
+      await rdb(deps).collection('fairness_counter').doc(personId)
+        .set({ personId, diasTrabalhados: vals.diasTrabalhados || 0, divida: vals.divida || 0, updatedAt: rts(deps) });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.saveFairness]', err); return { success: false, error: err.message }; }
+  }
+
+  async function applyFairnessDelta(delta, deps) {
+    try {
+      for (const personId of Object.keys(delta || {})) {
+        const cur = (await getFairness(personId, deps)).data;
+        const dd = delta[personId];
+        await saveFairness(personId, {
+          diasTrabalhados: cur.diasTrabalhados + (dd.dias || 0),
+          divida: Math.max(0, cur.divida - (dd.dividaResolvida || 0)),
+        }, deps);
+      }
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.applyFairnessDelta]', err); return { success: false, error: err.message }; }
+  }
+
+  function buildCandidates(ctx) {
+    const merito = ctx.meritoById || {};
+    const fair = ctx.fairnessById || {};
+    const pref = ctx.prefById || {};
+    return (ctx.teachers || []).map(t => ({
+      id: t.id, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId || null,
+      merito: merito[t.id] || 0,
+      diasTrabalhados: (fair[t.id] && fair[t.id].diasTrabalhados) || 0,
+      divida: (fair[t.id] && fair[t.id].divida) || 0,
+      pref: pref[t.id] || null,
+    }));
+  }
+
+  async function consolidate(scaleId, ctx, deps) {
+    try {
+      ctx = ctx || {};
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      const prefsRes = await listPreferences(scaleId, deps);
+      const prefById = {};
+      (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
+      const teachers = ctx.teachers || [];
+      const fairnessById = {};
+      for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
+      const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById });
+      const result = rSE(deps).consolidate(scale.slots || [], candidates, ctx.opts || {});
+      const bySlot = {};
+      result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; });
+      const newSlots = (scale.slots || []).map(s => Object.assign({}, s, { assignedPersonId: bySlot[s.id] !== undefined ? bySlot[s.id] : s.assignedPersonId }));
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await applyFairnessDelta(result.fairnessDelta, deps);
+      return { success: true, data: { assignments: result.assignments } };
+    } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
+  }
+
+  return { templateSlots, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate };
 });

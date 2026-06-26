@@ -33,4 +33,47 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(l.data.length, 1);
 
   console.log('✓ smoke-scale-service: CRUD/template OK');
+
+  // ── Preferências ──
+  await SS.setPreference(id, 'ana', 'quer', d);
+  await SS.setPreference(id, 'bru', 'nao_posso', d);
+  await SS.setPreference(id, 'ana', 'nao_quer', d); // sobrescreve (idempotente por id)
+  const prefs = await SS.listPreferences(id, d);
+  assert.strictEqual(prefs.data.length, 2, 'ana(atualizada)+bru, sem duplicar');
+  assert.strictEqual(prefs.data.find(p => p.personId === 'ana').pref, 'nao_quer', 'ana sobrescrita');
+
+  // ── Fairness ──
+  let f = await SS.getFairness('ana', d);
+  assert.deepStrictEqual({ dias: f.data.diasTrabalhados, div: f.data.divida }, { dias: 0, div: 0 }, 'fairness default zero');
+  await SS.saveFairness('ana', { diasTrabalhados: 3, divida: 2 }, d);
+  await SS.applyFairnessDelta({ ana: { dias: 1, dividaResolvida: 1 } }, d);
+  f = await SS.getFairness('ana', d);
+  assert.strictEqual(f.data.diasTrabalhados, 4, 'dias 3+1');
+  assert.strictEqual(f.data.divida, 1, 'dívida 2-1');
+
+  console.log('✓ smoke-scale-service: preferências/fairness OK');
+
+  // ── buildCandidates (puro) ──
+  const cands = SS.buildCandidates({
+    teachers: [{ id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp' }],
+    meritoById: { ana: 40 },
+    fairnessById: { ana: { diasTrabalhados: 2, divida: 1 } },
+    prefById: { ana: 'quer' },
+  });
+  assert.deepStrictEqual(cands[0], { id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 40, diasTrabalhados: 2, divida: 1, pref: 'quer' });
+
+  // ── consolidate (orquestra + persiste) ── (pessoa nova 'zeca', fairness zero)
+  const slotsToi = [{ id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null }];
+  const c2 = await SS.createScale({ date: '2026-07-11', tipo: 'sabado', name: 'S2', slots: slotsToi }, d);
+  await SS.setPreference(c2.data.id, 'zeca', 'quer', d);
+  const ctx = { teachers: [{ id: 'zeca', modalityIds: ['TOI'], primaryUnitId: 'cp' }], meritoById: { zeca: 40 } };
+  const cons = await SS.consolidate(c2.data.id, ctx, d);
+  assert.strictEqual(cons.data.assignments[0].personId, 'zeca', 'zeca alocada no TOI');
+  const g2 = await SS.getScale(c2.data.id, d);
+  assert.strictEqual(g2.data.status, 'consolidada', 'status consolidada');
+  assert.strictEqual(g2.data.slots[0].assignedPersonId, 'zeca', 'slot gravado com a pessoa');
+  const fa = await SS.getFairness('zeca', d);
+  assert.strictEqual(fa.data.diasTrabalhados, 1, 'fairness incrementado pela consolidação');
+
+  console.log('✓ smoke-scale-service: consolidate OK');
 })();
