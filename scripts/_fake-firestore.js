@@ -14,6 +14,7 @@ module.exports = function makeFakeDb() {
         return { exists: data !== undefined, id, data: () => data };
       },
       async set(obj) { col(name)[id] = JSON.parse(JSON.stringify(obj)); },
+      async delete() { delete col(name)[id]; },
     };
   }
 

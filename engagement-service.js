@@ -103,11 +103,21 @@
     } catch (err) { return { success: false, error: err.message }; }
   }
 
+  async function deleteCycle(id, deps) {
+    try {
+      await rdb(deps).collection('point_cycles').doc(id).delete();
+      return { success: true };
+    } catch (err) {
+      console.error('[EngagementService.deleteCycle]', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   function currentCycle(cycles, refISO) {
     const PEref = (typeof PointsEngine !== 'undefined') ? PointsEngine : require('./points-engine.js');
     const id = PEref.cycleIdFor(refISO, cycles);
     return cycles.find(c => c.id === id) || null;
   }
 
-  return { getConfig, saveConfig, recordAttendance, awardSubstitution, entriesForPerson, scoreboard, listCycles, saveCycle, currentCycle };
+  return { getConfig, saveConfig, recordAttendance, awardSubstitution, entriesForPerson, scoreboard, listCycles, saveCycle, deleteCycle, currentCycle };
 });

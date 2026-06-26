@@ -60,6 +60,11 @@ function mkDeps(db) { return { db, ts: () => 'TS', uid: () => 'tester', PE, EC }
   const cyc = await ES.listCycles(deps);
   assert.strictEqual(cyc.data.length, 2, '2 ciclos');
   assert.strictEqual(ES.currentCycle(cyc.data, '2026-03-15').id, 'c1', 'ciclo atual por data');
+  // deleteCycle remove o ciclo
+  await ES.deleteCycle('c2', deps);
+  const cyc2 = await ES.listCycles(deps);
+  assert.strictEqual(cyc2.data.length, 1, 'após deleteCycle resta 1');
+  assert.strictEqual(cyc2.data[0].id, 'c1', 'c1 permaneceu');
 
   // ── Placar ── (p1: líder 1pt[att] já virou 1 + proatividade 3 = 4; + tempo de casa)
   // admissão 2024-06-01, fim do ciclo 2026-06-30 → 2 anos completos → faixa 1 → 20 pts
