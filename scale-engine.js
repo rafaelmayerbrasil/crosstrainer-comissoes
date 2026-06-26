@@ -46,14 +46,18 @@
         c.pref !== 'nao_posso'
       );
       if (eligible.length === 0) {
-        return { slotId: slot.id, unitId: slot.unitId, personId: null, reason: 'sem_elegivel' };
+        return { slotId: slot.id, unitId: slot.unitId, personId: null, reason: 'sem_elegivel', explain: [] };
       }
       eligible.sort(makeComparator(slot, minMes));
       const pick = eligible[0];
       assigned.add(pick.id);
       const reason = isPiso(pick, minMes) ? 'justica' : 'merito';
       fairnessDelta[pick.id] = { dias: 1, dividaResolvida: pick.divida > 0 ? 1 : 0 };
-      return { slotId: slot.id, unitId: slot.unitId, personId: pick.id, reason };
+      // explica a escolha: top candidatos ordenados com as métricas que decidiram
+      const explain = eligible.slice(0, 4).map(c => ({
+        personId: c.id, merito: c.merito, diasTrabalhados: c.diasTrabalhados, divida: c.divida, pref: c.pref,
+      }));
+      return { slotId: slot.id, unitId: slot.unitId, personId: pick.id, reason, explain };
     });
     return { assignments, fairnessDelta };
   }

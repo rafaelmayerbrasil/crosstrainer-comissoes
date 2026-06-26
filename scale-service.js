@@ -132,11 +132,12 @@
       for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
       const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById });
       const result = rSE(deps).consolidate(scale.slots || [], candidates, ctx.opts || {});
-      const bySlot = {}, byReason = {};
-      result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; });
+      const bySlot = {}, byReason = {}, byExplain = {};
+      result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; byExplain[a.slotId] = a.explain || []; });
       const newSlots = (scale.slots || []).map(s => Object.assign({}, s, {
         assignedPersonId: bySlot[s.id] !== undefined ? bySlot[s.id] : s.assignedPersonId,
         reason: byReason[s.id] !== undefined ? byReason[s.id] : (s.reason || null),
+        explain: byExplain[s.id] !== undefined ? byExplain[s.id] : (s.explain || []),
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });

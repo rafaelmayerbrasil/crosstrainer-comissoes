@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map() };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map() };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -44,6 +44,60 @@ async function escalaLoadBase() {
   EscalaSmartState.modToi = mods.find(m => /toi/i.test(m.name)) || null;
   EscalaSmartState.modHiit = mods.find(m => /hi+t|maromb/i.test(m.name)) || null;
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
+  // carrega o contador de justiça/compensação de cada colaborador ativo (p/ painel de equilíbrio)
+  const fmap = new Map();
+  for (const t of EscalaSmartState.teacherMap.values()) {
+    if (t.isActive === false) continue;
+    const fr = await ScaleService.getFairness(t.id);
+    fmap.set(t.id, fr.success ? fr.data : { diasTrabalhados: 0, divida: 0 });
+  }
+  EscalaSmartState.fairnessMap = fmap;
+}
+
+function renderEquilibrioPainel() {
+  const fm = EscalaSmartState.fairnessMap || new Map();
+  if (fm.size === 0) return '';
+  const dias = Array.from(fm.values()).map(f => f.diasTrabalhados || 0);
+  const avg = dias.reduce((a, b) => a + b, 0) / dias.length;
+  let abaixo = 0, media = 0, acima = 0;
+  fm.forEach(f => {
+    const d = f.diasTrabalhados || 0;
+    if (d < 1 || (f.divida || 0) > 0) abaixo++;
+    else if (d > Math.ceil(avg)) acima++;
+    else media++;
+  });
+  const chip = (bg, color, icon, txt) => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;border-radius:8px;background:${bg};color:${color};">${icon} ${txt}</span>`;
+  return `<div style="margin-bottom:14px;">
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Equilíbrio do ciclo</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${chip('#2a1414', 'var(--red)', '↓', `${abaixo} abaixo do mínimo`)}
+      ${chip('#10241a', 'var(--green)', '=', `${media} na média`)}
+      ${chip('#2a2410', '#caa23a', '↑', `${acima} acima`)}
+    </div>
+  </div>`;
+}
+
+function whyTableHtml(slot) {
+  const ex = slot.explain || [];
+  if (!ex.length) return '';
+  const prefLabel = (p) => p === 'quer' ? 'quer' : (p === 'nao_quer' ? 'não quer' : (p === 'nao_posso' ? 'não posso' : '—'));
+  const rows = ex.map(c => {
+    const win = c.personId === slot.assignedPersonId;
+    return `<tr style="${win ? 'background:var(--surface3);' : ''}">
+      <td style="padding:3px 6px;${win ? 'font-weight:600;' : 'color:var(--text2);'}">${escalaPersonName(c.personId)}</td>
+      <td style="padding:3px 6px;text-align:center;">${c.merito}</td>
+      <td style="padding:3px 6px;text-align:center;">${c.diasTrabalhados}</td>
+      <td style="padding:3px 6px;text-align:center;">${c.divida || 0}</td>
+      <td style="padding:3px 6px;text-align:center;">${prefLabel(c.pref)}</td>
+    </tr>`;
+  }).join('');
+  return `<details style="margin-top:8px;">
+    <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>
+    <table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse;">
+      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Sábados</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Dívida</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </details>`;
 }
 
 function escalaPersonName(id) {
@@ -83,6 +137,7 @@ async function renderEscalaGestao() {
     <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     <div class="page-toolbar"><div class="lhs"><h2>Escalas <span class="count">${scales.length}</span></h2></div>
       <div class="rhs"><button class="btn-primary" onclick="openNovaEscala()">+ Nova escala</button></div></div>
+    ${renderEquilibrioPainel()}
     <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
       <div>${listHtml}</div>
       <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
@@ -114,6 +169,7 @@ function renderEscalaDetail(scale) {
           ${filled ? reasonChip(slot.reason) : '<span style="font-size:11px;color:var(--text3);">vaga aberta</span>'}
         </div>
         <div style="font-size:14px;font-weight:${filled ? '600' : '400'};color:${filled ? 'var(--text)' : 'var(--text3)'};">${filled ? person : 'ninguém habilitado disponível'}</div>
+        ${filled ? whyTableHtml(slot) : ''}
       </div>`;
     }).join('');
     unitsHtml += `<div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:500;margin-bottom:6px;">${unitName(uid)}</div>
