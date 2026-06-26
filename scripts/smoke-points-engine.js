@@ -59,15 +59,18 @@ const attEscola = {
     { personId: 'p1', status: 'presente', role: 'lider' },
     { personId: 'p2', status: 'presente' },
     { personId: 'p3', status: 'aluno_outro' },
+    { personId: 'p4', status: 'toi_aluno' },
   ],
 };
 const e1 = PE.entriesFromAttendance(attEscola, cfg);
-assert.strictEqual(e1.length, 3);
+assert.strictEqual(e1.length, 4);
 assert.deepStrictEqual(e1.find(x => x.personId === 'p1'), {
   id: 'att1:p1', personId: 'p1', tipo: 'escola_interna_lider', refDate: '2026-03-05', pontos: 2, origem: 'att1',
 });
 assert.strictEqual(e1.find(x => x.personId === 'p2').pontos, 1);
 assert.strictEqual(e1.find(x => x.personId === 'p3').tipo, 'treinar_como_aluno');
+assert.strictEqual(e1.find(x => x.personId === 'p4').tipo, 'toi_aluno');
+assert.strictEqual(e1.find(x => x.personId === 'p4').pontos, 1);
 
 // Reunião sem confirmação da gestão → nada
 const attReuSemConf = { id: 'r1', kind: 'reuniao', date: '2026-03-10', records: [{ personId: 'p1', status: 'presente' }] };
@@ -92,7 +95,7 @@ assert.strictEqual(e3.find(x => x.personId === 'p3').tipo, 'penalidade_treino');
 
 // Idempotência: reprocessar a mesma chamada dá os mesmos ids
 const again = PE.entriesFromAttendance(attEscola, cfg);
-assert.deepStrictEqual(again.map(x => x.id), ['att1:p1', 'att1:p2', 'att1:p3'], 'ids estáveis');
+assert.deepStrictEqual(again.map(x => x.id), ['att1:p1', 'att1:p2', 'att1:p3', 'att1:p4'], 'ids estáveis');
 
 console.log('✓ smoke-points-engine: geração por chamada OK');
 

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 // CrossTainer — Módulo Professores · Engajamento/Pontos (Config · Chamada · Placar)
-// T1 — Scaffold (nav + roteamento + render skeleton). Conteúdo real vem nas
-// tarefas T2/T3/T4 do plano docs/superpowers/plans/2026-06-24-engajamento-ui.md
+// UI do submódulo de Engajamento. Consome EngagementService (config, chamadas,
+// placar). Plano: docs/superpowers/plans/2026-06-24-engajamento-ui.md (T1–T6).
 // ═══════════════════════════════════════════════════════════════════════
 
 'use strict';
@@ -237,7 +237,7 @@ function renderChamadaContent() {
 function chamadaCbtn(tid, status, label) {
   const m = EngajChamadaState.marks[tid] || {};
   const active = m.status === status;
-  const colors = { presente: 'var(--green)', aluno_outro: 'var(--blue)', faltou: 'var(--red)', falta_justificada: '#caa23a', falta_sem_aviso: 'var(--red)' };
+  const colors = { presente: 'var(--green)', aluno_outro: 'var(--blue)', toi_aluno: '#8b7cf6', faltou: 'var(--red)', falta_justificada: '#caa23a', falta_sem_aviso: 'var(--red)' };
   const c = colors[status] || 'var(--text2)';
   const style = active ? `background:${c};color:#0a0a0a;border:1px solid ${c};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
   return `<button onclick="setChamadaMark('${tid}','${status}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
@@ -259,7 +259,7 @@ function chamadaRow(t) {
   const initials = (t.name || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase();
   let controls = '';
   if (st.kind === 'escola_interna') {
-    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'aluno_outro', 'Treinou em outra') + chamadaCbtn(t.id, 'faltou', 'Faltou') + chamadaLiderBtn(t.id);
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'aluno_outro', 'Treinou em outra') + chamadaCbtn(t.id, 'toi_aluno', 'TOI (aluno)') + chamadaCbtn(t.id, 'faltou', 'Faltou') + chamadaLiderBtn(t.id);
   } else if (st.kind === 'treinamento_obrigatorio') {
     controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'falta_justificada', 'Falta justif.') + chamadaCbtn(t.id, 'falta_sem_aviso', 'Falta s/ aviso');
   } else {
@@ -283,7 +283,15 @@ function renderChamadaList() {
     wrap.innerHTML = `<p style="padding:20px;color:var(--text2);">Nenhum colaborador ativo cadastrado.</p>`;
     return;
   }
-  const rows = st.teachers.map(chamadaRow).join('');
+  // filtra por unidade quando selecionada (escola interna é por unidade)
+  const visible = st.unitId
+    ? st.teachers.filter(t => (t.unitIds || []).includes(st.unitId) || t.primaryUnitId === st.unitId)
+    : st.teachers;
+  if (visible.length === 0) {
+    wrap.innerHTML = `<p style="padding:20px;color:var(--text2);">Nenhum colaborador nesta unidade.</p>`;
+    return;
+  }
+  const rows = visible.map(chamadaRow).join('');
   let total = 0, pres = 0, faltas = 0;
   Object.keys(st.marks).forEach(tid => {
     const m = st.marks[tid]; if (!m || !m.status) return;
@@ -462,4 +470,4 @@ window.saveChamada = saveChamada;
 // Placar
 window.onPlacarCycleChange = onPlacarCycleChange;
 
-console.log('[CrossTainer Professores] professores-engajamento.js carregado · T1 scaffold');
+console.log('[CrossTainer Professores] professores-engajamento.js carregado · Config·Chamada·Placar');

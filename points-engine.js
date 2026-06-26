@@ -61,6 +61,7 @@
           if (rec.status === 'presente' && rec.role === 'lider') out.push(mk(p, 'escola_interna_lider', cfg.pts.escolaInternaLiderar));
           else if (rec.status === 'presente') out.push(mk(p, 'escola_interna', cfg.pts.escolaInternaParticipar));
           else if (rec.status === 'aluno_outro') out.push(mk(p, 'treinar_como_aluno', cfg.pts.treinarComoAlunoEmOutro));
+          else if (rec.status === 'toi_aluno') out.push(mk(p, 'toi_aluno', cfg.pts.toiComoAluno));
           break;
         case 'reuniao':
           if (att.confirmedBy && rec.status === 'presente') out.push(mk(p, 'reuniao', cfg.pts.reuniaoStaff));

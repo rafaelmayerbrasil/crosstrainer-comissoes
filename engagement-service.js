@@ -18,7 +18,7 @@
   // não existe → no-op). Falha de auditoria nunca bloqueia a operação.
   async function engajAudit(entry) {
     if (typeof AuditService === 'object' && AuditService && typeof AuditService.log === 'function') {
-      try { await AuditService.log(entry); } catch (e) { console.error('[EngagementService.audit]', e); }
+      try { await AuditService.log({ module: 'engajamento', ...entry }); } catch (e) { console.error('[EngagementService.audit]', e); }
     }
   }
 
