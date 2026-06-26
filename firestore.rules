@@ -221,6 +221,33 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Escala inteligente (sábados/feriados) ─────────────────────────
+    // Escalas + slots tipados: leitura p/ o módulo, escrita pela gestão.
+    match /special_scales/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    // Preferências de escala: o colaborador grava a SUA (personId == professorId);
+    // gestão grava qualquer uma. Doc id = `${scaleId}__${personId}`.
+    match /scale_preferences/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if false;
+    }
+
+    // Contador de justiça/compensação: leitura p/ o módulo, escrita pela gestão
+    // (atualizado na consolidação). Sem delete.
+    match /fairness_counter/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
     // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
     match /meta/{doc} {
       allow read:  if isAuth() && hasProfModule() && doc.matches('holidays_cache_.*');
