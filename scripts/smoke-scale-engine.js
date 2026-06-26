@@ -34,3 +34,20 @@ const r3 = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }]
 assert.strictEqual(r3.assignments[0].personId, 'cleo', 'nao_posso exclui Ana mesmo com mérito alto');
 
 console.log('✓ smoke-scale-engine: elegibilidade/mérito OK');
+
+// ── Piso de justiça ──
+const b2 = (over) => Object.assign({ modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 0, diasTrabalhados: 5, divida: 0, pref: null }, over);
+// Ana tem mérito alto mas já trabalhou; Dora tem mérito baixo mas NÃO bateu o mínimo (dias 0) → piso ganha
+const rPiso = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+  [b2({ id: 'ana', merito: 90, diasTrabalhados: 5 }), b2({ id: 'dora', merito: 5, diasTrabalhados: 0 })], { minMes: 1 });
+assert.strictEqual(rPiso.assignments[0].personId, 'dora', 'piso (mínimo do mês) vence o mérito');
+assert.strictEqual(rPiso.assignments[0].reason, 'justica');
+assert.deepStrictEqual(rPiso.fairnessDelta.dora, { dias: 1, dividaResolvida: 0 }, 'dias +1, sem dívida');
+
+// Dívida prioriza e é resolvida no delta
+const rDiv = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+  [b2({ id: 'edu', merito: 5, diasTrabalhados: 0, divida: 0 }), b2({ id: 'fab', merito: 5, diasTrabalhados: 0, divida: 2 })], { minMes: 1 });
+assert.strictEqual(rDiv.assignments[0].personId, 'fab', 'maior dívida escolhe primeiro');
+assert.strictEqual(rDiv.fairnessDelta.fab.dividaResolvida, 1, 'dívida resolvida no delta');
+
+console.log('✓ smoke-scale-engine: piso de justiça OK');
