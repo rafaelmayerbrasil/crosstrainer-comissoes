@@ -162,27 +162,187 @@ async function removeEngajCycle(id) {
 }
 
 /* ─── Chamada (admin/supervisão) ───────────────────────────────────── */
-function renderEngajChamadaPage() {
+const EngajChamadaState = { kind: 'escola_interna', date: '', unitId: '', teachers: [], modMap: new Map(), units: [], cfg: null, marks: {} };
+
+const CHAMADA_KINDS = [
+  { id: 'escola_interna',          label: 'Escola interna' },
+  { id: 'reuniao',                 label: 'Reunião do staff' },
+  { id: 'treinamento_obrigatorio', label: 'Treinamento obrigatório' },
+  { id: 'evento',                  label: 'Evento interno' },
+];
+
+function chamadaTodayISO() { return new Date().toISOString().slice(0, 10); }
+
+function chamadaPointsFor(status, role) {
+  const cfg = EngajChamadaState.cfg; if (!cfg || !status) return 0;
+  const p = cfg.pts, pen = cfg.penalidade, k = EngajChamadaState.kind;
+  if (k === 'escola_interna') {
+    if (status === 'presente') return role === 'lider' ? p.escolaInternaLiderar : p.escolaInternaParticipar;
+    if (status === 'aluno_outro') return p.treinarComoAlunoEmOutro;
+    return 0;
+  }
+  if (k === 'reuniao') return status === 'presente' ? p.reuniaoStaff : 0;
+  if (k === 'evento')  return status === 'presente' ? p.eventoInterno : 0;
+  if (k === 'treinamento_obrigatorio') {
+    if (status === 'presente') return p.treinamentoObrigatorioPresenca;
+    if (status === 'falta_justificada') return pen.treinoFaltaJustificada;
+    if (status === 'falta_sem_aviso')   return pen.treinoFaltaSemAviso;
+    return 0;
+  }
+  return 0;
+}
+
+async function renderEngajChamadaPage() {
   const container = document.getElementById('page-engaj-chamada');
   if (!container) return;
+  if (!EngajChamadaState.date) EngajChamadaState.date = chamadaTodayISO();
 
   container.innerHTML = `
-    <div class="page-hdr">
-      <h1>✅ Chamada</h1>
-      <p>Lance presença/falta para escola interna, reunião, treinamento ou evento.</p>
-    </div>
+    <div class="page-hdr"><h1>✅ Chamada</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div class="loading"><div class="spinner"></div> Carregando colaboradores…</div>`;
 
-    <div class="page-toolbar">
-      <div class="lhs">
-        <h2>Em construção</h2>
-      </div>
-    </div>
+  const [tRes, mRes, cRes, uRes] = await Promise.all([
+    TeacherService.list(),
+    ModalityService.list(),
+    EngagementService.getConfig(),
+    (typeof UnitService === 'object' ? UnitService.list() : Promise.resolve({ success: true, data: [] })),
+  ]);
 
-    <p style="padding:24px;color:var(--text2);">
-      🚧 Em construção (T1 scaffold). Esta tela vai permitir marcar presença/falta por tipo
-      de atividade e gravar via <code>EngagementService.recordAttendance</code>.
-    </p>
-  `;
+  EngajChamadaState.teachers = (tRes.success ? tRes.data : []).filter(t => t.isActive !== false);
+  EngajChamadaState.modMap = new Map((mRes.success ? mRes.data : []).map(m => [m.id, m.name]));
+  EngajChamadaState.cfg = cRes.success ? cRes.data : null;
+  EngajChamadaState.units = uRes.success ? uRes.data : [];
+  renderChamadaContent();
+}
+
+function renderChamadaContent() {
+  const container = document.getElementById('page-engaj-chamada');
+  if (!container) return;
+  const st = EngajChamadaState;
+  const kindOpts = CHAMADA_KINDS.map(k => `<option value="${k.id}" ${st.kind === k.id ? 'selected' : ''}>${k.label}</option>`).join('');
+  const unitOpts = `<option value="">Todas as unidades</option>` +
+    (st.units || []).map(u => `<option value="${u.id}" ${st.unitId === u.id ? 'selected' : ''}>${u.name || u.id}</option>`).join('');
+
+  container.innerHTML = `
+    <div class="page-hdr"><h1>✅ Chamada</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;"><label>Tipo</label><select id="chamadaKind" class="input" onchange="onChamadaToolbarChange()">${kindOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label>Data</label><input type="date" id="chamadaDate" class="input" value="${st.date}" onchange="onChamadaToolbarChange()"></div>
+      <div class="form-group" style="margin:0;"><label>Unidade</label><select id="chamadaUnit" class="input" onchange="onChamadaToolbarChange()">${unitOpts}</select></div>
+    </div>
+    <div id="chamada-list"></div>`;
+  renderChamadaList();
+}
+
+function chamadaCbtn(tid, status, label) {
+  const m = EngajChamadaState.marks[tid] || {};
+  const active = m.status === status;
+  const colors = { presente: 'var(--green)', aluno_outro: 'var(--blue)', faltou: 'var(--red)', falta_justificada: '#caa23a', falta_sem_aviso: 'var(--red)' };
+  const c = colors[status] || 'var(--text2)';
+  const style = active ? `background:${c};color:#0a0a0a;border:1px solid ${c};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+  return `<button onclick="setChamadaMark('${tid}','${status}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
+}
+
+function chamadaLiderBtn(tid) {
+  const m = EngajChamadaState.marks[tid] || {};
+  const isLider = m.role === 'lider';
+  const enabled = m.status === 'presente';
+  const style = isLider ? `background:#caa23a;color:#0a0a0a;border:1px solid #caa23a;font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+  return `<button onclick="toggleChamadaLider('${tid}')" ${enabled ? '' : 'disabled'} title="Líder (×2)" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:${enabled ? 'pointer' : 'not-allowed'};opacity:${enabled ? 1 : 0.4};${style}">★ Líder</button>`;
+}
+
+function chamadaRow(t) {
+  const st = EngajChamadaState;
+  const m = st.marks[t.id] || {};
+  const pts = chamadaPointsFor(m.status, m.role);
+  const mods = (t.modalityIds || []).map(id => st.modMap.get(id)).filter(Boolean).join(' · ') || (t.type || '');
+  const initials = (t.name || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+  let controls = '';
+  if (st.kind === 'escola_interna') {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'aluno_outro', 'Treinou em outra') + chamadaCbtn(t.id, 'faltou', 'Faltou') + chamadaLiderBtn(t.id);
+  } else if (st.kind === 'treinamento_obrigatorio') {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'falta_justificada', 'Falta justif.') + chamadaCbtn(t.id, 'falta_sem_aviso', 'Falta s/ aviso');
+  } else {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'faltou', 'Faltou');
+  }
+  const ptsColor = pts > 0 ? 'var(--green)' : (pts < 0 ? 'var(--red)' : 'var(--text3)');
+  const ptsStr = m.status ? (pts > 0 ? `+${pts}` : `${pts}`) : '';
+  return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;">${initials}</div>
+    <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;">${t.name || '—'}</div><div style="font-size:12px;color:var(--text2);">${mods}</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${controls}</div>
+    <div style="min-width:34px;text-align:right;font-weight:600;color:${ptsColor};">${ptsStr}</div>
+  </div>`;
+}
+
+function renderChamadaList() {
+  const wrap = document.getElementById('chamada-list');
+  if (!wrap) return;
+  const st = EngajChamadaState;
+  if (st.teachers.length === 0) {
+    wrap.innerHTML = `<p style="padding:20px;color:var(--text2);">Nenhum colaborador ativo cadastrado.</p>`;
+    return;
+  }
+  const rows = st.teachers.map(chamadaRow).join('');
+  let total = 0, pres = 0, faltas = 0;
+  Object.keys(st.marks).forEach(tid => {
+    const m = st.marks[tid]; if (!m || !m.status) return;
+    total += chamadaPointsFor(m.status, m.role);
+    if (m.status === 'presente' || m.status === 'aluno_outro') pres++;
+    if (m.status === 'faltou' || m.status === 'falta_justificada' || m.status === 'falta_sem_aviso') faltas++;
+  });
+  const totalStr = total > 0 ? `+${total}` : `${total}`;
+  wrap.innerHTML = rows + `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding:12px 14px;background:var(--surface2);border-radius:10px;">
+      <div style="font-size:13px;color:var(--text2);"><b style="color:var(--text);">${pres}</b> presenças · <b style="color:var(--text);">${faltas}</b> faltas · total <b style="color:${total >= 0 ? 'var(--green)' : 'var(--red)'};">${totalStr} pts</b></div>
+      <button class="btn-primary" onclick="saveChamada()">💾 Salvar chamada</button>
+    </div>`;
+}
+
+function onChamadaToolbarChange() {
+  const kEl = document.getElementById('chamadaKind');
+  const k = kEl ? kEl.value : EngajChamadaState.kind;
+  if (k !== EngajChamadaState.kind) { EngajChamadaState.marks = {}; EngajChamadaState.kind = k; }
+  const dEl = document.getElementById('chamadaDate'); if (dEl) EngajChamadaState.date = dEl.value;
+  const uEl = document.getElementById('chamadaUnit'); if (uEl) EngajChamadaState.unitId = uEl.value;
+  renderChamadaContent();
+}
+
+function setChamadaMark(tid, status) {
+  const m = EngajChamadaState.marks[tid] || {};
+  m.status = status;
+  if (status !== 'presente') delete m.role;
+  EngajChamadaState.marks[tid] = m;
+  renderChamadaList();
+}
+
+function toggleChamadaLider(tid) {
+  const m = EngajChamadaState.marks[tid];
+  if (!m || m.status !== 'presente') return;
+  if (m.role === 'lider') delete m.role; else m.role = 'lider';
+  renderChamadaList();
+}
+
+async function saveChamada() {
+  const st = EngajChamadaState;
+  if (!st.date) { toast('Informe a data.', 'error'); return; }
+  const records = [];
+  Object.keys(st.marks).forEach(tid => {
+    const m = st.marks[tid];
+    if (!m || !m.status) return;
+    const rec = { personId: tid, status: m.status };
+    if (m.role) rec.role = m.role;
+    records.push(rec);
+  });
+  if (records.length === 0) { toast('Marque ao menos um colaborador.', 'error'); return; }
+  const att = {
+    id: `eng_${st.kind}_${st.date}_${st.unitId || 'all'}`,
+    kind: st.kind, date: st.date, unitId: st.unitId || null, records,
+    confirmedBy: st.kind === 'reuniao' ? (typeof currentUserId === 'function' ? currentUserId() : 'gestao') : null,
+  };
+  const res = await EngagementService.recordAttendance(att);
+  if (res.success) toast(`Chamada salva! ${res.data.entriesCount} lançamento(s) no placar.`, 'success');
+  else toast('Erro: ' + (res.error || 'falha ao salvar'), 'error');
 }
 
 /* ─── Placar (todos) ───────────────────────────────────────────────── */
@@ -213,5 +373,14 @@ function renderEngajPlacarPage() {
 window.renderEngajConfigPage = renderEngajConfigPage;
 window.renderEngajChamadaPage = renderEngajChamadaPage;
 window.renderEngajPlacarPage = renderEngajPlacarPage;
+// Config
+window.saveEngajConfig = saveEngajConfig;
+window.addEngajCycle = addEngajCycle;
+window.removeEngajCycle = removeEngajCycle;
+// Chamada
+window.onChamadaToolbarChange = onChamadaToolbarChange;
+window.setChamadaMark = setChamadaMark;
+window.toggleChamadaLider = toggleChamadaLider;
+window.saveChamada = saveChamada;
 
 console.log('[CrossTainer Professores] professores-engajamento.js carregado · T1 scaffold');
