@@ -42,7 +42,8 @@
     const assignments = (slots || []).map(slot => {
       const eligible = pool.filter(c =>
         !assigned.has(c.id) &&
-        c.modalityIds.includes(slot.requiredModalityId) &&
+        // vaga SEM modalidade exigida (ex.: fim de ano) = qualquer colaborador serve
+        (!slot.requiredModalityId || c.modalityIds.includes(slot.requiredModalityId)) &&
         c.pref !== 'nao_posso'
       );
       if (eligible.length === 0) {

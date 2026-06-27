@@ -33,6 +33,11 @@ const r3 = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }]
   [base({ id: 'ana', modalityIds: ['TOI'], merito: 99, pref: 'nao_posso' }), base({ id: 'cleo', modalityIds: ['TOI'], merito: 10 })], {});
 assert.strictEqual(r3.assignments[0].personId, 'cleo', 'nao_posso exclui Ana mesmo com mérito alto');
 
+// vaga SEM modalidade exigida (fim de ano) = qualquer colaborador elegível
+const rAny = SE.consolidate([{ id: 'd', unitId: 'cp', requiredModalityId: null }],
+  [base({ id: 'ze', modalityIds: [], merito: 7 }), base({ id: 'cleo', modalityIds: ['TOI'], merito: 3 })], {});
+assert.strictEqual(rAny.assignments[0].personId, 'ze', 'sem modalidade: pega por mérito mesmo sem habilitação');
+
 console.log('✓ smoke-scale-engine: elegibilidade/mérito OK');
 
 // ── Piso de justiça ──
