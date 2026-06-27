@@ -13,6 +13,7 @@ const ESCALA_TIPOS = [
   { id: 'feriado',          label: 'Feriado' },
   { id: 'domingo_especial', label: 'Domingo especial' },
   { id: 'evento',           label: 'Evento' },
+  { id: 'fim_de_ano',       label: 'Fim de ano' },
 ];
 const ESCALA_STATUS_LABEL = { rascunho: 'Rascunho', janela_aberta: 'Janela aberta', consolidada: 'Consolidada' };
 
@@ -146,8 +147,59 @@ async function renderEscalaGestao() {
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
 }
 
+function renderFimDeAnoDetail(scale) {
+  const slots = scale.slots || [];
+  const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
+  const fmtDay = (iso) => { const p = iso.split('-'); return `${p[2]}/${p[1]}`; };
+  const consolidated = scale.status === 'consolidada';
+  const days = [...new Set(slots.map(s => s.day))].sort();
+
+  let daysHtml = '';
+  days.forEach(day => {
+    const daySlots = slots.filter(s => s.day === day);
+    const half = !!(daySlots[0] && daySlots[0].halfDay);
+    const byUnit = {};
+    daySlots.forEach(s => { (byUnit[s.unitId] = byUnit[s.unitId] || []).push(s); });
+    const unitsHtml = Object.keys(byUnit).map(uid => {
+      const people = byUnit[uid].map(s => s.assignedPersonId
+        ? `<span style="font-size:12px;">${escalaPersonName(s.assignedPersonId)}</span>`
+        : `<span style="font-size:12px;color:var(--text3);">— vaga</span>`).join(' · ');
+      return `<div style="font-size:12px;"><span style="color:var(--text2);">${unitName(uid)}:</span> ${people}</div>`;
+    }).join('');
+    daysHtml += `<div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
+      <div style="font-weight:600;font-size:13px;min-width:52px;">${fmtDay(day)}${half ? '<div style="font-size:10px;color:#caa23a;">½ período</div>' : ''}</div>
+      <div style="flex:1;">${unitsHtml}</div>
+    </div>`;
+  });
+
+  let sinalHtml = '';
+  if (consolidated) {
+    const escalados = new Set(slots.map(s => s.assignedPersonId).filter(Boolean));
+    const fora = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false && !escalados.has(t.id));
+    sinalHtml = fora.length
+      ? `<div style="background:#1a2a3a;border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-top:12px;">
+          <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px;">Não escalados no período — lançar folga na mão (${fora.length})</div>
+          <div style="font-size:12px;color:var(--text2);">${fora.map(t => t.name).join(' · ')}</div></div>`
+      : `<div style="font-size:12px;color:var(--text2);margin-top:12px;">Todos os colaboradores foram escalados em algum dia.</div>`;
+  }
+
+  const actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px;">
+    ${scale.status === 'rascunho' ? `<button class="btn-secondary" onclick="abrirJanelaEscala('${scale.id}')">📨 Abrir janela de preferências</button>` : ''}
+    <button class="btn-primary" onclick="consolidarEscala('${scale.id}')">🧮 ${consolidated ? 'Reconsolidar' : 'Consolidar'}</button>
+  </div>`;
+
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || 'Fim de ano'}</div>
+      <div style="font-size:12px;color:var(--text2);">${days.length} dias · 2 por unidade/dia · ${ESCALA_STATUS_LABEL[scale.status] || scale.status}</div></div>
+    ${daysHtml || '<p style="color:var(--text2);">Sem dias nesta escala.</p>'}
+    ${sinalHtml}
+    ${actions}
+  </div>`;
+}
+
 function renderEscalaDetail(scale) {
   if (!scale) return '';
+  if (scale.tipo === 'fim_de_ano') return renderFimDeAnoDetail(scale);
   const byUnit = {};
   (scale.slots || []).forEach(s => { (byUnit[s.unitId] = byUnit[s.unitId] || []).push(s); });
   const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
@@ -199,15 +251,30 @@ function openNovaEscala() {
   const tipoOpts = ESCALA_TIPOS.map(t => `<option value="${t.id}">${t.label}</option>`).join('');
   overlay.style.display = 'flex';
   modal.style.display = 'block';
+  const y = new Date().getFullYear();
   modal.innerHTML = `
     <h2>Nova escala</h2>
-    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="novaEscalaData" class="input" value="${escalaTodayISO()}"></div>
-    <div class="form-group"><label>Tipo</label><select id="novaEscalaTipo" class="input">${tipoOpts}</select></div>
-    <p style="font-size:12px;color:var(--text2);">As vagas são geradas por unidade: 1 TOI + 1 Hiit. Você pode ajustar depois.</p>
+    <div class="form-group"><label>Tipo</label><select id="novaEscalaTipo" class="input" onchange="onNovaEscalaTipo()">${tipoOpts}</select></div>
+    <div id="novaEscalaDataWrap" class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="novaEscalaData" class="input" value="${escalaTodayISO()}"></div>
+    <div id="novaEscalaPeriodo" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group"><label>Início</label><input type="date" id="feInicio" class="input" value="${y}-12-21"></div>
+        <div class="form-group"><label>Fim</label><input type="date" id="feFim" class="input" value="${y + 1}-01-02"></div>
+      </div>
+      <p style="font-size:12px;color:var(--text2);">Uma dupla por dia em cada unidade. Fechado 25/12, 31/12 e 01/01; 24/12 meio período. Ajuste as datas a cada ano.</p>
+    </div>
+    <p id="novaEscalaHint" style="font-size:12px;color:var(--text2);">As vagas são geradas por unidade: 1 TOI + 1 Hiit. Você pode ajustar depois.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
       <button class="btn-primary" onclick="criarEscala()">Criar</button>
     </div>`;
+}
+
+function onNovaEscalaTipo() {
+  const isFe = document.getElementById('novaEscalaTipo').value === 'fim_de_ano';
+  document.getElementById('novaEscalaDataWrap').style.display = isFe ? 'none' : 'block';
+  document.getElementById('novaEscalaPeriodo').style.display = isFe ? 'block' : 'none';
+  document.getElementById('novaEscalaHint').style.display = isFe ? 'none' : 'block';
 }
 function closeEscalaModal() {
   const o = document.getElementById('escalaModalOverlay'), m = document.getElementById('escalaModal');
@@ -215,8 +282,9 @@ function closeEscalaModal() {
 }
 
 async function criarEscala() {
-  const date = document.getElementById('novaEscalaData').value;
   const tipo = document.getElementById('novaEscalaTipo').value;
+  if (tipo === 'fim_de_ano') return criarEscalaFimDeAno();
+  const date = document.getElementById('novaEscalaData').value;
   if (!date) { toast('Informe a data.', 'error'); return; }
   const toi = EscalaSmartState.modToi, hiit = EscalaSmartState.modHiit;
   if (!toi || !hiit) { toast('Cadastre as modalidades TOI e Hiit antes.', 'error'); return; }
@@ -228,6 +296,24 @@ async function criarEscala() {
   const tipoLabel = (ESCALA_TIPOS.find(t => t.id === tipo) || {}).label || tipo;
   const res = await ScaleService.createScale({ date, tipo, name: `${tipoLabel} ${date.split('-').reverse().join('/')}`, slots });
   if (res.success) { toast('Escala criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
+}
+
+async function criarEscalaFimDeAno() {
+  const start = document.getElementById('feInicio').value;
+  const end = document.getElementById('feFim').value;
+  if (!start || !end || start > end) { toast('Informe um período válido.', 'error'); return; }
+  if (!EscalaSmartState.units.length) { toast('Cadastre as unidades antes.', 'error'); return; }
+  const all = ScaleService.datesInRange(start, end);
+  const closedMMDD = new Set(['12-25', '12-31', '01-01']);
+  const period = {
+    start, end,
+    closedDays: all.filter(d => closedMMDD.has(d.slice(5))),
+    halfDays: all.filter(d => d.slice(5) === '12-24'),
+  };
+  const slots = ScaleService.templateSlotsFimDeAno(period, EscalaSmartState.units);
+  const res = await ScaleService.createScale({ date: start, tipo: 'fim_de_ano', name: `Fim de ano ${start.slice(0, 4)}`, slots });
+  if (res.success) { toast('Escala de fim de ano criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
@@ -257,7 +343,10 @@ async function consolidarEscala(id) {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 },
   };
-  const res = await ScaleService.consolidate(id, ctx);
+  const scale = EscalaSmartState.scales.find(s => s.id === id) || {};
+  const res = scale.tipo === 'fim_de_ano'
+    ? await ScaleService.consolidateByDay(id, ctx)
+    : await ScaleService.consolidate(id, ctx);
   if (res.success) { toast('Escala consolidada!', 'success'); renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
@@ -315,6 +404,7 @@ async function marcarPref(scaleId, pref) {
 // Expor globalmente (chamadas via navigateTo / onclick)
 window.renderEscalaSmartPage = renderEscalaSmartPage;
 window.openNovaEscala = openNovaEscala;
+window.onNovaEscalaTipo = onNovaEscalaTipo;
 window.closeEscalaModal = closeEscalaModal;
 window.criarEscala = criarEscala;
 window.selectEscala = selectEscala;
