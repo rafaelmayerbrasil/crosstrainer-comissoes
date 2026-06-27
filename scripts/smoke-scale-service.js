@@ -76,4 +76,22 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(fa.data.diasTrabalhados, 1, 'fairness incrementado pela consolidação');
 
   console.log('✓ smoke-scale-service: consolidate OK');
+
+  // ── Fim de ano (por dia, duplas sem modalidade, carga espalhada) ──
+  const feSlots = SS.templateSlotsFimDeAno({ start: '2026-12-21', end: '2026-12-23', closedDays: [], halfDays: ['2026-12-22'] }, [{ id: 'cp' }]);
+  assert.strictEqual(feSlots.length, 6, '3 dias x 1 unidade x 2 = 6 vagas');
+  assert.strictEqual(feSlots[0].requiredModalityId, null, 'vaga sem modalidade');
+  assert.ok(feSlots.some(s => s.halfDay === true), 'meio período marcado');
+  const fe = await SS.createScale({ date: '2026-12-21', tipo: 'fim_de_ano', name: 'Fim de ano 2026', slots: feSlots }, d);
+  const feCtx = { teachers: [{ id: 'p1', modalityIds: [] }, { id: 'p2', modalityIds: [] }, { id: 'p3', modalityIds: [] }] };
+  const feRes = await SS.consolidateByDay(fe.data.id, feCtx, d);
+  assert.ok(feRes.success, 'consolidateByDay ok');
+  assert.deepStrictEqual(feRes.data.naoEscalados, [], 'todos entraram (carga espalhada)');
+  const dpp = feRes.data.diasTrabalhadosPorPessoa;
+  assert.deepStrictEqual([dpp.p1.diasTrabalhados, dpp.p2.diasTrabalhados, dpp.p3.diasTrabalhados], [2, 2, 2], 'carga equilibrada 2-2-2');
+  const feg = await SS.getScale(fe.data.id, d);
+  assert.strictEqual(feg.data.status, 'consolidada');
+  assert.ok(feg.data.slots.every(s => s.assignedPersonId), 'todas as 6 vagas preenchidas');
+
+  console.log('✓ smoke-scale-service: fim de ano OK');
 })();

@@ -146,5 +146,75 @@
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate };
+  // ── Fim de ano (§7) ──────────────────────────────────────────────
+  function datesInRange(startISO, endISO) {
+    const out = [];
+    let d = new Date(startISO + 'T00:00:00');
+    const end = new Date(endISO + 'T00:00:00');
+    while (d <= end) { out.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+
+  // Gera as vagas do fim de ano: por DIA (exceto fechados) × unidade, 2 duplas
+  // SEM modalidade exigida. `halfDay` marca os de meio período (ex.: 24/12).
+  function templateSlotsFimDeAno(period, units) {
+    period = period || {};
+    const closed = new Set(period.closedDays || []);
+    const half = new Set(period.halfDays || []);
+    const days = datesInRange(period.start, period.end).filter(d => !closed.has(d));
+    const out = [];
+    days.forEach(day => {
+      (units || []).forEach(u => {
+        for (let i = 1; i <= 2; i++) {
+          out.push({ id: `${day}_${u.id}_${i}`, day, unitId: u.id, requiredModalityId: null, assignedPersonId: null, halfDay: half.has(day) });
+        }
+      });
+    });
+    return out;
+  }
+
+  // Consolida o fim de ano DIA A DIA (permite repetição entre dias). A carga se
+  // espalha sozinha: minMes alto deixa todo mundo "no piso", então o motor sempre
+  // pega quem trabalhou MENOS dias no período (mérito/preferência desempatam).
+  // Fairness é interno ao período (começa zero; não mistura com a rotação de sábados).
+  async function consolidateByDay(scaleId, ctx, deps) {
+    try {
+      ctx = ctx || {};
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      const prefsRes = await listPreferences(scaleId, deps);
+      const prefById = {};
+      (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
+      const teachers = ctx.teachers || [];
+      const SE = rSE(deps);
+      const opts = { minMes: (ctx.opts && ctx.opts.minMes) || 999 };
+      const slots = scale.slots || [];
+      const days = [...new Set(slots.map(s => s.day))].sort();
+      const working = {};
+      const bySlot = {}, byReason = {}, byExplain = {};
+      days.forEach(day => {
+        const daySlots = slots.filter(s => s.day === day);
+        const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById: working, prefById });
+        const result = SE.consolidate(daySlots, candidates, opts);
+        result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; byExplain[a.slotId] = a.explain || []; });
+        Object.keys(result.fairnessDelta).forEach(pid => {
+          working[pid] = working[pid] || { diasTrabalhados: 0, divida: 0 };
+          working[pid].diasTrabalhados += (result.fairnessDelta[pid].dias || 0);
+        });
+      });
+      const newSlots = slots.map(s => Object.assign({}, s, {
+        assignedPersonId: bySlot[s.id] !== undefined ? bySlot[s.id] : s.assignedPersonId,
+        reason: byReason[s.id] !== undefined ? byReason[s.id] : (s.reason || null),
+        explain: byExplain[s.id] !== undefined ? byExplain[s.id] : (s.explain || []),
+      }));
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      const escalados = new Set(Object.values(bySlot).filter(Boolean));
+      const naoEscalados = teachers.filter(t => !escalados.has(t.id)).map(t => t.id);
+      return { success: true, data: { naoEscalados, totalSlots: slots.length, diasTrabalhadosPorPessoa: working } };
+    } catch (err) { console.error('[ScaleService.consolidateByDay]', err); return { success: false, error: err.message }; }
+  }
+
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay };
 });
