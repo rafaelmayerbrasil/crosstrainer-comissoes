@@ -16,6 +16,7 @@
 
 - [ ] **Antecedência mínima de férias:** staging está com **5 dias** (relaxado pra teste); produção deve voltar pra **30**? (localizar a constante e ajustar antes do merge)
 - [ ] **Tela legada de Usuários** (`index.html?page=users`): manter morta (fora do menu, já consertada) ou remover o código de vez?
+- [ ] **Edição de grade NÃO propaga pras aulas já geradas** (a discutir com o Rodrigo). Hoje: a geração é só-inserção (ID `slot+data`, `functions/index.js:321`) e editar um slot mexe só no template (`professores-agenda.js:563`). Logo, alterar a agenda vale **só pra datas ainda não geradas** — as aulas das ~4 semanas já criadas mantêm os dados antigos; correção em aula já gerada é por **status** (cancelar/realizar) ou **substituição**, não pela grade. Decidir se o comportamento desejado é esse ou se precisa de uma **regeneração/propagação** ao editar a grade (precedente técnico viável: `regenerateClassesWithHolidays`). **Possível ajuste antes da produção.** Relacionado: a "Minha Agenda" do professor só expõe até *próxima semana / mês corrente* (`MINHA_AGENDA_FILTERS`), embora as aulas existam ~4 semanas à frente.
 
 ## 1. Pré-merge
 
