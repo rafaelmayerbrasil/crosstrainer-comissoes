@@ -78,10 +78,12 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   console.log('✓ smoke-scale-service: consolidate OK');
 
   // ── Fim de ano (por dia, duplas sem modalidade, carga espalhada) ──
-  const feSlots = SS.templateSlotsFimDeAno({ start: '2026-12-21', end: '2026-12-23', closedDays: [], halfDays: ['2026-12-22'] }, [{ id: 'cp' }]);
-  assert.strictEqual(feSlots.length, 6, '3 dias x 1 unidade x 2 = 6 vagas');
+  const feSlots = SS.templateSlotsFimDeAno({ start: '2026-12-21', end: '2026-12-23', closedDays: [] }, [{ id: 'cp' }]);
+  assert.strictEqual(feSlots.length, 6, '3 dias x 1 unidade x 2 turnos x 1 pessoa = 6 vagas');
   assert.strictEqual(feSlots[0].requiredModalityId, null, 'vaga sem modalidade');
-  assert.ok(feSlots.some(s => s.halfDay === true), 'meio período marcado');
+  assert.ok(feSlots.some(s => s.shift === 'manha') && feSlots.some(s => s.shift === 'tarde_noite'), 'tem turnos manhã e tarde/noite');
+  assert.strictEqual(feSlots.find(s => s.shift === 'manha').startTime, '08:00', 'manhã começa 08:00');
+  assert.ok(feSlots.every(s => s.day && s.startTime && s.endTime), 'toda vaga tem dia e horário');
   const fe = await SS.createScale({ date: '2026-12-21', tipo: 'fim_de_ano', name: 'Fim de ano 2026', slots: feSlots }, d);
   const feCtx = { teachers: [{ id: 'p1', modalityIds: [] }, { id: 'p2', modalityIds: [] }, { id: 'p3', modalityIds: [] }] };
   const feRes = await SS.consolidateByDay(fe.data.id, feCtx, d);
@@ -93,12 +95,23 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(feg.data.status, 'consolidada');
   assert.ok(feg.data.slots.every(s => s.assignedPersonId), 'todas as 6 vagas preenchidas');
 
+  // publish multi-dia: scheduledDate vem do slot.day
+  await SS.setStatus(fe.data.id, 'consolidada', d);
+  const pubFe = await SS.publishToAgenda(fe.data.id, d);
+  assert.strictEqual(pubFe.data.created, 6, 'fim de ano publicou 6 aulas (1 por turno preenchido)');
+  const feCls = await db.collection('classes').where('specialScaleId', '==', fe.data.id).get();
+  const feDays = new Set(feCls.docs.map(c => c.data().scheduledDate));
+  assert.ok(feDays.has('2026-12-21') && feDays.has('2026-12-23'), 'aulas em dias diferentes (scheduledDate por slot.day)');
+  await SS.unpublishFromAgenda(fe.data.id, d);
+
   console.log('✓ smoke-scale-service: fim de ano OK');
 
   // ── ScaleConfig (horários default configuráveis) ──
   const cfg0 = await SS.ScaleConfigService.get(d);
   assert.ok(cfg0.success && cfg0.data && cfg0.data.horarios, 'config nasce com horarios default');
   assert.strictEqual(cfg0.data.horarios.sabado.startTime, '08:00', 'default sábado 08:00');
+  assert.ok(cfg0.data.fimDeAnoShifts && cfg0.data.fimDeAnoShifts.length === 2, 'config tem 2 turnos default (manhã/tarde-noite)');
+  assert.strictEqual(cfg0.data.fimDeAnoPeoplePerShift, 1, 'default 1 pessoa por turno');
   await SS.ScaleConfigService.save({ horarios: { sabado: { startTime: '07:00', endTime: '11:00' } } }, d);
   const cfg1 = await SS.ScaleConfigService.get(d);
   assert.strictEqual(cfg1.data.horarios.sabado.startTime, '07:00', 'config salva e persiste');

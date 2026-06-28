@@ -37,7 +37,11 @@
     async get(deps) {
       try {
         const doc = await rdb(deps).collection('scale_config').doc('default').get();
-        const base = { horarios: JSON.parse(JSON.stringify(DEFAULT_HORARIOS)) };
+        const base = {
+          horarios: JSON.parse(JSON.stringify(DEFAULT_HORARIOS)),
+          fimDeAnoShifts: JSON.parse(JSON.stringify(DEFAULT_FE_SHIFTS)),
+          fimDeAnoPeoplePerShift: 1,
+        };
         return { success: true, data: doc.exists ? Object.assign(base, doc.data()) : base };
       } catch (err) { console.error('[ScaleConfigService.get]', err); return { success: false, error: err.message }; }
     },
@@ -183,19 +187,33 @@
     return out;
   }
 
-  // Gera as vagas do fim de ano: por DIA (exceto fechados) × unidade, 2 duplas
-  // SEM modalidade exigida. `halfDay` marca os de meio período (ex.: 24/12).
-  function templateSlotsFimDeAno(period, units) {
+  // Turnos-padrão do fim de ano (configuráveis via scale_config).
+  const DEFAULT_FE_SHIFTS = [
+    { id: 'manha',       label: 'Manhã',       startTime: '08:00', endTime: '12:00' },
+    { id: 'tarde_noite', label: 'Tarde/Noite', startTime: '16:00', endTime: '21:00' },
+  ];
+
+  // Gera as vagas do fim de ano: por DIA (exceto fechados) × unidade × TURNO ×
+  // pessoas/turno. SEM modalidade exigida. Cada vaga carrega o horário do turno
+  // (pra publicar na agenda direto).
+  function templateSlotsFimDeAno(period, units, shifts, peoplePerShift) {
     period = period || {};
+    const sh = (shifts && shifts.length) ? shifts : DEFAULT_FE_SHIFTS;
+    const ppl = peoplePerShift || 1;
     const closed = new Set(period.closedDays || []);
-    const half = new Set(period.halfDays || []);
     const days = datesInRange(period.start, period.end).filter(d => !closed.has(d));
     const out = [];
     days.forEach(day => {
       (units || []).forEach(u => {
-        for (let i = 1; i <= 2; i++) {
-          out.push({ id: `${day}_${u.id}_${i}`, day, unitId: u.id, requiredModalityId: null, assignedPersonId: null, halfDay: half.has(day) });
-        }
+        sh.forEach(s => {
+          for (let i = 1; i <= ppl; i++) {
+            out.push({
+              id: `${day}_${u.id}_${s.id}_${i}`, day, unitId: u.id, shift: s.id,
+              startTime: s.startTime, endTime: s.endTime,
+              requiredModalityId: null, assignedPersonId: null,
+            });
+          }
+        });
       });
     });
     return out;
@@ -270,16 +288,17 @@
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
       await _deleteScaleClasses(scaleId, deps); // idempotência
-      // No browser grava Timestamp; no smoke/Node guarda a string da data.
-      const dateVal = (typeof firebase !== 'undefined' && firebase.firestore)
-        ? firebase.firestore.Timestamp.fromDate(new Date(scale.date + 'T00:00:00'))
-        : scale.date;
       const slots = scale.slots || [];
       const vagasAbertas = [];
       let created = 0;
       for (const s of slots) {
         if (!s.assignedPersonId) { vagasAbertas.push(s.id); continue; }
         if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); continue; }
+        // fim de ano: cada slot tem seu próprio dia; sábado/feriado usa a data da escala.
+        const slotDay = s.day || scale.date;
+        const dateVal = (typeof firebase !== 'undefined' && firebase.firestore)
+          ? firebase.firestore.Timestamp.fromDate(new Date(slotDay + 'T00:00:00'))
+          : slotDay;
         await rdb(deps).collection('classes').doc().set({
           unitId: s.unitId, teacherId: s.assignedPersonId, originalTeacherId: s.assignedPersonId,
           modalityId: s.requiredModalityId || null, startTime: s.startTime, endTime: s.endTime,
