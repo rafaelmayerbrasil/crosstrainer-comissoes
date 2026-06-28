@@ -1,0 +1,218 @@
+CrossTainer — Engajamento + Escala Inteligente + Fim de ano
+Como entrar · o que olhar · e o que falta você definir
+======================================================================
+
+Rô, beleza? Tá tudo no ar pra você mexer. Esse arquivo tem 3 coisas:
+  1) como entrar no sistema,
+  2) um guia rápido do que olhar, e
+  3) as perguntas que eu preciso que você responda pra eu fechar o resto.
+
+Pode brincar à vontade — é ambiente de teste, não tem como estragar nada.
+
+
+######################################################################
+# 1) COMO ENTRAR
+######################################################################
+
+Link:  https://crosstrainer-comissoes-staging.web.app
+(abre no computador ou no celular — pra essa primeira olhada, melhor no
+computador.)
+*--> o nome da academia é CrossTainer - sem o R depois do T - NÂO é CrossTRainer e sim CrossTainer - não sei se seria fácil arrumar isso, mas eu gostaria se possível
+
+Você tem 2 acessos, pra ver dos dois lados do balcão:
+
+   GESTÃO (dono / admin)
+   e-mail:  dono.teste@crosstainer.com
+   senha:   crosstainer2026
+
+   COLABORADOR (professor)
+   e-mail:  professor.teste@crosstainer.com
+   senha:   crosstainer2026
+
+Depois de entrar, clique em "Professores" no seletor lá no topo do menu lateral
+(as duas pílulas: Comissões | Professores).
+
+Obs.: os dados são de teste — 2 unidades (CP e PP) e alguns professores
+fictícios. É só pra você sentir o sistema funcionando; nada ali é real.
+
+
+######################################################################
+# 2) O QUE OLHAR (passo a passo)
+######################################################################
+
+>>> ENTRANDO COMO GESTÃO (dono.teste@)
+
+No menu lateral, seção "Engajamento":
+
+1) Config. Pontos
+   - Onde você define quanto vale cada coisa: tempo de casa, escola interna,
+     reunião, proatividade (cobrir colega), evento, e liderar a escola interna
+     valendo o dobro.
+   - Já deixei preenchido com os valores que você chutou. Veja se faz sentido,
+     mude um número e salve — pra confirmar que ele guarda.
+   - Repare também na regra de "zerar a cada 6 meses".
+
+2) Chamada
+   - Onde você tica presença, rapidinho: reunião, escola interna, quem liderou,
+     quem treinou como aluno em outro horário, TOI como aluno.
+   - Lance uma presença e confira que ela entrou.
+
+3) Placar
+   - O ranking de pontos por colaborador, somando tudo (inclusive o tempo de
+     casa, calculado pela data de admissão de cada um).
+   - Veja se a ordem faz sentido com o que você lançou.
+
+No menu lateral, seção "Agenda":
+
+4) Escala Inteligente (os sábados)
+   - Abra/crie a escala de um sábado e clique em "Consolidar".
+   - O sistema sugere quem trabalha: primeiro o PISO DE JUSTIÇA (quem está
+     devendo / mínimo de 1x no mês), depois o MÉRITO (quem tem mais pontos).
+     Cada vaga mostra um selinho do PORQUÊ.
+   - Abra o "por quê" de uma vaga: aparece o ranking dos candidatos (mérito,
+     nº de sábados, dívida, preferência) com o escolhido destacado.
+   - Tem um painel de equilíbrio (quem está abaixo / na média / acima da carga).
+   - Consolide um próximo sábado também e repare que ele tende a chamar quem
+     trabalhou menos — é a compensação funcionando.
+   * Olhando as escolhas e os motivos, bate com o jeito que você decidiria
+     na mão? (responda isso na PARTE A lá embaixo)
+
+5) Fim de ano (dentro da Escala Inteligente)
+   - Crie uma escala do tipo "fim de ano". O período já vem 21/12 a 02/01
+     (editável), com 25/12, 31/12 e 01/01 fechados e 24/12 meio período.
+   - Consolide: ele monta as duplas dia a dia, por unidade, equilibrando a carga.
+   - Quem NÃO for escalado aparece sinalizado — aí a gestão lança a folga/férias
+     na mão (o sistema não cria nada sozinho, de propósito).
+
+*--> Seria possível aqui fazer essa divisão por períodos do dia, ou seja, manhã e tarde/noite?
+
+
+>>> ENTRANDO COMO COLABORADOR (professor.teste@)
+    (Saia no menu → Sair e entre com o outro acesso. Você vira o "Marcos".)
+
+6) Placar
+   - O colaborador vê SÓ o próprio placar — não vê o dos outros nem a
+     configuração. Confirme que é isso mesmo.
+SIM
+
+7) Escala Inteligente
+   - Nas escalas com janela aberta, marque sua preferência:
+     Quero / Não quero / Não posso.
+*--> Alterar para: Prefiro / Não posso / Pode ser - marcar essa opção para todas as datas que pode ser para escalado
+   - Isso NÃO garante a vaga — é só preferência, entra como desempate.
+     Confirme que salvou.
+
+8) Proatividade (cobrir colega = ponto)
+   - Quando um colaborador aceita uma substituição, ele já ganha o ponto de
+     proatividade automaticamente, e isso aparece no placar.
+
+
+######################################################################
+# 3) O QUE FALTA VOCÊ DEFINIR (pra eu fechar o resto)
+######################################################################
+
+Pra eu terminar os 3 pedaços que ainda faltam — (a) publicar a escala como
+agenda de verdade, (b) o fim de ano e (c) o PLR (a avaliação que hoje é a
+planilha) — preciso que você bata o martelo nessas perguntas. Pode responder
+do lado de cada uma, ou me mandar por áudio que eu transcrevo.
+
+Obs.: tudo que for data/calendário vai ser CONFIGURÁVEL pela gestão (pode mudar
+de ano pra ano). Quando eu pergunto uma data aqui, é só pra confirmar o PADRÃO
+que já vem preenchido — pra gestão só ajustar quando precisar.
+
+
+=== PARTE A — FIM DE ANO (21/12 a 02/01) ===
+
+A1. Quais unidades ficam abertas? A escala de 2 pessoas/dia é POR UNIDADE
+    (cada unidade aberta com a sua dupla) ou A ACADEMIA TODA JUNTA (1 dupla
+    por dia no total)?
+    Resposta: As 2 unidades ficam abertas, escala de 2 pessoas por unidade. 
+Sem possível alterar o esquema de escala para "Manhã e "Tarde/Noite" nessas datas de Horário Reduzido
+
+A2. O ritmo. Você falou "trabalha 1 dia, folga 2-4, ~2-3 turnos cada". O
+    sistema deve só DISTRIBUIR de forma justa (e você ajusta na mão), ou
+    precisa FORÇAR esse rodízio automaticamente?
+    Resposta: Isso foi apenas uma sugestão do que acontecerem em anos anteriores. Mas a escala deve se formar seguindo as regras de pontuação desenvolvida. Todos devem ter as escalas bem similares, desviando o mínimo de pessoas possível para que todos trabalhem a mesma qtidade de períodos. 
+
+A3. As datas serão CONFIGURÁVEIS a cada ano — a gestão define o período e quais
+    dias ficam fechados / meio período na hora de montar a escala (porque pode
+    mudar de um ano pro outro). Você só me confirma se o PADRÃO abaixo está bom
+    (é o que vem preenchido, pra gestão só ajustar quando precisar):
+      - Período: 21/12 a 02/01
+      - Fechado: 25/12, 31/12 e 01/01
+      - Meio período: 24/12 
+    Esse padrão está bom?
+    Resposta: Pode considerar dia 24/12 tbm como fechado, mas dando a possibilidade de abrir se assim for escolhido pela gestão, ainda é mto cedo para definir isso definitivamente. 
+
+A4. Quando a dupla do fim de ano virar "aula" na agenda (pra contar hora e
+    pagamento), como conta o dia? A dupla trabalha o dia inteiro — então é
+    UM bloco de dia inteiro, ou você quer registrar manhã e tarde separados?
+    Quantas horas pagas conta por dia escalado?
+    Resposta: Manhã e Tade/Noite separados. O pgto para professores horistas deve ser contabilizando o total de horas trabalhado, sendo que em feriados dobra-se o pgto proporcional.
+
+(Já combinado: quem não for escalado no período, o sistema só sinaliza pra
+gestão lançar a folga/férias — não cria nada automático.)
+
+
+=== PARTE B — PESO DO SÁBADO/FERIADO NO PAGAMENTO ===
+Esse é o ponto que destrava "publicar a escala na agenda".
+
+B1. Hoje o peso da data (sábado/feriado vale mais hora no cálculo) entra no
+    PAGAMENTO. Quando a escala nova virar aula de verdade, você quer:
+      ( ) MANTER como hoje — o peso continua multiplicando as horas pagas; ou
+      (X) SEPARAR — o peso serve só pra equilibrar a escala (quem trabalha
+          mais x menos), e o pagamento é por hora normal.
+    Resposta: Separar. Essa sistema de geração de pontos é para escala, não tem nada a ver com  os pagamentos. 
+
+(Enquanto isso não estiver definido, a escala fica como REFERÊNCIA — mostra as
+vagas e os motivos — e não gera as aulas/pagamento sozinha.)
+
+
+=== PARTE C — PLR (a avaliação de desempenho / o que hoje é a planilha) ===
+O que você já definiu antes (não precisa repetir): rateio proporcional a
+horas trabalhadas × nota, 2x/ano (as datas de cada ciclo a gestão configura;
+padrão jun e nov), o sistema substitui a planilha, e as notas de engajamento
+(reunião/treino/escola interna/substituição) saem automáticas do placar de
+pontos. A nota dos alunos fica pra quando ligarmos a Pacto. Falta só fechar a
+NOTA e quem avalia:
+
+C1. A NOTA de cada pessoa. Hoje a planilha tem os blocos:
+    Profissional · Comportamental · Técnica · média dos alunos · (engajamento).
+    Pra fechar a conta, preciso saber o PESO de cada bloco na nota final.
+      - Mantemos os mesmos pesos da planilha de hoje? (se sim, me confirma os %)
+      - O engajamento (placar de pontos) entra como mais um bloco com peso
+        próprio, ou já está embutido em um dos blocos atuais?
+    Resposta: ENTRA COMO MAIS UM BLOCO, indiretamente até está embutido, mas matenha isso mais explicito
+
+C2. Quem AVALIA cada colaborador, e quantos avaliadores? A nota é a média
+    simples dos avaliadores (como na planilha), ou algum avaliador pesa mais?
+    Resposta: alguns avaliadores tem peso maior: o coordenador técnico e o Head Coach
+
+C3. Nesta primeira rodada NÃO teremos a nota dos alunos (vem da Pacto depois).
+    O que fazemos com esse pedaço agora:
+      (x ) ignorar e redistribuir o peso nos outros blocos; ou
+      () você digita as notas dos alunos à mão (da planilha antiga) só desta vez.
+    Resposta:
+
+C4. Quem entra no rateio do PLR? Todos os colaboradores? Estagiário entra?
+    Tem algum piso pra participar (ex.: tempo mínimo de casa / mínimo de
+    horas no semestre)?
+    Resposta: Sim, e essas regras variam um pouco de ano para ano: tempo de casa, saldo dos pontos, mínimo de x meses trabalahndo
+
+C5. O valor do pool (R$ 4.000 foi exemplo desta rodada) é a gestão que digita
+    a cada rodada, certo? Confirma.
+    Resposta: sim
+
+C6. Só pra eu não errar a conta — a fatia de cada um fica assim:
+      fatia = pool x (horas da pessoa x nota da pessoa)
+                    -------------------------------------
+                    soma de (horas x nota) de todo mundo
+    É isso? E "horas trabalhadas no semestre" = as horas do fechamento mensal
+    (o que já é pago), certo? 
+    Resposta:sim
+
+
+######################################################################
+Deu pra entrar e mexer, e respondeu as perguntas? Com isso eu fecho a escala-
+na-agenda + o fim de ano e parto pro PLR. Qualquer coisa que travar ou ficar
+confusa, manda um print/áudio que eu ajusto na hora. Valeu, Rô!
