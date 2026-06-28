@@ -75,3 +75,22 @@ const rAlt = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' 
 assert.strictEqual(rAlt.assignments[0].personId, 'leo', 'quem é de outra unidade (alternada) desempata');
 
 console.log('✓ smoke-scale-engine: preferência/unidade alternada OK');
+
+// ── Preferência NOVA: prefiro puxa, pode_ser neutro, nao_posso filtra ──
+{
+  const r = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+    [b3({ id: 'mara', pref: 'pode_ser' }), b3({ id: 'nina', pref: 'prefiro' })], {});
+  assert.strictEqual(r.assignments[0].personId, 'nina', 'prefiro ganha de pode_ser no empate');
+}
+{
+  const r = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+    [b3({ id: 'olga', merito: 99, pref: 'nao_posso' }), b3({ id: 'paty', merito: 1 })], {});
+  assert.strictEqual(r.assignments[0].personId, 'paty', 'nao_posso filtra mesmo com mérito alto');
+}
+{
+  // legado: quer ainda puxa acima de nao_quer
+  const r = SE.consolidate([{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }],
+    [b3({ id: 'rai', pref: 'nao_quer' }), b3({ id: 'sol', pref: 'quer' })], {});
+  assert.strictEqual(r.assignments[0].personId, 'sol', 'legado quer > nao_quer');
+}
+console.log('✓ smoke-scale-engine: preferência nova (prefiro/pode_ser) OK');

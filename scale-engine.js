@@ -17,7 +17,7 @@
   function isPiso(c, minMes) { return c.divida > 0 || c.diasTrabalhados < minMes; }
 
   function makeComparator(slot, minMes) {
-    const prefRank = (p) => p.pref === 'quer' ? 0 : (p.pref === 'nao_quer' ? 2 : 1);
+    const prefRank = (p) => (p.pref === 'prefiro' || p.pref === 'quer') ? 0 : (p.pref === 'nao_quer' ? 2 : 1);
     const altRank = (p) => (p.primaryUnitId && p.primaryUnitId !== slot.unitId) ? 0 : 1;
     return function (a, b) {
       const pa = isPiso(a, minMes) ? 0 : 1, pb = isPiso(b, minMes) ? 0 : 1;
