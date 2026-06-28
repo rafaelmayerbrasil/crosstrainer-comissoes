@@ -11,16 +11,44 @@
   function ruid(deps) { if (deps && deps.uid) return deps.uid(); return (typeof currentUserId === 'function') ? currentUserId() : null; }
   function rSE(deps)  { if (deps && deps.SE) return deps.SE; return ScaleEngine; }
 
-  function templateSlots(tipo, units) {
+  function templateSlots(tipo, units, times) {
     if (tipo === 'sabado' || tipo === 'feriado' || tipo === 'domingo_especial') {
+      const t = times || {};
       const out = [];
       (units || []).forEach(u => {
-        ['TOI', 'HIIT'].forEach(mod => out.push({ id: `${u.id}_${mod}`, unitId: u.id, requiredModalityId: mod, assignedPersonId: null }));
+        ['TOI', 'HIIT'].forEach(mod => out.push({
+          id: `${u.id}_${mod}`, unitId: u.id, requiredModalityId: mod, assignedPersonId: null,
+          startTime: t.startTime || null, endTime: t.endTime || null,
+        }));
       });
       return out;
     }
     return [];
   }
+
+  // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
+  const DEFAULT_HORARIOS = {
+    sabado:           { startTime: '08:00', endTime: '12:00' },
+    feriado:          { startTime: '08:00', endTime: '12:00' },
+    domingo_especial: { startTime: '08:00', endTime: '12:00' },
+    evento:           { startTime: '08:00', endTime: '12:00' },
+  };
+  const ScaleConfigService = {
+    async get(deps) {
+      try {
+        const doc = await rdb(deps).collection('scale_config').doc('default').get();
+        const base = { horarios: JSON.parse(JSON.stringify(DEFAULT_HORARIOS)) };
+        return { success: true, data: doc.exists ? Object.assign(base, doc.data()) : base };
+      } catch (err) { console.error('[ScaleConfigService.get]', err); return { success: false, error: err.message }; }
+    },
+    async save(patch, deps) {
+      try {
+        await rdb(deps).collection('scale_config').doc('default')
+          .set(Object.assign({ updatedAt: rts(deps) }, patch), { merge: true });
+        return { success: true };
+      } catch (err) { console.error('[ScaleConfigService.save]', err); return { success: false, error: err.message }; }
+    },
+  };
 
   async function createScale(scale, deps) {
     try {
@@ -216,5 +244,70 @@
     } catch (err) { console.error('[ScaleService.consolidateByDay]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay };
+  // ── Publicar na agenda (§5) ──────────────────────────────────────
+  // Escalas especiais são off-grid: publicar = CRIAR aulas taggeadas com
+  // specialScaleId/specialScaleSlotId. Idempotente: republicar apaga e recria.
+  function _slotMinutes(s) {
+    const a = parseInt(s.startTime.slice(0, 2), 10) * 60 + parseInt(s.startTime.slice(3), 10);
+    const b = parseInt(s.endTime.slice(0, 2), 10) * 60 + parseInt(s.endTime.slice(3), 10);
+    return b - a;
+  }
+
+  async function _deleteScaleClasses(scaleId, deps) {
+    const snap = await rdb(deps).collection('classes').where('specialScaleId', '==', scaleId).get();
+    let blocked = false, removed = 0;
+    for (const doc of snap.docs) {
+      if (doc.data().monthClosingId) { blocked = true; continue; }
+      await rdb(deps).collection('classes').doc(doc.id).delete();
+      removed++;
+    }
+    return { removed, blocked };
+  }
+
+  async function publishToAgenda(scaleId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      await _deleteScaleClasses(scaleId, deps); // idempotência
+      // No browser grava Timestamp; no smoke/Node guarda a string da data.
+      const dateVal = (typeof firebase !== 'undefined' && firebase.firestore)
+        ? firebase.firestore.Timestamp.fromDate(new Date(scale.date + 'T00:00:00'))
+        : scale.date;
+      const slots = scale.slots || [];
+      const vagasAbertas = [];
+      let created = 0;
+      for (const s of slots) {
+        if (!s.assignedPersonId) { vagasAbertas.push(s.id); continue; }
+        if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); continue; }
+        await rdb(deps).collection('classes').doc().set({
+          unitId: s.unitId, teacherId: s.assignedPersonId, originalTeacherId: s.assignedPersonId,
+          modalityId: s.requiredModalityId || null, startTime: s.startTime, endTime: s.endTime,
+          durationMinutes: _slotMinutes(s), status: 'prevista',
+          isHoliday: scale.tipo === 'feriado', holidayName: null, holidayType: null,
+          cancellationReason: null, cancellationNote: null,
+          adjustedBy: null, adjustedAt: null, adjustmentNote: null,
+          scheduledDate: dateVal, generatedBy: 'escala-smart',
+          specialScaleId: scaleId, specialScaleSlotId: s.id, specialScaleType: null,
+          monthClosingId: null, createdAt: rts(deps), updatedAt: rts(deps),
+        });
+        created++;
+      }
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ published: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { created, vagasAbertas } };
+    } catch (err) { console.error('[ScaleService.publishToAgenda]', err); return { success: false, error: err.message }; }
+  }
+
+  async function unpublishFromAgenda(scaleId, deps) {
+    try {
+      const res = await _deleteScaleClasses(scaleId, deps);
+      if (res.blocked) return { success: false, error: 'Há aulas em mês fechado; não é possível despublicar.' };
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ published: false, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { removed: res.removed } };
+    } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
+  }
+
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, ScaleConfigService, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

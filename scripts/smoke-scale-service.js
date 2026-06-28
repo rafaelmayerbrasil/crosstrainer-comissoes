@@ -10,7 +10,7 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   // templateSlots (puro)
   const slots = SS.templateSlots('sabado', [{ id: 'cp' }, { id: 'norte' }]);
   assert.strictEqual(slots.length, 4, '2 unidades x 2 papéis = 4 slots');
-  assert.deepStrictEqual(slots.find(s => s.id === 'cp_TOI'), { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null });
+  assert.deepStrictEqual(slots.find(s => s.id === 'cp_TOI'), { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null, startTime: null, endTime: null });
   assert.strictEqual(SS.templateSlots('evento', [{ id: 'cp' }]).length, 0, 'evento sem template');
 
   const db = makeFakeDb();
@@ -94,4 +94,48 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.ok(feg.data.slots.every(s => s.assignedPersonId), 'todas as 6 vagas preenchidas');
 
   console.log('✓ smoke-scale-service: fim de ano OK');
+
+  // ── ScaleConfig (horários default configuráveis) ──
+  const cfg0 = await SS.ScaleConfigService.get(d);
+  assert.ok(cfg0.success && cfg0.data && cfg0.data.horarios, 'config nasce com horarios default');
+  assert.strictEqual(cfg0.data.horarios.sabado.startTime, '08:00', 'default sábado 08:00');
+  await SS.ScaleConfigService.save({ horarios: { sabado: { startTime: '07:00', endTime: '11:00' } } }, d);
+  const cfg1 = await SS.ScaleConfigService.get(d);
+  assert.strictEqual(cfg1.data.horarios.sabado.startTime, '07:00', 'config salva e persiste');
+  const slotsT = SS.templateSlots('sabado', [{ id: 'cp' }], { startTime: '08:00', endTime: '12:00' });
+  assert.strictEqual(slotsT[0].startTime, '08:00', 'slot herda startTime');
+  assert.strictEqual(slotsT[0].endTime, '12:00', 'slot herda endTime');
+
+  console.log('✓ smoke-scale-service: scale-config/horários OK');
+
+  // ── Publicar / Despublicar (idempotente) ──
+  const pubSlots = [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'modTOI', assignedPersonId: 'ana', startTime: '08:00', endTime: '12:00' },
+    { id: 'cp_HIIT', unitId: 'cp', requiredModalityId: 'modHIIT', assignedPersonId: null, startTime: '08:00', endTime: '12:00' }, // vaga aberta
+  ];
+  const ps = await SS.createScale({ date: '2026-08-01', tipo: 'sabado', name: 'Pub', slots: pubSlots }, d);
+  await SS.setStatus(ps.data.id, 'consolidada', d);
+  const pub1 = await SS.publishToAgenda(ps.data.id, d);
+  assert.strictEqual(pub1.data.created, 1, '1 aula criada (vaga aberta não gera)');
+  assert.deepStrictEqual(pub1.data.vagasAbertas, ['cp_HIIT'], 'vaga aberta reportada');
+  let clsSnap = await db.collection('classes').where('specialScaleId', '==', ps.data.id).get();
+  assert.strictEqual(clsSnap.docs.length, 1, '1 aula no banco');
+  assert.strictEqual(clsSnap.docs[0].data().teacherId, 'ana', 'aula com a professora certa');
+  assert.strictEqual(clsSnap.docs[0].data().status, 'prevista', 'aula prevista');
+  assert.strictEqual(clsSnap.docs[0].data().durationMinutes, 240, '08:00-12:00 = 240min');
+  // republicar não duplica
+  const pub2 = await SS.publishToAgenda(ps.data.id, d);
+  assert.strictEqual(pub2.data.created, 1, 'republicar recria 1 (não acumula)');
+  clsSnap = await db.collection('classes').where('specialScaleId', '==', ps.data.id).get();
+  assert.strictEqual(clsSnap.docs.length, 1, 'continua 1 aula (idempotente)');
+  // marca published
+  const pg = await SS.getScale(ps.data.id, d);
+  assert.strictEqual(pg.data.published, true, 'escala marcada como publicada');
+  // despublicar remove
+  const unp = await SS.unpublishFromAgenda(ps.data.id, d);
+  assert.ok(unp.success && unp.data.removed === 1, 'despublicou 1 aula');
+  clsSnap = await db.collection('classes').where('specialScaleId', '==', ps.data.id).get();
+  assert.strictEqual(clsSnap.docs.length, 0, 'despublicou: 0 aulas');
+
+  console.log('✓ smoke-scale-service: publicar/despublicar OK');
 })();
