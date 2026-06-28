@@ -111,7 +111,10 @@ service cloud.firestore {
                        resource.data.originalTeacherId == uData().professorId &&
                        resource.data.monthClosingId == null)
                     );
-      allow delete: if false;
+      // Despublicar escala: gestão apaga SÓ aulas geradas pela escala e não fechadas
+      allow delete: if isAuth() && (isAdmin() || isSuperv()) &&
+                       resource.data.specialScaleId is string &&
+                       resource.data.monthClosingId == null;
     }
 
     match /substitutions/{id} {
@@ -246,6 +249,12 @@ service cloud.firestore {
       allow read:  if isAuth() && hasProfModule();
       allow write: if isAuth() && (isAdmin() || isSuperv());
       allow delete: if false;
+    }
+
+    // Config da escala (horários-padrão das vagas) — leitura do módulo, escrita admin
+    match /scale_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
     }
 
     // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
