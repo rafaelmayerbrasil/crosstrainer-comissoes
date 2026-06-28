@@ -160,11 +160,17 @@ function renderFimDeAnoDetail(scale) {
     const half = !!(daySlots[0] && daySlots[0].halfDay);
     const byUnit = {};
     daySlots.forEach(s => { (byUnit[s.unitId] = byUnit[s.unitId] || []).push(s); });
+    const shiftLabel = (sid) => sid === 'manha' ? 'Manhã' : (sid === 'tarde_noite' ? 'Tarde/Noite' : (sid || ''));
     const unitsHtml = Object.keys(byUnit).map(uid => {
-      const people = byUnit[uid].map(s => s.assignedPersonId
-        ? `<span style="font-size:12px;">${escalaPersonName(s.assignedPersonId)}</span>`
-        : `<span style="font-size:12px;color:var(--text3);">— vaga</span>`).join(' · ');
-      return `<div style="font-size:12px;"><span style="color:var(--text2);">${unitName(uid)}:</span> ${people}</div>`;
+      const byShift = {};
+      byUnit[uid].forEach(s => { (byShift[s.shift || '_'] = byShift[s.shift || '_'] || []).push(s); });
+      const shiftsHtml = Object.keys(byShift).map(sid => {
+        const people = byShift[sid].map(s => s.assignedPersonId
+          ? `<span style="font-size:12px;">${escalaPersonName(s.assignedPersonId)}</span>`
+          : `<span style="font-size:12px;color:var(--text3);">— vaga</span>`).join(' · ');
+        return `<div style="font-size:12px;"><span style="color:#5EA8FF;">${shiftLabel(sid)}</span> — ${people}</div>`;
+      }).join('');
+      return `<div style="font-size:12px;margin-bottom:4px;"><span style="color:var(--text2);font-weight:500;">${unitName(uid)}</span>${shiftsHtml}</div>`;
     }).join('');
     daysHtml += `<div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
       <div style="font-weight:600;font-size:13px;min-width:52px;">${fmtDay(day)}${half ? '<div style="font-size:10px;color:#caa23a;">½ período</div>' : ''}</div>
@@ -183,14 +189,17 @@ function renderFimDeAnoDetail(scale) {
       : `<div style="font-size:12px;color:var(--text2);margin-top:12px;">Todos os colaboradores foram escalados em algum dia.</div>`;
   }
 
-  const actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px;">
+  const actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
+    ${scale.published ? `<span style="font-size:12px;color:var(--green);margin-right:auto;">✓ publicada na agenda</span>` : ''}
     ${scale.status === 'rascunho' ? `<button class="btn-secondary" onclick="abrirJanelaEscala('${scale.id}')">📨 Abrir janela de preferências</button>` : ''}
     <button class="btn-primary" onclick="consolidarEscala('${scale.id}')">🧮 ${consolidated ? 'Reconsolidar' : 'Consolidar'}</button>
+    ${consolidated && !scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : ''}
+    ${scale.published ? `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>` : ''}
   </div>`;
 
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
     <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || 'Fim de ano'}</div>
-      <div style="font-size:12px;color:var(--text2);">${days.length} dias · 2 por unidade/dia · ${ESCALA_STATUS_LABEL[scale.status] || scale.status}</div></div>
+      <div style="font-size:12px;color:var(--text2);">${days.length} dias · turnos manhã/tarde-noite · ${ESCALA_STATUS_LABEL[scale.status] || scale.status}</div></div>
     ${daysHtml || '<p style="color:var(--text2);">Sem dias nesta escala.</p>'}
     ${sinalHtml}
     ${actions}
@@ -255,6 +264,9 @@ function openNovaEscala() {
   overlay.style.display = 'flex';
   modal.style.display = 'block';
   const y = new Date().getFullYear();
+  const unitChecks = EscalaSmartState.units.map(u =>
+    `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;"><input type="checkbox" class="feUnit" value="${u.id}" checked> ${u.name || u.id}</label>`
+  ).join('') || '<span style="font-size:12px;color:var(--text3);">Nenhuma unidade cadastrada.</span>';
   modal.innerHTML = `
     <h2>Nova escala</h2>
     <div class="form-group"><label>Tipo</label><select id="novaEscalaTipo" class="input" onchange="onNovaEscalaTipo()">${tipoOpts}</select></div>
@@ -264,7 +276,19 @@ function openNovaEscala() {
         <div class="form-group"><label>Início</label><input type="date" id="feInicio" class="input" value="${y}-12-21"></div>
         <div class="form-group"><label>Fim</label><input type="date" id="feFim" class="input" value="${y + 1}-01-02"></div>
       </div>
-      <p style="font-size:12px;color:var(--text2);">Uma dupla por dia em cada unidade. Fechado 25/12, 31/12 e 01/01; 24/12 meio período. Ajuste as datas a cada ano.</p>
+      <div class="form-group"><label>Unidades abertas</label><div style="padding:4px 0;">${unitChecks}</div></div>
+      <div class="form-group"><label>Turnos (horário reduzido)</label>
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;">
+          <span style="font-size:13px;">Manhã</span>
+          <input type="time" id="feManhaIni" class="input" value="08:00">
+          <input type="time" id="feManhaFim" class="input" value="12:00">
+          <span style="font-size:13px;">Tarde/Noite</span>
+          <input type="time" id="feTardeIni" class="input" value="16:00">
+          <input type="time" id="feTardeFim" class="input" value="21:00">
+        </div>
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="feAbrir24"> Abrir 24/12 (por padrão fechado)</label>
+      <p style="font-size:12px;color:var(--text2);">Vagas por dia × unidade × turno (1 pessoa/turno). Fechado 25/12, 31/12 e 01/01. Ajuste as datas a cada ano.</p>
     </div>
     <p id="novaEscalaHint" style="font-size:12px;color:var(--text2);">As vagas são geradas por unidade: 1 TOI + 1 Hiit. Você pode ajustar depois.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
@@ -306,15 +330,19 @@ async function criarEscalaFimDeAno() {
   const start = document.getElementById('feInicio').value;
   const end = document.getElementById('feFim').value;
   if (!start || !end || start > end) { toast('Informe um período válido.', 'error'); return; }
-  if (!EscalaSmartState.units.length) { toast('Cadastre as unidades antes.', 'error'); return; }
+  const selUnits = Array.from(document.querySelectorAll('.feUnit:checked')).map(c => c.value);
+  if (!selUnits.length) { toast('Selecione ao menos uma unidade.', 'error'); return; }
+  const units = EscalaSmartState.units.filter(u => selUnits.includes(u.id));
+  const shifts = [
+    { id: 'manha', label: 'Manhã', startTime: document.getElementById('feManhaIni').value, endTime: document.getElementById('feManhaFim').value },
+    { id: 'tarde_noite', label: 'Tarde/Noite', startTime: document.getElementById('feTardeIni').value, endTime: document.getElementById('feTardeFim').value },
+  ];
+  const abrir24 = document.getElementById('feAbrir24').checked;
   const all = ScaleService.datesInRange(start, end);
   const closedMMDD = new Set(['12-25', '12-31', '01-01']);
-  const period = {
-    start, end,
-    closedDays: all.filter(d => closedMMDD.has(d.slice(5))),
-    halfDays: all.filter(d => d.slice(5) === '12-24'),
-  };
-  const slots = ScaleService.templateSlotsFimDeAno(period, EscalaSmartState.units);
+  if (!abrir24) closedMMDD.add('12-24');
+  const period = { start, end, closedDays: all.filter(d => closedMMDD.has(d.slice(5))) };
+  const slots = ScaleService.templateSlotsFimDeAno(period, units, shifts, 1);
   const res = await ScaleService.createScale({ date: start, tipo: 'fim_de_ano', name: `Fim de ano ${start.slice(0, 4)}`, slots });
   if (res.success) { toast('Escala de fim de ano criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
