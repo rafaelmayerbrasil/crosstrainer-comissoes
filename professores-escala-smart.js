@@ -81,7 +81,7 @@ function renderEquilibrioPainel() {
 function whyTableHtml(slot) {
   const ex = slot.explain || [];
   if (!ex.length) return '';
-  const prefLabel = (p) => p === 'quer' ? 'quer' : (p === 'nao_quer' ? 'não quer' : (p === 'nao_posso' ? 'não posso' : '—'));
+  const prefLabel = (p) => (p === 'prefiro' || p === 'quer') ? 'prefiro' : (p === 'pode_ser' ? 'pode ser' : (p === 'nao_posso' ? 'não posso' : (p === 'nao_quer' ? '—' : '—')));
   const rows = ex.map(c => {
     const win = c.personId === slot.assignedPersonId;
     return `<tr style="${win ? 'background:var(--surface3);' : ''}">
@@ -229,9 +229,12 @@ function renderEscalaDetail(scale) {
   });
 
   const actions = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
+      ${scale.published ? `<span style="font-size:12px;color:var(--green);margin-right:auto;">✓ publicada na agenda</span>` : ''}
       ${scale.status === 'rascunho' ? `<button class="btn-secondary" onclick="abrirJanelaEscala('${scale.id}')">📨 Abrir janela de preferências</button>` : ''}
       <button class="btn-primary" onclick="consolidarEscala('${scale.id}')">🧮 ${scale.status === 'consolidada' ? 'Reconsolidar' : 'Consolidar'}</button>
+      ${scale.status === 'consolidada' && !scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : ''}
+      ${scale.published ? `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>` : ''}
     </div>`;
 
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
@@ -351,6 +354,25 @@ async function consolidarEscala(id) {
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
+async function publicarEscala(id) {
+  if (!confirm('Publicar a escala como aulas na agenda?')) return;
+  toast('Publicando…', 'info');
+  const res = await ScaleService.publishToAgenda(id);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  let msg = `${res.data.created} aula(s) publicada(s).`;
+  if (res.data.vagasAbertas && res.data.vagasAbertas.length) msg += ` ${res.data.vagasAbertas.length} vaga(s) aberta(s) sem aula.`;
+  toast(msg, 'success');
+  renderEscalaGestao();
+}
+
+async function despublicarEscala(id) {
+  if (!confirm('Remover as aulas publicadas desta escala da agenda?')) return;
+  const res = await ScaleService.unpublishFromAgenda(id);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Escala despublicada.', 'success');
+  renderEscalaGestao();
+}
+
 /* ─── COLABORADOR (preferências) ───────────────────────────────────── */
 async function renderEscalaPrefs() {
   const container = document.getElementById('page-escala-smart');
@@ -385,12 +407,24 @@ async function renderEscalaPrefs() {
 
   const rows = abertas.map(s => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
     <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${s.date}</div></div>
-    <div style="display:flex;gap:6px;">${pbtn(s.id, 'quer', 'Quero', 'var(--green)')}${pbtn(s.id, 'nao_quer', 'Não quero', '#caa23a')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>
+    <div style="display:flex;gap:6px;">${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>
   </div>`).join('');
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1><p>Marque os sábados/feriados que você quer (ou não pode) trabalhar. Marcar preferência não garante a vaga.</p></div>
+    <div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1><p>Marque as datas que você <b>prefere</b>, que <b>pode ser</b>, ou que <b>não pode</b> trabalhar. Marcar preferência não garante a vaga.</p></div>
+    <div style="padding:0 0 12px;"><button onclick="marcarPodeSerTodas()" style="font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;background:rgba(94,168,255,0.15);color:#5EA8FF;border:1px solid #5EA8FF;">✓ Marcar "Pode ser" em todas</button></div>
     ${rows}`;
+}
+
+async function marcarPodeSerTodas() {
+  const pid = escalaProfId();
+  if (!pid) { toast('Seu perfil não está vinculado a um professor.', 'error'); return; }
+  const scalesRes = await ScaleService.listScales();
+  const abertas = (scalesRes.success ? scalesRes.data : []).filter(s => s.status === 'janela_aberta');
+  if (!abertas.length) { toast('Nenhuma janela aberta.', 'info'); return; }
+  for (const s of abertas) { await ScaleService.setPreference(s.id, pid, 'pode_ser'); }
+  toast(`"Pode ser" marcado em ${abertas.length} escala(s).`, 'success');
+  renderEscalaPrefs();
 }
 
 async function marcarPref(scaleId, pref) {
@@ -410,6 +444,9 @@ window.criarEscala = criarEscala;
 window.selectEscala = selectEscala;
 window.abrirJanelaEscala = abrirJanelaEscala;
 window.consolidarEscala = consolidarEscala;
+window.publicarEscala = publicarEscala;
+window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
+window.marcarPodeSerTodas = marcarPodeSerTodas;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');
