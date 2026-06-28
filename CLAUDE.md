@@ -63,6 +63,8 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 **SISTEMA COMPLETO em staging (12/06/2026): 13 sprints + shell integrado + hub Pessoas + kit de homologação, tudo na branch `feature/shell-integrado` (não mergeada). Aguardando homologação do CLIENTE (roteiro publicado) → depois `docs/checklist-deploy-producao.md`.**
 
+> **🆕 Frente nova (23–27/06/2026):** decisão Pacto resolvida (construir próprio primeiro, conectar depois) + feedback do Rodrigo abriu o módulo de **Engajamento/Pontos + escala inteligente + PLR**. **CONSTRUÍDO E VERIFICADO NO STAGING (24/06) + fim-de-ano (5c-2)**, tudo na branch `feature/shell-integrado`: engajamento completo (Config/Chamada/Placar) + escala inteligente (motor + serviço + regras + UI gestão/colaborador + polish) + proatividade (substituição→ponto) + fim-de-ano. **🚀 LIBERADO PRO RODRIGO (27/06):** deploy de hosting no staging (`crosstrainer-comissoes-staging.web.app`) + unidade fictícia `unit-norte` removida (só CP/PP) + doc único `docs/rodrigo-engajamento-escala-COMPLETO.txt` (acesso + guia + perguntas). **AGUARDANDO o Rodrigo** validar + responder (A fim-de-ano · B peso da data · C PLR). Falta construir: **publicar escala na agenda** (gated pelo peso B1) e **PLR** (sem spec; Pacto não bloqueia). Comissões renovação→novo = baixa prioridade. Detalhes na sessão 38 de `CONTEXTO_SESSAO.md` + memória `novo-modulo-engajamento-pontos`.
+
 | Sprint | Entrega | Status |
 |--------|---------|--------|
 | 1 | Cadastro de Professores + Modalidades + Aba Salarial restrita | ✅ |

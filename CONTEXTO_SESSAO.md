@@ -3,7 +3,87 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 35 (16/06/2026) — Fixes de split/BIANUAL/recálculo em PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 38 (27/06/2026) — Sistema liberado pro Rodrigo no staging + unidade fictícia removida + doc único de validação/perguntas
+
+**Tipo: liberação (deploy hosting staging) + limpeza de dados + entrega de docs pro cliente. Branch `feature/shell-integrado`. Não construiu feature nova.**
+
+- **🚀 Sistema liberado pro Rodrigo (autorizado pelo usuário):** `firebase deploy --only hosting --project staging`. Todas as telas novas (Engajamento Config/Chamada/Placar + Escala Inteligente + Fim de ano) agora no ar em `crosstrainer-comissoes-staging.web.app` (antes só preview local). **Verificado por curl:** arquivos novos 200, `professores-escala-smart.js` servido contém fim-de-ano/`consolidateByDay`, nav tem `engaj-config/chamada/placar` + `escala-smart`. Acessos demo: `dono.teste@` / `professor.teste@crosstainer.com` (senha `crosstainer2026`) → clicar "Professores" no seletor de módulo.
+- **🧹 Unidade fictícia removida (decisão do usuário):** a demo tinha 3 unidades; na vida real só **2 (CP e PP)**. Removida a `unit-norte` ("CrossTainer Norte") via `scripts/remove-unit-norte.js` (dry-run + `--apply`): apagou `units/unit-norte`, tirou de `allowedUnits` de 2 users (incl. `abluir@`) + `unitIds` da Ana + slots Norte de 3 escalas demo. **0 aulas/fechamentos afetados.** `seed-demo.js` corrigido (allowedUnits → `['unit-cp','unit-pp']`). Confirmado: só CP/PP restam.
+- **🗓️ Decisão: datas SEMPRE configuráveis** pela gestão (não hardcoded) — período do fim-de-ano, dias fechados/meio-período, ciclos do PLR. Em pergunta pro cliente, assumir configurável e só confirmar o padrão. Memória [[feedback-datas-configuraveis]].
+- **🚫 Treino de 27/06 NÃO será registrado à mão** (cancela a nota antiga "registrar 27/06 manual") — a contagem de pontos começa só quando o sistema entrar pra valer.
+- **📄 Doc-gatilho das pendências = arquivo ÚNICO `docs/rodrigo-engajamento-escala-COMPLETO.txt`** = acesso (link+logins) + guia passo a passo (gestão/colaborador) + perguntas A/B/C. (Versões parciais `rodrigo-acesso-e-guia.txt` e `perguntas-rodrigo-fechar-pendencias.txt` existem; o COMPLETO substitui ambas.)
+  - **Perguntas em aberto:** A) fim-de-ano (A1 unidades · A2 ritmo · A3 datas=confirmar padrão configurável · **A4 nova**: como a dupla do dia vira hora/pagamento) · B) **B1 peso da data** (mantém pagando × só equilibra — destrava o publish) · C) PLR (C1 pesos dos blocos da nota + onde entra o engajamento · C2 quem avalia/média · C3 nota dos alunos sem Pacto nesta rodada · C4 quem entra no rateio · C5 pool digitado · C6 confirmar fórmula). Já respondido (não repetir): rateio horas×nota, 2×/ano jun/nov, substitui planilha, engajamento automático do placar, nota dos alunos = Pacto futura.
+
+**⏭️ PRÓXIMA AÇÃO: aguardando o Rodrigo** validar pelo sistema + responder o COMPLETO. Com as respostas:
+1. **Publicar a escala na agenda** (gerar `classes`) — gated por **B1** (inconsistência peso §15.5 × código que paga em `professores-shared.js:1826`).
+2. **Fim de ano** — como o dia vira hora/pagamento (**A4**).
+3. **PLR** — ainda **sem spec**; com as respostas C → brainstorm → spec → plano → build. **Pacto não bloqueia** (só a nota dos alunos é externa). Detalhe na memória [[novo-modulo-engajamento-pontos]].
+
+---
+
+## 🔖 Sessão 37 (23/06/2026) — Feedback do Rodrigo sobre agenda/escalas + decisão Pacto + nova frente Engajamento/Pontos
+
+**Sessão de produto/requisitos — NÃO alterou código (só `docs/` + memória).** Rodrigo (Rô, dono/futuro sócio) passou um retorno sobre o módulo de agenda. A maior parte é **funcionalidade nova e grande**, muito além do que existe.
+
+**✅ DECISÃO PACTO RESOLVIDA (Rodrigo respondeu):** construir o **sistema próprio PRIMEIRO, sem conectar**; depois de rodar na prática, avaliar conectar com a Pacto pra evitar cadastro duplicado. → Desenhar o modelo de dados **já preparado pra casar** (ex.: campo "ID externo Pacto" vazio agora). Destrava a frente que estava parada desde a sessão 36. (Memória [[pacto-decisao-rumo]].)
+
+**🆕 NOVA FRENTE GRANDE — módulo de Engajamento/Pontos + escala inteligente + PLR.** Mapa na memória [[novo-modulo-engajamento-pontos]]. Pontos:
+- **Insight central:** reunião interna, treinamento, escola interna/TOI, proatividade em substituir e eventos = **UM motor de pontos só**, consumido em 2 lugares: ordem de escolha na eleição de escala **e** PLR. Os critérios batem com a planilha `Avaliação de Desempenho_mai2026_PP.xlsx` (1 aba/colaborador; avaliadores tirando média; blocos Profissional/Comportamental/Técnica + média alunos + PLR % final).
+- **Seção 15 da spec (`docs/Proposta_Funcional_..._V3.md`) JÁ especificava** o motor de escala inteligente (janela rolante 3 meses, modelo disponível/prefere/não-pode com "preferência ≠ reserva", distribuição equilibrada/ninguém de fora + painel, alocação automática por não-resposta, poderes da gestão, pesos por data sábado 1/feriado 2/domingo 3/evento 3) — **mas NUNCA foi construído.** O código (`professores-escalas.js`) é só um STUB: etiqueta de peso que multiplica horas no pagamento.
+- **Gap do feedback do Rodrigo vs seção 15:** (1) motor de pontos de **MÉRITO** como prioridade de escolha — a spec prioriza por **JUSTIÇA** (equilíbrio+histórico); **TENSÃO a decidir: mérito × justiça, como combinam**; (2) unidade alternada explícita; (3) acúmulo de preferência não usada; (4) Escola Interna (treino Seg–Sex 14:30 editável + escala de quem lidera) / presença em Reunião / Treinamento+penalização / PLR — tudo fora da seção 15.
+- **Inconsistência a alinhar na construção:** spec 15.5 diz que o peso da data é só pra **balancear distribuição** ("não substitui regra financeira"), mas o código usa esse peso pra **PAGAR**.
+- **Renomear telas da agenda** ("Agenda da Semana" vs "Agenda Geral") — trivial, item 0.
+- **Treino de 27/06/2026** acontece antes do sistema → registrar presença manual e importar depois.
+
+**📄 Documento de perguntas pro Rodrigo:** `docs/perguntas-rodrigo-agenda-escalas.md` (8 blocos, ~25 perguntas; o que a seção 15 já decidiu virou "confirmar"; pergunta 2c isola a tensão mérito×justiça). **Aguardando as respostas dele.**
+
+**🐛 AJUSTE PENDENTE DO COMISSÕES IDENTIFICADO (23/06) — renovação virando "novo contrato" (paga o dobro).** Investigado SEM alterar código. Causa-raiz: o sistema copia novo/renovação da coluna "Tipo de Venda" do XLSX (fonte = sistema da academia); a vendedora registrou renovações como "Novo Contrato" lá → motor paga 5% em vez de 2,5% E distorce meta/P3 (novos infla, renovações esvazia). Detalhe completo + caminhos de correção na memória [[comissoes-renovacao-classificada-novo]]. **Aguardando o Rodrigo mandar o arquivo/período com os nomes citados** (não estavam no `vendas realizadas PP -0106 a 2206.xlsx`). Sugestão forte: detecção automática no upload via histórico de clientes. NADA implementado.
+
+**⏭️ PRÓXIMA AÇÃO:**
+1. **Engajamento/Escala (frente principal): AGUARDANDO RESPOSTAS DO RODRIGO** ao doc `docs/perguntas-rodrigo-validacao-engajamento-escala.txt` (2 blocos: fim-de-ano 1a-1c · peso da data 2a). Com elas → construir 5c-2 (fim-de-ano) + decidir o peso. Deploy de hosting só na hora do demo pro Rodrigo.
+2. **Comissões (renovação→novo): BAIXA PRIORIDADE.** O Rodrigo já mandou o arquivo/info, mas o usuário ainda não repassou (não é prioridade). Tratar depois. Detalhe em [[comissoes-renovacao-classificada-novo]].
+3. Agenda/Engajamento — origem: respostas do Rodrigo em `docs/respostas-rodrigo-agenda-escalas.md`; spec `docs/superpowers/specs/2026-06-24-engajamento-pontos-escala-design.md`.
+
+**✅ MÓDULO DE ENGAJAMENTO/PONTOS CONSTRUÍDO E VERIFICADO NO STAGING (24/06, via /loop). Branch `feature/shell-integrado`. Detalhe completo na memória [[novo-modulo-engajamento-pontos]].**
+- **Plano 1 — motor puro** (`engagement-config.js` + `points-engine.js`, smokes Node): tempo de casa por faixa, ciclos/reset, placar, geração idempotente por chamada, penalidades, proatividade, TOI-aluno.
+- **Plano 2 — serviço/persistência** (`engagement-service.js` + `_fake-firestore.js`): config, ciclos (CRUD), recordAttendance idempotente, awardSubstitution, scoreboard.
+- **Regras Firestore** das 4 coleções deployadas + validadas no staging (10/10 REST).
+- **Plano 3 — UI** (`professores-engajamento.js`, T1–T6): telas de **Config** (pontos/penalidades/ciclos), **Chamada** (4 tipos, líder ×2, treinou-em-outra, TOI-aluno, filtro de unidade, +pts ao vivo) e **Placar** (por pessoa/ciclo). Nav/rotas registrados. Verificado ponta a ponta no staging (admin lança→placar reflete; professor vê só o próprio e Config bloqueada; auditoria; zero erros de console). Revisão de subagente ✅.
+- **Falta pra o cliente acessar sozinho:** `firebase deploy --only hosting` no staging (não feito — pedir OK; regra de homologação). Hoje validado por preview local→staging.
+
+**✅ ESCALA INTELIGENTE DOS SÁBADOS — CONSTRUÍDA E VERIFICADA NO STAGING (24/06).** Plano 4 `scale-engine.js` (piso de justiça + mérito + slots tipados + compensação, smoke) · Plano 5a `scale-service.js` (CRUD + preferências + fairness + consolidação, smoke fake firestore) · Plano 5b UI `professores-escala-smart.js` (gestão consolida com o "porquê" + painel de equilíbrio; colaborador marca preferência) + regras das 3 coleções no staging · polish (painel + tabela por-quê) · 5c-1 proatividade (aceitar substituição = ponto). **Falta (aguarda Rodrigo):** 5c-2 fim-de-ano (modo por-dia) e o peso da data (publish adiado). Item 0 (renomear agenda) segue liberado e independente.
+
+**Pendências menores anotadas** (não bloqueiam): `faixaAnos>=1` na config; normalizar pontos/datas do Firestore; `engajHireISO` não trata `type==='eventual'`; tech-debt entry órfã; inconsistência peso-de-data §15.5 × pagamento.
+
+3. **Comissões (renovação→novo):** aguardando arquivo do Rodrigo. Detalhe em [[comissoes-renovacao-classificada-novo]].
+
+**Obs.:** homologação do cliente (módulo Professores) + `docs/checklist-deploy-producao.md` seguem pendentes, frente independente.
+
+---
+
+## 🔖 Sessão 36 (16–17/06/2026) — Pesquisa da API Pacto + alinhamento estratégico com o sócio
+
+**Contexto novo e GRANDE (muda o rumo do projeto):** o cliente (Rô — dono da Cross + futuro sócio) está migrando do **TecnoFit** para a **Pacto Soluções**. Ideia dele: puxar vendas (comissões), agenda e cadastros da Pacto **via API** em vez do upload manual de XLSX. **Esta sessão foi pesquisa + estratégia — NÃO alterou nenhum código de produção** (só `docs/` e memória).
+
+**Pesquisa da API Pacto (feita batendo nos endpoints REAIS com tokens do cliente; mapa técnico completo na memória `pacto-api-integracao.md`):**
+- API real = gateway `https://apigw.pactosolucoes.com.br`. Auth: header `Authorization: <token>` (cru, sem "Bearer") **+ header `empresaId`**. Cada endpoint tem `x-scope`; **credencial precisa ser gerada COM os escopos marcados** (sem isso vem `scope:[]` e recusa — no /prest dava erro enganoso "Problemas ao obter a secret"). Tem **SandBox** (dados fictícios).
+- **Verificado com dado real:** Comissões 🟢 (`relFaturamentoRecebido/vendas` por período = valor recebido) · Cadastros 🟢 (`colaboradores/professores-ativos` puxou prof. real; modalidades; alunos) · **Agenda 🟢** (corrige conclusão errada que tive no meio da sessão: a "Agenda de Aulas" EXISTE — aulas por professor/dia, substituição de professor, presença; o que vem vazio é "turmas", porque as modalidades da Cross são `utilizarTurma:false`).
+- **Descoberta estratégica:** a Pacto cobre **nativamente** muito do que o módulo Professores faz (agenda, **substituição**, presença, professores) e tem até **comissão nativa** → a pergunta deixou de ser "como integrar" e virou **"quanto do sistema custom ainda faz sentido manter"**.
+
+**Decisão de produto — EM ABERTO, aguardando o sócio.** Montamos juntos e o usuário **ENVIOU pro Rô** uma mensagem de WhatsApp (texto final salvo em `docs/pacto-alinhamento-socio.md`) pedindo a visão dele. Tom: papo entre sócios, assumindo que é pesquisa fresca feita com IA; a Cross é dele, o sistema é feito junto, com um "quem sabe lá na frente vira tipo a Pacto". **3 perguntas-chave enviadas:**
+1. Sistema só pra Cross, ou lá na frente virar **produto tipo Pacto** pra vender pra outras academias? *(essa muda a arquitetura)*
+2. A **troca de professor** da Pacto, se registrar direitinho quem deu cada aula, já atende — ou a nossa regra é diferente?
+3. Subir agora o que já fizemos dos professores e conectar as APIs depois, **ou** já construir direto com as APIs (menos retrabalho)?
+
+**Intuição registrada (minha + do usuário):** comissão e folha dos professores são regras específicas demais pra caber redondas num SaaS. A folha nasceu de uma **dor real** (professores trocam muito de horário; o sistema antigo não registrava nem tinha as regras → construímos troca de aula + registro de quem deu a aula → a folha veio em consequência). Provável caminho: **apoiar na Pacto pro operacional + manter comissão/folha sob medida puxando dados da API.** Mas decisão depende da resposta do Rô (sobretudo a pergunta 1).
+
+**⏭️ PRÓXIMA AÇÃO:** aguardar a resposta do Rô às 3 perguntas. Com a visão dele → escolher o caminho (apoiar na Pacto + customizar, vs já arquitetar pra virar produto) → brainstorming → spec → plano. **Antes de qualquer build com a API:** (a) gerar credencial **com escopos**; (b) confirmar se o relatório de faturamento traz **vendedor + item/plano** (decide se as comissões são plug-and-play; o exemplo do DTO só mostrava data/valor/cliente). **Não mexer no módulo/comissões até a decisão.**
+
+**Obs.:** o trabalho anterior (módulo Professores + fixes do Comissões) segue exatamente como na sessão 35 — homologação do cliente pendente, `docs/checklist-deploy-producao.md`. Independente desta nova frente da Pacto.
+
+---
+
+## 🔖 Sessão 35 (16/06/2026) — Fixes de split/BIANUAL/recálculo em PRODUÇÃO
 
 **Estado: PACOTE DE FIXES DO COMISSÕES DEPLOYADO EM PRODUÇÃO (16/06) E PORTADO PRO MÓDULO.** Achados pelo cliente ao pagar comissões. Corrigidos e validados (detalhe na memória `fix-split-bianual-recalc.md`):
 - **B1** split pagava o bônus P2 em dobro (cada perna recebia o bônus cheio) · **B2** BIANUAL legado virava ANUAL no recálculo · **B3** recálculo carregava conjunto incompleto (cache filtrado por uploadId) → corrompia meta/P3 da unidade · **RAIZ** upload re-quebrava splits (re-adicionava o cheio + deletava a perna) · **aba "Divisões" 🔀** nova (lista splits + alerta se % ≠ 100%) + U1/U2 de UI.

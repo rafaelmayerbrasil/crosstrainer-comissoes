@@ -149,7 +149,7 @@ const DEMO_USERS = [
   { email: 'dono.teste@crosstainer.com', pass: 'crosstainer2026', name: 'Dono (Teste)',
     profiles: ['admin'], role: 'admin',
     moduleAccess: { comissoes: true, professores: true },
-    professorId: null, allowedUnits: ['unit-cp', 'unit-norte', 'unit-pp'], unitId: 'unit-cp' },
+    professorId: null, allowedUnits: ['unit-cp', 'unit-pp'], unitId: 'unit-cp' },
   { email: 'professor.teste@crosstainer.com', pass: 'crosstainer2026', name: 'Marcos Estrela',
     profiles: ['professor'], role: 'professor',
     moduleAccess: { comissoes: false, professores: true },
