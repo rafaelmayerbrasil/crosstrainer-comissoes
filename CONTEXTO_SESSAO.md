@@ -3,7 +3,21 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 38 (27/06/2026) — Sistema liberado pro Rodrigo no staging + unidade fictícia removida + doc único de validação/perguntas
+## 🔖 ONDE PARAMOS — sessão 39 (27–29/06/2026) — As 3 features do Rodrigo CONSTRUÍDAS, VERIFICADAS e NO AR (build autônomo /loop)
+
+**Com as respostas do Rodrigo (`docs/rodrigo-engajamento-escala-COMPLETO-respostas.txt` + follow-up PLR), as 3 frentes que faltavam foram construídas em /loop autônomo, cada uma spec→plano→TDD→E2E staging→deploy. Branch `feature/shell-integrado`.**
+
+- **✅ Feature 1 — Publicar escala na agenda + preferência Prefiro/Pode ser/Não posso.** Descoberta: escalas especiais são off-grid → publicar CRIA aulas taggeadas (`specialScaleId`), idempotente, **hora normal** (B1). `ScaleConfigService` (horários configuráveis). UI publicar/despublicar + "Pode ser em todas". Rules `classes.delete` p/ gestão (só aulas da escala não fechadas) + `scale_config`. E2E ok. Spec `docs/superpowers/specs/2026-06-27-publicar-escala-agenda-preferencia-design.md`.
+- **✅ Feature 2 — Fim de ano por turnos (Manhã/Tarde-Noite).** `templateSlotsFimDeAno` por dia×unidade×turno×pessoas; `publishToAgenda` multi-dia; UI modal (unidades + turnos editáveis + 24/12 fechado default) + detalhe por turno + publicar. E2E ok (12 vagas→12 aulas em 3 dias). Spec `...2026-06-27-fim-de-ano-turnos-design.md`.
+- **✅ Feature 3 — PLR (substitui a planilha).** `plr-engine.js`+`plr-service.js`+`professores-plr.js` (Config/Avaliação/Resultado). Nota ponderada (avaliador Coord/Head=2), engajamento auto do placar, horas do fechamento, rateio `pool×(horas×nota)/Σ` soma exata, elegibilidade configurável (3 meses/estagiário). Rules restritas. E2E ok (nota 8.4, rateio=pool). Spec `...2026-06-27-plr-design.md`.
+
+**Tudo configurável (preferência do usuário [[feedback-datas-configuraveis]]). ~20 commits + hosting deployado em `crosstrainer-comissoes-staging.web.app`.** Detalhe completo na memória [[novo-modulo-engajamento-pontos]].
+
+**⏭️ PRÓXIMA AÇÃO:** Rodrigo valida as 3 features no staging. Pendências [Menor] (não bloqueiam): nota dos alunos no PLR (vem da Pacto futura); papel formal de "avaliador" (v1 admin/superv); detecção de feriado dentro do período do fim-de-ano. Frente independente: homologação do módulo + `docs/checklist-deploy-producao.md`.
+
+---
+
+## 🔖 Sessão 38 (27/06/2026) — Sistema liberado pro Rodrigo no staging + unidade fictícia removida + doc único de validação/perguntas
 
 **Tipo: liberação (deploy hosting staging) + limpeza de dados + entrega de docs pro cliente. Branch `feature/shell-integrado`. Não construiu feature nova.**
 
