@@ -495,6 +495,12 @@ function navigateTo(pageId) {
     renderEngajChamadaPage();
   } else if (pageId === 'engaj-placar' && typeof renderEngajPlacarPage === 'function') {
     renderEngajPlacarPage();
+  } else if (pageId === 'plr-config' && typeof renderPlrConfigPage === 'function') {
+    renderPlrConfigPage();
+  } else if (pageId === 'plr-avaliacao' && typeof renderPlrAvaliacaoPage === 'function') {
+    renderPlrAvaliacaoPage();
+  } else if (pageId === 'plr-resultado' && typeof renderPlrResultadoPage === 'function') {
+    renderPlrResultadoPage();
   }
 
   // Fecha menu mobile se estiver aberto

@@ -11,8 +11,8 @@
 
   // admin_gestao dropado + 'professores' absorvido pelo hub 'pessoas' (D2/D11 — 11/06/2026)
   const PROF_PAGES = {
-    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar'],
-    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar'],
+    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar', 'plr-config', 'plr-avaliacao', 'plr-resultado'],
+    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar', 'plr-avaliacao', 'plr-resultado'],
     professor:            ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
     professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
   };
@@ -37,9 +37,12 @@
     { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Engajamento' },
     { id: 'engaj-chamada',  label: 'Chamada',           icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },
+    { id: 'plr-config',     label: 'PLR · Config',      icon: '⚙️', section: 'PLR' },
+    { id: 'plr-avaliacao',  label: 'PLR · Avaliação',   icon: '📝', section: 'PLR' },
+    { id: 'plr-resultado',  label: 'PLR · Resultado',   icon: '🏅', section: 'PLR' },
   ];
 
-  const SECTION_ORDER = ['Agenda', 'Engajamento', 'Cadastros', 'Férias', 'Financeiro', 'Minhas aulas'];
+  const SECTION_ORDER = ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro', 'Minhas aulas'];
 
   // Seção de sistema (cross-módulo). Links apontam pro Comissões com ?page=
   // (deep-link só funciona após o Plano B; antes disso cai na home do Comissões).

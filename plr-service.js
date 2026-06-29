@@ -18,7 +18,11 @@
       { id: 'tecnica',        label: 'Técnica',        peso: 20 },
       { id: 'engajamento',    label: 'Engajamento',    peso: 20, auto: true },
     ],
-    avaliadoresPeso: {},
+    avaliadores: [
+      { id: 'coord_tecnico', nome: 'Coordenador Técnico', peso: 2 },
+      { id: 'head_coach',    nome: 'Head Coach',          peso: 2 },
+    ],
+    avaliadoresPeso: { coord_tecnico: 2, head_coach: 2 },
     elegibilidade: { minMesesCasa: 3, minSaldoPontos: null, estagiarioEntra: true },
     engajamentoNorm: 'proporcional_max',
   };
