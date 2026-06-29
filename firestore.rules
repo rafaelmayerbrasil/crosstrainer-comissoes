@@ -257,6 +257,29 @@ service cloud.firestore {
       allow write: if isAuth() && isAdmin();
     }
 
+    // ─── PLR (avaliação de desempenho) — dado SENSÍVEL (valores/notas) ───
+    // config: leitura do módulo (pesos/blocos), escrita admin.
+    match /plr_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+    // ciclos e resultados (pool/fatias) = só gestão.
+    match /plr_cycles/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv());
+      allow write: if isAuth() && isAdmin();
+    }
+    match /plr_results/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv());
+      allow write: if isAuth() && isAdmin();
+    }
+    // avaliações: notas individuais sensíveis. Lê gestão; grava o próprio avaliador ou gestão; sem delete.
+    match /plr_evaluations/{id} {
+      allow read:   if isAuth() && (isAdmin() || isSuperv());
+      allow create, update: if isAuth() && (isAdmin() || isSuperv() ||
+                       request.resource.data.evaluatorId == request.auth.uid);
+      allow delete: if false;
+    }
+
     // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
     match /meta/{doc} {
       allow read:  if isAuth() && hasProfModule() && doc.matches('holidays_cache_.*');
