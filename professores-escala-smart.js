@@ -207,6 +207,16 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function renderTabFimDeAno(scales) {
+  const docs = scales.filter(s => s.tipo === 'fim_de_ano');
+  const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+    <span style="font-size:12px;color:var(--text2);">Período de horário reduzido, por turnos — a gestão define as datas.</span>
+    <button class="btn-primary" onclick="openNovaEscalaFimDeAno()">+ Configurar período</button></div>`;
+  const body = docs.length ? docs.map(escalaCardDoc).join('')
+    : `<p style="padding:20px;color:var(--text2);">Nenhum período de fim de ano configurado.</p>`;
+  return topo + body;
+}
+
 function renderTabEventos(scales) {
   const docs = scales.filter(s => s.tipo === 'evento' && s.date.startsWith(String(EscalaSmartState.year)));
   const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
@@ -362,12 +372,11 @@ function renderEscalaDetail(scale) {
   </div>`;
 }
 
-/* ─── Nova escala ──────────────────────────────────────────────────── */
-function openNovaEscala() {
+/* ─── Nova escala (fim de ano) ─────────────────────────────────────── */
+function openNovaEscalaFimDeAno() {
   const overlay = document.getElementById('escalaModalOverlay');
   const modal = document.getElementById('escalaModal');
   if (!overlay || !modal) return;
-  const tipoOpts = ESCALA_TIPOS.map(t => `<option value="${t.id}">${t.label}</option>`).join('');
   overlay.style.display = 'flex';
   modal.style.display = 'block';
   const y = new Date().getFullYear();
@@ -375,41 +384,30 @@ function openNovaEscala() {
     `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;"><input type="checkbox" class="feUnit" value="${u.id}" checked> ${u.name || u.id}</label>`
   ).join('') || '<span style="font-size:12px;color:var(--text3);">Nenhuma unidade cadastrada.</span>';
   modal.innerHTML = `
-    <h2>Nova escala</h2>
-    <div class="form-group"><label>Tipo</label><select id="novaEscalaTipo" class="input" onchange="onNovaEscalaTipo()">${tipoOpts}</select></div>
-    <div id="novaEscalaDataWrap" class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="novaEscalaData" class="input" value="${escalaTodayISO()}"></div>
-    <div id="novaEscalaPeriodo" style="display:none;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group"><label>Início</label><input type="date" id="feInicio" class="input" value="${y}-12-21"></div>
-        <div class="form-group"><label>Fim</label><input type="date" id="feFim" class="input" value="${y + 1}-01-02"></div>
-      </div>
-      <div class="form-group"><label>Unidades abertas</label><div style="padding:4px 0;">${unitChecks}</div></div>
-      <div class="form-group"><label>Turnos (horário reduzido)</label>
-        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;">
-          <span style="font-size:13px;">Manhã</span>
-          <input type="time" id="feManhaIni" class="input" value="08:00">
-          <input type="time" id="feManhaFim" class="input" value="12:00">
-          <span style="font-size:13px;">Tarde/Noite</span>
-          <input type="time" id="feTardeIni" class="input" value="16:00">
-          <input type="time" id="feTardeFim" class="input" value="21:00">
-        </div>
-      </div>
-      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="feAbrir24"> Abrir 24/12 (por padrão fechado)</label>
-      <p style="font-size:12px;color:var(--text2);">Vagas por dia × unidade × turno (1 pessoa/turno). Fechado 25/12, 31/12 e 01/01. Ajuste as datas a cada ano.</p>
+    <h2>Fim de ano — horário reduzido</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Início</label><input type="date" id="feInicio" class="input" value="${y}-12-21"></div>
+      <div class="form-group"><label>Fim</label><input type="date" id="feFim" class="input" value="${y + 1}-01-02"></div>
     </div>
-    <p id="novaEscalaHint" style="font-size:12px;color:var(--text2);">As vagas são geradas por unidade: 1 TOI + 1 Hiit. Você pode ajustar depois.</p>
+    <div class="form-group"><label>Unidades abertas</label><div style="padding:4px 0;">${unitChecks}</div></div>
+    <div class="form-group"><label>Turnos (horário reduzido)</label>
+      <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center;">
+        <span style="font-size:13px;">Manhã</span>
+        <input type="time" id="feManhaIni" class="input" value="08:00">
+        <input type="time" id="feManhaFim" class="input" value="12:00">
+        <span style="font-size:13px;">Tarde/Noite</span>
+        <input type="time" id="feTardeIni" class="input" value="16:00">
+        <input type="time" id="feTardeFim" class="input" value="21:00">
+      </div>
+    </div>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px;"><input type="checkbox" id="feAbrir24"> Abrir 24/12 (por padrão fechado)</label>
+    <p style="font-size:12px;color:var(--text2);">Vagas por dia × unidade × turno (1 pessoa/turno). Fechado 25/12, 31/12 e 01/01. Ajuste as datas a cada ano.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
-      <button class="btn-primary" onclick="criarEscala()">Criar</button>
+      <button class="btn-primary" onclick="criarEscalaFimDeAno()">Criar</button>
     </div>`;
 }
 
-function onNovaEscalaTipo() {
-  const isFe = document.getElementById('novaEscalaTipo').value === 'fim_de_ano';
-  document.getElementById('novaEscalaDataWrap').style.display = isFe ? 'none' : 'block';
-  document.getElementById('novaEscalaPeriodo').style.display = isFe ? 'block' : 'none';
-  document.getElementById('novaEscalaHint').style.display = isFe ? 'none' : 'block';
-}
 function closeEscalaModal() {
   const o = document.getElementById('escalaModalOverlay'), m = document.getElementById('escalaModal');
   if (o) o.style.display = 'none'; if (m) m.style.display = 'none';
@@ -502,7 +500,7 @@ async function criarEscalaFimDeAno() {
   const period = { start, end, closedDays: all.filter(d => closedMMDD.has(d.slice(5))) };
   const slots = ScaleService.templateSlotsFimDeAno(period, units, shifts, 1);
   const res = await ScaleService.createScale({ date: start, tipo: 'fim_de_ano', name: `Fim de ano ${start.slice(0, 4)}`, slots });
-  if (res.success) { toast('Escala de fim de ano criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
+  if (res.success) { toast('Escala de fim de ano criada!', 'success'); closeEscalaModal(); EscalaSmartState.tab = 'fim_de_ano'; EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
@@ -623,8 +621,8 @@ async function marcarPref(scaleId, pref) {
 
 // Expor globalmente (chamadas via navigateTo / onclick)
 window.renderEscalaSmartPage = renderEscalaSmartPage;
-window.openNovaEscala = openNovaEscala;
-window.onNovaEscalaTipo = onNovaEscalaTipo;
+window.openNovaEscalaFimDeAno = openNovaEscalaFimDeAno;
+window.criarEscalaFimDeAno = criarEscalaFimDeAno;
 window.closeEscalaModal = closeEscalaModal;
 window.criarEscalaData = criarEscalaData;
 window.openDataEspecial = openDataEspecial;
