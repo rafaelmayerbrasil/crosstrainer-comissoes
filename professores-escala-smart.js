@@ -151,6 +151,18 @@ function escalaPersonName(id) {
 }
 
 /* ─── GESTÃO ───────────────────────────────────────────────────────── */
+function escalaCardDoc(s) {
+  const sel = s.id === EscalaSmartState.selectedId;
+  const statusColor = s.status === 'consolidada' ? 'var(--green)' : (s.status === 'janela_aberta' ? 'var(--blue)' : 'var(--text2)');
+  const statusTxt = (ESCALA_STATUS_LABEL[s.status] || s.status) + (s.published ? ' · ✓ publicada' : '');
+  const kindBadge = (s.tipo === 'evento' && s.eventKind)
+    ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${s.eventKind === 'externo' ? '#2a1a2e' : 'var(--surface3)'};color:${s.eventKind === 'externo' ? '#c77dff' : 'var(--text2)'};margin-left:6px;">${s.eventKind === 'externo' ? 'Externo' : 'Interno'}</span>` : '';
+  return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${s.date}</div></div>
+    <span style="font-size:12px;font-weight:600;color:${statusColor};">${statusTxt}</span>
+  </div>`;
+}
+
 async function renderEscalaGestao() {
   const container = document.getElementById('page-escala-smart');
   if (!container) return;
@@ -159,29 +171,33 @@ async function renderEscalaGestao() {
     <div class="loading"><div class="spinner"></div> Carregando escalas…</div>`;
 
   await escalaLoadBase();
+  if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
 
   const scales = EscalaSmartState.scales;
+  const tab = EscalaSmartState.tab;
+  const tabsHtml = `<div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;">` +
+    ESCALA_TABS.map(t => {
+      const on = t.id === tab;
+      return `<button onclick="escalaSetTab('${t.id}')" style="background:none;border:none;border-bottom:2px solid ${on ? 'var(--blue)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text2)'};font-weight:${on ? '600' : '400'};font-size:14px;padding:8px 14px;cursor:pointer;">${t.label}</button>`;
+    }).join('') + `</div>`;
+
+  const y = EscalaSmartState.year;
+  const yearSel = tab === 'fim_de_ano' ? '' :
+    `<select class="input" style="width:auto;" onchange="escalaSetYear(this.value)">${[y - 1, y, y + 1].map(v => `<option value="${v}" ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+
   let listHtml;
-  if (scales.length === 0) {
-    listHtml = `<p style="padding:20px;color:var(--text2);">Nenhuma escala criada ainda. Crie a primeira.</p>`;
-  } else {
-    listHtml = scales.map(s => {
-      const sel = s.id === EscalaSmartState.selectedId;
-      const statusColor = s.status === 'consolidada' ? 'var(--green)' : (s.status === 'janela_aberta' ? 'var(--blue)' : 'var(--text2)');
-      return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-        <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${s.date} · ${(ESCALA_TIPOS.find(t => t.id === s.tipo) || {}).label || s.tipo}</div></div>
-        <span style="font-size:12px;font-weight:600;color:${statusColor};">${ESCALA_STATUS_LABEL[s.status] || s.status}</span>
-      </div>`;
-    }).join('');
-  }
+  if (tab === 'sabado')          listHtml = renderTabSabados(scales);
+  else if (tab === 'feriado')    listHtml = renderTabFeriados(scales);
+  else if (tab === 'evento')     listHtml = renderTabEventos(scales);
+  else                           listHtml = renderTabFimDeAno(scales);
 
   const detail = EscalaSmartState.selectedId ? renderEscalaDetail(scales.find(s => s.id === EscalaSmartState.selectedId)) : '';
 
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
-    <div class="page-toolbar"><div class="lhs"><h2>Escalas <span class="count">${scales.length}</span></h2></div>
-      <div class="rhs"><button class="btn-primary" onclick="openNovaEscala()">+ Nova escala</button></div></div>
     ${renderEquilibrioPainel()}
+    ${tabsHtml}
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">${yearSel}</div>
     <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
       <div>${listHtml}</div>
       <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
