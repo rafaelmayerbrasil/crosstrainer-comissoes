@@ -3,7 +3,23 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 39 (27–29/06/2026) — As 3 features do Rodrigo CONSTRUÍDAS, VERIFICADAS e NO AR (build autônomo /loop)
+## 🔖 ONDE PARAMOS — sessão 40 (01/07/2026) — Escala Inteligente em 4 abas (feedback do Rodrigo) CONSTRUÍDA e NO AR no staging
+
+**Rodrigo mandou print anotado pedindo a Escala Inteligente organizada em abas. Brainstorm → spec → plano → build TDD → deploy staging, tudo na sessão. Branch `feature/shell-integrado`.**
+
+- **✅ 4 abas na mesma rota** (`professores-escala-smart.js`): **Sábados** (lista virtual de TODOS os sábados do ano, doc criado sob demanda no clique) · **Feriados** (BrasilAPI sugere nacionais c/ fallback no cache `meta/holidays_cache_*` da CF; gestão aponta; "+ Data especial" p/ municipal/estadual e domingo especial) · **Eventos** (etiqueta Interno/Externo — campo novo `eventKind`; ponto continua na Chamada) · **Fim de ano** (modal dedicado, reusa fluxo por turnos). Seletor de ano; detalhe/preferências/consolidação/publicação intactos; visão do professor intacta.
+- **✅ Helpers puros + smoke novo** (`scale-service.js` + `scripts/smoke-escala-tabs.js`): `saturdaysOfYear`, `mergeVirtualWithDocs`, `parseFeriados`, `isLegacyScaleDoc`. `listScales` agora **filtra docs legados** (formato antigo da tela Escalas Especiais: date Timestamp/sem tipo) — mata os cards quebrados "fds/Timestamp/undefined" do print do Rodrigo.
+- **✅ Gap latente corrigido:** a criação pela UI montava slots SEM horário e não lia `ScaleConfigService.horarios` → publicar geraria 0 aulas. Novo `escalaSlotsPadrao(tipo)` aplica os horários da config.
+- **✅ Tela legada "Escalas Especiais" FORA do menu** (admin/superv, `professores-nav.js`) — rota/código/dados preservados p/ rollback; CF de geração de aulas segue lendo `scaleTypeId` p/ peso. **Migração dos docs legados = tech debt** (spec §6).
+- **✅ smoke-sidebar.js atualizado** — estava desatualizado desde as sprints Engajamento/PLR (seções novas não cobertas; falha pré-existente confirmada por git stash) + asserções novas (sem `escalas`, com `escala-smart`).
+- **🚀 Deploy hosting staging + verificação por curl:** arquivos novos no ar (funções das abas servidas, nav sem `escalas` no array do admin). Smokes todos passando (exceto `smoke-9.js`, que é integração e exige `--project`).
+- **Docs:** spec `docs/superpowers/specs/2026-07-01-escala-inteligente-abas-design.md` · plano `docs/superpowers/plans/2026-07-01-escala-inteligente-abas.md` (9 tasks, todas executadas) · memória `escala-inteligente-abas`.
+
+**⏭️ PRÓXIMA AÇÃO:** (1) **E2E visual no staging** (checklist na Task 9 do plano: logar como `dono.teste@` → 4 abas, criar sábado/feriado/evento/fim-de-ano, card legado sumido, console limpo; professor vê preferências igual antes) — não foi feito no browser nesta sessão, só verificação por curl; (2) avisar o Rodrigo que as abas que ele pediu estão no ar; (3) pendências menores da spec §6 (migração docs legados, turnos default "Matutino/Vespertino"?, integração evento→chamada).
+
+---
+
+## 🔖 Sessão 39 (27–29/06/2026) — As 3 features do Rodrigo CONSTRUÍDAS, VERIFICADAS e NO AR (build autônomo /loop)
 
 **Com as respostas do Rodrigo (`docs/rodrigo-engajamento-escala-COMPLETO-respostas.txt` + follow-up PLR), as 3 frentes que faltavam foram construídas em /loop autônomo, cada uma spec→plano→TDD→E2E staging→deploy. Branch `feature/shell-integrado`.**
 
