@@ -10,9 +10,13 @@ function ids(model) { return model.groups.flatMap(g => g.items.map(i => i.id)); 
 let m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: false, moduleAccess: { professores: true } });
 const secs = sections(m);
 assert.deepStrictEqual(secs, [...new Set(secs)], 'Admin: seção repetida na sidebar');
-assert.deepStrictEqual(secs, ['Agenda', 'Cadastros', 'Férias', 'Financeiro'], 'Admin: ordem/grupos errados');
+assert.deepStrictEqual(secs, ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro'], 'Admin: ordem/grupos errados');
 assert.ok(!ids(m).includes('minha-agenda'), 'Admin sem vínculo não deve ver Minha Agenda');
 assert.ok(!ids(m).includes('home'), 'Início não entra em grupo (é item solto)');
+
+// 1c) Tela legada Escalas Especiais fora do menu (01/07/2026); Escala Inteligente presente
+assert.ok(!ids(m).includes('escalas'), 'Escalas Especiais (legada) não pode aparecer no menu');
+assert.ok(ids(m).includes('escala-smart'), 'Escala Inteligente deve aparecer no menu do admin');
 
 // 1b) Hub Pessoas (D11/D14): 'pessoas' em Cadastros, 'professores' NÃO existe mais
 assert.ok(ids(m).includes('pessoas'), 'Admin deve ver Pessoas');
