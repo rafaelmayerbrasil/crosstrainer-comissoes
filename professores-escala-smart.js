@@ -206,6 +206,24 @@ async function renderEscalaGestao() {
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
 }
 
+/* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function renderTabSabados(scales) {
+  const rows = ScaleService.mergeVirtualWithDocs(
+    ScaleService.saturdaysOfYear(EscalaSmartState.year),
+    scales.filter(s => s.tipo === 'sabado')
+  );
+  const com = rows.filter(r => r.docs.length).length;
+  const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${rows.length} sábados · ${com} com escala</div>`;
+  const body = rows.map(r => r.docs.length
+    ? r.docs.map(escalaCardDoc).join('')
+    : `<div onclick="criarEscalaData('sabado','${r.date}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+        <div style="font-size:14px;color:var(--text2);">Sábado ${escalaFmtBR(r.date)}</div>
+        <span style="font-size:12px;color:var(--text3);">Sem escala · clique pra criar</span>
+      </div>`
+  ).join('');
+  return header + body;
+}
+
 function renderFimDeAnoDetail(scale) {
   const slots = scale.slots || [];
   const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
