@@ -207,6 +207,26 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function renderTabFeriados(scales) {
+  const y = EscalaSmartState.year;
+  const feriados = EscalaSmartState.feriadosByYear[y] || [];
+  const docs = scales.filter(s => (s.tipo === 'feriado' || s.tipo === 'domingo_especial') && s.date.startsWith(String(y)));
+  const datasComDoc = new Set(docs.map(dd => dd.date));
+  const sugestoes = feriados.filter(f => !datasComDoc.has(f.date));
+
+  const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+    <span style="font-size:12px;color:var(--text2);">A gestão aponta quais feriados terão escala.</span>
+    <button class="btn-secondary" onclick="openDataEspecial()">+ Data especial</button></div>`;
+  const aviso = feriados.length ? '' :
+    `<p style="font-size:12px;color:#caa23a;margin:0 0 8px;">Não consegui carregar os feriados nacionais (API/cache indisponível) — adicione pelo "+ Data especial".</p>`;
+  const docsHtml = docs.map(escalaCardDoc).join('');
+  const sugHtml = sugestoes.map(f => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+      <div><div style="font-size:14px;color:var(--text2);">${f.name}</div><div style="font-size:12px;color:var(--text3);">${escalaFmtBR(f.date)} · nacional</div></div>
+      <button class="btn-secondary" style="font-size:12px;" onclick="criarEscalaData('feriado','${f.date}','${(f.name || '').replace(/'/g, '')}')">Criar escala</button>
+    </div>`).join('');
+  return topo + aviso + docsHtml + sugHtml;
+}
+
 function renderTabSabados(scales) {
   const rows = ScaleService.mergeVirtualWithDocs(
     ScaleService.saturdaysOfYear(EscalaSmartState.year),
@@ -385,6 +405,34 @@ function closeEscalaModal() {
   if (o) o.style.display = 'none'; if (m) m.style.display = 'none';
 }
 
+function openDataEspecial() {
+  const overlay = document.getElementById('escalaModalOverlay');
+  const modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex';
+  modal.style.display = 'block';
+  modal.innerHTML = `
+    <h2>Data especial</h2>
+    <div class="form-group"><label>Nome <span style="color:var(--red);">*</span></label><input type="text" id="deNome" class="input" placeholder="Ex.: Aniversário da cidade"></div>
+    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="deData" class="input" value="${escalaTodayISO()}"></div>
+    <div class="form-group"><label>Tipo</label><select id="deTipo" class="input">
+      <option value="feriado">Feriado (municipal/estadual)</option>
+      <option value="domingo_especial">Domingo especial</option>
+    </select></div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      <button class="btn-primary" onclick="criarDataEspecial()">Criar</button>
+    </div>`;
+}
+
+async function criarDataEspecial() {
+  const nome = (document.getElementById('deNome').value || '').trim();
+  const date = document.getElementById('deData').value;
+  const tipo = document.getElementById('deTipo').value;
+  if (!nome || !date) { toast('Informe nome e data.', 'error'); return; }
+  await criarEscalaData(tipo, date, `${nome} ${escalaFmtBR(date)}`);
+}
+
 // Criação contextual usada pelas abas Sábados/Feriados/Eventos
 async function criarEscalaData(tipo, date, name, eventKind) {
   if (!date) { toast('Informe a data.', 'error'); return; }
@@ -541,6 +589,8 @@ window.openNovaEscala = openNovaEscala;
 window.onNovaEscalaTipo = onNovaEscalaTipo;
 window.closeEscalaModal = closeEscalaModal;
 window.criarEscalaData = criarEscalaData;
+window.openDataEspecial = openDataEspecial;
+window.criarDataEspecial = criarDataEspecial;
 window.escalaSetTab = escalaSetTab;
 window.escalaSetYear = escalaSetYear;
 window.selectEscala = selectEscala;
