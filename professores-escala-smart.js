@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map() };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -16,6 +16,12 @@ const ESCALA_TIPOS = [
   { id: 'fim_de_ano',       label: 'Fim de ano' },
 ];
 const ESCALA_STATUS_LABEL = { rascunho: 'Rascunho', janela_aberta: 'Janela aberta', consolidada: 'Consolidada' };
+const ESCALA_TABS = [
+  { id: 'sabado',     label: 'Sábados' },
+  { id: 'feriado',    label: 'Feriados' },
+  { id: 'evento',     label: 'Eventos' },
+  { id: 'fim_de_ano', label: 'Fim de ano' },
+];
 
 function escalaIsManagement() {
   return (typeof isAdminGestao === 'function' && isAdminGestao()) ||
@@ -25,6 +31,41 @@ function escalaProfId() {
   return (typeof AppState === 'object' && AppState.userProfile) ? AppState.userProfile.professorId : null;
 }
 function escalaTodayISO() { return new Date().toISOString().slice(0, 10); }
+function escalaFmtBR(iso) { return iso.split('-').reverse().join('/'); }
+
+// Slots-padrão (1 TOI + 1 Hiit por unidade) COM os horários da config por tipo.
+// Sem horário o publishToAgenda pula o slot — por isso a config é obrigatória aqui.
+function escalaSlotsPadrao(tipo) {
+  const toi = EscalaSmartState.modToi, hiit = EscalaSmartState.modHiit;
+  const hor = ((EscalaSmartState.config || {}).horarios || {})[tipo] || {};
+  const slots = [];
+  EscalaSmartState.units.forEach(u => {
+    slots.push({ id: `${u.id}_TOI`,  unitId: u.id, requiredModalityId: toi.id,  requiredModalityName: 'TOI',  assignedPersonId: null, startTime: hor.startTime || '08:00', endTime: hor.endTime || '12:00' });
+    slots.push({ id: `${u.id}_HIIT`, unitId: u.id, requiredModalityId: hiit.id, requiredModalityName: 'Hiit', assignedPersonId: null, startTime: hor.startTime || '08:00', endTime: hor.endTime || '12:00' });
+  });
+  return slots;
+}
+
+// Feriados nacionais do ano: BrasilAPI → fallback cache da CF → vazio (com aviso na aba)
+async function escalaLoadFeriados(year) {
+  if (EscalaSmartState.feriadosByYear[year]) return EscalaSmartState.feriadosByYear[year];
+  let list = [];
+  try {
+    const resp = await fetch(`https://brasilapi.com.br/api/feriados/v1/${year}`);
+    if (resp.ok) list = ScaleService.parseFeriados(await resp.json());
+  } catch (e) { /* offline: cai pro cache */ }
+  if (!list.length) {
+    try {
+      const doc = await db.collection('meta').doc(`holidays_cache_${year}`).get();
+      if (doc.exists) list = ScaleService.parseFeriados((doc.data() || {}).feriados);
+    } catch (e) { /* sem cache: fica vazio */ }
+  }
+  EscalaSmartState.feriadosByYear[year] = list;
+  return list;
+}
+
+function escalaSetTab(t) { EscalaSmartState.tab = t; EscalaSmartState.selectedId = null; renderEscalaGestao(); }
+function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaGestao(); }
 
 function renderEscalaSmartPage() {
   if (escalaIsManagement()) renderEscalaGestao();
@@ -33,12 +74,14 @@ function renderEscalaSmartPage() {
 
 /* ─── Carga comum ──────────────────────────────────────────────────── */
 async function escalaLoadBase() {
-  const [scalesRes, unitsRes, modsRes, teachersRes] = await Promise.all([
+  const [scalesRes, unitsRes, modsRes, teachersRes, cfgRes] = await Promise.all([
     ScaleService.listScales(),
     (typeof UnitService === 'object' ? UnitService.list() : Promise.resolve({ success: true, data: [] })),
     ModalityService.list(),
     TeacherService.list(),
+    ScaleService.ScaleConfigService.get(),
   ]);
+  EscalaSmartState.config = cfgRes.success ? cfgRes.data : { horarios: {} };
   EscalaSmartState.scales = scalesRes.success ? scalesRes.data : [];
   EscalaSmartState.units = unitsRes.success ? unitsRes.data : [];
   const mods = modsRes.success ? modsRes.data : [];
@@ -308,20 +351,15 @@ function closeEscalaModal() {
   if (o) o.style.display = 'none'; if (m) m.style.display = 'none';
 }
 
-async function criarEscala() {
-  const tipo = document.getElementById('novaEscalaTipo').value;
-  if (tipo === 'fim_de_ano') return criarEscalaFimDeAno();
-  const date = document.getElementById('novaEscalaData').value;
+// Criação contextual usada pelas abas Sábados/Feriados/Eventos
+async function criarEscalaData(tipo, date, name, eventKind) {
   if (!date) { toast('Informe a data.', 'error'); return; }
   const toi = EscalaSmartState.modToi, hiit = EscalaSmartState.modHiit;
   if (!toi || !hiit) { toast('Cadastre as modalidades TOI e Hiit antes.', 'error'); return; }
-  const slots = [];
-  EscalaSmartState.units.forEach(u => {
-    slots.push({ id: `${u.id}_TOI`, unitId: u.id, requiredModalityId: toi.id, requiredModalityName: 'TOI', assignedPersonId: null });
-    slots.push({ id: `${u.id}_HIIT`, unitId: u.id, requiredModalityId: hiit.id, requiredModalityName: 'Hiit', assignedPersonId: null });
-  });
   const tipoLabel = (ESCALA_TIPOS.find(t => t.id === tipo) || {}).label || tipo;
-  const res = await ScaleService.createScale({ date, tipo, name: `${tipoLabel} ${date.split('-').reverse().join('/')}`, slots });
+  const payload = { date, tipo, name: name || `${tipoLabel} ${escalaFmtBR(date)}`, slots: escalaSlotsPadrao(tipo) };
+  if (eventKind) payload.eventKind = eventKind;
+  const res = await ScaleService.createScale(payload);
   if (res.success) { toast('Escala criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
@@ -468,7 +506,9 @@ window.renderEscalaSmartPage = renderEscalaSmartPage;
 window.openNovaEscala = openNovaEscala;
 window.onNovaEscalaTipo = onNovaEscalaTipo;
 window.closeEscalaModal = closeEscalaModal;
-window.criarEscala = criarEscala;
+window.criarEscalaData = criarEscalaData;
+window.escalaSetTab = escalaSetTab;
+window.escalaSetYear = escalaSetYear;
 window.selectEscala = selectEscala;
 window.abrirJanelaEscala = abrirJanelaEscala;
 window.consolidarEscala = consolidarEscala;
