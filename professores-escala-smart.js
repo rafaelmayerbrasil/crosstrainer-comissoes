@@ -207,6 +207,16 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function renderTabEventos(scales) {
+  const docs = scales.filter(s => s.tipo === 'evento' && s.date.startsWith(String(EscalaSmartState.year)));
+  const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+    <span style="font-size:12px;color:var(--text2);">Quem trabalha/representa no evento. Presença/ponto continua na Chamada do Engajamento.</span>
+    <button class="btn-primary" onclick="openNovoEvento()">+ Novo evento</button></div>`;
+  const body = docs.length ? docs.map(escalaCardDoc).join('')
+    : `<p style="padding:20px;color:var(--text2);">Nenhum evento em ${EscalaSmartState.year}. Crie o primeiro.</p>`;
+  return topo + body;
+}
+
 function renderTabFeriados(scales) {
   const y = EscalaSmartState.year;
   const feriados = EscalaSmartState.feriadosByYear[y] || [];
@@ -433,6 +443,34 @@ async function criarDataEspecial() {
   await criarEscalaData(tipo, date, `${nome} ${escalaFmtBR(date)}`);
 }
 
+function openNovoEvento() {
+  const overlay = document.getElementById('escalaModalOverlay');
+  const modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex';
+  modal.style.display = 'block';
+  modal.innerHTML = `
+    <h2>Novo evento</h2>
+    <div class="form-group"><label>Nome <span style="color:var(--red);">*</span></label><input type="text" id="evNome" class="input" placeholder="Ex.: Campeonato interbox"></div>
+    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="evData" class="input" value="${escalaTodayISO()}"></div>
+    <div class="form-group"><label>Classificação</label><div style="display:flex;gap:14px;padding:4px 0;">
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;"><input type="radio" name="evKind" value="interno" checked> Interno (reunião, treinamento)</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;"><input type="radio" name="evKind" value="externo"> Externo (campeonato, evento fora)</label>
+    </div></div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      <button class="btn-primary" onclick="criarNovoEvento()">Criar</button>
+    </div>`;
+}
+
+async function criarNovoEvento() {
+  const nome = (document.getElementById('evNome').value || '').trim();
+  const date = document.getElementById('evData').value;
+  const kind = (document.querySelector('input[name="evKind"]:checked') || {}).value || 'interno';
+  if (!nome || !date) { toast('Informe nome e data.', 'error'); return; }
+  await criarEscalaData('evento', date, `${nome} ${escalaFmtBR(date)}`, kind);
+}
+
 // Criação contextual usada pelas abas Sábados/Feriados/Eventos
 async function criarEscalaData(tipo, date, name, eventKind) {
   if (!date) { toast('Informe a data.', 'error'); return; }
@@ -591,6 +629,8 @@ window.closeEscalaModal = closeEscalaModal;
 window.criarEscalaData = criarEscalaData;
 window.openDataEspecial = openDataEspecial;
 window.criarDataEspecial = criarDataEspecial;
+window.openNovoEvento = openNovoEvento;
+window.criarNovoEvento = criarNovoEvento;
 window.escalaSetTab = escalaSetTab;
 window.escalaSetYear = escalaSetYear;
 window.selectEscala = selectEscala;
