@@ -26,6 +26,44 @@
     return [];
   }
 
+  // ── Helpers puros das abas (sábados virtuais / feriados / legado) ──
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  // Todos os sábados de um ano, em ISO local (sem UTC pra não escorregar de dia)
+  function saturdaysOfYear(year) {
+    const out = [];
+    const d = new Date(year, 0, 1);
+    d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7)); // pula pro primeiro sábado
+    while (d.getFullYear() === year) {
+      out.push(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
+      d.setDate(d.getDate() + 7);
+    }
+    return out;
+  }
+
+  // [{ date, docs: [escalas naquela data] }] preservando a ordem das datas
+  function mergeVirtualWithDocs(dates, docs) {
+    const byDate = {};
+    (docs || []).forEach(doc => { (byDate[doc.date] = byDate[doc.date] || []).push(doc); });
+    return (dates || []).map(date => ({ date, docs: byDate[date] || [] }));
+  }
+
+  // Shape da BrasilAPI: [{ date:'2026-09-07', name:'…', type:'national' }] → [{date,name}]
+  function parseFeriados(json) {
+    if (!Array.isArray(json)) return [];
+    return json
+      .filter(f => f && typeof f.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.date) && typeof f.name === 'string')
+      .map(f => ({ date: f.date, name: f.name }));
+  }
+
+  // Docs pré-Escala Inteligente (tela legada): date Timestamp e/ou sem tipo
+  function isLegacyScaleDoc(doc) {
+    if (!doc) return true;
+    if (typeof doc.tipo !== 'string' || !doc.tipo) return true;
+    if (typeof doc.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(doc.date)) return true;
+    return false;
+  }
+
   // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
   const DEFAULT_HORARIOS = {
     sabado:           { startTime: '08:00', endTime: '12:00' },
@@ -60,6 +98,7 @@
       const ref = database.collection('special_scales').doc();
       const doc = {
         date: scale.date, name: scale.name || '', tipo: scale.tipo,
+        eventKind: scale.eventKind || null,
         status: 'rascunho', slots: scale.slots || [], externalId: '',
         createdAt: rts(deps), createdBy: ruid(deps),
       };
@@ -79,7 +118,8 @@
   async function listScales(deps) {
     try {
       const snap = await rdb(deps).collection('special_scales').orderBy('date').get();
-      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => !isLegacyScaleDoc(s));
+      return { success: true, data };
     } catch (err) { console.error('[ScaleService.listScales]', err); return { success: false, error: err.message }; }
   }
 
@@ -328,5 +368,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, ScaleConfigService, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, ScaleConfigService, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
