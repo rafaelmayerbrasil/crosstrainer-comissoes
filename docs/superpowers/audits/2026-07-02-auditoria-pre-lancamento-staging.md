@@ -17,7 +17,8 @@
 |---|--------|--------|--------|
 | 1 | Segurança (rules, auth, perfis) | ✅ | S1 duplicata special_scales reabria delete — CORRIGIDO+deploy; S2/S3 registrados |
 | 2 | Dados sensíveis (salários, PLR, recibos) | ✅ | Sem achados — camada correta (salário/PLR/recibos restritos) |
-| 3 | Bugs & fluxos quebrados (serviços JS + smokes) | 🟡 | 3 ALTA + 10 MÉDIA + 8 BAIXA registrados/verificados; correções em andamento |
+| 3 | Bugs & fluxos quebrados (serviços JS + smokes) | 🟡 | 21 achados; corrigidos A1/A2/A3/M1/M2/M8/M9; resto pendente (Frente 6) |
+| 6 | Consolidação + decisões humanas | ✅ | 8 correções no staging; pendentes+decisões listados |
 | 4 | Performance (N+1, carga, cache) | 🟡 | Achados P1/P2 (N+1 sequencial) registrados; correção adiada p/ pós-Frente 3 |
 | 5 | UX (telas no browser, temas, vazios) | ✅ | Base saudável pós-fix CSS; só U1 (renomear Chamada) registrado |
 | 6 | Consolidação + decisões humanas | ⬜ | — |
@@ -120,6 +121,36 @@ Verificado no browser (preview local, tema CLARO — onde o usuário reclamou). 
 
 **Obs. de ferramenta:** `preview_screenshot` deu timeout repetido nesta sessão (a página responde a `eval` normalmente — problema do renderer do tool, não do app). Frente 5 feita por inspeção via `eval`/`getComputedStyle`.
 
+## Frente 6 — Consolidação
+
+### ✅ Corrigido, testado e deployado no staging (rules + hosting)
+| Achado | Fix | Teste |
+|--------|-----|-------|
+| S1 rules duplicata reabria delete | bloco antigo removido | deploy compila; mudança monotônica |
+| A1 reconsolidar inflava fairness | só 1ª consolidação move justiça (`fairnessApplied`) | smoke-scale-service (idempotência) |
+| A2 PLR +Avaliador não funcionava | re-render em memória (`plrRenderAvalList`), sem recarregar Firestore | verificado no browser |
+| A3 "Semana anterior" = semana atual | `getStartOfWeek(today) − 7` | lógica de data conferida |
+| M1 publish duplicava aula de mês fechado | pula `blockedSlotIds` | smoke-scale-service (M1) |
+| M2 campo vazio → NaN no placar | `pruneNil` no merge (0 preservado) | smoke-engagement-config (+2 casos) |
+| M8 `parseFloat` BR pagava R$1,50 | `pagParseNumBR` nos 2 pontos + validação | 6 casos conferidos |
+| M9 IDs de avaliador regenerados | id estável via `data-aval-id` | verificado no browser |
+| M10 (parcial) | escape no nome do avaliador (`value=`) | — |
+
+Commits: `f655673` (S1) · `4247373` (A2/A3/M2/M8/M9) · `fe634d9` (A1/M1). Bateria 12/12 smokes verde, `node --check` OK.
+
+### ⬜ Pendente — próxima sessão (todos com fix já proposto na Frente 3)
+- **M10 resto (XSS)** — escapar `t.name`/`s.name`/nomes em engajamento, escala-smart, pagamentos, plr-resultado. Espalhado mas mecânico (`escapeHtml` já global). **Prioridade** (XSS armazenado real).
+- **M5** modal de Férias trava (mistura `.open` × `display` inline) — padronizar.
+- **M4** pós-fechamento "Mês/undefined" — recarregar doc real do Firestore após fechar.
+- **M6** "+ Solicitar férias" no Meu Saldo é botão morto — garantir o modal na página certa.
+- **M7** chips Pendentes/Pagos não filtram — implementar filtro client-side.
+- **P1/P2** N+1 sequencial (escala-smart getFairness / plr scoreboard) → `Promise.all`. Baixo impacto (poucos profs).
+- **BAIXA 1-8** (timezone `toISOString`, `halfDay` morto, `marcarPodeSerTodas` sobrescreve "Não posso", etc.) — lote de tech-debt.
+
 ## Decisões humanas (entrega final)
 
-_(preencher ao consolidar)_
+1. **M3 — comportamento da Chamada ao trocar Data/Unidade.** Hoje trocar data/unidade mantém as marcações e `saveChamada` grava todos os `marks` (inclusive fora do filtro) → risco de dobrar pontos / gravar quem não devia. Além disso reabrir chamada salva não recarrega marks, e rebaixar Presente→Faltou não remove o ponto antigo (upsert nunca deleta). **Precisa decidir o fluxo certo** (limpar marks ao trocar data? carregar marks existentes ao reabrir? deletar ponto ao rebaixar?) — mudança de comportamento + toca tech-debt de upsert. Não é correção óbvia.
+2. **Cobertura aberta credita ponto de proatividade?** Só a substituição direta credita hoje; a cobertura de vaga aberta (o caso mais proativo) não. Regra de produto — perguntar ao Rodrigo (encaixa na frente de features que ele pediu).
+3. **Nível de validação das rules (S1).** Corrigi por análise (mudança só-remove-permissão) + deploy, sem REST test dedicado. Se quiser rigor extra antes da produção, rodar o REST test do delete (padrão [[feedback-padrao-validacao-staging]]).
+
+**Regra de produção mantida:** nada foi tocado em produção; tudo no staging/branch. As correções entram em prod junto com o módulo (checklist-deploy-producao.md), nunca isoladas.
