@@ -275,15 +275,31 @@ async function pagEmitirTodos(closingId) {
   await pagToggleCard(closingId);
 }
 
+// Parse de valor em R$ tolerante a formato BR (1.500,50) e US (1500.50) — M8:
+// parseFloat cru lia '1.500,50' como 1.5 e pagava R$1,50. Último separador = decimal.
+function pagParseNumBR(str) {
+  if (str == null) return NaN;
+  let s = String(str).trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  const neg = s[0] === '-';
+  s = s.replace(/^[+-]/, '');
+  const decSep = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'));
+  if (decSep >= 0) s = s.slice(0, decSep).replace(/[.,]/g, '') + '.' + s.slice(decSep + 1).replace(/[.,]/g, '');
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : (neg ? -n : n);
+}
+
 async function pagConfirmarPgto(receiptId) {
   const res = await ReceiptService.getById(receiptId);
   if (!res.success) { toast('Recibo não encontrado.', 'error'); return; }
   const rec = res.data;
-  const valor = prompt(`Valor a pagar (R$):`, rec.valorLiquido.toFixed(2));
-  if (!valor || isNaN(parseFloat(valor)) || parseFloat(valor) <= 0) return;
+  const valorStr = prompt(`Valor a pagar (R$):`, rec.valorLiquido.toFixed(2));
+  if (valorStr == null) return;
+  const valorNum = pagParseNumBR(valorStr);
+  if (isNaN(valorNum) || valorNum <= 0) { toast('Valor inválido.', 'error'); return; }
   const metodo = prompt('Método (transferencia, pix, dinheiro, outros):', 'transferencia');
   toast('Confirmando pagamento…', 'info');
-  const payRes = await PaymentService.confirm(receiptId, { valor: parseFloat(valor), metodo: metodo || 'outros', obs: '' });
+  const payRes = await PaymentService.confirm(receiptId, { valor: valorNum, metodo: metodo || 'outros', obs: '' });
   if (payRes.success) {
     toast('Pagamento confirmado!', 'success');
     if (PagState.expandedClosingId) {
@@ -300,13 +316,15 @@ async function pagRegistrarCredito(receiptId) {
   const res = await ReceiptService.getById(receiptId);
   if (!res.success) { toast('Recibo não encontrado.', 'error'); return; }
   const rec = res.data;
-  const valor = prompt('Valor do crédito (+ = pagou a mais, - = faltou):', '0');
-  if (!valor || isNaN(parseFloat(valor)) || parseFloat(valor) === 0) return;
+  const valorStr = prompt('Valor do crédito (+ = pagou a mais, - = faltou):', '0');
+  if (valorStr == null) return;
+  const valorNum = pagParseNumBR(valorStr);
+  if (isNaN(valorNum) || valorNum === 0) { toast('Valor inválido.', 'error'); return; }
   const motivo = prompt('Motivo:', 'Divergência pós-pagamento');
   toast('Registrando crédito…', 'info');
   const credRes = await CreditService.register({
     teacherId: rec.teacherId, teacherName: rec.teacherName,
-    valor: parseFloat(valor), motivo: motivo || '',
+    valor: valorNum, motivo: motivo || '',
     reciboOrigemId: receiptId, reciboOrigemNum: rec.number,
     periodoOrigem: `${rec.year}-${String(rec.month).padStart(2, '0')}`,
   });

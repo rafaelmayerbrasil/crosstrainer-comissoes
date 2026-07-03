@@ -32,4 +32,14 @@ assert.strictEqual(base.pts.reuniaoStaff, 8);
 EC.mergeConfig({ pts: { reuniaoStaff: 99 } });
 assert.strictEqual(EC.DEFAULT_CONFIG.pts.reuniaoStaff, 8, 'DEFAULT_CONFIG imutável');
 
+// 4) null/undefined nos overrides NÃO anula o default (bug M2 — campo vazio na UI virava null → NaN no placar)
+const nz = EC.mergeConfig({ faixaAnos: null, pts: { reuniaoStaff: null, eventoInterno: undefined }, penalidade: { treinoFaltaSemAviso: null } });
+assert.strictEqual(nz.faixaAnos, 2, 'faixaAnos null cai no default 2');
+assert.strictEqual(nz.pts.reuniaoStaff, 8, 'pts null cai no default 8');
+assert.strictEqual(nz.pts.eventoInterno, 8, 'pts undefined cai no default 8');
+assert.strictEqual(nz.penalidade.treinoFaltaSemAviso, -15, 'penalidade null cai no default');
+// mas 0 é valor legítimo, não pode virar default
+const zero = EC.mergeConfig({ pts: { reuniaoStaff: 0 }, penalidade: { treinoFaltaJustificada: 0 } });
+assert.strictEqual(zero.pts.reuniaoStaff, 0, '0 é valor válido, preservado');
+
 console.log('✓ smoke-engagement-config: todos os casos passaram');

@@ -654,9 +654,9 @@ function getDateRangeForFilter(filter) {
 
   switch (filter) {
     case 'previous_week': {
-      const lastSunday = new Date(today);
-      lastSunday.setDate(lastSunday.getDate() - 1);  // domingo passado
-      const prevMonday = ProfHelpers.getStartOfWeek(lastSunday);
+      // segunda desta semana − 7 dias (o "today−1" antigo só era domingo às segundas)
+      const prevMonday = ProfHelpers.getStartOfWeek(today);
+      prevMonday.setDate(prevMonday.getDate() - 7);
       return { from: prevMonday, to: ProfHelpers.getEndOfWeek(prevMonday) };
     }
     case 'current_week':

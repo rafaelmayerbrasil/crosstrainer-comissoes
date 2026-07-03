@@ -48,11 +48,7 @@ async function renderPlrConfigPage() {
     <input type="number" min="0" max="100" class="input plrBlocoPeso" data-id="${b.id}" value="${b.peso || 0}" style="width:90px;"> <span style="font-size:12px;color:var(--text2);">%</span>
   </div>`).join('');
 
-  const avalRows = aval.map((a, i) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;" data-row="${i}">
-    <input type="text" class="input plrAvalNome" value="${a.nome || ''}" placeholder="Nome do avaliador" style="flex:1;">
-    <input type="number" min="1" class="input plrAvalPeso" value="${a.peso || 1}" style="width:80px;" title="Peso">
-    <button class="btn-secondary" onclick="plrRemoveAvaliador(${i})" style="padding:6px 10px;">✕</button>
-  </div>`).join('');
+  const avalRows = plrAvalRowsHtml(aval);
 
   c.innerHTML = `<div class="page-hdr"><h1>⚙️ PLR — Configuração</h1><p>Pesos da nota, avaliadores e elegibilidade. Tudo configurável.</p></div>
     <div style="max-width:640px;">
@@ -85,12 +81,30 @@ function plrAtualizaSoma() {
   if (el) { el.textContent = `(soma: ${soma})`; el.style.color = soma === 100 ? 'var(--green)' : 'var(--red)'; }
 }
 
+// ID estável: preserva o id existente da linha; só gera do nome quando é linha nova
+// (sem isso, salvar reescrevia 'coord_tecnico' → 'coordenador_t_cnico' e desalinhava avaliadoresPeso — M9)
+function plrAvalSlug(nome) {
+  return (nome || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+function plrAvalRowsHtml(aval) {
+  return (aval || []).map((a, i) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;" data-row="${i}" data-aval-id="${escapeHtml(a.id || '')}">
+    <input type="text" class="input plrAvalNome" value="${escapeHtml(a.nome || '')}" placeholder="Nome do avaliador" style="flex:1;">
+    <input type="number" min="1" class="input plrAvalPeso" value="${a.peso || 1}" style="width:80px;" title="Peso">
+    <button class="btn-secondary" onclick="plrRemoveAvaliador(${i})" style="padding:6px 10px;">✕</button>
+  </div>`).join('');
+}
+// Re-injeta SÓ a lista a partir do estado em memória (não recarrega o Firestore — A2)
+function plrRenderAvalList() {
+  const box = document.getElementById('plrAvalList');
+  if (box) box.innerHTML = plrAvalRowsHtml((PlrState.config && PlrState.config.avaliadores) || []);
+}
 function plrReadAvaliadoresFromDom() {
   const out = [];
   document.querySelectorAll('#plrAvalList [data-row]').forEach(row => {
     const nome = row.querySelector('.plrAvalNome').value.trim();
     const peso = Number(row.querySelector('.plrAvalPeso').value) || 1;
-    if (nome) out.push({ id: nome.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), nome, peso });
+    const existingId = row.getAttribute('data-aval-id') || '';
+    if (nome) out.push({ id: existingId || plrAvalSlug(nome), nome, peso });
   });
   return out;
 }
@@ -98,13 +112,12 @@ function plrAddAvaliador() {
   PlrState.config = PlrState.config || {};
   PlrState.config.avaliadores = plrReadAvaliadoresFromDom();
   PlrState.config.avaliadores.push({ id: '', nome: '', peso: 1 });
-  // re-render só a lista
-  renderPlrConfigPage();
+  plrRenderAvalList();
 }
 function plrRemoveAvaliador(i) {
   PlrState.config.avaliadores = plrReadAvaliadoresFromDom();
   PlrState.config.avaliadores.splice(i, 1);
-  renderPlrConfigPage();
+  plrRenderAvalList();
 }
 
 async function salvarPlrConfig() {

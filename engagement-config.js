@@ -26,14 +26,22 @@
     },
   };
 
+  // Remove chaves null/undefined pra elas NÃO anularem o default no spread (M2:
+  // campo vazio na UI virava null e zerava a pontuação → NaN no placar). 0 é preservado.
+  function pruneNil(obj) {
+    const out = {};
+    Object.keys(obj || {}).forEach(k => { if (obj[k] != null) out[k] = obj[k]; });
+    return out;
+  }
+
   // Mescla rasa no topo + profunda nos blocos conhecidos (pts, penalidade). Não muta o default.
   function mergeConfig(overrides) {
-    overrides = overrides || {};
+    overrides = pruneNil(overrides);
     return {
       ...DEFAULT_CONFIG,
       ...overrides,
-      pts: { ...DEFAULT_CONFIG.pts, ...(overrides.pts || {}) },
-      penalidade: { ...DEFAULT_CONFIG.penalidade, ...(overrides.penalidade || {}) },
+      pts: { ...DEFAULT_CONFIG.pts, ...pruneNil(overrides.pts) },
+      penalidade: { ...DEFAULT_CONFIG.penalidade, ...pruneNil(overrides.penalidade) },
     };
   }
 
