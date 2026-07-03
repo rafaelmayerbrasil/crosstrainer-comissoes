@@ -177,18 +177,10 @@ service cloud.firestore {
       allow write: if isAuth() && isAdmin();
     }
 
-    match /special_scales/{id} {
-      allow read:  if isAuth() && hasProfModule();
-      allow write: if isAuth() && (isAdmin() || isSuperv());
-
-      match /scale_responses/{tid} {
-        allow read: if isAuth() && hasProfModule();
-        allow create, update: if isAuth() && (
-                                isAdmin() || isSuperv() ||
-                                request.auth.uid == uData().professorId
-                              );
-      }
-    }
+    // (bloco antigo de special_scales + subcoleção scale_responses removido na
+    //  auditoria 2026-07-02: era duplicata do bloco da escala inteligente abaixo
+    //  e o `allow write` reabria o delete que o outro bloco fecha. scale_responses
+    //  não é usada por nenhum JS. Ver docs/superpowers/audits/2026-07-02-*.)
 
     // ─── Engajamento / Pontos (módulo novo) ───────────────────────────
     // Config calibrável dos pontos + ciclos de reset: leitura p/ todo o módulo
