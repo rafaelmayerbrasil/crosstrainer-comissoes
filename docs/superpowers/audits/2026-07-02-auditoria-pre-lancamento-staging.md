@@ -18,8 +18,8 @@
 | 1 | Segurança (rules, auth, perfis) | ✅ | S1 duplicata special_scales reabria delete — CORRIGIDO+deploy; S2/S3 registrados |
 | 2 | Dados sensíveis (salários, PLR, recibos) | ✅ | Sem achados — camada correta (salário/PLR/recibos restritos) |
 | 3 | Bugs & fluxos quebrados (serviços JS + smokes) | ⬜ | — |
-| 4 | Performance (N+1, carga, cache) | ⬜ | — |
-| 5 | UX (telas no browser, temas, vazios) | ⬜ | — |
+| 4 | Performance (N+1, carga, cache) | 🟡 | Achados P1/P2 (N+1 sequencial) registrados; correção adiada p/ pós-Frente 3 |
+| 5 | UX (telas no browser, temas, vazios) | ✅ | Base saudável pós-fix CSS; só U1 (renomear Chamada) registrado |
 | 6 | Consolidação + decisões humanas | ⬜ | — |
 
 ## Método
@@ -62,11 +62,30 @@ _(pendente)_
 
 ## Frente 4 — Performance
 
-_(pendente)_
+Padrão recorrente: **N+1 com `await` sequencial em loop** (um round-trip Firestore por professor, serializados). Com ~10-20 professores e 2 unidades o impacto é modesto, mas é ganho fácil e seguro (trocar por `Promise.all`). CORREÇÕES adiadas p/ depois da Frente 3 (mesmos arquivos que o subagente audita — evitar edição concorrente); consolidar por arquivo.
+
+**P1 [PERF-MÉDIA] `professores-escala-smart.js`** — dois loops sequenciais de rede:
+- `:92-97` `escalaLoadBase`: `for (t of teachers) await ScaleService.getFairness(t.id)` — N gets serializados a cada abertura da tela de gestão.
+- `~:368-372` `consolidarEscala`: `for (t of teachers) await EngagementService.scoreboard(...)` — N scoreboards serializados a cada consolidação.
+→ Correção: `await Promise.all(teachers.map(...))`.
+
+**P2 [PERF-MÉDIA] `professores-plr.js`** — mesmo padrão + código duplicado:
+- `:266-269` (`calcularPlr`) e `:304` (`fecharCicloPlr`): `for (t of teachers) await EngagementService.scoreboard(...)` serializado, em DOIS handlers com o bloco idêntico repetido.
+→ Correção: extrair helper `plrEngajById(cycle)` com `Promise.all` e chamar nos dois pontos (DRY + paralelismo numa tacada).
+
+**Nota:** `plrHorasNoCiclo` (`:246`) também itera unidades com `await ClosingService.list(u.id)` sequencial — só 2 unidades, impacto desprezível; paralelizar junto se de baixo custo, senão deixar.
+
+**Sem achados de:** carga de imagem/bundle pesada (vanilla, sem build), cache (sw v3.1 já resolvido — JS network-first, tech-debt #2 fechado).
 
 ## Frente 5 — UX
 
-_(pendente)_
+Verificado no browser (preview local, tema CLARO — onde o usuário reclamou). **Após o fix de CSS de hoje (`c2bf028`: btn-primary/secondary/.input + modal-overlay), a camada base está saudável:** varredura das 6 telas novas (engaj-config/placar, plr-config/avaliacao/resultado, escala-smart) → **0 botões crus, 0 overflow horizontal, todas com page-hdr/título.** Chamada usa chips de estado com estilo inline (Presente/Faltou/Líder) — intencional, ok.
+
+**U1 [UX-BAIXA] — renomear "Chamada" → "Confirmar Presença".** Pedido explícito do Rodrigo (lista 02/07) + título da tela hoje é "✅ Chamada". Troca de label no menu (`professores-nav.js`) e no `page-hdr`. Trivial; aplicar na leva de correções OU junto do balde de features do Rodrigo. **Registrado, não aplicado** (é feature-request do cliente, não defeito — deixo pra decisão de quando).
+
+**Nota:** a "revisão de layout profunda" que o usuário pediu (hierarquia, agrupamento em cards, densidade das telas PLR/Engajamento) NÃO é escopo desta auditoria de defeitos — é trabalho de design, rastreado em [[feedback-ui-layout-telas-novas]]. Aqui só confirmo que não há mais UX QUEBRADA (botão inoperante/ilegível/cortado).
+
+**Obs. de ferramenta:** `preview_screenshot` deu timeout repetido nesta sessão (a página responde a `eval` normalmente — problema do renderer do tool, não do app). Frente 5 feita por inspeção via `eval`/`getComputedStyle`.
 
 ## Decisões humanas (entrega final)
 
