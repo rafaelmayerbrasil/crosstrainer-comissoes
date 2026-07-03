@@ -196,6 +196,10 @@
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
+      // A1: só a 1ª consolidação move o contador de justiça. Reconsolidar (o botão
+      // existe) reaplicava o delta a cada clique e inflava o fairness — insumo central
+      // do motor. Reconsolidação reajusta as atribuições, mas não recontabiliza justiça.
+      const jaConsolidada = scale.status === 'consolidada' || scale.fairnessApplied === true;
       const prefsRes = await listPreferences(scaleId, deps);
       const prefById = {};
       (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
@@ -212,9 +216,9 @@
         explain: byExplain[s.id] !== undefined ? byExplain[s.id] : (s.explain || []),
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
-        .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      await applyFairnessDelta(result.fairnessDelta, deps);
-      return { success: true, data: { assignments: result.assignments } };
+        .set({ slots: newSlots, status: 'consolidada', fairnessApplied: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      if (!jaConsolidada) await applyFairnessDelta(result.fairnessDelta, deps);
+      return { success: true, data: { assignments: result.assignments, fairnessAplicado: !jaConsolidada } };
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
 
@@ -314,12 +318,13 @@
   async function _deleteScaleClasses(scaleId, deps) {
     const snap = await rdb(deps).collection('classes').where('specialScaleId', '==', scaleId).get();
     let blocked = false, removed = 0;
+    const blockedSlotIds = [];   // slots com aula já congelada (mês fechado) — não recriar
     for (const doc of snap.docs) {
-      if (doc.data().monthClosingId) { blocked = true; continue; }
+      if (doc.data().monthClosingId) { blocked = true; if (doc.data().specialScaleSlotId) blockedSlotIds.push(doc.data().specialScaleSlotId); continue; }
       await rdb(deps).collection('classes').doc(doc.id).delete();
       removed++;
     }
-    return { removed, blocked };
+    return { removed, blocked, blockedSlotIds };
   }
 
   async function publishToAgenda(scaleId, deps) {
@@ -327,11 +332,13 @@
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
-      await _deleteScaleClasses(scaleId, deps); // idempotência
+      const del = await _deleteScaleClasses(scaleId, deps); // idempotência
+      const congelados = new Set(del.blockedSlotIds || []);  // M1: slot já pago não recria (evita aula duplicada)
       const slots = scale.slots || [];
       const vagasAbertas = [];
-      let created = 0;
+      let created = 0, jaCongelados = 0;
       for (const s of slots) {
+        if (congelados.has(s.id)) { jaCongelados++; continue; }
         if (!s.assignedPersonId) { vagasAbertas.push(s.id); continue; }
         if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); continue; }
         // fim de ano: cada slot tem seu próprio dia; sábado/feriado usa a data da escala.
@@ -354,7 +361,7 @@
       }
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      return { success: true, data: { created, vagasAbertas } };
+      return { success: true, data: { created, vagasAbertas, jaCongelados } };
     } catch (err) { console.error('[ScaleService.publishToAgenda]', err); return { success: false, error: err.message }; }
   }
 

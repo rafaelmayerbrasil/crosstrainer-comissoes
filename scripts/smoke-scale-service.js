@@ -75,6 +75,11 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   const fa = await SS.getFairness('zeca', d);
   assert.strictEqual(fa.data.diasTrabalhados, 1, 'fairness incrementado pela consolidação');
 
+  // A1: reconsolidar NÃO pode inflar o fairness de novo (era +1 a cada clique → corrompia justiça)
+  await SS.consolidate(c2.data.id, ctx, d);
+  const fa2 = await SS.getFairness('zeca', d);
+  assert.strictEqual(fa2.data.diasTrabalhados, 1, 'reconsolidar não incrementa fairness de novo');
+
   console.log('✓ smoke-scale-service: consolidate OK');
 
   // ── Fim de ano (por dia, duplas sem modalidade, carga espalhada) ──
@@ -103,6 +108,23 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   const feDays = new Set(feCls.docs.map(c => c.data().scheduledDate));
   assert.ok(feDays.has('2026-12-21') && feDays.has('2026-12-23'), 'aulas em dias diferentes (scheduledDate por slot.day)');
   await SS.unpublishFromAgenda(fe.data.id, d);
+
+  // M1: republicar NÃO duplica aula já congelada (mês fechado)
+  const m1 = await SS.createScale({ date: '2026-08-01', tipo: 'sabado', name: 'S-M1', slots: [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana', startTime: '08:00', endTime: '12:00' },
+  ] }, d);
+  await SS.setStatus(m1.data.id, 'consolidada', d);
+  const pubM1a = await SS.publishToAgenda(m1.data.id, d);
+  assert.strictEqual(pubM1a.data.created, 1, 'M1: 1ª publicação cria 1 aula');
+  // simula fechamento do mês na aula publicada
+  const cls = await db.collection('classes').where('specialScaleId', '==', m1.data.id).get();
+  await db.collection('classes').doc(cls.docs[0].id).set({ monthClosingId: 'mc-ago' }, { merge: true });
+  const pubM1b = await SS.publishToAgenda(m1.data.id, d);
+  assert.strictEqual(pubM1b.data.created, 0, 'M1: republicar não recria a aula congelada');
+  assert.strictEqual(pubM1b.data.jaCongelados, 1, 'M1: slot contado como já congelado');
+  const clsAfter = await db.collection('classes').where('specialScaleId', '==', m1.data.id).get();
+  assert.strictEqual(clsAfter.docs.length, 1, 'M1: segue com 1 aula (sem duplicar)');
+  console.log('✓ smoke-scale-service: M1 idempotência com mês fechado OK');
 
   console.log('✓ smoke-scale-service: fim de ano OK');
 
