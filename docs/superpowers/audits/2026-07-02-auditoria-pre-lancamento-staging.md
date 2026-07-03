@@ -17,7 +17,7 @@
 |---|--------|--------|--------|
 | 1 | Segurança (rules, auth, perfis) | ✅ | S1 duplicata special_scales reabria delete — CORRIGIDO+deploy; S2/S3 registrados |
 | 2 | Dados sensíveis (salários, PLR, recibos) | ✅ | Sem achados — camada correta (salário/PLR/recibos restritos) |
-| 3 | Bugs & fluxos quebrados (serviços JS + smokes) | ⬜ | — |
+| 3 | Bugs & fluxos quebrados (serviços JS + smokes) | 🟡 | 3 ALTA + 10 MÉDIA + 8 BAIXA registrados/verificados; correções em andamento |
 | 4 | Performance (N+1, carga, cache) | 🟡 | Achados P1/P2 (N+1 sequencial) registrados; correção adiada p/ pós-Frente 3 |
 | 5 | UX (telas no browser, temas, vazios) | ✅ | Base saudável pós-fix CSS; só U1 (renomear Chamada) registrado |
 | 6 | Consolidação + decisões humanas | ⬜ | — |
@@ -58,7 +58,40 @@
 
 ## Frente 3 — Bugs & fluxos quebrados
 
-_(pendente)_
+Subagente varreu 23 arquivos + 13 smokes (12 OK, `smoke-9` só exige `--project staging`). `node --check` 23/23 OK. Handlers onclick × globals: sem órfãos. Achados abaixo — os ALTA e vários MÉDIA foram **re-verificados por mim no código** (não são falso-positivo). Coluna FIX = plano de correção.
+
+### 🔴 ALTA
+- **A1 [confirmado] Reconsolidar infla o `fairness_counter`.** `scale-service.js:176` (`consolidate` chama `applyFairnessDelta` incondicionalmente) + botão "Reconsolidar" em `professores-escala-smart.js`. Reconsolidar soma diasTrabalhados de novo sem reverter o anterior → corrompe o insumo central do motor de justiça. (`consolidateByDay`/fim-de-ano é imune — fairness interno.) **FIX:** só aplicar fairness na 1ª consolidação (flag `fairnessApplied` no doc); reconsolidar não reaplica. TDD no smoke-scale-service.
+- **A2 [confirmado] PLR "+ Avaliador"/"✕" não funcionam.** `professores-plr.js:97-108` faz push/splice em `PlrState.config`, mas `renderPlrConfigPage()` (`:40`) chama `plrLoadBase()` que sobrescreve `PlrState.config` com o doc do Firestore → linha some. **Impossível add/remover avaliador pela UI.** **FIX:** re-render sem recarregar do Firestore (render puro a partir de `PlrState.config` já em memória).
+- **A3 [confirmado] Filtro "Semana anterior" mostra a semana ATUAL.** `professores-agenda.js:657-658`: `lastSunday = today - 1` só é domingo às segundas; `getStartOfWeek` disso devolve a segunda da semana corrente em ter–dom. **FIX:** `prevMonday = getStartOfWeek(today) − 7 dias`.
+
+### 🟠 MÉDIA
+- **M1 publishToAgenda ignora `{blocked}` → duplica aula de mês fechado.** `scale-service.js:290,330` descarta retorno de `_deleteScaleClasses`; republicar recria slot já congelado → aula duplicada → risco de pagamento dobrado. **FIX:** pular slots cujo delete veio `blocked` (aula com `monthClosingId`).
+- **M2 Config. Pontos: campo vazio grava `null` e anula o default → Placar NaN.** `professores-engajamento.js:121` (`'' → null`) + `engagement-config.js:35` (spread não filtra null). Um campo em branco → `NaN` no total de TODO MUNDO (e no mérito da escala). **FIX:** filtrar null/undefined no merge (cai no default). TDD smoke-engagement-config.
+- **M3 Chamada: trocar Data/Unidade mantém `marks`; salva gente fora do filtro.** `professores-engajamento.js:310-317`: só trocar o TIPO limpa marks; `saveChamada` grava todo `st.marks`. Dobra pontos ao trocar data; grava não-visíveis ao filtrar unidade; reabrir não carrega marks; rebaixar Presente→Faltou não remove ponto antigo (upsert nunca deleta). **DECISÃO HUMANA** (mudança de fluxo + toca tech-debt de upsert).
+- **M4 Pós-fechamento mostra "Mês/undefined" + tabela vazia.** `professores-fechamento.js:481` usa o retorno enxuto da CF (`{success,closingId,totals}`, `functions/index.js:1014`) sem teachers/year/month. Cosmético (recarregar conserta) mas assusta. **FIX:** após fechar, recarregar o doc real do Firestore antes de renderizar.
+- **M5 Modal de Férias: mistura `classList('open')` × `style.display` → para de abrir.** `professores-ferias.js:128` (close = `display:none` inline) vs `:349,704` (`add('open')`/`display:flex`). Inline vence a classe → modal trava fechado até re-render. **FIX:** padronizar num só mecanismo (usar `.open`).
+- **M6 "+ Solicitar férias" no Meu Saldo é botão morto.** `professores-ferias.js:1271` chama modal cujo elemento só existe no innerHTML de `page-ferias`. **FIX:** garantir o modal na página certa (ou navegar p/ page-ferias antes).
+- **M7 Pagamentos: chips Pendentes/Pagos não filtram.** `professores-pagamentos.js:84-86` — filtro nunca implementado, só pinta o chip. **FIX:** implementar filtro client-side por status do recibo.
+- **M8 Pagamentos: `prompt`+`parseFloat` com vírgula BR grava valor errado.** `professores-pagamentos.js:282,303`: `'1.500,50' → parseFloat → 1.5`. Paga **R$ 1,50**. Idem crédito. **FIX:** normalizar número BR antes de parsear + validar. (Dinheiro → prioridade.)
+- **M9 PLR: salvar config regenera IDs dos avaliadores → avaliações perdem peso.** `professores-plr.js:93`: `'Coordenador Técnico' → 'coordenador_t_cnico'` ≠ `coord_tecnico` do default → `avaliadoresPeso` desalinha, avaliações antigas caem p/ peso 1, nota final muda no save. **FIX:** ID estável (não regenerar do nome a cada save); corrigir junto de A2.
+- **M10 XSS armazenado: nomes sem escape nas telas novas.** escala-smart (`s.name`/pessoa), engajamento (`t.name`), plr (`l.nome`, `a.nome` em `value=`), pagamentos (`u.name` etc.). Ex.: evento com nome `<img onerror=…>` roda p/ quem abrir a aba. Superfície = autenticados com escrita. **FIX:** aplicar `escapeHtml` (já existe no projeto) nos pontos de interpolação de nome. Espalhado.
+
+### 🟡 BAIXA (edge cases — registrados, correção em lote depois)
+1. `toISOString()` como "hoje" (UTC) — escala-smart:33, engajamento:174, plr:18, shared:1578 → entre 21h-0h BRT vira amanhã.
+2. `points-engine.js:10-17 completedYears` — parse UTC + getters locais → virada de faixa 1 dia antes.
+3. `scale-service.js:226 datesInRange` — `toISOString` em vez do padrão local de `saturdaysOfYear`.
+4. `professores-escala-smart.js:277` — lê `slot.halfDay` nunca gravado → badge "½ período" morto.
+5. `applyFairnessDelta` read-modify-write sem transação (mesma classe do tech-debt CreditService aceito).
+6. `marcarPodeSerTodas` (escala-smart) sobrescreve "Não posso" → reelegível sem avisar.
+7. `templateSlots` (scale-service:19) usa `'TOI'`/`'HIIT'` como modalityId (só smokes usam; UI usa `escalaSlotsPadrao`).
+8. `plrHorasNoCiclo`/ferias:175 dependem de `unitId` sem `_` (hoje ok: unit-cp/pp).
+
+### Verificar intenção (não afirmado como bug)
+- Cobertura aberta (`CoverageService.pick`, shared:1708 + CF) NÃO credita ponto de proatividade; só a substituição direta credita. Se "assumir aula de colega = ponto" vale p/ cobertura, há lacuna. → pergunta pro Rodrigo.
+
+### Arquivos limpos
+`pessoas-model.js`, `plr-engine.js`, `professores-home.js`, `engagement-service.js` (além do tech-debt já comentado).
 
 ## Frente 4 — Performance
 
