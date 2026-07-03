@@ -370,6 +370,47 @@
     }
     .btn-outline:hover { background: var(--orange-dim); }
 
+    /* Aliases usados pelas telas mais novas (Relatórios/Férias/Engajamento/PLR/Escala):
+       btn-primary/btn-secondary não existiam no CSS → botão renderizava como default do browser */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      background: var(--orange);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      width: auto;
+    }
+    .btn-primary:hover { background: var(--orange-light); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      width: auto;
+    }
+    .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+    .btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
+
     .error-msg {
       color: var(--red);
       font-size: 12px;
@@ -578,6 +619,38 @@
     }
     .close-btn:hover { color: var(--text); }
 
+    /* Padrão overlay separado (Escala Inteligente/Escalas): .modal-overlay é o backdrop
+       e o .modal adjacente vira a CAIXA centralizada (sem isso o .modal base — que é
+       backdrop fullscreen — engolia o conteúdo cru na tela inteira) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+    }
+    .modal-overlay + .modal {
+      position: fixed;
+      inset: auto;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: calc(100% - 40px);
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      z-index: 1001;
+    }
+    .modal-overlay + .modal h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 16px;
+    }
+
     .form-group { margin-bottom: 14px; }
     .form-group label {
       display: block;
@@ -616,6 +689,22 @@
       font-size: 11px;
       color: var(--text3);
       margin-top: 4px;
+    }
+    /* .input avulso (fora de .form-group) — telas novas usam class="input" direto;
+       dentro de .form-group o seletor descendente acima continua mandando (width:100%) */
+    .input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+    }
+    .input:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim);
     }
     .form-actions {
       display: flex;
