@@ -24,7 +24,7 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(g.data.slots.length, 4);
 
   // transições de status
-  await SS.openElection(id, d);
+  await SS.openElection(id, null, d);
   g = await SS.getScale(id, d);
   assert.strictEqual(g.data.status, 'janela_aberta', 'abriu eleição');
 

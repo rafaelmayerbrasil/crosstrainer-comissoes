@@ -129,8 +129,31 @@
       return { success: true };
     } catch (err) { console.error('[ScaleService.setStatus]', err); return { success: false, error: err.message }; }
   }
-  async function openElection(id, deps)  { return setStatus(id, 'janela_aberta', deps); }
-  async function closeElection(id, deps) { return setStatus(id, 'rascunho', deps); }
+  async function openElection(id, opts, deps) {
+    try {
+      const patch = { status: 'janela_aberta', windowOpenedAt: rts(deps), windowClosedAt: null,
+        updatedAt: rts(deps), updatedBy: ruid(deps) };
+      if (opts && opts.closesAt) patch.windowClosesAt = opts.closesAt;
+      if (opts && opts.batchId) patch.windowBatchId = opts.batchId;
+      await rdb(deps).collection('special_scales').doc(id).set(patch, { merge: true });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.openElection]', err); return { success: false, error: err.message }; }
+  }
+  async function closeElection(id, deps) {
+    try {
+      await rdb(deps).collection('special_scales').doc(id)
+        .set({ status: 'rascunho', windowClosedAt: rts(deps), updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.closeElection]', err); return { success: false, error: err.message }; }
+  }
+
+  async function listScalesByBatch(batchId, deps) {
+    try {
+      const snap = await rdb(deps).collection('special_scales').where('windowBatchId', '==', batchId).get();
+      const data = snap.docs.map(dd => ({ id: dd.id, ...dd.data() })).filter(s => !isLegacyScaleDoc(s));
+      return { success: true, data };
+    } catch (err) { console.error('[ScaleService.listScalesByBatch]', err); return { success: false, error: err.message }; }
+  }
 
   async function setPreference(scaleId, personId, pref, deps) {
     try {
@@ -375,5 +398,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, ScaleConfigService, createScale, getScale, listScales, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
