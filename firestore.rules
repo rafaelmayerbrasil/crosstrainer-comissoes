@@ -235,6 +235,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Preferência por data do fim de ano: colaborador grava a SUA (personId == professorId);
+    // gestão grava qualquer uma. Doc id = `${scaleId}__${personId}__${date}`.
+    match /scale_day_preferences/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if false;
+    }
+
     // Contador de justiça/compensação: leitura p/ o módulo, escrita pela gestão
     // (atualizado na consolidação). Sem delete.
     match /fairness_counter/{id} {
