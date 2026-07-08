@@ -3,7 +3,26 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 40 (01/07/2026) — Escala Inteligente em 4 abas (feedback do Rodrigo) CONSTRUÍDA e NO AR no staging
+## 🔖 ONDE PARAMOS — sessão 41 (07–08/07/2026) — Escala Inteligente FRENTE 1 (12 ajustes do Rodrigo) CONSTRUÍDA na branch (falta E2E no staging)
+
+**Rodrigo mandou 12 ajustes/sugestões pra Escala Inteligente. Fatiados em 3 frentes; validado com ele por 2 textos não-técnicos (respondeu: e-mail pode ser depois; Escola Interna = gestão escolha o líder direto). Frente 1 construída via subagent-driven (11 tasks TDD + review por task + review holístico final). Branch `feature/shell-integrado`.**
+
+- **✅ FRENTE 1 no código (commits `55a1232`..`75080ce`):**
+  - **Camada `notify` nova** (`notify-service.js` + smoke): in-app hoje (grava em `notifications`, shape do sino), canal `email` como stub pronto pra plugar depois. Decisão do Rodrigo: e-mail depois.
+  - **Janela com prazo** (`scale-service.js`): `openElection(id,{closesAt,batchId})` + `windowClosesAt/OpenedAt/ClosedAt/BatchId`; `isWindowOpen` (comparação **hora local** via `nowLocalMinute` — bug UTC×local corrigido); `setPreference` recusa após o prazo; `listScalesByBatch`.
+  - **UI gestão** (`professores-escala-smart.js`): toggle **Próximos/Passados/Todos** (item 1); **multi-seleção + abrir janela em lote** com prazo comum + **1 aviso in-app** ao time (itens 2/3/4); abertura individual corrigida (por id, não por aba); **tela "Revisão de fechamento"** — matriz pessoas×datas (quem pegou o quê / quem não se candidatou / vagas abertas) → "Confirmar e avisar" consolida por justiça+mérito + notifica (item 5); **aba Escola Interna** com atribuição **manual** do líder pela gestão + publicar na agenda (item 10).
+  - **UI professor**: contagem regressiva do prazo + "Janela encerrada" (bloqueio) na tela de preferências.
+  - **Rename** Chamada → **Confirmar Presença** (nav + títulos + botão + toast) (item 12).
+  - **Integração** (`professores-engajamento.js`): o líder planejado na Escala Interna entra **pré-marcado** na Confirmar Presença (a escala é o plano; o ponto só no salvar — sem duplicar).
+  - **Notificações navegam** ao clicar (`professores.js` `handleNotifClick` trata `escala-smart`) + ícones no sino (`NOTIF_TYPE_META`).
+- **✅ Verificação:** 6 smokes Node verdes + parse de todos os arquivos. **Rules OK** (review final): `special_scales` é field-agnostic (aceita campos novos + `tipo:'escola_interna'`), `notifications` create liberado p/ autenticado — **nenhuma mudança de rules necessária**.
+- **Docs:** spec `docs/superpowers/specs/2026-07-07-escala-frente1-janela-eleicao-design.md` · plano `docs/superpowers/plans/2026-07-07-escala-frente1-janela-eleicao.md` (12 tasks) · memória [[frente1-escala-janela-eleicao]].
+
+**⏭️ PRÓXIMA AÇÃO:** (1) **deploy hosting no staging** (pedir OK — regra 7) + **E2E visual no browser** (checklist na Task 12 do plano: abrir janela em lote→prof vê prazo/candidata→revisão→confirmar→aviso chega; Escola Interna escala líder→publica→pré-marca na Confirmar Presença); (2) avisar o Rodrigo. **Falta construir:** Frente 2 (fim de ano por período na visão do prof #9 · replicar as 5 abas no prof #11) e Frente 3 (staff de evento #6 · convite #7 · lembretes 7/4/1d #8 — essa precisa de CF agendada; a camada `notify` já é a base). **Tech debt aceito:** bloqueio de prazo é client/serviço (não nas rules) — hardening opcional depois.
+
+---
+
+## 🔖 Sessão 40 (01/07/2026) — Escala Inteligente em 4 abas (feedback do Rodrigo) CONSTRUÍDA e NO AR no staging
 
 **Rodrigo mandou print anotado pedindo a Escala Inteligente organizada em abas. Brainstorm → spec → plano → build TDD → deploy staging, tudo na sessão. Branch `feature/shell-integrado`.**
 
