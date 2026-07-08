@@ -65,7 +65,9 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   // ── consolidate (orquestra + persiste) ── (pessoa nova 'zeca', fairness zero)
   const slotsToi = [{ id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null }];
   const c2 = await SS.createScale({ date: '2026-07-11', tipo: 'sabado', name: 'S2', slots: slotsToi }, d);
-  await SS.setPreference(c2.data.id, 'zeca', 'quer', d);
+  await SS.openElection(c2.data.id, { closesAt: '2999-01-01T00:00' }, d); // janela aberta pra aceitar a preferência
+  const pr = await SS.setPreference(c2.data.id, 'zeca', 'quer', d);
+  assert.ok(pr.success, 'preferência gravada com janela aberta');
   const ctx = { teachers: [{ id: 'zeca', modalityIds: ['TOI'], primaryUnitId: 'cp' }], meritoById: { zeca: 40 } };
   const cons = await SS.consolidate(c2.data.id, ctx, d);
   assert.strictEqual(cons.data.assignments[0].personId, 'zeca', 'zeca alocada no TOI');

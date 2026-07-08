@@ -64,6 +64,22 @@
     return false;
   }
 
+  // Janela aberta? status precisa ser 'janela_aberta' E (sem prazo OU nowISO <= windowClosesAt).
+  // Comparação lexicográfica de ISO funciona porque o formato é ordenável.
+  function isWindowOpen(scale, nowISO) {
+    if (!scale || scale.status !== 'janela_aberta') return false;
+    if (!scale.windowClosesAt) return true;
+    return String(nowISO) <= String(scale.windowClosesAt);
+  }
+
+  // "Agora" em hora LOCAL no formato YYYY-MM-DDTHH:MM (mesmo do <input datetime-local>),
+  // pra comparar lexicograficamente com windowClosesAt sem descasar UTC×local.
+  function nowLocalMinute(d) {
+    d = d || new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
   // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
   const DEFAULT_HORARIOS = {
     sabado:           { startTime: '08:00', endTime: '12:00' },
@@ -157,6 +173,12 @@
 
   async function setPreference(scaleId, personId, pref, deps) {
     try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const nowISO = (deps && deps.now) ? deps.now() : nowLocalMinute();
+      if (!isWindowOpen(scaleRes.data, nowISO)) {
+        return { success: false, error: 'Janela de preferências encerrada.' };
+      }
       await rdb(deps).collection('scale_preferences').doc(`${scaleId}__${personId}`)
         .set({ scaleId, personId, pref, updatedAt: rts(deps) });
       return { success: true };
@@ -398,5 +420,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
