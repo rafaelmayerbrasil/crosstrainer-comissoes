@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros' };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -203,6 +203,10 @@ async function renderEscalaGestao() {
     ${renderEquilibrioPainel()}
     ${tabsHtml}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
+    ${EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
+      <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
       <div>${listHtml}</div>
       <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
@@ -249,11 +253,11 @@ function renderTabFeriados(scales) {
     <button class="btn-secondary" onclick="openDataEspecial()">+ Data especial</button></div>`;
   const aviso = feriados.length ? '' :
     `<p style="font-size:12px;color:#caa23a;margin:0 0 8px;">Não consegui carregar os feriados nacionais (API/cache indisponível) — adicione pelo "+ Data especial".</p>`;
-  const docsHtml = docsF.map(escalaCardDoc).join('');
-  const sugHtml = sugF.map(f => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+  const docsHtml = docsF.map(dd => `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(dd.date)}<div style="flex:1;">${escalaCardDoc(dd)}</div></div>`).join('');
+  const sugHtml = sugF.map(f => `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(f.date)}<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;">
       <div><div style="font-size:14px;color:var(--text2);">${f.name}</div><div style="font-size:12px;color:var(--text3);">${escalaFmtBR(f.date)} · nacional</div></div>
       <button class="btn-secondary" style="font-size:12px;" onclick="criarEscalaData('feriado','${f.date}','${(f.name || '').replace(/'/g, '')}')">Criar escala</button>
-    </div>`).join('');
+    </div></div>`).join('');
   return topo + aviso + docsHtml + sugHtml;
 }
 
@@ -265,13 +269,15 @@ function renderTabSabados(scales) {
   rows = ScaleService.filterByTimeframe(rows, escalaTodayISO(), EscalaSmartState.timeframe);
   const com = rows.filter(r => r.docs.length).length;
   const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${rows.length} sábados · ${com} com escala</div>`;
-  const body = rows.map(r => r.docs.length
-    ? r.docs.map(escalaCardDoc).join('')
-    : `<div onclick="criarEscalaData('sabado','${r.date}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-        <div style="font-size:14px;color:var(--text2);">Sábado ${escalaFmtBR(r.date)}</div>
-        <span style="font-size:12px;color:var(--text3);">Sem escala · clique pra criar</span>
-      </div>`
-  ).join('');
+  const body = rows.map(r => {
+    const inner = r.docs.length
+      ? r.docs.map(escalaCardDoc).join('')
+      : `<div onclick="criarEscalaData('sabado','${r.date}')" style="cursor:pointer;flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:14px;color:var(--text2);">Sábado ${escalaFmtBR(r.date)}</div>
+          <span style="font-size:12px;color:var(--text3);">Sem escala · clique pra criar</span>
+        </div>`;
+    return `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(r.date)}<div style="flex:1;">${inner}</div></div>`;
+  }).join('');
   return header + body;
 }
 
@@ -517,10 +523,87 @@ async function criarEscalaFimDeAno() {
 
 function selectEscala(id) { EscalaSmartState.selectedId = id; renderEscalaGestao(); }
 
-async function abrirJanelaEscala(id) {
-  const res = await ScaleService.openElection(id);
-  if (res.success) { toast('Janela de preferências aberta.', 'success'); renderEscalaGestao(); }
-  else toast('Erro: ' + (res.error || 'falha'), 'error');
+// Seleção múltipla de datas (sábados/feriados) p/ abrir janela em lote.
+function escalaToggleSel(date) {
+  if (EscalaSmartState.selected.has(date)) EscalaSmartState.selected.delete(date);
+  else EscalaSmartState.selected.add(date);
+  renderEscalaGestao();
+}
+function escalaLimparSel() { EscalaSmartState.selected.clear(); renderEscalaGestao(); }
+function escalaSelCb(date) {
+  return `<input type="checkbox" onclick="event.stopPropagation();escalaToggleSel('${date}')" ${EscalaSmartState.selected.has(date) ? 'checked' : ''} style="margin-right:8px;flex:none;">`;
+}
+
+// Modal de prazo compartilhado. target = { dates:[...] } (lote) OU { scaleId, date } (individual).
+function openAbrirJanelaModal(target) {
+  const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  EscalaSmartState._janelaTarget = target;
+  const dias = target.dates ? target.dates.slice().sort() : [target.date];
+  overlay.style.display = 'flex'; modal.style.display = 'block';
+  modal.innerHTML = `
+    <h2>Abrir janela de preferências</h2>
+    <p style="font-size:13px;color:var(--text2);">${dias.length} data(s): ${dias.map(escalaFmtBR).join(', ')}</p>
+    <div class="form-group"><label>Fecha em <span style="color:var(--red);">*</span></label>
+      <input type="datetime-local" id="janelaClosesAt" class="input"></div>
+    <p style="font-size:12px;color:var(--text2);">Todos os professores ativos serão avisados no sistema para se candidatarem até essa data.</p>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmarAbrirJanela()">Abrir e avisar</button>
+    </div>`;
+}
+
+async function confirmarAbrirJanela() {
+  const closesAt = document.getElementById('janelaClosesAt').value;
+  if (!closesAt) { toast('Informe a data-limite.', 'error'); return; }
+  const target = EscalaSmartState._janelaTarget || {};
+  const batchId = 'batch_' + Date.now();
+  toast('Abrindo janela…', 'info');
+  let datasAviso = [];
+  if (target.scaleId) {
+    const scale = EscalaSmartState.scales.find(s => s.id === target.scaleId);
+    await ScaleService.openElection(target.scaleId, { closesAt, batchId });
+    datasAviso = [scale ? scale.date : target.date];
+  } else {
+    const datas = (target.dates || []).slice().sort();
+    const tipo = EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado';
+    for (const date of datas) {
+      let doc = EscalaSmartState.scales.find(s => s.date === date && s.tipo === tipo);
+      if (!doc) {
+        const res = await ScaleService.createScale({ date, tipo, name: `${tipo === 'feriado' ? 'Feriado' : 'Sábado'} ${escalaFmtBR(date)}`, slots: escalaSlotsPadrao(tipo) });
+        if (!res.success) { toast('Erro ao criar ' + date, 'error'); continue; }
+        doc = res.data;
+      }
+      await ScaleService.openElection(doc.id, { closesAt, batchId });
+    }
+    datasAviso = datas;
+  }
+  const rec = await NotifyService.resolveActiveTeacherUserIds();
+  if (rec.success && rec.data.length) {
+    await NotifyService.send({
+      recipients: rec.data, type: 'scale_window_open',
+      title: 'Janela de escala aberta',
+      body: `Candidate-se aos dias ${datasAviso.map(escalaFmtBR).join(', ')} até ${escalaFmtBR(closesAt.slice(0, 10))}.`,
+      link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
+    });
+  }
+  toast('Janela aberta. Time avisado.', 'success');
+  EscalaSmartState.selected.clear();
+  EscalaSmartState._janelaTarget = null;
+  closeEscalaModal();
+  renderEscalaGestao();
+}
+
+// gatilho do lote (barra de ação)
+function openAbrirLote() {
+  if (!EscalaSmartState.selected.size) { toast('Selecione ao menos uma data.', 'error'); return; }
+  openAbrirJanelaModal({ dates: Array.from(EscalaSmartState.selected) });
+}
+
+function abrirJanelaEscala(id) {
+  const scale = EscalaSmartState.scales.find(s => s.id === id);
+  if (!scale) { toast('Escala não encontrada.', 'error'); return; }
+  openAbrirJanelaModal({ scaleId: id, date: scale.date });
 }
 
 async function consolidarEscala(id) {
@@ -645,6 +728,10 @@ window.escalaSetYear = escalaSetYear;
 window.escalaSetTimeframe = escalaSetTimeframe;
 window.selectEscala = selectEscala;
 window.abrirJanelaEscala = abrirJanelaEscala;
+window.escalaToggleSel = escalaToggleSel;
+window.escalaLimparSel = escalaLimparSel;
+window.openAbrirLote = openAbrirLote;
+window.confirmarAbrirJanela = confirmarAbrirJanela;
 window.consolidarEscala = consolidarEscala;
 window.publicarEscala = publicarEscala;
 window.despublicarEscala = despublicarEscala;
