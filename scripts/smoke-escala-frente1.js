@@ -61,5 +61,46 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester' });
   assert.match(SS.nowLocalMinute(), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'sem argumento = agora no formato certo');
   console.log('✓ nowLocalMinute OK');
 
-  console.log('\n✅ smoke-escala-frente1 (Task 3) OK');
+  // ── filterByTimeframe (puro): futuros ≥ hoje / passados < hoje ──
+  const rows = [{ date: '2026-07-01' }, { date: '2026-07-08' }, { date: '2026-07-20' }];
+  assert.deepStrictEqual(SS.filterByTimeframe(rows, '2026-07-08', 'futuros').map(r => r.date), ['2026-07-08', '2026-07-20'], 'futuros inclui hoje');
+  assert.deepStrictEqual(SS.filterByTimeframe(rows, '2026-07-08', 'passados').map(r => r.date), ['2026-07-01'], 'passados < hoje');
+  assert.strictEqual(SS.filterByTimeframe(rows, '2026-07-08', 'todos').length, 3, 'todos = tudo');
+  console.log('✓ filterByTimeframe OK');
+
+  // ── buildConsolidationMatrix (puro) ──
+  const scales = [
+    { id: 's1', date: '2026-07-11', name: 'Sáb 11', slots: [{ assignedPersonId: 'p1' }, { assignedPersonId: null }] },
+    { id: 's2', date: '2026-07-18', name: 'Sáb 18', slots: [{ assignedPersonId: 'p2' }, { assignedPersonId: 'p1' }] },
+  ];
+  const prefs = { s1: [{ personId: 'p1', pref: 'prefiro' }], s2: [{ personId: 'p2', pref: 'pode_ser' }] };
+  const people = [{ id: 'p1', name: 'Ana' }, { id: 'p2', name: 'Bia' }, { id: 'p3', name: 'Caio' }];
+  const m = SS.buildConsolidationMatrix(scales, prefs, people);
+  assert.deepStrictEqual(m.semCandidatura.map(p => p.id), ['p3'], 'p3 não se candidatou a nada');
+  assert.strictEqual(m.vagasAbertas, 1, 's1 tem 1 vaga aberta');
+  const anaRow = m.grid.find(g => g.person.id === 'p1');
+  assert.strictEqual(anaRow.cells.s1.pref, 'prefiro', 'Ana prefiro em s1');
+  assert.strictEqual(anaRow.cells.s1.assigned, true, 'Ana escalada em s1');
+  console.log('✓ buildConsolidationMatrix OK');
+
+  // ── escolaInternaSlots (puro): 1 vaga de líder por unidade/sessão ──
+  const eiSlots = SS.escolaInternaSlots([{ id: 'unit-cp', name: 'CP' }], { startTime: '14:30', endTime: '15:30' });
+  assert.strictEqual(eiSlots.length, 1, '1 slot por unidade');
+  assert.strictEqual(eiSlots[0].role, 'lider', 'slot é de líder');
+  assert.strictEqual(eiSlots[0].startTime, '14:30');
+  assert.strictEqual(eiSlots[0].assignedPersonId, null, 'nasce vago');
+  console.log('✓ escolaInternaSlots OK');
+
+  // ── assignSlot (IO): atribui líder manual sem consolidate ──
+  const ei = (await SS.createScale({ date: '2026-07-13', tipo: 'escola_interna', name: 'Escola 13/07', slots: eiSlots }, d)).data;
+  const as = await SS.assignSlot(ei.id, eiSlots[0].id, 'p1', d);
+  assert.ok(as.success, 'atribuiu');
+  const eiG = (await SS.getScale(ei.id, d)).data;
+  assert.strictEqual(eiG.slots[0].assignedPersonId, 'p1', 'líder gravado no slot');
+  // desatribuir com null
+  await SS.assignSlot(ei.id, eiSlots[0].id, null, d);
+  assert.strictEqual((await SS.getScale(ei.id, d)).data.slots[0].assignedPersonId, null, 'desatribuiu');
+  console.log('✓ assignSlot OK');
+
+  console.log('\n✅ smoke-escala-frente1 (Task 4) OK');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

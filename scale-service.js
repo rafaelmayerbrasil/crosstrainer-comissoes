@@ -80,6 +80,66 @@
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
 
+  // Filtra linhas com {date:'YYYY-MM-DD'} por período relativo a todayISO.
+  function filterByTimeframe(rows, todayISO, tf) {
+    if (tf === 'todos') return (rows || []).slice();
+    if (tf === 'passados') return (rows || []).filter(r => r.date < todayISO);
+    return (rows || []).filter(r => r.date >= todayISO); // 'futuros' (default), inclui hoje
+  }
+
+  // Matriz da prévia de fechamento: pessoas × escalas.
+  // prefsByScale: { scaleId: [{personId, pref}] }. people: [{id, name}].
+  function buildConsolidationMatrix(scales, prefsByScale, people) {
+    const prefLookup = {}; // prefLookup[scaleId][personId] = pref
+    (scales || []).forEach(s => {
+      prefLookup[s.id] = {};
+      ((prefsByScale || {})[s.id] || []).forEach(p => { prefLookup[s.id][p.personId] = p.pref; });
+    });
+    const assignedByScale = {};
+    (scales || []).forEach(s => {
+      assignedByScale[s.id] = new Set((s.slots || []).map(sl => sl.assignedPersonId).filter(Boolean));
+    });
+    const grid = (people || []).map(person => {
+      const cells = {};
+      (scales || []).forEach(s => {
+        cells[s.id] = {
+          pref: (prefLookup[s.id] || {})[person.id] || null,
+          assigned: assignedByScale[s.id].has(person.id),
+        };
+      });
+      return { person, cells };
+    });
+    const semCandidatura = (people || []).filter(person =>
+      (scales || []).every(s => !(prefLookup[s.id] || {})[person.id])
+    );
+    let vagasAbertas = 0;
+    (scales || []).forEach(s => { (s.slots || []).forEach(sl => { if (!sl.assignedPersonId) vagasAbertas++; }); });
+    return { grid, semCandidatura, vagasAbertas };
+  }
+
+  // Vagas da Escola Interna: 1 líder por unidade (sessão diária Seg–Sex, hora configurável).
+  function escolaInternaSlots(units, times) {
+    const t = times || {};
+    return (units || []).map(u => ({
+      id: `${u.id}_LIDER`, unitId: u.id, role: 'lider',
+      requiredModalityId: null, assignedPersonId: null,
+      startTime: t.startTime || '14:30', endTime: t.endTime || '15:30',
+    }));
+  }
+
+  // Atribuição manual de pessoa a um slot (líder da Escola Interna, ou override).
+  async function assignSlot(scaleId, slotId, personId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const slots = (scaleRes.data.slots || []).map(s =>
+        s.id === slotId ? Object.assign({}, s, { assignedPersonId: personId || null }) : s);
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.assignSlot]', err); return { success: false, error: err.message }; }
+  }
+
   // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
   const DEFAULT_HORARIOS = {
     sabado:           { startTime: '08:00', endTime: '12:00' },
@@ -420,5 +480,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
