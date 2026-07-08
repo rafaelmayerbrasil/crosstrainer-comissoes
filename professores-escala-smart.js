@@ -894,7 +894,75 @@ function profDateRow(s, sub, right) {
   </div>`;
 }
 
-async function renderProfFimDeAno(pid) { return `<p style="padding:20px;color:var(--text2);">(fim de ano — em breve)</p>`; }
+async function renderProfFimDeAno(pid) {
+  const escalas = EscalaSmartState.scales.filter(s => s.tipo === 'fim_de_ano');
+  if (!escalas.length) return `<p style="padding:20px;color:var(--text2);">Nenhum período de fim de ano.</p>`;
+  const nowISO = ScaleService.nowLocalMinute();
+  let html = '';
+  for (const s of escalas) {
+    const open = ScaleService.isWindowOpen(s, nowISO);
+    const dias = [...new Set((s.slots || []).map(sl => sl.day))].sort();
+    const shiftsByDay = {};
+    dias.forEach(day => { shiftsByDay[day] = [...new Set((s.slots || []).filter(sl => sl.day === day).map(sl => sl.shift))]; });
+    const dpRes = await ScaleService.listDayPreferences(s.id);
+    const mine = {};
+    (dpRes.success ? dpRes.data : []).filter(p => p.personId === pid).forEach(p => { mine[p.date] = p; });
+
+    const cabecalho = `<div style="font-weight:600;margin:4px 0 8px;">${s.name || s.date}${open ? '' : ` · <span style="color:var(--red);font-size:12px;">janela encerrada</span>`}</div>`;
+    const diasHtml = dias.map(day => {
+      const cur = mine[day] || { pref: null, excludedShifts: [] };
+      const shifts = shiftsByDay[day];
+      const shiftLabel = (sid) => sid === 'manha' ? 'Manhã' : (sid === 'tarde_noite' ? 'Tarde/Noite' : sid);
+      const pbtn = (pref, label, color) => {
+        const active = cur.pref === pref;
+        const style = active ? `background:${color};color:#0a0a0a;border:1px solid ${color};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+        return `<button ${open ? '' : 'disabled'} onclick="marcarDiaFdA('${s.id}','${day}','${pref}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:${open ? 'pointer' : 'not-allowed'};opacity:${open ? 1 : 0.5};${style}">${label}</button>`;
+      };
+      const turnos = (cur.pref && cur.pref !== 'nao_posso')
+        ? shifts.map(sh => {
+            const excl = (cur.excludedShifts || []).includes(sh);
+            return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-right:10px;color:${excl ? 'var(--text3)' : 'var(--text2)'};"><input type="checkbox" ${excl ? '' : 'checked'} ${open ? '' : 'disabled'} onchange="toggleTurnoFdA('${s.id}','${day}','${sh}')"> ${shiftLabel(sh)}</label>`;
+          }).join('')
+        : '';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <span style="font-weight:600;font-size:13px;">${escalaFmtBR(day)}</span>
+          <div style="display:flex;gap:6px;">${pbtn('prefiro', 'Prefiro', 'var(--green)')}${pbtn('pode_ser', 'Pode ser', '#5EA8FF')}${pbtn('nao_posso', 'Não posso', 'var(--red)')}</div>
+        </div>
+        ${turnos ? `<div style="margin-top:8px;">${turnos}</div>` : ''}
+      </div>`;
+    }).join('');
+    html += cabecalho + diasHtml;
+  }
+  return html;
+}
+
+// Marca a preferência do DIA no fim de ano (preserva os turnos excluídos já marcados).
+async function marcarDiaFdA(scaleId, date, pref) {
+  const pid = escalaProfId();
+  if (!pid) { toast('Seu perfil não está vinculado a um professor.', 'error'); return; }
+  const dpRes = await ScaleService.listDayPreferences(scaleId);
+  const cur = (dpRes.success ? dpRes.data : []).find(p => p.personId === pid && p.date === date);
+  const excluded = pref === 'nao_posso' ? [] : (cur ? cur.excludedShifts || [] : []);
+  const res = await ScaleService.setDayPreference(scaleId, pid, date, pref, excluded);
+  if (res.success) { toast('Preferência registrada!', 'success'); renderEscalaPrefs(); }
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
+}
+
+// Liga/desliga um turno do dia (só quando já há Prefiro/Pode ser marcado).
+async function toggleTurnoFdA(scaleId, date, shift) {
+  const pid = escalaProfId();
+  if (!pid) return;
+  const dpRes = await ScaleService.listDayPreferences(scaleId);
+  const cur = (dpRes.success ? dpRes.data : []).find(p => p.personId === pid && p.date === date);
+  if (!cur || !cur.pref) { toast('Marque Prefiro/Pode ser antes de ajustar o turno.', 'info'); return; }
+  const set = new Set(cur.excludedShifts || []);
+  if (set.has(shift)) set.delete(shift); else set.add(shift);
+  const res = await ScaleService.setDayPreference(scaleId, pid, date, cur.pref, Array.from(set));
+  if (res.success) renderEscalaPrefs();
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
+}
+
 function renderProfEventos() { return `<p style="padding:20px;color:var(--text2);">(eventos — em breve)</p>`; }
 function renderProfEscolaInterna(pid) { return `<p style="padding:20px;color:var(--text2);">(escola interna — em breve)</p>`; }
 
@@ -943,6 +1011,8 @@ window.publicarEscala = publicarEscala;
 window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
 window.marcarPodeSerTodas = marcarPodeSerTodas;
+window.marcarDiaFdA = marcarDiaFdA;
+window.toggleTurnoFdA = toggleTurnoFdA;
 window.renderTabEscolaInterna = renderTabEscolaInterna;
 window.openNovaEscolaInterna = openNovaEscolaInterna;
 window.criarEscolaInterna = criarEscolaInterna;
