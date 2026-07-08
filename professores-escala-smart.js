@@ -683,10 +683,18 @@ async function renderEscalaPrefs() {
     return `<button onclick="marcarPref('${sid}','${pref}')" style="font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
   };
 
-  const rows = abertas.map(s => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
-    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${s.date}</div></div>
-    <div style="display:flex;gap:6px;">${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>
-  </div>`).join('');
+  const nowISO = ScaleService.nowLocalMinute();
+  const rows = abertas.map(s => {
+    const open = ScaleService.isWindowOpen(s, nowISO);
+    const prazo = s.windowClosesAt ? `Fecha em ${escalaFmtBR(s.windowClosesAt.slice(0, 10))}` : 'Sem prazo definido';
+    const botoes = open
+      ? `${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}`
+      : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
+      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${s.date} · ${prazo}</div></div>
+      <div style="display:flex;gap:6px;">${botoes}</div>
+    </div>`;
+  }).join('');
 
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1><p>Marque as datas que você <b>prefere</b>, que <b>pode ser</b>, ou que <b>não pode</b> trabalhar. Marcar preferência não garante a vaga.</p></div>
