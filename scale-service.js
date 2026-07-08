@@ -252,6 +252,25 @@
     } catch (err) { console.error('[ScaleService.listPreferences]', err); return { success: false, error: err.message }; }
   }
 
+  async function setDayPreference(scaleId, personId, date, pref, excludedShifts, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const nowISO = (deps && deps.now) ? deps.now() : nowLocalMinute();
+      if (!isWindowOpen(scaleRes.data, nowISO)) return { success: false, error: 'Janela de preferências encerrada.' };
+      await rdb(deps).collection('scale_day_preferences').doc(`${scaleId}__${personId}__${date}`)
+        .set({ scaleId, personId, date, pref, excludedShifts: excludedShifts || [], updatedAt: rts(deps) });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.setDayPreference]', err); return { success: false, error: err.message }; }
+  }
+
+  async function listDayPreferences(scaleId, deps) {
+    try {
+      const snap = await rdb(deps).collection('scale_day_preferences').where('scaleId', '==', scaleId).get();
+      return { success: true, data: snap.docs.map(dd => ({ id: dd.id, ...dd.data() })) };
+    } catch (err) { console.error('[ScaleService.listDayPreferences]', err); return { success: false, error: err.message }; }
+  }
+
   async function getFairness(personId, deps) {
     try {
       const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
@@ -480,5 +499,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
