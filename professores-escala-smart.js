@@ -963,8 +963,36 @@ async function toggleTurnoFdA(scaleId, date, shift) {
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
-function renderProfEventos() { return `<p style="padding:20px;color:var(--text2);">(eventos — em breve)</p>`; }
-function renderProfEscolaInterna(pid) { return `<p style="padding:20px;color:var(--text2);">(escola interna — em breve)</p>`; }
+// Eventos na visão do professor: read-only informativo (staff/convite entram na Frente 3).
+function renderProfEventos() {
+  let docs = EscalaSmartState.scales.filter(s => s.tipo === 'evento');
+  docs = ScaleService.filterByTimeframe(docs, escalaTodayISO(), EscalaSmartState.timeframe);
+  if (!docs.length) return `<p style="padding:20px;color:var(--text2);">Nenhum evento ${EscalaSmartState.timeframe === 'futuros' ? 'próximo' : ''}.</p>`;
+  return docs.map(s => {
+    const kind = s.eventKind === 'externo' ? 'Externo' : 'Interno';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)} · ${kind}</div></div>
+      <span style="font-size:12px;color:var(--text3);">informativo</span>
+    </div>`;
+  }).join('');
+}
+
+// Escola Interna na visão do professor: read-only, destaca onde ele é o líder escalado.
+function renderProfEscolaInterna(pid) {
+  let docs = EscalaSmartState.scales.filter(s => s.tipo === 'escola_interna');
+  docs = ScaleService.filterByTimeframe(docs, escalaTodayISO(), EscalaSmartState.timeframe);
+  if (!docs.length) return `<p style="padding:20px;color:var(--text2);">Nenhuma sessão de Escola Interna ${EscalaSmartState.timeframe === 'futuros' ? 'próxima' : ''}.</p>`;
+  return docs.map(s => {
+    const souLider = (s.slots || []).some(sl => sl.role === 'lider' && sl.assignedPersonId === pid);
+    const right = souLider
+      ? `<span style="font-size:12px;color:#caa23a;font-weight:600;">★ Você lidera</span>`
+      : `<span style="font-size:12px;color:var(--text3);">—</span>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)}</div></div>
+      ${right}
+    </div>`;
+  }).join('');
+}
 
 async function marcarPodeSerTodas() {
   const pid = escalaProfId();
