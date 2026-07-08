@@ -301,6 +301,25 @@
     } catch (err) { console.error('[ScaleService.applyFairnessDelta]', err); return { success: false, error: err.message }; }
   }
 
+  // PURO: [{personId,date,pref,excludedShifts}] → map[personId][date] = {pref, excludedShifts}
+  function dayPrefsToAvailability(dayPrefs) {
+    const out = {};
+    (dayPrefs || []).forEach(p => {
+      if (!p || !p.personId || !p.date) return;
+      (out[p.personId] = out[p.personId] || {})[p.date] = {
+        pref: p.pref || null,
+        excludedShifts: p.excludedShifts || [],
+      };
+    });
+    return out;
+  }
+
+  // PURO: a pessoa está em algum slot atribuído desta escala?
+  function isPersonAssigned(scale, personId) {
+    if (!scale || !personId) return false;
+    return (scale.slots || []).some(s => s.assignedPersonId === personId);
+  }
+
   function buildCandidates(ctx) {
     const merito = ctx.meritoById || {};
     const fair = ctx.fairnessById || {};
@@ -499,5 +518,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

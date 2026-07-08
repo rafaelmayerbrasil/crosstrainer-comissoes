@@ -33,5 +33,24 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester' });
   assert.match(blocked.error, /encerrada|prazo/i);
   console.log('✓ setDayPreference respeita prazo OK');
 
-  console.log('\n✅ smoke-escala-frente2 (Task 1) OK');
+  // ── dayPrefsToAvailability (puro) ──
+  const av = SS.dayPrefsToAvailability([
+    { personId: 'p1', date: '2026-12-26', pref: 'prefiro', excludedShifts: ['tarde_noite'] },
+    { personId: 'p2', date: '2026-12-26', pref: 'nao_posso', excludedShifts: [] },
+  ]);
+  assert.strictEqual(av.p1['2026-12-26'].pref, 'prefiro', 'pref por data');
+  assert.deepStrictEqual(av.p1['2026-12-26'].excludedShifts, ['tarde_noite']);
+  assert.strictEqual(av.p2['2026-12-26'].pref, 'nao_posso');
+  assert.deepStrictEqual(SS.dayPrefsToAvailability([]), {}, 'vazio = {}');
+  console.log('✓ dayPrefsToAvailability OK');
+
+  // ── isPersonAssigned (puro) ──
+  const sc = { slots: [{ assignedPersonId: 'p1' }, { assignedPersonId: null }, { assignedPersonId: 'p3' }] };
+  assert.strictEqual(SS.isPersonAssigned(sc, 'p1'), true, 'escalado');
+  assert.strictEqual(SS.isPersonAssigned(sc, 'p2'), false, 'não escalado');
+  assert.strictEqual(SS.isPersonAssigned({ slots: [] }, 'p1'), false, 'sem slots = false');
+  assert.strictEqual(SS.isPersonAssigned(null, 'p1'), false, 'null = false');
+  console.log('✓ isPersonAssigned OK');
+
+  console.log('\n✅ smoke-escala-frente2 (Task 2) OK');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });
