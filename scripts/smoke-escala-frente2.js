@@ -3,7 +3,8 @@
 const assert = require('assert');
 const makeFakeDb = require('./_fake-firestore.js');
 const SS = require('../scale-service.js');
-const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester' });
+const SE = require('../scale-engine.js');
+const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
 
 (async () => {
   const db = makeFakeDb();
@@ -52,5 +53,37 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester' });
   assert.strictEqual(SS.isPersonAssigned(null, 'p1'), false, 'null = false');
   console.log('✓ isPersonAssigned OK');
 
-  console.log('\n✅ smoke-escala-frente2 (Task 2) OK');
+  // ── consolidateByDay respeita dia×turno ──
+  const db2 = makeFakeDb(); const d2 = deps(db2);
+  const fa2 = (await SS.createScale({ date: '2026-12-26', tipo: 'fim_de_ano', name: 'FdA', slots: [
+    { id: 'd1_manha', day: '2026-12-26', unitId: 'u', shift: 'manha', startTime: '08:00', endTime: '12:00', requiredModalityId: null, assignedPersonId: null },
+    { id: 'd1_tarde', day: '2026-12-26', unitId: 'u', shift: 'tarde_noite', startTime: '16:00', endTime: '21:00', requiredModalityId: null, assignedPersonId: null },
+  ] }, d2)).data;
+  // p1 só pode manhã (excluiu tarde), p2 não pode o dia todo, p3 livre
+  await SS.openElection(fa2.id, { closesAt: '2999-01-01T00:00' }, d2);
+  await SS.setDayPreference(fa2.id, 'p1', '2026-12-26', 'prefiro', ['tarde_noite'], d2);
+  await SS.setDayPreference(fa2.id, 'p2', '2026-12-26', 'nao_posso', [], d2);
+  const ctx = { teachers: [{ id: 'p1', name: 'P1' }, { id: 'p2', name: 'P2' }, { id: 'p3', name: 'P3' }], meritoById: {}, opts: {} };
+  const res = await SS.consolidateByDay(fa2.id, ctx, d2);
+  assert.ok(res.success, 'consolidou');
+  const g = (await SS.getScale(fa2.id, d2)).data;
+  const manha = g.slots.find(s => s.id === 'd1_manha');
+  const tarde = g.slots.find(s => s.id === 'd1_tarde');
+  assert.notStrictEqual(manha.assignedPersonId, 'p2', 'p2 (nao_posso) não escalado de manhã');
+  assert.notStrictEqual(tarde.assignedPersonId, 'p1', 'p1 (excluiu tarde) não escalado à tarde');
+  assert.notStrictEqual(tarde.assignedPersonId, 'p2', 'p2 (nao_posso) não escalado à tarde');
+  console.log('✓ consolidateByDay respeita dia×turno OK');
+
+  // ── retrocompat: sem day prefs = todos disponíveis (não quebra) ──
+  const db3 = makeFakeDb(); const d3 = deps(db3);
+  const fa3 = (await SS.createScale({ date: '2026-12-27', tipo: 'fim_de_ano', name: 'FdA3', slots: [
+    { id: 'x_manha', day: '2026-12-27', unitId: 'u', shift: 'manha', startTime: '08:00', endTime: '12:00', requiredModalityId: null, assignedPersonId: null },
+  ] }, d3)).data;
+  const res3 = await SS.consolidateByDay(fa3.id, { teachers: [{ id: 'pa', name: 'PA' }], meritoById: {}, opts: {} }, d3);
+  assert.ok(res3.success, 'consolida sem day prefs');
+  const g3 = (await SS.getScale(fa3.id, d3)).data;
+  assert.strictEqual(g3.slots[0].assignedPersonId, 'pa', 'sem pref = disponível (retrocompat)');
+  console.log('✓ consolidateByDay retrocompat OK');
+
+  console.log('\n✅ smoke-escala-frente2 (Task 3) OK');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

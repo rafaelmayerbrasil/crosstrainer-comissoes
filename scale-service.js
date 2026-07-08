@@ -416,9 +416,8 @@
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
-      const prefsRes = await listPreferences(scaleId, deps);
-      const prefById = {};
-      (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
+      const dpRes = await listDayPreferences(scaleId, deps);
+      const avail = dayPrefsToAvailability(dpRes.data || []);
       const teachers = ctx.teachers || [];
       const SE = rSE(deps);
       const opts = { minMes: (ctx.opts && ctx.opts.minMes) || 999 };
@@ -428,12 +427,25 @@
       const bySlot = {}, byReason = {}, byExplain = {};
       days.forEach(day => {
         const daySlots = slots.filter(s => s.day === day);
-        const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById: working, prefById });
-        const result = SE.consolidate(daySlots, candidates, opts);
-        result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; byExplain[a.slotId] = a.explain || []; });
-        Object.keys(result.fairnessDelta).forEach(pid => {
-          working[pid] = working[pid] || { diasTrabalhados: 0, divida: 0 };
-          working[pid].diasTrabalhados += (result.fairnessDelta[pid].dias || 0);
+        const shifts = [...new Set(daySlots.map(s => s.shift || '_'))];
+        shifts.forEach(shift => {
+          const shiftSlots = daySlots.filter(s => (s.shift || '_') === shift);
+          const prefById = {};
+          const eligible = teachers.filter(t => {
+            const a = (avail[t.id] || {})[day];
+            if (!a) { return true; }                       // sem pref = disponível (retrocompat)
+            if (a.pref === 'nao_posso') return false;       // dia bloqueado
+            if ((a.excludedShifts || []).includes(shift)) return false; // turno bloqueado
+            prefById[t.id] = a.pref || null;                // 'prefiro'/'pode_ser' como peso
+            return true;
+          });
+          const candidates = buildCandidates({ teachers: eligible, meritoById: ctx.meritoById || {}, fairnessById: working, prefById });
+          const result = SE.consolidate(shiftSlots, candidates, opts);
+          result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; byExplain[a.slotId] = a.explain || []; });
+          Object.keys(result.fairnessDelta).forEach(pid => {
+            working[pid] = working[pid] || { diasTrabalhados: 0, divida: 0 };
+            working[pid].diasTrabalhados += (result.fairnessDelta[pid].dias || 0);
+          });
         });
       });
       const newSlots = slots.map(s => Object.assign({}, s, {
