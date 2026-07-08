@@ -198,10 +198,18 @@ async function renderEscalaGestao() {
 
   const detail = EscalaSmartState.selectedId ? renderEscalaDetail(scales.find(s => s.id === EscalaSmartState.selectedId)) : '';
 
+  const batchesAbertos = [...new Set(scales.filter(s => s.status === 'janela_aberta' && s.windowBatchId).map(s => s.windowBatchId))];
+  const revisaoBar = batchesAbertos.length
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:#1a2a3a;border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--blue);">Há ${batchesAbertos.length} janela(s) em andamento. Feche e revise antes de confirmar.</span>
+        <button class="btn-primary" onclick="abrirRevisaoLote('${batchesAbertos[0]}')">🧮 Revisar fechamento</button>
+      </div>` : '';
+
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     ${renderEquilibrioPainel()}
     ${tabsHtml}
+    ${revisaoBar}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
     ${EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
@@ -632,6 +640,85 @@ async function consolidarEscala(id) {
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
+// ─── Revisão de fechamento (lote) ──────────────────────────────────
+async function abrirRevisaoLote(batchId) {
+  toast('Carregando revisão…', 'info');
+  const byBatch = await ScaleService.listScalesByBatch(batchId);
+  if (!byBatch.success || !byBatch.data.length) { toast('Lote não encontrado.', 'error'); return; }
+  const scales = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0)); // ordena por data (serviço não ordena)
+  const prefsByScale = {};
+  for (const s of scales) {
+    const pr = await ScaleService.listPreferences(s.id);
+    prefsByScale[s.id] = pr.success ? pr.data : [];
+  }
+  const people = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false).map(t => ({ id: t.id, name: t.name }));
+  const matrix = ScaleService.buildConsolidationMatrix(scales, prefsByScale, people);
+  renderRevisaoFechamento(batchId, scales, matrix);
+}
+
+function renderRevisaoFechamento(batchId, scales, matrix) {
+  const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex'; modal.style.display = 'block';
+  const prefTxt = (p) => p === 'prefiro' ? '★' : p === 'pode_ser' ? '✓' : p === 'nao_posso' ? '✕' : '·';
+  const head = `<tr><th style="text-align:left;padding:4px 8px;">Pessoa</th>${scales.map(s => `<th style="padding:4px 8px;font-weight:400;font-size:11px;">${escalaFmtBR(s.date)}</th>`).join('')}</tr>`;
+  const body = matrix.grid.map(g => `<tr>
+    <td style="padding:4px 8px;${matrix.semCandidatura.some(p => p.id === g.person.id) ? 'color:var(--text3);' : ''}">${g.person.name}</td>
+    ${scales.map(s => { const c = g.cells[s.id]; return `<td style="text-align:center;padding:4px 8px;${c.assigned ? 'background:var(--surface3);font-weight:600;' : ''}">${prefTxt(c.pref)}</td>`; }).join('')}
+  </tr>`).join('');
+  const semCand = matrix.semCandidatura.length
+    ? `<p style="font-size:12px;color:#caa23a;margin:8px 0;">Não se candidataram a nada: ${matrix.semCandidatura.map(p => p.name).join(', ')}</p>` : '';
+  modal.innerHTML = `
+    <h2>Revisão de fechamento</h2>
+    <p style="font-size:12px;color:var(--text2);">★ prefiro · ✓ pode ser · ✕ não posso · célula destacada = escalado. Vagas abertas: ${matrix.vagasAbertas}.</p>
+    <div style="overflow:auto;max-height:50vh;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    ${semCand}
+    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito e avisa todos no sistema.</p>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>
+      <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Confirmar escala e avisar todos</button>
+    </div>`;
+}
+
+async function confirmarEAvisar(batchId) {
+  const byBatch = await ScaleService.listScalesByBatch(batchId);
+  if (!byBatch.success) { toast('Erro ao carregar lote.', 'error'); return; }
+  toast('Consolidando…', 'info');
+  // monta ctx: professores ativos + mérito (placar do ciclo atual) + opts — mesmo padrão de consolidarEscala()
+  const teachers = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const cyclesRes = await EngagementService.listCycles();
+  const cycles = (cyclesRes.success && cyclesRes.data.length) ? cyclesRes.data
+    : [{ id: '_all', inicio: '1900-01-01', fim: escalaTodayISO() }];
+  const cycle = (typeof EngagementService.currentCycle === 'function' ? EngagementService.currentCycle(cycles, escalaTodayISO()) : null) || cycles[0];
+  const meritoById = {};
+  for (const t of teachers) {
+    const hire = (t.hireDate && t.hireDate.toDate) ? t.hireDate.toDate().toISOString().slice(0, 10) : null;
+    const sb = await EngagementService.scoreboard(t.id, hire, cycle);
+    meritoById[t.id] = sb.success ? sb.data.total : 0;
+  }
+  const ctx = {
+    teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
+    meritoById, opts: { minMes: 1 },
+  };
+  for (const s of byBatch.data) {
+    await ScaleService.closeElection(s.id);
+    await ScaleService.consolidate(s.id, ctx);
+  }
+  const rec = await NotifyService.resolveActiveTeacherUserIds();
+  if (rec.success && rec.data.length) {
+    const datas = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map(s => escalaFmtBR(s.date)).join(', ');
+    await NotifyService.send({
+      recipients: rec.data, type: 'scale_confirmed',
+      title: 'Escala confirmada',
+      body: `A escala dos dias ${datas} foi definida. Confira sua agenda.`,
+      link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
+    });
+  }
+  toast('Escala confirmada e time avisado.', 'success');
+  closeEscalaModal();
+  renderEscalaGestao();
+}
+
 async function publicarEscala(id) {
   if (!confirm('Publicar a escala como aulas na agenda?')) return;
   toast('Publicando…', 'info');
@@ -741,6 +828,8 @@ window.escalaLimparSel = escalaLimparSel;
 window.openAbrirLote = openAbrirLote;
 window.confirmarAbrirJanela = confirmarAbrirJanela;
 window.consolidarEscala = consolidarEscala;
+window.abrirRevisaoLote = abrirRevisaoLote;
+window.confirmarEAvisar = confirmarEAvisar;
 window.publicarEscala = publicarEscala;
 window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
