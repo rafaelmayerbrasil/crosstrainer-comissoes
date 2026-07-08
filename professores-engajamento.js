@@ -213,6 +213,7 @@ async function renderEngajChamadaPage() {
   EngajChamadaState.cfg = cRes.success ? cRes.data : null;
   EngajChamadaState.units = uRes.success ? uRes.data : [];
   renderChamadaContent();
+  await aplicarLiderPlanejado();
 }
 
 function renderChamadaContent() {
@@ -314,6 +315,31 @@ function onChamadaToolbarChange() {
   const dEl = document.getElementById('chamadaDate'); if (dEl) EngajChamadaState.date = dEl.value;
   const uEl = document.getElementById('chamadaUnit'); if (uEl) EngajChamadaState.unitId = uEl.value;
   renderChamadaContent();
+  aplicarLiderPlanejado();
+}
+
+// Pré-seleção do líder planejado (Escala Interna → Confirmar Presença).
+// A escala é o PLANO; a presença é a fonte de verdade do ponto (só ao salvar).
+// Não lança ponto: só pré-marca o líder pra a gestão confirmar/editar.
+async function aplicarLiderPlanejado() {
+  const st = EngajChamadaState;
+  if (st.kind !== 'escola_interna' || !st.date || typeof ScaleService === 'undefined') return;
+  let changed = false;
+  try {
+    const res = await ScaleService.listScales();
+    const doc = (res.success ? res.data : []).find(s => s.tipo === 'escola_interna' && s.date === st.date);
+    if (doc) {
+      (doc.slots || []).forEach(slot => {
+        if (slot.role !== 'lider' || !slot.assignedPersonId) return;
+        if (st.unitId && slot.unitId !== st.unitId) return; // respeita o filtro de unidade
+        if (!st.marks[slot.assignedPersonId]) {
+          st.marks[slot.assignedPersonId] = { status: 'presente', role: 'lider' };
+          changed = true;
+        }
+      });
+    }
+  } catch (e) { /* silencioso: pré-seleção é só conveniência */ }
+  if (changed) renderChamadaList();
 }
 
 function setChamadaMark(tid, status) {
