@@ -14,13 +14,15 @@ const ESCALA_TIPOS = [
   { id: 'domingo_especial', label: 'Domingo especial' },
   { id: 'evento',           label: 'Evento' },
   { id: 'fim_de_ano',       label: 'Fim de ano' },
+  { id: 'escola_interna',   label: 'Escola Interna' },
 ];
 const ESCALA_STATUS_LABEL = { rascunho: 'Rascunho', janela_aberta: 'Janela aberta', consolidada: 'Consolidada' };
 const ESCALA_TABS = [
-  { id: 'sabado',     label: 'Sábados' },
-  { id: 'feriado',    label: 'Feriados' },
-  { id: 'evento',     label: 'Eventos' },
-  { id: 'fim_de_ano', label: 'Fim de ano' },
+  { id: 'sabado',         label: 'Sábados' },
+  { id: 'feriado',        label: 'Feriados' },
+  { id: 'evento',         label: 'Eventos' },
+  { id: 'fim_de_ano',     label: 'Fim de ano' },
+  { id: 'escola_interna', label: 'Escola Interna' },
 ];
 
 function escalaIsManagement() {
@@ -191,10 +193,11 @@ async function renderEscalaGestao() {
     </div>`;
 
   let listHtml;
-  if (tab === 'sabado')          listHtml = renderTabSabados(scales);
-  else if (tab === 'feriado')    listHtml = renderTabFeriados(scales);
-  else if (tab === 'evento')     listHtml = renderTabEventos(scales);
-  else                           listHtml = renderTabFimDeAno(scales);
+  if (tab === 'sabado')                listHtml = renderTabSabados(scales);
+  else if (tab === 'feriado')          listHtml = renderTabFeriados(scales);
+  else if (tab === 'evento')           listHtml = renderTabEventos(scales);
+  else if (tab === 'escola_interna')   listHtml = renderTabEscolaInterna(scales);
+  else                                 listHtml = renderTabFimDeAno(scales);
 
   const detail = EscalaSmartState.selectedId ? renderEscalaDetail(scales.find(s => s.id === EscalaSmartState.selectedId)) : '';
 
@@ -243,6 +246,47 @@ function renderTabEventos(scales) {
   const body = docs.length ? docs.map(escalaCardDoc).join('')
     : `<p style="padding:20px;color:var(--text2);">Nenhum evento em ${EscalaSmartState.year}. Crie o primeiro.</p>`;
   return topo + body;
+}
+
+function renderTabEscolaInterna(scales) {
+  const docs = scales.filter(s => s.tipo === 'escola_interna' && s.date.startsWith(String(EscalaSmartState.year)));
+  const docsF = ScaleService.filterByTimeframe(docs, escalaTodayISO(), EscalaSmartState.timeframe);
+  const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+    <span style="font-size:12px;color:var(--text2);">A gestão escolhe quem lidera cada dia (por necessidade técnica). Quem lidera ganha os pontos de liderança.</span>
+    <button class="btn-primary" onclick="openNovaEscolaInterna()">+ Nova sessão</button></div>`;
+  const body = docsF.length ? docsF.map(escalaCardDoc).join('')
+    : `<p style="padding:20px;color:var(--text2);">Nenhuma sessão de Escola Interna em ${EscalaSmartState.year}.</p>`;
+  return topo + body;
+}
+
+function openNovaEscolaInterna() {
+  const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex'; modal.style.display = 'block';
+  modal.innerHTML = `
+    <h2>Nova sessão de Escola Interna</h2>
+    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="eiData" class="input" value="${escalaTodayISO()}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Início</label><input type="time" id="eiIni" class="input" value="14:30"></div>
+      <div class="form-group"><label>Fim</label><input type="time" id="eiFim" class="input" value="15:30"></div>
+    </div>
+    <div class="form-group"><label>Unidades</label><div style="padding:4px 0;">${EscalaSmartState.units.map(u => `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;"><input type="checkbox" class="eiUnit" value="${u.id}" checked> ${u.name || u.id}</label>`).join('')}</div></div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      <button class="btn-primary" onclick="criarEscolaInterna()">Criar</button>
+    </div>`;
+}
+
+async function criarEscolaInterna() {
+  const date = document.getElementById('eiData').value;
+  const startTime = document.getElementById('eiIni').value, endTime = document.getElementById('eiFim').value;
+  const selUnits = Array.from(document.querySelectorAll('.eiUnit:checked')).map(c => c.value);
+  if (!date || !selUnits.length) { toast('Informe data e ao menos uma unidade.', 'error'); return; }
+  const units = EscalaSmartState.units.filter(u => selUnits.includes(u.id));
+  const slots = ScaleService.escolaInternaSlots(units, { startTime, endTime });
+  const res = await ScaleService.createScale({ date, tipo: 'escola_interna', name: `Escola Interna ${escalaFmtBR(date)}`, slots });
+  if (res.success) { toast('Sessão criada!', 'success'); closeEscalaModal(); EscalaSmartState.tab = 'escola_interna'; EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
 function renderTabFeriados(scales) {
@@ -348,9 +392,38 @@ function renderFimDeAnoDetail(scale) {
   </div>`;
 }
 
+function renderEscolaInternaDetail(scale) {
+  const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
+  const opts = (sel) => `<option value="">— escolher líder —</option>` +
+    Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false)
+      .map(t => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${t.name}</option>`).join('');
+  const cards = (scale.slots || []).map(slot => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div><div style="font-size:13px;font-weight:500;">${unitName(slot.unitId)}</div><div style="font-size:12px;color:var(--text2);">${slot.startTime}–${slot.endTime} · líder</div></div>
+      <select class="input" style="width:auto;" onchange="atribuirLider('${scale.id}','${slot.id}',this.value)">${opts(slot.assignedPersonId)}</select>
+    </div></div>`).join('');
+  const actions = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+    ${scale.published ? `<span style="font-size:12px;color:var(--green);margin-right:auto;">✓ publicada na agenda</span>` : ''}
+    ${!scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>`}
+  </div>`;
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
+      <div style="font-size:12px;color:var(--text2);">${scale.date} · atribuição manual do líder</div></div>
+    ${cards || '<p style="color:var(--text2);">Sem sessões.</p>'}
+    ${actions}
+  </div>`;
+}
+
+async function atribuirLider(scaleId, slotId, personId) {
+  const res = await ScaleService.assignSlot(scaleId, slotId, personId || null);
+  if (res.success) { toast('Líder atualizado.', 'success'); await escalaLoadBase(); renderEscalaGestao(); }
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
+}
+
 function renderEscalaDetail(scale) {
   if (!scale) return '';
   if (scale.tipo === 'fim_de_ano') return renderFimDeAnoDetail(scale);
+  if (scale.tipo === 'escola_interna') return renderEscolaInternaDetail(scale);
   const byUnit = {};
   (scale.slots || []).forEach(s => { (byUnit[s.unitId] = byUnit[s.unitId] || []).push(s); });
   const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
@@ -834,5 +907,9 @@ window.publicarEscala = publicarEscala;
 window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
 window.marcarPodeSerTodas = marcarPodeSerTodas;
+window.renderTabEscolaInterna = renderTabEscolaInterna;
+window.openNovaEscolaInterna = openNovaEscolaInterna;
+window.criarEscolaInterna = criarEscolaInterna;
+window.atribuirLider = atribuirLider;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');
