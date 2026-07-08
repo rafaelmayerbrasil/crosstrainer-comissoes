@@ -198,7 +198,7 @@ async function renderEngajChamadaPage() {
   if (!EngajChamadaState.date) EngajChamadaState.date = chamadaTodayISO();
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>✅ Chamada</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
     <div class="loading"><div class="spinner"></div> Carregando colaboradores…</div>`;
 
   const [tRes, mRes, cRes, uRes] = await Promise.all([
@@ -224,7 +224,7 @@ function renderChamadaContent() {
     (st.units || []).map(u => `<option value="${u.id}" ${st.unitId === u.id ? 'selected' : ''}>${u.name || u.id}</option>`).join('');
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>✅ Chamada</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
       <div class="form-group" style="margin:0;"><label>Tipo</label><select id="chamadaKind" class="input" onchange="onChamadaToolbarChange()">${kindOpts}</select></div>
       <div class="form-group" style="margin:0;"><label>Data</label><input type="date" id="chamadaDate" class="input" value="${st.date}" onchange="onChamadaToolbarChange()"></div>
@@ -303,7 +303,7 @@ function renderChamadaList() {
   wrap.innerHTML = rows + `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding:12px 14px;background:var(--surface2);border-radius:10px;">
       <div style="font-size:13px;color:var(--text2);"><b style="color:var(--text);">${pres}</b> presenças · <b style="color:var(--text);">${faltas}</b> faltas · total <b style="color:${total >= 0 ? 'var(--green)' : 'var(--red)'};">${totalStr} pts</b></div>
-      <button class="btn-primary" onclick="saveChamada()">💾 Salvar chamada</button>
+      <button class="btn-primary" onclick="saveChamada()">💾 Salvar presença</button>
     </div>`;
 }
 
@@ -349,7 +349,7 @@ async function saveChamada() {
     confirmedBy: st.kind === 'reuniao' ? (typeof currentUserId === 'function' ? currentUserId() : 'gestao') : null,
   };
   const res = await EngagementService.recordAttendance(att);
-  if (res.success) toast(`Chamada salva! ${res.data.entriesCount} lançamento(s) no placar.`, 'success');
+  if (res.success) toast(`Presença salva! ${res.data.entriesCount} lançamento(s) no placar.`, 'success');
   else toast('Erro: ' + (res.error || 'falha ao salvar'), 'error');
 }
 

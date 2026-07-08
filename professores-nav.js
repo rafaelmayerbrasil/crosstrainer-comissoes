@@ -36,7 +36,7 @@
     { id: 'relatorios',     label: 'Relatórios',        icon: '📈', section: 'Financeiro' },
     { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Minhas aulas' },
     { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Engajamento' },
-    { id: 'engaj-chamada',  label: 'Chamada',           icon: '✅', section: 'Engajamento' },
+    { id: 'engaj-chamada',  label: 'Confirmar Presença', icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },
     { id: 'plr-config',     label: 'PLR · Config',      icon: '⚙️', section: 'PLR' },
     { id: 'plr-avaliacao',  label: 'PLR · Avaliação',   icon: '📝', section: 'PLR' },
