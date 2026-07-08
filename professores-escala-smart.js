@@ -66,9 +66,9 @@ async function escalaLoadFeriados(year) {
   return list;
 }
 
-function escalaSetTab(t) { EscalaSmartState.tab = t; EscalaSmartState.selectedId = null; renderEscalaGestao(); }
-function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaGestao(); }
-function escalaSetTimeframe(tf) { EscalaSmartState.timeframe = tf; renderEscalaGestao(); }
+function escalaSetTab(t) { EscalaSmartState.tab = t; EscalaSmartState.selectedId = null; renderEscalaSmartPage(); }
+function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaSmartPage(); }
+function escalaSetTimeframe(tf) { EscalaSmartState.timeframe = tf; renderEscalaSmartPage(); }
 
 function renderEscalaSmartPage() {
   if (escalaIsManagement()) renderEscalaGestao();
@@ -815,52 +815,88 @@ async function despublicarEscala(id) {
 async function renderEscalaPrefs() {
   const container = document.getElementById('page-escala-smart');
   if (!container) return;
-  container.innerHTML = `
-    <div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1><p>Marque os sábados/feriados que você quer (ou não pode) trabalhar.</p></div>
+  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
     <div class="loading"><div class="spinner"></div> Carregando…</div>`;
 
   const pid = escalaProfId();
-  const scalesRes = await ScaleService.listScales();
-  const abertas = (scalesRes.success ? scalesRes.data : []).filter(s => s.status === 'janela_aberta');
+  const [scalesRes, teachersRes] = await Promise.all([ScaleService.listScales(), TeacherService.list()]);
+  EscalaSmartState.scales = scalesRes.success ? scalesRes.data : [];
+  EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
+  if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
 
-  if (abertas.length === 0) {
-    container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1></div>
-      <p style="padding:24px;color:var(--text2);">Nenhuma janela de preferências aberta no momento.</p>`;
-    return;
-  }
+  const tab = EscalaSmartState.tab;
+  const tabsHtml = `<div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;">` +
+    ESCALA_TABS.map(t => {
+      const on = t.id === tab;
+      return `<button onclick="escalaSetTab('${t.id}')" style="background:none;border:none;border-bottom:2px solid ${on ? 'var(--blue)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text2)'};font-weight:${on ? '600' : '400'};font-size:14px;padding:8px 14px;cursor:pointer;">${t.label}</button>`;
+    }).join('') + `</div>`;
 
-  // carrega preferências atuais do professor
+  let body;
+  if (tab === 'sabado' || tab === 'feriado') body = await renderProfSabadosFeriados(pid, tab);
+  else if (tab === 'fim_de_ano')                body = await renderProfFimDeAno(pid);
+  else if (tab === 'evento')                    body = renderProfEventos();
+  else                                          body = renderProfEscolaInterna(pid);
+
+  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
+    ${tabsHtml}
+    ${body}`;
+}
+
+async function renderProfSabadosFeriados(pid, tab) {
+  const tipos = tab === 'sabado' ? ['sabado'] : ['feriado', 'domingo_especial'];
+  let escalas = EscalaSmartState.scales.filter(s => tipos.includes(s.tipo));
+  escalas = ScaleService.filterByTimeframe(escalas, escalaTodayISO(), EscalaSmartState.timeframe);
+  if (!escalas.length) return `<p style="padding:20px;color:var(--text2);">Nenhuma data ${tab === 'sabado' ? 'de sábado' : 'de feriado'} ${EscalaSmartState.timeframe === 'futuros' ? 'próxima' : ''}.</p>`;
+
+  // atalho "Pode ser em todas" quando há janela aberta na aba (reusa marcarPodeSerTodas, que já existe/exportado)
+  const temAberta = escalas.some(s => s.status === 'janela_aberta');
+  const atalho = temAberta
+    ? `<div style="padding:0 0 12px;"><button onclick="marcarPodeSerTodas()" style="font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;background:rgba(94,168,255,0.15);color:#5EA8FF;border:1px solid #5EA8FF;">✓ Marcar "Pode ser" em todas as janelas abertas</button></div>`
+    : '';
+
+  // preferências atuais do professor nas janelas abertas
+  const nowISO = ScaleService.nowLocalMinute();
   const prefByScale = {};
-  for (const s of abertas) {
-    const pr = await ScaleService.listPreferences(s.id);
-    const mine = (pr.success ? pr.data : []).find(p => p.personId === pid);
-    prefByScale[s.id] = mine ? mine.pref : null;
+  for (const s of escalas) {
+    if (s.status === 'janela_aberta') {
+      const pr = await ScaleService.listPreferences(s.id);
+      const mine = (pr.success ? pr.data : []).find(p => p.personId === pid);
+      prefByScale[s.id] = mine ? mine.pref : null;
+    }
   }
-
   const pbtn = (sid, pref, label, color) => {
     const active = prefByScale[sid] === pref;
     const style = active ? `background:${color};color:#0a0a0a;border:1px solid ${color};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
     return `<button onclick="marcarPref('${sid}','${pref}')" style="font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
   };
-
-  const nowISO = ScaleService.nowLocalMinute();
-  const rows = abertas.map(s => {
+  return atalho + escalas.map(s => {
     const open = ScaleService.isWindowOpen(s, nowISO);
-    const prazo = s.windowClosesAt ? `Fecha em ${escalaFmtBR(s.windowClosesAt.slice(0, 10))}` : 'Sem prazo definido';
-    const botoes = open
-      ? `${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}`
-      : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
-      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${s.date} · ${prazo}</div></div>
-      <div style="display:flex;gap:6px;">${botoes}</div>
-    </div>`;
+    let right;
+    if (s.status === 'janela_aberta') {
+      const prazo = s.windowClosesAt ? `Fecha em ${escalaFmtBR(s.windowClosesAt.slice(0, 10))}` : 'Sem prazo';
+      right = open
+        ? `<div style="display:flex;gap:6px;">${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>`
+        : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
+      return profDateRow(s, `${s.date} · ${prazo}`, right);
+    }
+    const escalado = ScaleService.isPersonAssigned(s, pid);
+    right = escalado
+      ? `<span style="font-size:12px;color:var(--green);font-weight:600;">✓ Você está escalado</span>`
+      : `<span style="font-size:12px;color:var(--text3);">Não escalado</span>`;
+    return profDateRow(s, `${s.date} · ${ESCALA_STATUS_LABEL[s.status] || s.status}`, right);
   }).join('');
-
-  container.innerHTML = `
-    <div class="page-hdr"><h1>🗓️ Escala — minhas preferências</h1><p>Marque as datas que você <b>prefere</b>, que <b>pode ser</b>, ou que <b>não pode</b> trabalhar. Marcar preferência não garante a vaga.</p></div>
-    <div style="padding:0 0 12px;"><button onclick="marcarPodeSerTodas()" style="font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;background:rgba(94,168,255,0.15);color:#5EA8FF;border:1px solid #5EA8FF;">✓ Marcar "Pode ser" em todas</button></div>
-    ${rows}`;
 }
+
+function profDateRow(s, sub, right) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
+    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${sub}</div></div>
+    ${right}
+  </div>`;
+}
+
+async function renderProfFimDeAno(pid) { return `<p style="padding:20px;color:var(--text2);">(fim de ano — em breve)</p>`; }
+function renderProfEventos() { return `<p style="padding:20px;color:var(--text2);">(eventos — em breve)</p>`; }
+function renderProfEscolaInterna(pid) { return `<p style="padding:20px;color:var(--text2);">(escola interna — em breve)</p>`; }
 
 async function marcarPodeSerTodas() {
   const pid = escalaProfId();
