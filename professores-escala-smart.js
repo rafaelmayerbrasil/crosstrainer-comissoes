@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros' };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -66,6 +66,7 @@ async function escalaLoadFeriados(year) {
 
 function escalaSetTab(t) { EscalaSmartState.tab = t; EscalaSmartState.selectedId = null; renderEscalaGestao(); }
 function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaGestao(); }
+function escalaSetTimeframe(tf) { EscalaSmartState.timeframe = tf; renderEscalaGestao(); }
 
 function renderEscalaSmartPage() {
   if (escalaIsManagement()) renderEscalaGestao();
@@ -184,6 +185,10 @@ async function renderEscalaGestao() {
   const y = EscalaSmartState.year;
   const yearSel = tab === 'fim_de_ano' ? '' :
     `<select class="input" style="width:auto;" onchange="escalaSetYear(this.value)">${[y - 1, y, y + 1].map(v => `<option value="${v}" ${v === y ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
+  const tfSel = tab === 'fim_de_ano' ? '' :
+    `<div style="display:inline-flex;gap:4px;margin-right:8px;">
+      ${['futuros', 'todos', 'passados'].map(v => `<button onclick="escalaSetTimeframe('${v}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid ${EscalaSmartState.timeframe === v ? 'var(--blue)' : 'var(--border)'};background:${EscalaSmartState.timeframe === v ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${EscalaSmartState.timeframe === v ? '#5EA8FF' : 'var(--text2)'};">${v === 'futuros' ? 'Próximos' : v === 'passados' ? 'Passados' : 'Todos'}</button>`).join('')}
+    </div>`;
 
   let listHtml;
   if (tab === 'sabado')          listHtml = renderTabSabados(scales);
@@ -197,7 +202,7 @@ async function renderEscalaGestao() {
     <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     ${renderEquilibrioPainel()}
     ${tabsHtml}
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">${yearSel}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
     <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
       <div>${listHtml}</div>
       <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
@@ -218,7 +223,8 @@ function renderTabFimDeAno(scales) {
 }
 
 function renderTabEventos(scales) {
-  const docs = scales.filter(s => s.tipo === 'evento' && s.date.startsWith(String(EscalaSmartState.year)));
+  let docs = scales.filter(s => s.tipo === 'evento' && s.date.startsWith(String(EscalaSmartState.year)));
+  docs = ScaleService.filterByTimeframe(docs, escalaTodayISO(), EscalaSmartState.timeframe);
   const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
     <span style="font-size:12px;color:var(--text2);">Quem trabalha/representa no evento. Presença/ponto continua na Chamada do Engajamento.</span>
     <button class="btn-primary" onclick="openNovoEvento()">+ Novo evento</button></div>`;
@@ -234,13 +240,17 @@ function renderTabFeriados(scales) {
   const datasComDoc = new Set(docs.map(dd => dd.date));
   const sugestoes = feriados.filter(f => !datasComDoc.has(f.date));
 
+  const tf = EscalaSmartState.timeframe, today = escalaTodayISO();
+  const docsF = ScaleService.filterByTimeframe(docs, today, tf);
+  const sugF = ScaleService.filterByTimeframe(sugestoes, today, tf);
+
   const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
     <span style="font-size:12px;color:var(--text2);">A gestão aponta quais feriados terão escala.</span>
     <button class="btn-secondary" onclick="openDataEspecial()">+ Data especial</button></div>`;
   const aviso = feriados.length ? '' :
     `<p style="font-size:12px;color:#caa23a;margin:0 0 8px;">Não consegui carregar os feriados nacionais (API/cache indisponível) — adicione pelo "+ Data especial".</p>`;
-  const docsHtml = docs.map(escalaCardDoc).join('');
-  const sugHtml = sugestoes.map(f => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+  const docsHtml = docsF.map(escalaCardDoc).join('');
+  const sugHtml = sugF.map(f => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
       <div><div style="font-size:14px;color:var(--text2);">${f.name}</div><div style="font-size:12px;color:var(--text3);">${escalaFmtBR(f.date)} · nacional</div></div>
       <button class="btn-secondary" style="font-size:12px;" onclick="criarEscalaData('feriado','${f.date}','${(f.name || '').replace(/'/g, '')}')">Criar escala</button>
     </div>`).join('');
@@ -248,10 +258,11 @@ function renderTabFeriados(scales) {
 }
 
 function renderTabSabados(scales) {
-  const rows = ScaleService.mergeVirtualWithDocs(
+  let rows = ScaleService.mergeVirtualWithDocs(
     ScaleService.saturdaysOfYear(EscalaSmartState.year),
     scales.filter(s => s.tipo === 'sabado')
   );
+  rows = ScaleService.filterByTimeframe(rows, escalaTodayISO(), EscalaSmartState.timeframe);
   const com = rows.filter(r => r.docs.length).length;
   const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${rows.length} sábados · ${com} com escala</div>`;
   const body = rows.map(r => r.docs.length
@@ -631,6 +642,7 @@ window.openNovoEvento = openNovoEvento;
 window.criarNovoEvento = criarNovoEvento;
 window.escalaSetTab = escalaSetTab;
 window.escalaSetYear = escalaSetYear;
+window.escalaSetTimeframe = escalaSetTimeframe;
 window.selectEscala = selectEscala;
 window.abrirJanelaEscala = abrirJanelaEscala;
 window.consolidarEscala = consolidarEscala;
