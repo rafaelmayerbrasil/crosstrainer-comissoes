@@ -1349,6 +1349,8 @@ const NOTIF_TYPE_META = {
   vacation_approved:       { icon: '✅', title: 'Férias aprovadas' },
   vacation_rejected:       { icon: '❌', title: 'Férias recusadas' },
   vacation_cancelled:      { icon: '🚫', title: 'Férias canceladas' },
+  scale_window_open:       { icon: '🗓️', title: 'Janela de escala aberta' },
+  scale_confirmed:         { icon: '🗓️', title: 'Escala confirmada' },
 };
 
 const SUBSTITUTION_STATUS_LABEL = {

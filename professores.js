@@ -350,6 +350,8 @@ async function handleNotifClick(notifId, link) {
       }, 200);
     } else if (link.type === 'substitution' || link.type === 'coverage') {
       if (typeof openInboxModal === 'function') openInboxModal();
+    } else if (link.type === 'escala-smart' && typeof navigateTo === 'function') {
+      navigateTo('escala-smart');
     }
   }
   // Fecha dropdown
