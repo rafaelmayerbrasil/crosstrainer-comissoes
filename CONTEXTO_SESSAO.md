@@ -22,7 +22,12 @@
 
 **🚀 FRENTE 2 CONSTRUÍDA E DEPLOYADA no staging (08/07) — visão do professor.** Commits `a55a08b`..`a8eac69` (7). Rules `scale_day_preferences` + hosting no ar. #11 visão do prof em 5 abas (Sábados/Feriados candidatar + "você está escalado"; Eventos read-only; Escola Interna read-only "você lidera"); #9 fim de ano por data + desmarcar turno; `consolidateByDay` respeita dia×turno (retrocompat). Spec/plano `2026-07-08-escala-frente2-*` · memória [[frente2-escala-visao-professor]]. **Nota:** subagentes deram pau no meio (delegavam em vez de executar + bateram no limite de sessão) → Tasks 6/7 feitas inline + review por diff/smokes (7 suítes verdes). **Pendência:** validar a regra por REST ([[feedback-deploy-rules-explicito]]) + E2E do professor no browser.
 
-**⏭️ PRÓXIMA AÇÃO:** (1) Rodrigo valida **Frente 1 + Frente 2** no staging (texto da F1 já enviado; passar o checklist da F2 do professor); (2) **Frente 3** (staff de evento #6 · convite #7 · lembretes 7/4/1d #8 — precisa de CF agendada; a camada `notify` já é a base) — brainstorm → spec → plano → build. **Tech debt aceito:** bloqueio de prazo é client/serviço (não nas rules) — hardening opcional depois.
+**⏭️ RETOMAR AQUI (parou por limite de uso semanal, 08/07 noite):** Rodrigo testou F1/F2 e mandou retorno.
+- **Frente 3 (eventos) 100% VALIDADA** — brainstorm feito (evento=lista de staff, sem TOI/Hiit; RSVP obrigatório vem "Vou"/opcional aberto; lembretes 7/4/1d p/ todos menos "Não vou"; sem prazo). Falta virar spec→plano→build. Precisa de CF agendada nova; `notify-service.js` é a base.
+- **Ajustes prontos (F1/F2):** bug data 2x no card de sábado; escalar manual quando ninguém disponível (reusar `assignSlot`); fim de ano no prof mostrar unidade/horário/turno.
+- **Features novas:** tabela na gestão (sábados/feriados/escola interna feitos + escalados por prof/período); Escola Interna como calendário mensal (Google Calendar, 14:30-15:30 editável, líder+unidade por dia).
+- **3 perguntas ENVIADAS ao Rodrigo (aguardando):** mínimo de preferências (quantas/config/bloqueia?); tabela "fez" = presença real ou dias passados; substituição pelo lado do substituto (GAP — só titular inicia hoje) precisa entrada do substituto + aprovação?.
+- Detalhe completo na memória [[frente2-escala-visao-professor]] (seção "RETORNO DO RODRIGO"). **Tech debt aceito:** bloqueio de prazo client/serviço (não nas rules).
 
 ---
 
