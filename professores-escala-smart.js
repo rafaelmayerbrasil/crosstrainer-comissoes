@@ -911,7 +911,7 @@ async function renderEscalaPrefs() {
   let body;
   if (tab === 'sabado' || tab === 'feriado') body = await renderProfSabadosFeriados(pid, tab);
   else if (tab === 'fim_de_ano')                body = await renderProfFimDeAno(pid);
-  else if (tab === 'evento')                    body = renderProfEventos();
+  else if (tab === 'evento')                    body = await renderProfEventos();
   else                                          body = renderProfEscolaInterna(pid);
 
   container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
@@ -1040,18 +1040,42 @@ async function toggleTurnoFdA(scaleId, date, shift) {
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
-// Eventos na visão do professor: read-only informativo (staff/convite entram na Frente 3).
-function renderProfEventos() {
+// Eventos na visão do professor: acionável (RSVP Vou/Não vou para quem foi convidado/staff).
+async function renderProfEventos() {
+  const pid = escalaProfId();
   let docs = EscalaSmartState.scales.filter(s => s.tipo === 'evento');
   docs = ScaleService.filterByTimeframe(docs, escalaTodayISO(), EscalaSmartState.timeframe);
   if (!docs.length) return `<p style="padding:20px;color:var(--text2);">Nenhum evento ${EscalaSmartState.timeframe === 'futuros' ? 'próximo' : ''}.</p>`;
-  return docs.map(s => {
+  const parts = [];
+  for (const s of docs) {
+    const rr = await ScaleService.listEventRsvp(s.id);
+    const mine = (rr.success ? rr.data : []).find(r => r.personId === pid);
     const kind = s.eventKind === 'externo' ? 'Externo' : 'Interno';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
-      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)} · ${kind}</div></div>
-      <span style="font-size:12px;color:var(--text3);">informativo</span>
-    </div>`;
-  }).join('');
+    let right;
+    if (mine) {
+      const rbtn = (val, label, color) => {
+        const active = mine.going === val;
+        const style = active ? `background:${color};color:#0a0a0a;border:1px solid ${color};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+        return `<button onclick="responderEvento('${s.id}',${val})" style="font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
+      };
+      right = `<div style="display:flex;gap:6px;">${rbtn(true, 'Vou', 'var(--green)')}${rbtn(false, 'Não vou', 'var(--red)')}</div>`;
+    } else {
+      right = `<span style="font-size:12px;color:var(--text3);">informativo</span>`;
+    }
+    parts.push(`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
+      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)} · ${kind}${mine && mine.tier === 'obrigatorio' ? ' · você deve participar' : (mine ? ' · você poderia participar' : '')}</div></div>
+      ${right}
+    </div>`);
+  }
+  return parts.join('');
+}
+
+async function responderEvento(scaleId, going) {
+  const pid = escalaProfId();
+  if (!pid) { toast('Seu perfil não está vinculado a um professor.', 'error'); return; }
+  const res = await ScaleService.setRsvp(scaleId, pid, going);
+  if (res.success) { toast(going ? 'Presença confirmada!' : 'Ok, marcado como não vou.', 'success'); renderEscalaPrefs(); }
+  else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
 // Escola Interna na visão do professor: read-only, destaca onde ele é o líder escalado.
@@ -1115,6 +1139,7 @@ window.confirmarEAvisar = confirmarEAvisar;
 window.publicarEscala = publicarEscala;
 window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
+window.responderEvento = responderEvento;
 window.marcarPodeSerTodas = marcarPodeSerTodas;
 window.marcarDiaFdA = marcarDiaFdA;
 window.toggleTurnoFdA = toggleTurnoFdA;
