@@ -176,6 +176,16 @@ async function renderEscalaGestao() {
   await escalaLoadBase();
   if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
 
+  // Se o evento selecionado está aberto, carrega os RSVP dele p/ o painel de staff/consolidado.
+  EscalaSmartState.eventoRsvp = null;
+  if (EscalaSmartState.selectedId) {
+    const sel = EscalaSmartState.scales.find(s => s.id === EscalaSmartState.selectedId);
+    if (sel && sel.tipo === 'evento') {
+      const rr = await ScaleService.listEventRsvp(sel.id);
+      EscalaSmartState.eventoRsvp = new Map((rr.success ? rr.data : []).map(r => [r.personId, r]));
+    }
+  }
+
   const scales = EscalaSmartState.scales;
   const tab = EscalaSmartState.tab;
   const tabsHtml = `<div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;">` +
@@ -414,6 +424,71 @@ function renderEscolaInternaDetail(scale) {
   </div>`;
 }
 
+// Evento na gestão: painel de staff (quem Deve/Poderia) + convite in-app aos novos + consolidado dos RSVP.
+function renderEventoDetail(scale) {
+  const rsvp = EscalaSmartState.eventoRsvp || new Map();
+  const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const tierDe = (pid) => { const r = rsvp.get(pid); return r ? r.tier : ''; };
+  const linhas = ativos.map(t => {
+    const tier = tierDe(t.id);
+    const opt = (val, label) => `<label style="display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-right:10px;"><input type="radio" name="staff_${t.id}" value="${val}" ${tier === val || (val === '' && !tier) ? 'checked' : ''}> ${label}</label>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;">${t.name}</span>
+      <div>${opt('obrigatorio', 'Deve')}${opt('opcional', 'Poderia')}${opt('', 'Fora')}</div>
+    </div>`;
+  }).join('');
+
+  const sum = ScaleService.summarizeRsvp(Array.from(rsvp.values()));
+  const nome = (pid) => { const t = EscalaSmartState.teacherMap.get(pid); return t ? t.name : pid; };
+  const bloco = (titulo, ids, cor) => ids.length
+    ? `<div style="font-size:12px;margin-top:6px;"><span style="color:${cor};font-weight:600;">${titulo} (${ids.length}):</span> ${ids.map(nome).join(', ')}</div>` : '';
+  const consolidado = rsvp.size
+    ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:12px;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;">Confirmações</div>
+        ${bloco('Vão', sum.vao, 'var(--green)')}${bloco('Não vão', sum.naoVao, 'var(--red)')}${bloco('Sem resposta', sum.semResposta, '#caa23a')}
+      </div>` : '';
+
+  const kindBadge = scale.eventKind === 'externo' ? 'Externo' : 'Interno';
+  return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
+    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
+      <div style="font-size:12px;color:var(--text2);">${scale.date} · ${kindBadge}</div></div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px;">Staff — quem deve / poderia participar</div>
+    <div style="max-height:40vh;overflow:auto;">${linhas || '<p style="color:var(--text2);">Nenhum colaborador ativo.</p>'}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn-primary" onclick="salvarStaffEvento('${scale.id}')">Salvar staff e convidar</button></div>
+    ${consolidado}
+  </div>`;
+}
+
+async function salvarStaffEvento(scaleId) {
+  const obrigatorios = [], opcionais = [];
+  Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false).forEach(t => {
+    const sel = document.querySelector(`input[name="staff_${t.id}"]:checked`);
+    const v = sel ? sel.value : '';
+    if (v === 'obrigatorio') obrigatorios.push(t.id);
+    else if (v === 'opcional') opcionais.push(t.id);
+  });
+  const res = await ScaleService.setEventStaff(scaleId, obrigatorios, opcionais);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  const novos = res.data.added || [];
+  if (novos.length) {
+    const scale = EscalaSmartState.scales.find(s => s.id === scaleId) || {};
+    const recipientIds = [];
+    for (const pid of novos) {
+      const t = EscalaSmartState.teacherMap.get(pid);
+      let uid = t && t.userId ? t.userId : null;
+      if (!uid) { try { const us = await db.collection('users').where('professorId', '==', pid).limit(1).get(); if (!us.empty) uid = us.docs[0].id; } catch (e) {} }
+      if (uid) recipientIds.push(uid);
+    }
+    if (recipientIds.length) {
+      await NotifyService.send({ recipients: recipientIds, type: 'event_invite', title: 'Convite de evento',
+        body: `Você está no staff de ${scale.name || 'um evento'} (${escalaFmtBR(scale.date)}). Confirme presença.`,
+        link: { type: 'escala-smart', id: scaleId }, channels: ['inapp'] });
+    }
+  }
+  toast('Staff salvo. Convite enviado aos novos.', 'success');
+  renderEscalaGestao();
+}
+
 async function atribuirLider(scaleId, slotId, personId) {
   const res = await ScaleService.assignSlot(scaleId, slotId, personId || null);
   if (res.success) { toast('Líder atualizado.', 'success'); await escalaLoadBase(); renderEscalaGestao(); }
@@ -424,6 +499,7 @@ function renderEscalaDetail(scale) {
   if (!scale) return '';
   if (scale.tipo === 'fim_de_ano') return renderFimDeAnoDetail(scale);
   if (scale.tipo === 'escola_interna') return renderEscolaInternaDetail(scale);
+  if (scale.tipo === 'evento') return renderEventoDetail(scale);
   const byUnit = {};
   (scale.slots || []).forEach(s => { (byUnit[s.unitId] = byUnit[s.unitId] || []).push(s); });
   const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
@@ -571,9 +647,10 @@ async function criarNovoEvento() {
 async function criarEscalaData(tipo, date, name, eventKind) {
   if (!date) { toast('Informe a data.', 'error'); return; }
   const toi = EscalaSmartState.modToi, hiit = EscalaSmartState.modHiit;
-  if (!toi || !hiit) { toast('Cadastre as modalidades TOI e Hiit antes.', 'error'); return; }
+  // Evento não tem vagas de TOI/Hiit — é painel de staff (quem trabalha/representa). Sem modalidades exigidas.
+  if (tipo !== 'evento' && (!toi || !hiit)) { toast('Cadastre as modalidades TOI e Hiit antes.', 'error'); return; }
   const tipoLabel = (ESCALA_TIPOS.find(t => t.id === tipo) || {}).label || tipo;
-  const payload = { date, tipo, name: name || `${tipoLabel} ${escalaFmtBR(date)}`, slots: escalaSlotsPadrao(tipo) };
+  const payload = { date, tipo, name: name || `${tipoLabel} ${escalaFmtBR(date)}`, slots: tipo === 'evento' ? [] : escalaSlotsPadrao(tipo) };
   if (eventKind) payload.eventKind = eventKind;
   const res = await ScaleService.createScale(payload);
   if (res.success) { toast('Escala criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
@@ -1045,5 +1122,6 @@ window.renderTabEscolaInterna = renderTabEscolaInterna;
 window.openNovaEscolaInterna = openNovaEscolaInterna;
 window.criarEscolaInterna = criarEscolaInterna;
 window.atribuirLider = atribuirLider;
+window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

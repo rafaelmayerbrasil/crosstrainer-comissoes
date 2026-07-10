@@ -1351,6 +1351,8 @@ const NOTIF_TYPE_META = {
   vacation_cancelled:      { icon: '🚫', title: 'Férias canceladas' },
   scale_window_open:       { icon: '🗓️', title: 'Janela de escala aberta' },
   scale_confirmed:         { icon: '🗓️', title: 'Escala confirmada' },
+  event_invite:            { icon: '📣', title: 'Convite de evento' },
+  event_reminder:          { icon: '⏰', title: 'Lembrete de evento' },
 };
 
 const SUBSTITUTION_STATUS_LABEL = {
