@@ -286,7 +286,9 @@
     try {
       const database = rdb(deps);
       const existing = {};
-      (await listEventRsvp(scaleId, deps)).data.forEach(r => { existing[r.personId] = r; });
+      const cur = await listEventRsvp(scaleId, deps);
+      if (!cur.success) return cur;
+      cur.data.forEach(r => { existing[r.personId] = r; });
       const desired = []
         .concat((obrigatorios || []).map(pid => ({ pid, tier: 'obrigatorio' })))
         .concat((opcionais || []).map(pid => ({ pid, tier: 'opcional' })));
@@ -312,6 +314,7 @@
 
   async function setRsvp(scaleId, personId, going, deps) {
     try {
+      if (typeof going !== 'boolean') return { success: false, error: 'Resposta inválida.' };
       const ref = rdb(deps).collection('event_rsvp').doc(`${scaleId}__${personId}`);
       const cur = await ref.get();
       if (!cur.exists) return { success: false, error: 'Você não está no staff deste evento.' };
