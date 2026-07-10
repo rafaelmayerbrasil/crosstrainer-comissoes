@@ -271,6 +271,55 @@
     } catch (err) { console.error('[ScaleService.listDayPreferences]', err); return { success: false, error: err.message }; }
   }
 
+  // ── Staff + RSVP de eventos (§4.5) ───────────────────────────────
+  async function listEventRsvp(scaleId, deps) {
+    try {
+      const snap = await rdb(deps).collection('event_rsvp').where('scaleId', '==', scaleId).get();
+      return { success: true, data: snap.docs.map(dd => ({ id: dd.id, ...dd.data() })) };
+    } catch (err) { console.error('[ScaleService.listEventRsvp]', err); return { success: false, error: err.message }; }
+  }
+
+  // Reconcilia o staff do evento. obrigatorios/opcionais = arrays de personId.
+  // Novo obrigatório nasce going:true; novo opcional nasce going:null; preserva going de quem já existia.
+  // Remove do staff quem saiu das listas. Retorna { added:[personId dos novos] }.
+  async function setEventStaff(scaleId, obrigatorios, opcionais, deps) {
+    try {
+      const database = rdb(deps);
+      const existing = {};
+      (await listEventRsvp(scaleId, deps)).data.forEach(r => { existing[r.personId] = r; });
+      const desired = []
+        .concat((obrigatorios || []).map(pid => ({ pid, tier: 'obrigatorio' })))
+        .concat((opcionais || []).map(pid => ({ pid, tier: 'opcional' })));
+      const desiredIds = new Set(desired.map(x => x.pid));
+      const added = [];
+      for (const { pid, tier } of desired) {
+        const prev = existing[pid];
+        const doc = {
+          scaleId, personId: pid, tier,
+          going: prev ? prev.going : (tier === 'obrigatorio' ? true : null),
+          invitedAt: prev ? (prev.invitedAt || rts(deps)) : rts(deps),
+          respondedAt: prev ? (prev.respondedAt || null) : null,
+        };
+        await database.collection('event_rsvp').doc(`${scaleId}__${pid}`).set(doc);
+        if (!prev) added.push(pid);
+      }
+      for (const pid of Object.keys(existing)) {
+        if (!desiredIds.has(pid)) await database.collection('event_rsvp').doc(`${scaleId}__${pid}`).delete();
+      }
+      return { success: true, data: { added } };
+    } catch (err) { console.error('[ScaleService.setEventStaff]', err); return { success: false, error: err.message }; }
+  }
+
+  async function setRsvp(scaleId, personId, going, deps) {
+    try {
+      const ref = rdb(deps).collection('event_rsvp').doc(`${scaleId}__${personId}`);
+      const cur = await ref.get();
+      if (!cur.exists) return { success: false, error: 'Você não está no staff deste evento.' };
+      await ref.set({ going, respondedAt: rts(deps) }, { merge: true });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.setRsvp]', err); return { success: false, error: err.message }; }
+  }
+
   async function getFairness(personId, deps) {
     try {
       const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
@@ -530,5 +579,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
