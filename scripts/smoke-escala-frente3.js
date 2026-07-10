@@ -40,5 +40,15 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester' });
   assert.strictEqual(bad.success, false, 'não-staff não pode responder');
   console.log('✓ setRsvp guard OK');
 
-  console.log('\n✅ smoke-escala-frente3 (Task 1) OK');
+  // ── summarizeRsvp (puro) ──
+  const sum = SS.summarizeRsvp([
+    { personId: 'a', going: true }, { personId: 'b', going: false },
+    { personId: 'c', going: null }, { personId: 'd' },
+  ]);
+  assert.deepStrictEqual(sum.vao, ['a'], 'vão');
+  assert.deepStrictEqual(sum.naoVao, ['b'], 'não vão');
+  assert.deepStrictEqual(sum.semResposta.sort(), ['c', 'd'], 'sem resposta (null/undefined)');
+  console.log('✓ summarizeRsvp OK');
+
+  console.log('\n✅ smoke-escala-frente3 (Task 2) OK');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

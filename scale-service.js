@@ -366,6 +366,17 @@
     return out;
   }
 
+  // PURO: separa os RSVP por resposta. going: true=vai, false=não vai, null/undefined=sem resposta.
+  function summarizeRsvp(rsvpDocs) {
+    const out = { vao: [], naoVao: [], semResposta: [] };
+    (rsvpDocs || []).forEach(r => {
+      if (r.going === true) out.vao.push(r.personId);
+      else if (r.going === false) out.naoVao.push(r.personId);
+      else out.semResposta.push(r.personId);
+    });
+    return out;
+  }
+
   // PURO: a pessoa está em algum slot atribuído desta escala?
   function isPersonAssigned(scale, personId) {
     if (!scale || !personId) return false;
@@ -582,5 +593,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
