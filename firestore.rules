@@ -246,6 +246,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // RSVP de staff de evento: colaborador grava a SUA resposta (personId == professorId);
+    // gestão monta/remove o staff. Doc id = `${eventId}__${personId}`.
+    match /event_rsvp/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if isAuth() && (isAdmin() || isSuperv());
+    }
+
     // Contador de justiça/compensação: leitura p/ o módulo, escrita pela gestão
     // (atualizado na consolidação). Sem delete.
     match /fairness_counter/{id} {
