@@ -1933,6 +1933,47 @@
     .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
     .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .empty-suggestion { font-size: 13px; color: var(--text2); max-width: 400px; margin: 0 auto; }
+
+    /* ─── MOBILE — visão do professor: cabeçalho compacto + barra inferior ─── */
+    .mobile-topbar { display: none; }
+    .bottom-nav { display: none; }
+    @media (max-width: 768px) {
+      .mobile-topbar {
+        display: flex; align-items: center; gap: 10px;
+        position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 60;
+        padding: 0 12px; background: var(--surface1, #121216);
+        border-bottom: 1px solid var(--border);
+      }
+      .mtb-btn {
+        background: none; border: none; color: var(--text); font-size: 20px;
+        min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; position: relative;
+      }
+      .mtb-title { flex: 1; font-size: 15px; font-weight: 500; color: var(--text); }
+      .mtb-badge {
+        position: absolute; top: 4px; right: 4px; background: var(--orange); color: #0a0a0a;
+        font-size: 10px; font-weight: 700; border-radius: 9px; padding: 0 5px; line-height: 16px;
+      }
+      .bottom-nav {
+        display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+        background: var(--surface1, #121216); border-top: 1px solid var(--border);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .bottom-nav-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        min-height: 52px; padding: 7px 2px 5px; background: none; border: none;
+        color: var(--text2); font-size: 9px; cursor: pointer;
+      }
+      .bottom-nav-item .bn-icon { font-size: 20px; line-height: 1; }
+      .bottom-nav-item.active { color: var(--orange); }
+      .menu-toggle { display: none !important; }
+      .page { padding: 64px 14px calc(74px + env(safe-area-inset-bottom)) !important; }
+      #notifDropdown {
+        position: fixed !important; top: 56px; right: 8px; left: 8px; width: auto !important;
+        max-height: 70vh; overflow-y: auto; z-index: 70;
+      }
+      .page-hdr h1 { font-size: 20px; }
+    }
   </style>
 </head>
 
@@ -1981,6 +2022,14 @@
   <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">☰</button>
 
   <div class="app" id="appShell" style="display:none">
+    <!-- Mobile — cabeçalho compacto (☰ + título + sino). Só visível ≤768px via CSS. -->
+    <header class="mobile-topbar" id="mobileTopbar">
+      <button class="mtb-btn" onclick="toggleMenu()" aria-label="Abrir menu">☰</button>
+      <span class="mtb-title" id="mobileTopbarTitle">Início</span>
+      <button class="mtb-btn mtb-bell" id="mobileNotifBell" onclick="event.stopPropagation(); toggleNotifDropdown()" aria-label="Notificações">
+        🔔<span class="mtb-badge" id="mobileNotifBadge" style="display:none;">0</span>
+      </button>
+    </header>
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sb-logo">
@@ -2076,6 +2125,8 @@
       <div class="page" id="page-plr-avaliacao"></div>
       <div class="page" id="page-plr-resultado"></div>
     </div>
+    <!-- Mobile — barra inferior de navegação. Populada por buildBottomNav() no professores.js. Só ≤768px. -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Navegação rápida"></nav>
   </div>
 
   <!-- ═════════ MODAL: Modalidade (Etapa 3) ═════════ -->
