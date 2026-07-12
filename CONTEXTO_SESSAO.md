@@ -3,7 +3,32 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 41 (07–08/07/2026) — Escala Inteligente FRENTE 1 (12 ajustes do Rodrigo) CONSTRUÍDA na branch (falta E2E no staging)
+## 🔖 ONDE PARAMOS — sessão 42 (10–11/07/2026) — Escala Inteligente FRENTE 3 (eventos + staff/RSVP + lembretes) CONSTRUÍDA e DEPLOYADA no staging (só a CF pendente de billing)
+
+**Frente 3 (a última das 3 do retorno do Rodrigo) construída via subagent-driven (8 tasks TDD, cada uma com review de spec + review de qualidade por subagente; nesta leva os subagentes se comportaram — nada precisou virar inline). Branch `feature/shell-integrado`. O evento deixou de ser vaga TOI/Hiit e virou uma LISTA DE STAFF com RSVP + convite in-app + lembretes automáticos.**
+
+- **✅ FRENTE 3 no código (commits `4181331`,`7817b0c`,`d814508`,`2c61833`,`62c56f0`,`6320624`,`be5af5b`,`45caa4d`,`b5100d5`):**
+  - **Serviço (`scale-service.js`):** `setEventStaff(id, obrigatorios[], opcionais[])` reconcilia o staff (obrigatório nasce `going:true`, opcional `going:null`, preserva quem já existia, deleta quem saiu, retorna `{added}`) · `listEventRsvp` · `setRsvp(id, personId, going)` (guard: só quem está no staff; `going` tem de ser booleano) · `summarizeRsvp` (puro → `{vao, naoVao, semResposta}`). Docs em `event_rsvp` id=`${scaleId}__${personId}`.
+  - **Puro da CF (`functions/reminders-util.js`, novo + smoke):** `dueReminderOffsets(eventDate, today, sent)` (offsets 7/4/1d, idempotente por `sent`, passado=nada) · `reminderRecipients` (todos menos quem respondeu "Não vou") · `daysBetween` (UTC sobre strings ISO — sem bug de fuso).
+  - **CF agendada nova (`functions/index.js`):** `sendEventReminders` (`onSchedule '0 9 * * *'`, America/Sao_Paulo) — varre `special_scales` tipo evento, calcula offsets devidos, resolve personId→userId (espelha `notifyTeachersAboutCoverage`), manda `event_reminder` in-app via `createNotification`, grava `remindersSent` (idempotente). `event_reminder` entrou em `NOTIF_TYPE_TITLES`.
+  - **UI gestão (`professores-escala-smart.js`):** criação de evento agora com `slots:[]` (achado: o caminho de UI injetava TOI/Hiit em TODO tipo — corrigido só p/ evento, guard TOI/Hiit pula evento); detalhe do evento = **painel de staff** (rádio Deve/Poderia/Fora por professor ativo) + "Salvar staff e convidar" (convite `event_invite` in-app só aos **recém-adicionados**, sem spam) + **consolidado** Vão/Não vão/Sem resposta.
+  - **UI professor (`professores-escala-smart.js`):** aba **Eventos acionável** — botões **Vou / Não vou** (obrigatório já vem "Vou", opcional em aberto; quem não é staff vê "informativo"); `renderEscalaPrefs` já era async.
+  - **Sino (`professores-shared.js`):** `event_invite` 📣 + `event_reminder` ⏰ em `NOTIF_TYPE_META`.
+  - **Regra (`firestore.rules`):** `event_rsvp` — read prof-module; create/update = admin|superv| (`personId == meu professorId`); delete só gestão (pois `setEventStaff` remove quem sai).
+- **✅ Verificação:** suíte completa de smokes verde (frente3, event-reminders, frente2, frente1, scale-service, tabs, notify-service) + parse de todos os arquivos.
+- **🚀 DEPLOY PARCIAL no staging (11/07):** `firestore:rules` + `hosting` **no ar** (`released rules` confirmado; frontend em `crosstrainer-comissoes-staging.web.app`). **Regra `event_rsvp` validada por REST 7/7** (`scripts/validate-frente3-rules.js`, novo): prof grava só a própria linha, linha de outro = 403, delete do prof = 403, admin grava, cleanup completo.
+- **⏳ CF `sendEventReminders` NÃO deployada — bloqueada SÓ por billing:** a conta de billing do `crosstrainer-comissoes-staging` estava **suspensa** (cartão vencido). Usuário pagou, mas o Google ainda não propagou a **permissão de escrita** p/ Cloud Functions/Cloud Build (403 `Write access ... denied: please check billing account` persistindo mesmo com o console parecendo liberado — lag conhecido, o status do billing volta antes dos escopos de escrita). **Não é código** (as rules compilam, tudo mais subiu). A CF está commitada e pronta.
+- **Docs:** spec `docs/superpowers/specs/2026-07-10-escala-frente3-eventos-staff-design.md` · plano `docs/superpowers/plans/2026-07-10-escala-frente3-eventos-staff.md` (8 tasks).
+
+**⏭️ RETOMAR AQUI:**
+1. **Deploy da CF** (assim que o billing propagar — 1 comando): `firebase deploy --only functions:sendEventReminders --project staging` → validar pelos logs (criar evento a 7/4/1 dia, conferir lembrete in-app + `remindersSent` não repete).
+2. **E2E no browser (staging)** com `dono.teste@` / `professor.teste@crosstainer.com`: criar evento (sem vaga TOI/Hiit; detalhe = painel de staff) → marcar Deve/Poderia → "Salvar staff e convidar" (convite chega aos selecionados) → professor responde Vou/Não vou → reflete no consolidado da gestão. Console limpo.
+3. **Avisar o Rodrigo** que a Frente 3 (eventos com staff/RSVP + lembretes) está no ar pra validar.
+- **Fora de escopo (4ª rodada, cada um no seu ciclo):** tabela gestão escalado×compareceu, calendário mensal da Escola Interna, mínimo de preferências, substituição pelo lado do substituto, ajustes prontos (data 2x, escalar manual, detalhes do fim de ano). **Eventos antigos** com slots TOI/Hiit seguem inertes (sem migração; o painel ignora `slots`). Memória [[frente3-escala-eventos-staff]].
+
+---
+
+## 🔖 Sessão 41 (07–08/07/2026) — Escala Inteligente FRENTE 1 (12 ajustes do Rodrigo) CONSTRUÍDA na branch (falta E2E no staging)
 
 **Rodrigo mandou 12 ajustes/sugestões pra Escala Inteligente. Fatiados em 3 frentes; validado com ele por 2 textos não-técnicos (respondeu: e-mail pode ser depois; Escola Interna = gestão escolha o líder direto). Frente 1 construída via subagent-driven (11 tasks TDD + review por task + review holístico final). Branch `feature/shell-integrado`.**
 
