@@ -257,7 +257,9 @@ function setupNotificationsBell() {
     const wrap = document.querySelector('.notif-bell-wrap');
     const dropdown = document.getElementById('notifDropdown');
     if (!wrap || !dropdown) return;
-    if (!wrap.contains(e.target) && dropdown.style.display === 'block') {
+    // no mobile o dropdown é movido pra fora da wrap (ver toggleNotifDropdown),
+    // então checa também o próprio dropdown antes de fechar.
+    if (!wrap.contains(e.target) && !dropdown.contains(e.target) && dropdown.style.display === 'block') {
       dropdown.style.display = 'none';
     }
   });
@@ -298,6 +300,12 @@ function toggleNotifDropdown() {
     dropdown.style.display = 'none';
   } else {
     renderNotifDropdownList();
+    // No mobile o dropdown mora dentro da .sidebar, que tem transform (off-canvas).
+    // transform cria containing block e desloca o position:fixed pra fora da tela →
+    // move o dropdown pro body (sem ancestral com transform) antes de exibir.
+    if (window.matchMedia('(max-width: 768px)').matches && dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+    }
     dropdown.style.display = 'block';
   }
 }
