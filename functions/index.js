@@ -198,6 +198,7 @@ async function getFeriadosForYear(year) {
 async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'cf-manual' } = {}) {
   const t0 = Date.now();
   const firestore = db();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   // Janela em horário BR:
   //   início = hoje em BR 00:00
@@ -264,7 +265,6 @@ async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'c
 
   // 2) Compõe todos os pares (slot, data) candidatos — iterando em dias BR
   const candidates = [];   // [{ slotId, slot, date, classId, extras }]
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   for (const slot of slots) {
     if (slot.weekday == null || !slot.startTime || !slot.endTime) continue;
     let cursorMs = todayBR.getTime();
