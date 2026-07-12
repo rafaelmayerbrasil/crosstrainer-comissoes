@@ -3,7 +3,12 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 42 (10–11/07/2026) — FRENTE 3 (eventos/RSVP/lembretes) + OTIMIZAÇÃO MOBILE do professor, ambas no staging
+## 🔖 ONDE PARAMOS — sessão 42 (10–12/07/2026) — FRENTE 3 (eventos/RSVP/lembretes) + OTIMIZAÇÃO MOBILE do professor + fix geração de aulas, tudo no staging
+
+### 🐛 Retorno do Rodrigo (12/07) — agenda vazia / não conseguia pedir substituição → RESOLVIDO
+Debugging por evidência (logs). **Causa dupla:** (1) a CF `generateClassesForUpcomingWeeks` estava **falhando desde 06/07** por um **TDZ** (`ONE_DAY_MS` usado antes de `const`, em `generateClassesCore`) → 0 aulas geradas em ~6 dias → agendas vazias. Fix (mover declaração pro topo) commitado + deploy das 2 funções de geração. **Levar p/ produção** (sem isso a geração nunca roda — só não afeta prod hoje pq o módulo não está lá). (2) o `professor.teste@` (conta do Rodrigo) **não tinha grade** → criei 3 slots (a pedido do usuário) + regerei via callable → 12 aulas futuras. Verificado na UI: Minha Agenda mostra as aulas, modal tem "🔄 Pedir substituição". Memória [[fix-geracao-aulas-tdz]].
+
+### 📱 Otimização MOBILE da visão do professor (1ª passada) — ENTREGUE, no staging, VALIDADA pelo cliente no celular
 
 ### 📱 Otimização MOBILE da visão do professor (1ª passada) — ENTREGUE, no staging, VALIDADA pelo cliente no celular
 
