@@ -220,6 +220,7 @@ function showApp() {
 
   // Build sidebar
   buildSidebar();
+  buildBottomNav();
 
   // Carrega tema preferido
   loadTheme();
@@ -282,6 +283,11 @@ function updateNotifBellBadge() {
   } else {
     badge.style.display = 'inline-block';
     badge.textContent = n > 9 ? '9+' : String(n);
+  }
+  const mBadge = document.getElementById('mobileNotifBadge');
+  if (mBadge) {
+    if (n === 0) { mBadge.style.display = 'none'; }
+    else { mBadge.style.display = 'inline-block'; mBadge.textContent = n > 9 ? '9+' : String(n); }
   }
 }
 
@@ -417,6 +423,32 @@ function buildSidebar() {
   renderModuleSwitcher(model.moduleSwitcher); // Task 4
 }
 
+/* ─── Barra inferior (mobile) ──────────────────────────────────── */
+function buildBottomNav() {
+  const nav = document.getElementById('bottomNav');
+  if (!nav) return;
+  const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
+  const items = ProfNav.buildBottomNavModel(profiles);
+  if (!items.length) { nav.style.display = 'none'; nav.innerHTML = ''; return; }
+  nav.style.removeProperty('display'); // deixa o CSS (display:flex ≤768) decidir
+  nav.innerHTML = items.map(it =>
+    `<button class="bottom-nav-item ${it.id === AppState.currentPage ? 'active' : ''}" onclick="navigateTo('${it.id}')">
+       <span class="bn-icon">${it.icon}</span>${it.label}
+     </button>`).join('');
+}
+
+// Atualiza item ativo da barra + título do cabeçalho conforme a rota atual.
+function syncMobileChrome() {
+  document.querySelectorAll('.bottom-nav-item').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('onclick') === `navigateTo('${AppState.currentPage}')`);
+  });
+  const titleEl = document.getElementById('mobileTopbarTitle');
+  if (titleEl) {
+    const def = (ProfNav.PAGE_DEFINITIONS || []).find(d => d.id === AppState.currentPage);
+    titleEl.textContent = def ? def.label : '';
+  }
+}
+
 function renderModuleSwitcher(sw) {
   const el = document.getElementById('sbSwitcher');
   if (!el) return;
@@ -451,6 +483,7 @@ function navigateTo(pageId) {
   // Atualiza item ativo na sidebar
   document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
   buildSidebar();
+  syncMobileChrome();
 
   // Sprint 6b — reaplica badge de férias após rebuild da sidebar
   applyVacationBadge();
