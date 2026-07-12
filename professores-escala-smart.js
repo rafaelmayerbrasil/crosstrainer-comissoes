@@ -902,11 +902,10 @@ async function renderEscalaPrefs() {
   if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
 
   const tab = EscalaSmartState.tab;
-  const tabsHtml = `<div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;">` +
-    ESCALA_TABS.map(t => {
-      const on = t.id === tab;
-      return `<button onclick="escalaSetTab('${t.id}')" style="background:none;border:none;border-bottom:2px solid ${on ? 'var(--blue)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text2)'};font-weight:${on ? '600' : '400'};font-size:14px;padding:8px 14px;cursor:pointer;">${t.label}</button>`;
-    }).join('') + `</div>`;
+  const tabsHtml = `<div class="escala-tabs">` +
+    ESCALA_TABS.map(t =>
+      `<button class="escala-tab${t.id === tab ? ' active' : ''}" onclick="escalaSetTab('${t.id}')">${t.label}</button>`
+    ).join('') + `</div>`;
 
   let body;
   if (tab === 'sabado' || tab === 'feriado') body = await renderProfSabadosFeriados(pid, tab);

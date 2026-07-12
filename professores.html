@@ -1974,6 +1974,23 @@
       }
       .page-hdr h1 { font-size: 20px; }
     }
+    /* ─── Abas da Escala (professor) — desktop: underline; mobile: chips ─── */
+    .escala-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; flex-wrap: wrap; }
+    .escala-tab {
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--text2); font-weight: 400; font-size: 14px; padding: 8px 14px; cursor: pointer;
+    }
+    .escala-tab.active { border-bottom-color: var(--blue); color: var(--text); font-weight: 600; }
+    @media (max-width: 768px) {
+      .escala-tabs { gap: 6px; border-bottom: none; }
+      .escala-tab {
+        border: 1px solid var(--border); border-radius: 16px; padding: 8px 14px;
+        min-height: 40px; background: var(--surface2, #1c1c22);
+      }
+      .escala-tab.active {
+        border-color: var(--orange); background: var(--orange); color: #0a0a0a; font-weight: 600;
+      }
+    }
   </style>
 </head>
 
