@@ -71,6 +71,23 @@
     return (profiles || []).some(p => p === 'admin');
   }
 
+  // Modelo puro da barra inferior mobile. Só pro papel professor (não gestão).
+  // Retorna os 5 destinos fixos com label CURTO p/ caber na barra; [] pra gestão/desconhecido.
+  const BOTTOM_NAV_IDS = ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'];
+  const BOTTOM_NAV_LABELS = {
+    'home': 'Início', 'minha-agenda': 'Agenda', 'escala-smart': 'Escala',
+    'engaj-placar': 'Placar', 'meus-pagamentos': 'Pagar',
+  };
+  function buildBottomNavModel(profiles) {
+    if (isManagement(profiles)) return [];
+    const isProf = (profiles || []).some(p => p === 'professor' || p === 'professor_estagiario');
+    if (!isProf) return [];
+    return BOTTOM_NAV_IDS.map(id => {
+      const def = PAGE_DEFINITIONS.find(d => d.id === id);
+      return { id, label: BOTTOM_NAV_LABELS[id], icon: def ? def.icon : '' };
+    });
+  }
+
   // Modelo puro da sidebar. ctx: { hasProfessorLink, moduleAccess }
   function buildSidebarModel(profiles, ctx) {
     ctx = ctx || {};
@@ -107,5 +124,5 @@
   }
 
   return { PROF_PAGES, PAGE_DEFINITIONS, SECTION_ORDER, SYSTEM_SECTION,
-           allowedPagesFor, buildSidebarModel, buildModuleSwitcher };
+           allowedPagesFor, buildSidebarModel, buildModuleSwitcher, buildBottomNavModel };
 });

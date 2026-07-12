@@ -60,4 +60,21 @@ const two = Nav.buildModuleSwitcher({ professores: true, comissoes: true }, 'pro
 assert.strictEqual(two.show, true, '2 módulos → com seletor');
 assert.ok(two.modules.find(x => x.id === 'comissoes').href === 'index.html', 'Comissões aponta pro index.html');
 
+// 6) Barra inferior mobile — só professor; 5 itens na ordem, com labels curtos
+const bnProf = Nav.buildBottomNavModel(['professor']);
+assert.deepStrictEqual(bnProf.map(i => i.id),
+  ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'],
+  'Barra: ids/ordem errados p/ professor');
+assert.deepStrictEqual(bnProf.map(i => i.label),
+  ['Início', 'Agenda', 'Escala', 'Placar', 'Pagar'], 'Barra: labels curtos errados');
+assert.ok(bnProf.every(i => i.icon), 'Barra: todo item tem ícone');
+assert.deepStrictEqual(Nav.buildBottomNavModel(['professor_estagiario']).map(i => i.id),
+  ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'],
+  'Barra: estagiário deve ter os mesmos 5');
+assert.deepStrictEqual(Nav.buildBottomNavModel(['admin']), [], 'Barra: admin não tem barra');
+assert.deepStrictEqual(Nav.buildBottomNavModel(['supervisao']), [], 'Barra: supervisão não tem barra');
+assert.deepStrictEqual(Nav.buildBottomNavModel(['admin', 'professor']), [],
+  'Barra: gestão+professor usa o drawer (sem barra)');
+assert.deepStrictEqual(Nav.buildBottomNavModel([]), [], 'Barra: vazio → sem barra');
+console.log('✓ smoke-sidebar: buildBottomNavModel OK');
 console.log('✓ smoke-sidebar: todos os casos passaram');
