@@ -1967,6 +1967,12 @@
       .bottom-nav-item .bn-icon { font-size: 20px; line-height: 1; }
       .bottom-nav-item.active { color: var(--orange); }
       .menu-toggle { display: none !important; }
+      /* .main é flex item de #appShell (display:flex). Sem isto, conteúdo largo
+         (ex.: a tabela de 9 colunas do Placar) estica o .main além da viewport →
+         overflow horizontal do documento, que descola a barra fixa e a "some" no
+         mobile. min-width:0 (o clássico do flexbox) deixa o item encolher; a tabela
+         passa a rolar dentro do próprio .table-wrap (overflow-x:auto). */
+      .main { min-width: 0; }
       .page { padding: 64px 14px calc(74px + env(safe-area-inset-bottom)) !important; }
       #notifDropdown {
         position: fixed !important; top: 56px; right: 8px; left: 8px; width: auto !important;
