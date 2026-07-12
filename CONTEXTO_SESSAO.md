@@ -3,7 +3,21 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 42 (10–11/07/2026) — Escala Inteligente FRENTE 3 (eventos + staff/RSVP + lembretes) CONSTRUÍDA e DEPLOYADA no staging (só a CF pendente de billing)
+## 🔖 ONDE PARAMOS — sessão 42 (10–11/07/2026) — FRENTE 3 (eventos/RSVP/lembretes) + OTIMIZAÇÃO MOBILE do professor, ambas no staging
+
+### 📱 Otimização MOBILE da visão do professor (1ª passada) — ENTREGUE, no staging, VALIDADA pelo cliente no celular
+
+**Antecipada a pedido do usuário (não esperou a homologação — o acesso do professor é majoritariamente celular).** Brainstorm (mockups visuais) → spec → plano (5 tasks, subagent-driven) → deploy hosting staging. Branch `feature/shell-integrado`. Tudo sob `@media ≤768px` — **desktop intocado**.
+- **Barra inferior fixa** (mobile + professor; gestão fica só no drawer): Início · Minha Agenda · Escala · Placar · Pagar. Modelo puro `ProfNav.buildBottomNavModel` + smoke (`smoke-sidebar.js`).
+- **Cabeçalho compacto** ☰ + título + 🔔 (sino subiu do rodapé da sidebar pro topo no mobile).
+- **Abas da Escala viram chips** (2 linhas). Varredura leve global (padding pra barra, toque, safe-area, títulos menores).
+- **2 bugfixes achados por debugging de evidência (validados pelo cliente):** (1) barra sumia no Placar = **overflow horizontal** da tabela de 9 colunas (`.main` é flex item de `#appShell`; fix `min-width:0` → tabela rola dentro do `.table-wrap`); (2) sino não abria = `transform` da sidebar prendia o `position:fixed` (fix: mover dropdown pro `body` no mobile) + `top`+`bottom` colapsavam altura (fix: `bottom:auto`). Commits `ddfefae`, `bgc1…`.
+- Spec `docs/superpowers/specs/2026-07-11-visao-professor-mobile-design.md` · plano `docs/superpowers/plans/2026-07-11-visao-professor-mobile.md` · memória [[projeto-visao-professor-mobile]].
+- **Pendências mobile (se pedido):** varredura preventiva das outras telas do professor (Minha Agenda/Pagamentos/Férias) contra overflow/transform; 2ª passada = polir cards por dentro.
+
+---
+
+### 🗓️ Escala Inteligente FRENTE 3 (eventos + staff/RSVP + lembretes) CONSTRUÍDA e DEPLOYADA no staging (só a CF pendente de billing)
 
 **Frente 3 (a última das 3 do retorno do Rodrigo) construída via subagent-driven (8 tasks TDD, cada uma com review de spec + review de qualidade por subagente; nesta leva os subagentes se comportaram — nada precisou virar inline). Branch `feature/shell-integrado`. O evento deixou de ser vaga TOI/Hiit e virou uma LISTA DE STAFF com RSVP + convite in-app + lembretes automáticos.**
 
