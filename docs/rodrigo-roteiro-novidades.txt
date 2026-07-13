@@ -1,0 +1,122 @@
+════════════════════════════════════════════════════════════════════════
+CrossTainer — Roteiro de teste das NOVIDADES · ambiente de teste
+Celular do professor · Eventos com confirmação · Substituição (um pede, outro aceita)
+════════════════════════════════════════════════════════════════════════
+
+Rô, esse é um roteiro curtinho só das coisas novas que entraram. Está dividido
+em (A) o professor no CELULAR, (B) EVENTOS com confirmação de presença, e
+(C) SUBSTITUIÇÃO de ponta a ponta. Cada item tem:
+   ▸ o que fazer
+   ✓ o que conferir
+Pode brincar à vontade — é ambiente de teste, nada é real e não tem como
+estragar. Se algo travar ou parecer estranho, anota a letra+número do item +
+um print e me manda.
+
+
+────────────────────────────────────────────────────────────────────────
+0) COMO ENTRAR
+────────────────────────────────────────────────────────────────────────
+Link:  https://crosstrainer-comissoes-staging.web.app
+
+Agora são TRÊS acessos (pra testar substituição entre dois professores):
+   GESTÃO (dono):     dono.teste@crosstainer.com        senha: crosstainer2026
+   PROFESSOR 1:       professor.teste@crosstainer.com   senha: crosstainer2026  (Marcos Estrela)
+   PROFESSOR 2:       professor2.teste@crosstainer.com  senha: crosstainer2026  (Bruna Lima)
+
+Ao entrar, clique em "Professores" no seletor do topo (pílulas Comissões | Professores).
+
+Dica: se você já estava logado numa aba antiga, dá um "atualizar" na página
+(pra pegar a versão nova) — principalmente antes de testar a substituição.
+
+
+════════════════════════════════════════════════════════════════════════
+A) O PROFESSOR NO CELULAR   (abra no seu telefone e entre com professor.teste@)
+════════════════════════════════════════════════════════════════════════
+A visão do professor foi otimizada pra celular, que é onde ele mais usa.
+
+A1. BARRA DE BAIXO
+   ▸ Abra o link no navegador do celular e entre como Marcos (professor.teste@).
+   ✓ Deve aparecer uma BARRA FIXA embaixo com 5 atalhos:
+        Início · Agenda · Escala · Placar · Pagar
+   ✓ Toque em cada um — a tela troca e o ícone ativo fica laranja.
+   ✓ No topo: o menu ☰ (abre o resto: Agenda Geral, Férias, Meu Saldo) e o
+     sino 🔔 com o número de avisos.
+
+A2. SINO / AVISOS
+   ▸ Toque no sino 🔔 no topo.
+   ✓ A lista de avisos abre logo abaixo do cabeçalho (não some, não fica torta).
+
+A3. ESCALA em abas
+   ▸ Barra de baixo > "Escala".
+   ✓ As abas (Sábados / Feriados / Eventos / Fim de ano / Escola Interna)
+     aparecem como "pílulas" que quebram em duas linhas — nada de barra de
+     rolagem esquisita.
+
+   → Reporta: qualquer tela que role de lado, botão pequeno demais pro dedo,
+     ou coisa cortada.
+
+
+════════════════════════════════════════════════════════════════════════
+B) EVENTOS com confirmação de presença
+════════════════════════════════════════════════════════════════════════
+Agora um evento não é mais "vaga de aula": é uma LISTA DE STAFF. A gestão
+escolhe quem deve/poderia ir, convida, e cada professor responde "Vou" ou
+"Não vou". O sistema ainda manda lembretes automáticos (7, 4 e 1 dia antes).
+
+B1. GESTÃO monta o evento   (entre com dono.teste@)
+   ▸ Menu > Escala Inteligente > aba "Eventos".
+   ▸ Crie um evento novo (uma data, um nome — ex.: "Aulão de sábado").
+   ▸ Abra o evento: aparece a lista de colaboradores. Marque alguns como
+     "Deve", outros como "Poderia", deixe uns em "Fora".
+   ▸ Clique "Salvar staff e convidar".
+   ✓ Confere embaixo o bloco "Confirmações" (Vão / Não vão / Sem resposta).
+   ✓ Repara que o evento NÃO cria vagas de TOI/Hiit — é só a lista de staff.
+
+B2. PROFESSOR responde   (entre com professor.teste@ — pode ser no celular)
+   ▸ Escala > aba "Eventos".
+   ✓ O evento aparece com "você deve participar" ou "você poderia participar".
+   ▸ Toque em "Vou" (ou "Não vou").
+   ✓ Aparece o aviso "Presença confirmada!" e o botão fica verde.
+   ▸ Volte na GESTÃO (dono.teste@) e reabra o evento.
+   ✓ A resposta do professor reflete no bloco "Confirmações".
+
+   Sobre os LEMBRETES: são automáticos (7/4/1 dia antes, pra todos menos quem
+   respondeu "Não vou"). O motor já está ligado e testado — não precisa fazer
+   nada; só saber que existe.
+
+
+════════════════════════════════════════════════════════════════════════
+C) SUBSTITUIÇÃO de ponta a ponta   (um professor pede, o outro aceita)
+════════════════════════════════════════════════════════════════════════
+Pra testar dos dois lados, use os DOIS professores: Marcos pede, Bruna aceita.
+
+C1. MARCOS PEDE   (entre com professor.teste@)
+   ▸ Barra de baixo (ou menu) > "Minha Agenda".
+   ▸ Troque o filtro pro "Mês inteiro" (a agenda dele começa na segunda 13/07).
+   ▸ Toque numa aula de "Funcional" (ex.: segunda 13/07, 18:00).
+   ▸ No detalhe da aula, toque em "🔄 Pedir substituição".
+   ▸ No campo "Substituto", escolha "Bruna Lima" e envie.
+   ✓ Confirma que o pedido foi criado.
+   (Se a Bruna NÃO aparecer na lista, atualize a página e tente de novo — é só
+    a lista de professores que precisava recarregar.)
+
+C2. BRUNA ACEITA   (saia e entre com professor2.teste@)
+   ▸ Abra o sino 🔔 (ou "Inbox de pedidos", dentro do sino).
+   ✓ Deve ter o pedido de substituição da aula do Marcos.
+   ▸ Aceite.
+   ✓ A partir daí a aula passa a ser da Bruna (fica marcada como "substituída").
+
+C3. CONFERIR   (pode conferir com dono.teste@ na Agenda Geral, ou pela própria Bruna)
+   ✓ A aula agora aparece com a Bruna como responsável.
+   ✓ Existe também a opção "🆘 Pedir cobertura aberta" (quando não se escolhe
+     um nome — fica aberta pra quem topar pegar). Pode testar depois se quiser.
+
+
+────────────────────────────────────────────────────────────────────────
+O QUE ME REPORTAR
+────────────────────────────────────────────────────────────────────────
+Pra cada coisa: a letra+número do item, um print, e em uma linha o que
+esperava × o que aconteceu. Vale também "isso aqui ficou confuso" ou "faltou
+tal coisa" — não precisa ser bug.
+
+Valeu, Rô! 🙏
