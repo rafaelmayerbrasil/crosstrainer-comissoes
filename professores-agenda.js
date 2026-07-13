@@ -566,6 +566,22 @@ async function saveSlot() {
       errEl.textContent = res.error || 'Erro ao salvar.'; return;
     }
     toastMsg = 'Slot atualizado.';
+    // Propagação opt-in: se o dia da semana ficou igual e algum campo propagável
+    // mudou, oferece atualizar as aulas futuras "intocadas" desse slot.
+    const oldSlot = AgendaState.slots.find(s => s.id === SlotFormState.editingId) || {};
+    const novoWeekday = SlotFormState.weekdays[0];
+    const mudouCampo = oldSlot.teacherId !== teacherId || oldSlot.modalityId !== modalityId
+                    || oldSlot.startTime !== startTime || oldSlot.endTime !== endTime;
+    if (oldSlot.weekday === novoWeekday && mudouCampo) {
+      const novoSlot = { teacherId, modalityId, startTime, endTime, durationMinutes: endMin - startMin };
+      const plan = await ClassService.propagateSlotEditPlan(SlotFormState.editingId, novoSlot);
+      if (plan.success && plan.eligibleCount > 0
+          && confirm(`Aplicar também às ${plan.eligibleCount} próximas aulas já criadas?`)) {
+        const ap = await ClassService.propagateSlotEditApply(plan.updates);
+        if (ap.success) toastMsg = `Slot atualizado. ${ap.updated} aula(s) futura(s) atualizada(s).`;
+        else toast('Slot salvo, mas falhou ao propagar: ' + (ap.error || ''), 'error');
+      }
+    }
   } else {
     // CRIAÇÃO: itera weekdays. Se algum falhar no meio, para e reporta.
     const created = [];
