@@ -34,7 +34,7 @@
     { id: 'pagamentos',     label: 'Pagamentos',        icon: '💳', section: 'Financeiro' },
     { id: 'meus-pagamentos',label: 'Meus Pagamentos',   icon: '💳', section: 'Financeiro' },
     { id: 'relatorios',     label: 'Relatórios',        icon: '📈', section: 'Financeiro' },
-    { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Minhas aulas' },
+    { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Agenda' },
     { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Engajamento' },
     { id: 'engaj-chamada',  label: 'Confirmar Presença', icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },
@@ -43,7 +43,7 @@
     { id: 'plr-resultado',  label: 'PLR · Resultado',   icon: '🏅', section: 'PLR' },
   ];
 
-  const SECTION_ORDER = ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro', 'Minhas aulas'];
+  const SECTION_ORDER = ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro'];
 
   // Seção de sistema (cross-módulo). Links apontam pro Comissões com ?page=
   // (deep-link só funciona após o Plano B; antes disso cai na home do Comissões).

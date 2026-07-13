@@ -24,10 +24,12 @@ assert.ok(!ids(m).includes('professores'), 'Entrada Professores foi absorvida pe
 const cadastros = m.groups.find(g => g.section === 'Cadastros');
 assert.ok(cadastros.items.some(i => i.id === 'pessoas'), 'Pessoas fica na seção Cadastros (D14)');
 
-// 2) Admin COM vínculo: ganha grupo "Minhas aulas" com minha-agenda
+// 2) Admin COM vínculo: ganha minha-agenda DENTRO da seção "Agenda" (não é mais seção própria — pedido do Rodrigo 12/07)
 m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: true, moduleAccess: { professores: true } });
-assert.ok(sections(m).includes('Minhas aulas'), 'Admin com vínculo deve ver Minhas aulas');
+assert.ok(!sections(m).includes('Minhas aulas'), 'Minha Agenda não deve ser seção própria');
 assert.ok(ids(m).includes('minha-agenda'), 'Admin com vínculo deve ver Minha Agenda');
+const agendaGrp = m.groups.find(g => g.section === 'Agenda');
+assert.ok(agendaGrp && agendaGrp.items.some(i => i.id === 'minha-agenda'), 'Minha Agenda deve ficar na seção Agenda');
 
 // 2b) admin_gestao DROPADO (D2): não existe em PROF_PAGES
 assert.ok(!Nav.PROF_PAGES.admin_gestao, 'admin_gestao não pode existir em PROF_PAGES');
