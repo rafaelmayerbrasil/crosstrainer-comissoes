@@ -10,6 +10,10 @@
 - **Decisões Seção 0:** férias **mantém 5 dias** em prod (decidido); tela legada Usuários = remover pós-homologação (não bloqueia).
 - **Edição de grade → propagação OPT-IN CONSTRUÍDA** (spec/plano `2026-07-12-propagacao-edicao-grade*`, 4 tasks subagent-driven + review + E2E). Ao salvar edição de slot: confirm "aplicar às N próximas aulas já criadas?" → atualiza só as intocadas (`prevista`+mês aberto+futura); nunca mês fechado/substituída/passada. `class-propagation.js` (puro+smoke) + `ClassService.propagateSlotEdit{Plan,Apply}` + hook no agenda. Client-side, sem CF/índice. Commits `275a2dd`..`509684d`. Checklist Seção 0 atualizado.
 
+### 🔁 Retorno #2 do Rodrigo (12/07) — 2 ajustes de UX → FEITOS + no staging
+1. **"Minha Agenda" agora na seção "Agenda"** (era seção própria "Minhas aulas") — `professores-nav.js` + smoke. Commit `2828…`.
+2. **Card do pedido de substituição mostrava tudo por ID cru** (o `AgendaState` fica vazio pro professor). Corrigido: snapshot da aula (data/hora/modalidade) denormalizado no doc ao criar (sub+cobertura) → card mostra "📅 Qua, 15/07 · 19:00–20:00 · HITT"; `loadInboxData` carrega teachers+modalidades → resolve **nome do solicitante** + modalidade + filtro de cobertura. `formatReqWhen` (reusa `buildSubstitutionNotifBody`), fallback classId p/ docs pré-snapshot. Verificado E2E no fluxo real da Bruna. Deploy hosting staging.
+
 ### 🐛 Retorno do Rodrigo (12/07) — agenda vazia / não conseguia pedir substituição → RESOLVIDO
 Debugging por evidência (logs). **Causa dupla:** (1) a CF `generateClassesForUpcomingWeeks` estava **falhando desde 06/07** por um **TDZ** (`ONE_DAY_MS` usado antes de `const`, em `generateClassesCore`) → 0 aulas geradas em ~6 dias → agendas vazias. Fix (mover declaração pro topo) commitado + deploy das 2 funções de geração. **Levar p/ produção** (sem isso a geração nunca roda — só não afeta prod hoje pq o módulo não está lá). (2) o `professor.teste@` (conta do Rodrigo) **não tinha grade** → criei 3 slots (a pedido do usuário) + regerei via callable → 12 aulas futuras. Verificado na UI: Minha Agenda mostra as aulas, modal tem "🔄 Pedir substituição". Memória [[fix-geracao-aulas-tdz]].
 
