@@ -5,6 +5,11 @@
 
 ## 🔖 ONDE PARAMOS — sessão 42 (10–12/07/2026) — FRENTE 3 (eventos/RSVP/lembretes) + OTIMIZAÇÃO MOBILE do professor + fix geração de aulas, tudo no staging
 
+### 🏭 Prep de produção adiantada (12/07, enquanto o Rodrigo homologa)
+- **Reconciliação git analisada:** `origin/main` tem 6 commits à frente da branch; 4 já portados (split/BIANUAL/Divisões, `git cherry` = `-`), a **regra** de segurança `/users`=admin já na branch, e `2eed9d6` (port do frontend de segurança) **é ancestral da branch**. 2 commits mostram `+` no cherry (`02e0909` frontend-security, `222dba7` arredonda-recálculo+bump-sw) — reconciliar no merge real (`git merge origin/main` antes do `merge branch`). Smokes pré-merge 3/3 verdes.
+- **Decisões Seção 0:** férias **mantém 5 dias** em prod (decidido); tela legada Usuários = remover pós-homologação (não bloqueia).
+- **Edição de grade → propagação OPT-IN CONSTRUÍDA** (spec/plano `2026-07-12-propagacao-edicao-grade*`, 4 tasks subagent-driven + review + E2E). Ao salvar edição de slot: confirm "aplicar às N próximas aulas já criadas?" → atualiza só as intocadas (`prevista`+mês aberto+futura); nunca mês fechado/substituída/passada. `class-propagation.js` (puro+smoke) + `ClassService.propagateSlotEdit{Plan,Apply}` + hook no agenda. Client-side, sem CF/índice. Commits `275a2dd`..`509684d`. Checklist Seção 0 atualizado.
+
 ### 🐛 Retorno do Rodrigo (12/07) — agenda vazia / não conseguia pedir substituição → RESOLVIDO
 Debugging por evidência (logs). **Causa dupla:** (1) a CF `generateClassesForUpcomingWeeks` estava **falhando desde 06/07** por um **TDZ** (`ONE_DAY_MS` usado antes de `const`, em `generateClassesCore`) → 0 aulas geradas em ~6 dias → agendas vazias. Fix (mover declaração pro topo) commitado + deploy das 2 funções de geração. **Levar p/ produção** (sem isso a geração nunca roda — só não afeta prod hoje pq o módulo não está lá). (2) o `professor.teste@` (conta do Rodrigo) **não tinha grade** → criei 3 slots (a pedido do usuário) + regerei via callable → 12 aulas futuras. Verificado na UI: Minha Agenda mostra as aulas, modal tem "🔄 Pedir substituição". Memória [[fix-geracao-aulas-tdz]].
 
