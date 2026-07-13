@@ -1282,6 +1282,45 @@ const ClassService = {
     }
   },
 
+  // Propagação opt-in da edição de grade: LÊ as aulas do slot e planeja quais
+  // "intocadas" atualizar (via ClassPropagation puro). NÃO grava.
+  async propagateSlotEditPlan(slotId, novoSlot) {
+    if (!slotId) return { success: false, error: 'slotId obrigatório' };
+    try {
+      const snap = await db.collection('classes').where('slotId', '==', slotId).get();
+      const hojeISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      const aulas = snap.docs.map(d => {
+        const c = d.data();
+        const dt = (c.scheduledDate && c.scheduledDate.toDate) ? c.scheduledDate.toDate() : new Date(c.scheduledDate);
+        const dateISO = dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        return { id: d.id, status: c.status, monthClosingId: c.monthClosingId || null, dateISO };
+      });
+      const { updates, eligibleCount } = ClassPropagation.planClassUpdatesForSlot(novoSlot, aulas, hojeISO);
+      return { success: true, updates, eligibleCount };
+    } catch (err) {
+      console.error('[ClassService.propagateSlotEditPlan]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  // Aplica as atualizações planejadas via batch. updates: [{classId, patch}].
+  async propagateSlotEditApply(updates) {
+    if (!Array.isArray(updates) || updates.length === 0) return { success: true, updated: 0 };
+    try {
+      const batch = db.batch();
+      updates.forEach(u => {
+        batch.update(db.collection('classes').doc(u.classId), {
+          ...u.patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+      return { success: true, updated: updates.length };
+    } catch (err) {
+      console.error('[ClassService.propagateSlotEditApply]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
   /**
    * Altera status da aula. Só admin/gestao/supervisao (validado por Security Rule).
    * Sprint 3a aceita: prevista, realizada, cancelada, nao_realizada.
