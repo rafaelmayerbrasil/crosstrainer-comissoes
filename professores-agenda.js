@@ -1421,6 +1421,16 @@ function closeInboxModal() {
 
 async function loadInboxData() {
   document.getElementById('inboxList').innerHTML = '<div class="loading"><div class="spinner"></div> Carregando…</div>';
+  // Dados de referência p/ os cards (nome do solicitante, modalidade). O professor
+  // pode abrir o inbox sem ter passado pela grade, então o AgendaState pode estar vazio.
+  if (!AgendaState.teachersMap.size) {
+    const tr = await TeacherService.list();
+    if (tr.success) AgendaState.teachersMap = new Map(tr.data.map(t => [t.id, t]));
+  }
+  if (!AgendaState.modalitiesMap.size) {
+    const mr = await ModalityService.list();
+    if (mr.success) AgendaState.modalitiesMap = new Map(mr.data.map(m => [m.id, m]));
+  }
   const uid = AppState.currentUser.uid;
   const myProfId = getCurrentProfessorId();
 
@@ -1471,6 +1481,17 @@ function renderInboxList() {
   }
 }
 
+// Formata "quando" de um pedido (sub/cobertura) a partir do snapshot da aula,
+// reusando o mesmo formato da notificação. Fallback: classId (pedidos antigos sem snapshot).
+function formatReqWhen(item) {
+  if (item.classDate && item.classDate.toDate) {
+    const base = buildSubstitutionNotifBody({ scheduledDate: item.classDate, startTime: item.classStartTime, endTime: item.classEndTime });
+    const mod = AgendaState.modalitiesMap.get(item.classModalityId || item.modalityId);
+    return '📅 ' + escapeHtml(base) + (mod ? ' · ' + escapeHtml(mod.name) : '');
+  }
+  return 'Aula: <code>' + escapeHtml(item.classId) + '</code>';
+}
+
 function renderInboxSubItem(s) {
   const requester = AgendaState.teachersMap.get(s.requestingTeacherId);
   const requesterName = requester ? requester.name : s.requestingTeacherId;
@@ -1482,7 +1503,7 @@ function renderInboxSubItem(s) {
         ${retro}
       </div>
       <div class="inbox-item-body">${escapeHtml(s.reason || '(sem motivo informado)')}</div>
-      <div class="inbox-item-meta">classId: <code>${escapeHtml(s.classId)}</code></div>
+      <div class="inbox-item-meta">${formatReqWhen(s)}</div>
       <div class="inbox-item-actions">
         <button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Recusar</button>
         <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Aceitar</button>
@@ -1506,7 +1527,7 @@ function renderInboxCovItem(c) {
         Aberta por: <strong>${escapeHtml(requesterName)}</strong><br>
         ${escapeHtml(c.reason || '(sem motivo)')}
       </div>
-      <div class="inbox-item-meta">classId: <code>${escapeHtml(c.classId)}</code></div>
+      <div class="inbox-item-meta">${formatReqWhen(c)}</div>
       <div class="inbox-item-actions">
         <button class="btn btn-primary btn-sm" onclick="handleCovPick('${c.id}')">Quero cobrir</button>
       </div>

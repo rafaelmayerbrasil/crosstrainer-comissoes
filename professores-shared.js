@@ -1527,6 +1527,11 @@ const SubstitutionService = {
       const uid = currentUserId();
       const data = {
         classId,
+        // snapshot da aula p/ mostrar data/hora/modalidade no inbox do substituto (sem novo fetch)
+        classDate: cls.scheduledDate || null,
+        classStartTime: cls.startTime || null,
+        classEndTime: cls.endTime || null,
+        classModalityId: cls.modalityId || null,
         requestingTeacherId: cls.teacherId,
         requestingUserId: uid,
         substituteTeacherId,
@@ -1713,6 +1718,10 @@ const CoverageService = {
       const uid = currentUserId();
       const data = {
         classId,
+        // snapshot da aula p/ mostrar data/hora no inbox de cobertura
+        classDate: cls.scheduledDate || null,
+        classStartTime: cls.startTime || null,
+        classEndTime: cls.endTime || null,
         requestingTeacherId: cls.teacherId,
         requestingUserId: uid,
         modalityId: cls.modalityId,
