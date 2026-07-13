@@ -14,14 +14,19 @@
 
 ## 0. Decisões a confirmar com o cliente ANTES do deploy
 
-- [ ] **Antecedência mínima de férias:** staging está com **5 dias** (relaxado pra teste); produção deve voltar pra **30**? (localizar a constante e ajustar antes do merge)
+- [x] **Antecedência mínima de férias:** ✅ DECIDIDO (12/07) — **mantém 5 dias** em produção também (escolha do usuário; segue configurável pela gestão). Nenhuma mudança de constante necessária.
 - [ ] **Tela legada de Usuários** (`index.html?page=users`): manter morta (fora do menu, já consertada) ou remover o código de vez?
 - [ ] **Edição de grade NÃO propaga pras aulas já geradas** (a discutir com o Rodrigo). Hoje: a geração é só-inserção (ID `slot+data`, `functions/index.js:321`) e editar um slot mexe só no template (`professores-agenda.js:563`). Logo, alterar a agenda vale **só pra datas ainda não geradas** — as aulas das ~4 semanas já criadas mantêm os dados antigos; correção em aula já gerada é por **status** (cancelar/realizar) ou **substituição**, não pela grade. Decidir se o comportamento desejado é esse ou se precisa de uma **regeneração/propagação** ao editar a grade (precedente técnico viável: `regenerateClassesWithHolidays`). **Possível ajuste antes da produção.** Relacionado: a "Minha Agenda" do professor só expõe até *próxima semana / mês corrente* (`MINHA_AGENDA_FILTERS`), embora as aulas existam ~4 semanas à frente.
 
 ## 1. Pré-merge
 
-- [ ] Smokes verdes: `node scripts/smoke-user-model.js && node scripts/smoke-sidebar.js && node scripts/smoke-pessoas-model.js`
+- [x] Smokes verdes: `node scripts/smoke-user-model.js && node scripts/smoke-sidebar.js && node scripts/smoke-pessoas-model.js` — ✅ 3/3 verdes (12/07)
 - [ ] **Reconciliar hotfix:** `git checkout main && git merge origin/main` (traz o `02e0909` do hotfix de segurança que está em prod mas não no main local) — ver aviso no topo
+  - **📋 Avaliação de reconciliação (12/07, `git cherry` + inspeção):** `origin/main` tem 6 commits à frente do main local; divergência analisada:
+    - **Segurança 100% coberta na branch:** commit `2eed9d6` (port do frontend `/users`: activateUser + form de recuperação neutralizado) É ancestral da branch **e** a regra `firestore.rules` `/users`→`isAdmin()` está presente. O `02e0909` aparece como `+` no cherry só por patch-id diferente — conteúdo presente.
+    - **Split/BIANUAL/Divisões (Comissões):** 4 commits (`3d6a30d`,`6386ea8`,`c197593`,`f6f23d5`) com equivalente portado na branch (cherry `-`). ✓
+    - **`222dba7`** (arredonda contadores no recálculo + bump sw): o *bump sw* é superado pelo **sw v3.1** da branch; a parte de `index.html` (~9 linhas) NÃO tem patch-equivalente — o `git merge origin/main` a traz de qualquer forma. **⚠️ Watch-item:** ao mergear a branch depois, `index.html` terá conflito (ambos os lados mexem muito nele) → resolver com cuidado preservando o arredondamento do `222dba7` + o branding/config da branch, e re-rodar os smokes do Comissões.
+    - **Veredito:** plano do checklist (merge `origin/main`→`main`, depois a branch) é **seguro**; nada crítico falta. Único cuidado = conflito de `index.html` no dia.
 - [ ] `git diff main..feature/shell-integrado --stat` revisado (sem arquivo inesperado)
 - [ ] Merge: `git checkout main && git merge feature/shell-integrado` (sem squash — preservar histórico das sessões)
 - [ ] Confirmar pós-merge que `/users` create exige admin e que `createUser`/`activateUser`/form de recuperação têm o fix (não regrediram)
@@ -34,6 +39,7 @@ Ordem importa — rules e índices antes do código que depende deles:
 - [ ] `firebase deploy --only firestore:indexes --project production`  ← inclui o índice de férias (teacherId+requestedAt) que faltava
 - [ ] Aguardar build dos índices (console Firebase → Firestore → Indexes, todos READY)
 - [ ] `firebase deploy --only functions --project production`  ← CFs nunca rodaram em prod (cron de geração de aulas, férias, email)
+  - ⚠️ **Inclui o fix do TDZ (12/07):** `generateClassesCore` tinha `ReferenceError: Cannot access 'ONE_DAY_MS' before initialization` que quebrava TODA a geração de aulas (agendada + callable). Corrigido na branch — este deploy leva a versão boa. Sem ele, a geração de aulas nunca roda. Memória `fix-geracao-aulas-tdz`. Pós-deploy: forçar 1x o cron de geração (ou aguardar) e conferir que aulas são criadas.
 - [ ] `firebase deploy --only hosting --project production`
 - [ ] Validar rules em prod via REST (adaptar `scripts/validate-pessoas-rules.js` pro projectId/apiKey de produção + fixture temporária + cleanup)
 
