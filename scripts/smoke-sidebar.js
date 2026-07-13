@@ -68,7 +68,7 @@ assert.deepStrictEqual(bnProf.map(i => i.id),
   ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'],
   'Barra: ids/ordem errados p/ professor');
 assert.deepStrictEqual(bnProf.map(i => i.label),
-  ['Início', 'Agenda', 'Escala', 'Placar', 'Pagar'], 'Barra: labels curtos errados');
+  ['Início', 'Minha Agenda', 'Escala', 'Placar', 'Pagar'], 'Barra: labels curtos errados');
 assert.ok(bnProf.every(i => i.icon), 'Barra: todo item tem ícone');
 assert.deepStrictEqual(Nav.buildBottomNavModel(['professor_estagiario']).map(i => i.id),
   ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'],

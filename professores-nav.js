@@ -75,7 +75,7 @@
   // Retorna os 5 destinos fixos com label CURTO p/ caber na barra; [] pra gestão/desconhecido.
   const BOTTOM_NAV_IDS = ['home', 'minha-agenda', 'escala-smart', 'engaj-placar', 'meus-pagamentos'];
   const BOTTOM_NAV_LABELS = {
-    'home': 'Início', 'minha-agenda': 'Agenda', 'escala-smart': 'Escala',
+    'home': 'Início', 'minha-agenda': 'Minha Agenda', 'escala-smart': 'Escala',
     'engaj-placar': 'Placar', 'meus-pagamentos': 'Pagar',
   };
   function buildBottomNavModel(profiles) {
