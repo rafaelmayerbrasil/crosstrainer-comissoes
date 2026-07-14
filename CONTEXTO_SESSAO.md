@@ -3,7 +3,19 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 42 (10–12/07/2026) — FRENTE 3 (eventos/RSVP/lembretes) + OTIMIZAÇÃO MOBILE do professor + fix geração de aulas, tudo no staging
+## 🔖 ONDE PARAMOS — sessão 42 (10–14/07/2026) — TUDO no staging, homologando com o Rodrigo (2 rodadas de feedback resolvidas)
+
+### ▶️ RETOMAR AQUI (estado em 14/07)
+**Tudo construído e no ar no staging, na branch `feature/shell-integrado` (não mergeada). Aguardando o Rodrigo re-validar.**
+- **No ar + validado nesta sessão:** Frente 3 (eventos/staff/RSVP + CF lembretes validada por force-run) · otimização mobile do professor (barra inferior + cabeçalho + chips + 2 bugfixes + varredura) · fix TDZ da geração de aulas · propagação opt-in da edição de grade · 2 rodadas de feedback do Rodrigo.
+- **🧪 Pré-voo de QA feito (14/07):** varredura das 26 telas (18 admin + 8 professor) = 0 erro de console, todas renderizam; substituição ponta-a-ponta (pede→aceita→CF reatribui) OK. Sem bloqueante. NÃO exercitei write completo de fechamento (irreversível, §5), PLR, aprovação de férias, cobertura — telas abrem sem erro.
+- **Feedback do Rodrigo (2 rodadas, TODAS resolvidas + no ar):**
+  - #1: agenda vazia / não pedia substituição → fix TDZ da CF + grade de demo do Marcos + 2º professor Bruna. [[fix-geracao-aulas-tdz]]
+  - #2: "Minha Agenda" no grupo Agenda (sidebar) + card de substituição mostrava ID cru → agora mostra "📅 dia/data/hora · modalidade" + nome do solicitante (snapshot no doc + loadInboxData carrega refs).
+  - +ajuste do usuário: rótulo da **barra inferior** "Agenda" → **"Minha Agenda"** (cabe a 375px).
+- **Contas de demo (senha `crosstainer2026`):** `dono.teste@` (admin) · `professor.teste@` (Marcos, tem grade Seg/Qua/Sex) · `professor2.teste@` (Bruna, Ter/Qui). Regerar aulas: callable `generateClassesManual` (token admin) `{data:{weeksAhead:4}}`.
+- **Mensagem curta de WhatsApp pro Rodrigo** (os 2 itens dele) já entregue ao usuário.
+- **PRÓXIMO GATILHO:** Rodrigo aprova → `docs/checklist-deploy-producao.md` (reconciliar `origin/main` → merge → deploy produção). Se achar bug → corrige na branch + re-deploy staging.
 
 ### 🏭 Prep de produção adiantada (12/07, enquanto o Rodrigo homologa)
 - **Reconciliação git analisada:** `origin/main` tem 6 commits à frente da branch; 4 já portados (split/BIANUAL/Divisões, `git cherry` = `-`), a **regra** de segurança `/users`=admin já na branch, e `2eed9d6` (port do frontend de segurança) **é ancestral da branch**. 2 commits mostram `+` no cherry (`02e0909` frontend-security, `222dba7` arredonda-recálculo+bump-sw) — reconciliar no merge real (`git merge origin/main` antes do `merge branch`). Smokes pré-merge 3/3 verdes.

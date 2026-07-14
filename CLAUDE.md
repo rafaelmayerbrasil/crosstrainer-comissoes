@@ -61,9 +61,11 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**SISTEMA COMPLETO em staging (12/06/2026): 13 sprints + shell integrado + hub Pessoas + kit de homologação, tudo na branch `feature/shell-integrado` (não mergeada). Aguardando homologação do CLIENTE (roteiro publicado) → depois `docs/checklist-deploy-producao.md`.**
+**SISTEMA COMPLETO em staging na branch `feature/shell-integrado` (não mergeada): módulo Professores inteiro — agenda/grade, escala inteligente (4 frentes: eventos/staff/RSVP + CF lembretes), engajamento, PLR, férias, fechamento/pagamentos, hub Pessoas, shell integrado + VISÃO MOBILE do professor. HOMOLOGANDO com o Rodrigo (14/07): 2 rodadas de feedback resolvidas + pré-voo de QA feito. PRÓXIMO: Rodrigo aprova → `docs/checklist-deploy-producao.md` (reconciliar origin/main → merge → produção).**
 
-> **🆕 Frente nova (23–27/06/2026):** decisão Pacto resolvida (construir próprio primeiro, conectar depois) + feedback do Rodrigo abriu o módulo de **Engajamento/Pontos + escala inteligente + PLR**. **CONSTRUÍDO E VERIFICADO NO STAGING (24/06) + fim-de-ano (5c-2)**, tudo na branch `feature/shell-integrado`: engajamento completo (Config/Chamada/Placar) + escala inteligente (motor + serviço + regras + UI gestão/colaborador + polish) + proatividade (substituição→ponto) + fim-de-ano. **🚀 LIBERADO PRO RODRIGO (27/06):** deploy de hosting no staging (`crosstrainer-comissoes-staging.web.app`) + unidade fictícia `unit-norte` removida (só CP/PP) + doc único `docs/rodrigo-engajamento-escala-COMPLETO.txt` (acesso + guia + perguntas). **AGUARDANDO o Rodrigo** validar + responder (A fim-de-ano · B peso da data · C PLR). Falta construir: **publicar escala na agenda** (gated pelo peso B1) e **PLR** (sem spec; Pacto não bloqueia). Comissões renovação→novo = baixa prioridade. Detalhes na sessão 38 de `CONTEXTO_SESSAO.md` + memória `novo-modulo-engajamento-pontos`.
+> **Onde paramos em detalhe:** `CONTEXTO_SESSAO.md` → seção **🔖 ONDE PARAMOS (sessão 42)**, sub-bloco **▶️ RETOMAR AQUI**. Contas de demo (senha `crosstainer2026`): `dono.teste@` · `professor.teste@` (Marcos) · `professor2.teste@` (Bruna). Memórias-chave: [[fix-geracao-aulas-tdz]] · [[projeto-visao-professor-mobile]] · [[frente3-escala-eventos-staff]].
+>
+> **🕰️ Histórico (jun/2026):** engajamento/escala/PLR construídos em 23–27/06; frentes 1–3 da escala + eventos em jul. Detalhe nas sessões 38–41 de `CONTEXTO_SESSAO.md`.
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
