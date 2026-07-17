@@ -1,5 +1,12 @@
 # Checklist — Deploy em Produção (módulo Professores + shell integrado)
 
+> ## 🚀 STATUS: PASSOS 1–3 EXECUTADOS EM 17/07/2026 — MÓDULO NO AR EM PRODUÇÃO
+> - **Seção 0 (decisões):** férias 5 dias ✅ · propagação de grade ✅ · tela legada Usuários = remover pós-homologação (Seção 6).
+> - **Seção 1 (merge):** ✅ merge `origin/main`→`main` (auto-merge limpo) + branch→`main` (commit `028ff21`); conflitos `sw.js`/`index.html` resolvidos (v3.1 + hotfix + campos do módulo); 12 smokes verdes; `/users create = isAdmin` confirmado; showProfileRecovery neutralizado.
+> - **Seção 2 (Firebase prod):** ✅ rules · índices · **9 functions** (retry padrão de 1ª-vez-Gen2) · hosting · cleanup policy. **Rules REST em prod: pulado de propósito** (byte-idêntico ao set 8/8 de staging + compilou + inspeção — evita fixture na base viva).
+> - **Seção 3 (GitHub Pages):** ✅ `git push origin main` `f6f23d5..028ff21`; verificado no github.io: SW v3.1 controlando, `[Firebase] PRODUCTION`, 0 erro de console, branding CROSSTAINER, módulo presente.
+> - **⏭️ PENDENTE (amanhã, com o cliente):** Seção 4 (setup: modalidades/professores/salários/agenda) + Seção 5 (smoke autenticado). Detalhe em `CONTEXTO_SESSAO.md` sessão 43.
+>
 > **Pré-requisito inviolável (regra #7):** homologação completa do cliente em staging APROVADA explicitamente.
 > Produção = projeto Firebase `crosstrainer-comissoes` + GitHub Pages (github.io serve o `origin/main`).
 

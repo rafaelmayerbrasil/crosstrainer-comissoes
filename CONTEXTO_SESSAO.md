@@ -5,8 +5,21 @@
 
 ## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — Rodrigo APROVOU → deploy de produção em andamento + frente-2 ponto eletrônico registrada
 
-### ✅ Homologação APROVADA pelo Rodrigo (17/07)
-Rodrigo deu o OK. Gatilho do `docs/checklist-deploy-producao.md` disparado. Deploy de produção do módulo em andamento nesta sessão (reconciliação `origin/main` → merge → deploys Firebase prod → GitHub Pages).
+### ✅ Homologação APROVADA + 🚀 DEPLOY DE PRODUÇÃO FEITO (17/07) — passos A–D concluídos
+Rodrigo deu o OK. Executado `docs/checklist-deploy-producao.md` passos A–D. **O MÓDULO PROFESSORES ESTÁ NO AR EM PRODUÇÃO.**
+- **A — Merge (commit `028ff21`):** `origin/main`→`main` (trouxe hotfix + fixes Comissões, auto-merge limpo) + branch→`main`. 2 conflitos resolvidos: `sw.js`=v3.1 (branch); `index.html` 2 blocos (fluxo createUser/activateUser) mantendo o **hotfix** (grava via `db` principal como admin) **+ campos do módulo** (`profiles, moduleAccess, professorId`). Arredondamento do `222dba7` auto-mergeou OK. 12 smokes verdes + parse de todos os JS.
+- **B — Firebase produção (`--project production`):** rules ✅ (`released`, `/users create = isAdmin` confirmado) · índices ✅ (inclui férias teacherId+requestedAt; 1 índice legado de prod preservado) · **9 functions ✅** (closeMonth, healthCheck, generateClasses×3 **com fix TDZ**, sendEventReminders, notify/coverage/substitution — precisou do **retry padrão de "1ª vez com Gen2"**: bucket gcf-v2-sources demora a subir; 2ª rodada criou todas) · hosting ✅ · cleanup policy de artifacts ✅ (imagens > 1 dia).
+- **C — GitHub Pages (a produção real):** `git push origin main` `f6f23d5..028ff21` ✅.
+- **D — Verificação rasa em prod (github.io):** ✅ Pages serve o código novo (`hasProfessores:true` = módulo chegou); `[Firebase] PRODUCTION · crosstrainer-comissoes`; SW **v3.1** controlando (transição v3.0→v3.1 completa, sem loop); **0 erros de console**; branding CROSSTAINER. Login renderiza limpo.
+- **Rules REST em prod:** deliberadamente **NÃO** rodei fixture em prod (rules byte-idênticas ao set validado 8/8 em staging + compiladas OK + regra crítica inspecionada) — evita lixo de teste na base viva. [[feedback-deploy-rules-explicito]]
+- **Descoberta de config:** o `firebase-config.js` só trata `rafaelmayerbrasil.github.io` como produção → o app real fica em `rafaelmayerbrasil.github.io/crosstrainer-comissoes/` (o `.web.app` cai em staging). A produção que os usuários usam é o **GitHub Pages**. O login do app é branded "CROSSTAINER ELITE — Performance, Metas e Conquistas".
+
+### ⏭️ FALTA (amanhã, com você + o Rodrigo presentes — não dá pra eu fazer sozinho)
+- **Seção 4 — setup inicial (~1h):** cadastrar modalidades (P01), professores reais + salários (só admin) pelo hub Pessoas, conferir perfis dos usuários existentes, montar agenda semanal (conferir geração de aulas pelo cron no dia seguinte).
+- **Seção 5 — smoke autenticado em prod:** login admin (Comissões + Professores 11 páginas), professor real (Minha Agenda/Férias), vendedora real (não bloqueada). **Eu não faço (não manuseio senha de prod).**
+- **Não bloqueia:** remover fisicamente `page-users`, audit BIANUAL legacy, recibos vírgula BR.
+
+### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
 
 ### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
 Rodrigo está adquirindo ponto eletrônico (https://tecnoponto.com/). **Decisão de rumo:** objetivo é **compliance + fazer o funcionário registrar de verdade (pegar atraso)** — **NÃO** basear pagamento no ponto. Fechamento **não muda**. Integração é **aditiva e NÃO bloqueia o deploy**. O próprio aparelho + portal da TecnoPonto já resolvem ~80% standalone; integrar com o nosso sistema é **fase-2** (cruzar grade×ponto = visibilidade de atraso), só depois do aparelho instalado. Perguntas pro Rodrigo em `docs/perguntas-rodrigo-ponto-eletronico.txt`. Memória [[ponto-eletronico-tecnoponto]].
