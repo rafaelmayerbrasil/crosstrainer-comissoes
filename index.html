@@ -3309,26 +3309,18 @@
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('loginError').textContent = '';
 
+      // Hotfix segurança (15/06/2026): a recriação self-service de perfil era o vetor de
+      // escalada (demitido com login ativo se recriava como admin). A regra agora exige
+      // admin no create, então o formulário deixou de existir — mostramos só um aviso.
+      // Recuperação legítima é feita por um administrador (dono: pelo Console do Firebase).
       const recoveryHtml = `
         <div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:16px;margin-bottom:16px;text-align:left">
-          <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠ Perfil não encontrado</div>
+          <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">⚠ Acesso indisponível</div>
           <div style="font-size:11px;color:var(--text2);line-height:1.6">
-            O login de <strong>${email}</strong> existe, mas o perfil foi removido do sistema.<br>
-            Preencha abaixo para recriar seu acesso.
+            O login de <strong>${email}</strong> não tem um perfil ativo no sistema.<br>
+            Se você ainda deveria ter acesso, procure um <strong>administrador</strong> para restaurar seu cadastro.
           </div>
         </div>
-        <div class="input-group"><label>Seu Nome</label><input id="recoveryName" placeholder="Nome completo" value="Rafael Mayer Brasil"></div>
-        <div class="input-group"><label>Email</label><input type="email" id="recoveryEmail" value="${email}" disabled style="opacity:.6"></div>
-        <div class="input-group"><label>Senha atual</label><input type="password" id="recoveryPass" placeholder="Sua senha de login"></div>
-        <div class="input-group">
-          <label>Perfil</label>
-          <select id="recoveryRole">
-            <option value="admin" selected>Administrador</option>
-            <option value="vendedor">Vendedor(a)</option>
-          </select>
-        </div>
-        <button class="btn" onclick="doProfileRecovery('${email}')">✅ Recriar Perfil e Entrar</button>
-        <div class="error-msg" id="recoveryError"></div>
         <div class="link-btn" onclick="document.getElementById('loginForm').style.display='';document.getElementById('recoveryForm').style.display='none'">← Voltar ao login</div>
       `;
 
@@ -3342,46 +3334,11 @@
       recDiv.style.display = '';
     }
 
+    // Hotfix segurança (15/06/2026): desativada. A recriação self-service de perfil era o
+    // vetor de escalada de privilégio (auto-promoção a admin). A regra de create agora exige
+    // admin; perfis são restaurados por um administrador. Mantida só como guarda inerte.
     async function doProfileRecovery(email) {
-      const name = document.getElementById('recoveryName').value.trim();
-      const pass = document.getElementById('recoveryPass').value;
-      const role = document.getElementById('recoveryRole').value;
-      const errEl = document.getElementById('recoveryError');
-      errEl.textContent = '';
-
-      if (!name || !pass) { errEl.textContent = 'Preencha nome e senha.'; return; }
-
-      try {
-        // Re-authenticate
-        const cred = await auth.signInWithEmailAndPassword(email, pass);
-        const uid = cred.user.uid;
-
-        // Fetch existing units to assign access
-        const unitsSnap = await db.collection('units').get();
-        const allUnitIds = [];
-        unitsSnap.forEach(d => allUnitIds.push(d.id));
-
-        // Create Firestore profile
-        await db.collection('users').doc(uid).set({
-          name,
-          email,
-          role,
-          allowedUnits: allUnitIds,
-          unitId: allUnitIds[0] || 'cp',
-          status: 'ativo',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        toast(`Perfil de ${name} recriado com sucesso!`, 'success');
-        // onAuthStateChanged will trigger and call showApp()
-      } catch (e) {
-        const msgs = {
-          'auth/wrong-password': 'Senha incorreta.',
-          'auth/invalid-email': 'Email inválido.',
-          'auth/user-not-found': 'Usuário não encontrado no Auth.',
-        };
-        errEl.textContent = msgs[e.code] || e.message;
-      }
+      toast('Recuperação de perfil é feita por um administrador.', 'info');
     }
 
     async function doLogin() {
@@ -3834,12 +3791,19 @@
       const pass = prompt(`Defina a senha inicial para ${name} (mín. 6 caracteres):`);
       if (!pass || pass.length < 6) { alert('Senha deve ter ao menos 6 caracteres.'); return; }
       try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        // Hotfix segurança (15/06/2026): cria o Auth via app secundário pra NÃO trocar a
+        // sessão do admin (antes usava o auth principal e deslogava o admin) e grava o doc
+        // pela sessão do admin (db principal) — a regra de create agora exige admin.
+        const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
+          || firebase.initializeApp(firebaseConfig, 'secondary');
+        const secondaryAuth = secondaryApp.auth();
+        const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         await db.collection('users').doc(cred.user.uid).set({
           name, email, role: 'vendedor', unitId: currentUnitId,
           status: 'ativo', autoCreated: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        await secondaryAuth.signOut();
         // Remove the pending placeholder doc
         await db.collection('users').doc(uid).delete();
         toast(`Acesso configurado para ${name}!`, 'success');
@@ -3964,14 +3928,16 @@
         const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
           || firebase.initializeApp(firebaseConfig, 'secondary');
         const secondaryAuth = secondaryApp.auth();
-        const secondaryDb = firebase.firestore(secondaryApp);
 
         // Create auth user via secondary app
         const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // Write Firestore profile AS the new user (satisfies auth.uid == documentId rule)
-        await secondaryDb.collection('users').doc(newUid).set({
+        // Hotfix segurança (15/06/2026): grava o perfil pela sessão do ADMIN (db principal),
+        // não mais pela do novo usuário (secondaryDb). A regra de create passou a exigir admin,
+        // então a gravação como o próprio usuário seria negada. O admin continua logado no db
+        // principal (secondaryApp serve só pra criar o Auth sem trocar a sessão atual).
+        await db.collection('users').doc(newUid).set({
           name, email, cpf, pix, role, 
           allowedUnits,
           unitId: allowedUnits[0], 
@@ -4637,6 +4603,25 @@
         });
         console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
 
+        // ── FIX RAIZ (16/06/2026): PRESERVAR SPLITS no re-upload ──
+        // Antes, ao re-subir a carga, o registro CHEIO da venda (sem "(Split: X%)") não casava
+        // com as pernas de split (que têm o sufixo no item) → o sistema re-adicionava o cheio e
+        // deletava a perna original, duplicando/quebrando a divisão. Agora reconhecemos a venda
+        // já dividida por uma chave-base (cliente + data + item SEM o "(Split: X%)") e:
+        //  (1) NÃO re-adicionamos o cheio; (2) NÃO deletamos as pernas do split.
+        const splitBaseKey = (d) => {
+          const baseItem = String(d.item || '').replace(/\s*\(Split:[^)]*\)\s*$/i, '').trim().toUpperCase();
+          return String(d.cliente || '').trim().toUpperCase() + '|' + String(d.data || '').replace(/\//g, '') + '|' + baseItem;
+        };
+        const existingSplitBases = new Set();
+        existingSnap.forEach(doc => {
+          const d = doc.data();
+          if ((d.type || 'processed') === 'processed' && (d.originalSplitId || String(d.item || '').includes('(Split:'))) {
+            existingSplitBases.add(splitBaseKey(d));
+          }
+        });
+        if (existingSplitBases.size) console.log(`[confirmUpload] ${existingSplitBases.size} venda(s) já divididas — preservadas (não re-adiciona o cheio).`);
+
         // Save items in batches (with dedup logic)
         console.log('[confirmUpload] Salvando itens no banco...');
         const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
@@ -4656,6 +4641,12 @@
           allItems.slice(i, i + 400).forEach(item => {
             const stableId = generateStableId(item);
             const existingType = existingMap[stableId];
+
+            // FIX RAIZ: venda já dividida (split) → NÃO re-adicionar o registro cheio.
+            if (item.type === 'processed' && existingSplitBases.has(splitBaseKey(item))) {
+              skipped++;
+              return;
+            }
 
             // Dedup logic:
             // - Se já existe e está ATIVO (processed) → ignorar o novo
@@ -4702,6 +4693,7 @@
           const stableId = generateStableId(item);
           if (existingMap[stableId] === 'processed') return; // match exato, já existe
           if (existingSoftMap[generateSoftId(item)]) return; // soft match (valor alterado), registrado separadamente
+          if (existingSplitBases.has(splitBaseKey(item))) return; // FIX RAIZ: venda já dividida, não é "adicionado"
           uploadItemDeltas.push({
             vendorId: item.vendedor || '',
             vendorName: item.vendedor || '',
@@ -4752,6 +4744,7 @@
           if (newUploadIds.has(id)) return false; // match exato → manter
           if (newSoftIds.has(generateSoftId(existingProcessedData[id]))) return false; // soft match → manter original
           if (existingProcessedData[id].originalSplitId) return false; // perna clonada de split (doc auto-gerado, nunca casa por stableId/softId) → manter
+          if (String(existingProcessedData[id].item || '').includes('(Split:')) return false; // FIX RAIZ: perna ORIGINAL do split (tem "(Split:" no item) → manter
           return true; // sumiu do arquivo → deletar
         });
         if (removedStableIds.length > 0) {
@@ -5352,8 +5345,11 @@
         logAudit(id ? 'record_edit' : 'record_add', `${id ? 'Editou' : 'Novo'} lançamento: ${data.vendedor} · ${data.cliente} · R$ ${fmt(data.valorCaixa)} `);
 
         if (targetPeriodId !== currentPeriodId) {
-          await recalculatePeriod(currentPeriodId, { type: 'item_delete', label: 'Item movido para outro período' });
-          await recalculatePeriod(targetPeriodId, { type: 'item_add', label: 'Item recebido de outro período' });
+          // U2 (15/06/2026): inclui o cliente no título do evento de movimentação,
+          // pra o histórico mostrar de quem é o lançamento que mudou de período.
+          const cliLabel = data.cliente ? ` — ${data.cliente}` : '';
+          await recalculatePeriod(currentPeriodId, { type: 'item_delete', label: `Item movido para outro período${cliLabel}` });
+          await recalculatePeriod(targetPeriodId, { type: 'item_add', label: `Item recebido de outro período${cliLabel}` });
           toast('Lançamento salvo num novo período. Atualizando lista...', 'info');
           await loadPeriods();
           
@@ -5443,21 +5439,18 @@
       const pDoc = await db.collection('periodos').doc(periodId).get();
       if (!pDoc.exists) return;
       const pData = pDoc.data();
-      const currentUploadId = pData.uploadId;
       const beforeVendorSummary = pData.vendorSummary || {};
 
-      let items = globalPeriodsCache[periodId];
-      if (!items) {
-        const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
-        items = [];
-        itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-        // Include items from current upload, manually added (no uploadId), or split partners
-        if (currentUploadId) {
-          items = items.filter(d => !d.uploadId || d.uploadId === currentUploadId || d.originalSplitId);
-        }
-        globalPeriodsCache[periodId] = items;
-      }
-      
+      // B3 (15/06/2026): o recálculo SEMPRE carrega o conjunto COMPLETO do Firestore.
+      // Antes confiava no globalPeriodsCache, populado por uma query filtrada por uploadId
+      // (renderRecordsTable) que PERDIA pernas de split com uploadId defasado → ativações
+      // subcontadas → a faixa de meta caía → o P3 de todos despencava num split/edição.
+      // Itens removidos já são deletados no upload, então não há órfãos a filtrar.
+      let items = [];
+      const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+      globalPeriodsCache[periodId] = items;
+
       const processed = items.filter(d => d.type === 'processed');
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
 
@@ -5536,10 +5529,13 @@
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
       Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
 
+      // Arredonda contadores a 2 casas — remove ruído de float dos splits (0.30000000000000004)
+      // sem esconder fração real (um 0.5 órfão ainda apareceria). Fix 16/06/2026.
+      const r2 = x => Math.round((x || 0) * 100) / 100;
       const vendorSummary = Object.fromEntries(Object.entries(vendorData).map(([name, v]) => [name, {
         p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
-        grandTotal: v.grandTotal, ativacoes: v.ativacoes,
-        novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
+        grandTotal: v.grandTotal, ativacoes: r2(v.ativacoes),
+        novos: r2(v.novos), renovacoes: r2(v.renovacoes), retornos: r2(v.retornos), vouchers: r2(v.vouchers),
         caixa: v.caixaTotal,
         p3base: v.caixaP3Eligible || 0,
         isNaoCom: v.isNaoCom,
@@ -5552,7 +5548,7 @@
       }]));
 
       const rawUpdateData = {
-        totals: { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixa },
+        totals: { unitAtivacoes: r2(unitAtivacoes), unitNovosRetorno: r2(unitNovosRetorno), unitRenovacoes: r2(unitRenovacoes), unitVouchers: r2(unitVouchers), unitCaixa: r2(unitCaixa) },
         vendorSummary,
         p4result: {
           ...p4result,
@@ -5709,6 +5705,7 @@
         <button class="tab-btn" onclick="switchDashTab('tabComissoes',this)">Comissões</button>
         <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
+        <button class="tab-btn" onclick="switchDashTab('tabDivisoes',this)">🔀 Divisões</button>
         <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
         <button class="tab-btn" onclick="switchDashTab('tabHistorico',this)">📋 Histórico</button>
       </div>
@@ -5889,6 +5886,10 @@
         <div id="diferidosContent"></div>
       </div> <!-- END tabDiferidos -->
 
+      <div id="tabDivisoes" style="display:none">
+        <div id="divisoesContent"></div>
+      </div> <!-- END tabDivisoes -->
+
       <div id="tabHistorico" style="display:none">
         <div id="adminHistoricoContent"></div>
       </div> <!-- END tabHistorico -->
@@ -5971,16 +5972,9 @@
 
       try {
         if (forceRefresh || !globalPeriodsCache[periodId]) {
-          const pDoc = await db.collection('periodos').doc(periodId).get();
-          const pData = pDoc.exists ? pDoc.data() : {};
-          const currentUploadId = pData.uploadId;
-
-          let query = db.collection('periodos').doc(periodId).collection('itens');
-          if (currentUploadId) {
-            query = query.where('uploadId', '==', currentUploadId);
-          }
-
-          const itemsSnap = await query.get();
+          // B3 (15/06/2026): carrega TODOS os itens (sem filtro por uploadId), pra a lista
+          // mostrar as pernas de split que o filtro escondia (e bater com o total do vendedor).
+          const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
           const items = [];
           itemsSnap.forEach(doc => {
             items.push({ _docId: doc.id, ...doc.data() });
@@ -7205,6 +7199,71 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // Aba Divisões (16/06/2026): lista só os registros divididos (split), agrupados por venda,
+    // pra facilitar o rastreio das divisões e pegar inconsistências.
+    async function renderDivisoesTab(periodId) {
+      const container = document.getElementById('divisoesContent');
+      if (!container) return;
+      container.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando divisões...</div>';
+      try {
+        const snap = await db.collection('periodos').doc(periodId).collection('itens').get();
+        const items = [];
+        snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
+        const stripSplit = s => String(s || '').replace(/\s*\(Split:[^)]*\)\s*$/i, '').trim();
+        const splits = items.filter(d => (d.type === 'processed' || !d.type) && (d.originalSplitId || String(d.item || '').includes('(Split:')));
+        if (!splits.length) {
+          container.innerHTML = '<div style="padding:28px;text-align:center;color:var(--text3)">Nenhuma divisão (split) neste período.</div>';
+          return;
+        }
+        const groups = {};
+        splits.forEach(d => {
+          const key = (d.cliente || '') + '||' + (d.data || '') + '||' + stripSplit(d.item);
+          (groups[key] = groups[key] || []).push(d);
+        });
+        const fmtv = v => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const grps = Object.values(groups).sort((a, b) => String(a[0].cliente || '').localeCompare(String(b[0].cliente || '')));
+        let html = '<div style="margin-bottom:14px;color:var(--text2);font-size:13px;font-weight:600">'
+          + grps.length + ' venda(s) dividida(s) · ' + splits.length + ' pernas</div>';
+        html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+          + '<thead><tr style="border-bottom:2px solid var(--border);color:var(--text3);text-transform:uppercase;font-size:10px;letter-spacing:.5px">'
+          + '<th style="text-align:left;padding:8px 10px">Cliente</th><th style="text-align:left;padding:8px 10px">Plano</th>'
+          + '<th style="text-align:left;padding:8px 10px">Vendedora</th><th style="text-align:right;padding:8px 10px">%</th>'
+          + '<th style="text-align:right;padding:8px 10px">Caixa</th><th style="text-align:right;padding:8px 10px">P1</th>'
+          + '<th style="text-align:right;padding:8px 10px">P2</th><th style="text-align:right;padding:8px 10px">Total</th></tr></thead><tbody>';
+        grps.forEach(legs => {
+          legs.sort((a, b) => (b.splitAtivacao || 0) - (a.splitAtivacao || 0));
+          const somaCaixa = legs.reduce((s, d) => s + (d.valorCaixa || 0), 0);
+          const somaTotal = legs.reduce((s, d) => s + (d.p1valor || 0) + (d.p2bonus || 0), 0);
+          const somaSplit = legs.reduce((s, d) => s + (d.splitAtivacao || 0), 0);
+          const alerta = Math.abs(somaSplit - 1) > 0.02; // soma das % deveria dar 100%
+          legs.forEach((d, idx) => {
+            const pct = d.splitAtivacao != null && d.splitAtivacao !== '' ? Math.round(d.splitAtivacao * 100) + '%' : '—';
+            const tot = (d.p1valor || 0) + (d.p2bonus || 0);
+            html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">'
+              + '<td style="padding:6px 10px;vertical-align:top;word-break:break-word;white-space:normal;max-width:160px">' + (idx === 0 ? (d.cliente || '') : '') + '</td>'
+              + '<td style="padding:6px 10px;font-size:11px;color:var(--text2);width:230px;max-width:230px;word-break:break-word;white-space:normal;vertical-align:top">' + (idx === 0 ? stripSplit(d.item) : '') + '</td>'
+              + '<td style="padding:6px 10px;vertical-align:top;word-break:break-word;white-space:normal;max-width:140px">' + (d.vendedor || '') + '</td>'
+              + '<td style="padding:6px 10px;text-align:right">' + pct + '</td>'
+              + '<td style="padding:6px 10px;text-align:right;font-family:monospace">' + fmtv(d.valorCaixa) + '</td>'
+              + '<td style="padding:6px 10px;text-align:right;font-family:monospace;color:var(--green)">' + fmtv(d.p1valor) + '</td>'
+              + '<td style="padding:6px 10px;text-align:right;font-family:monospace;color:var(--blue)">' + fmtv(d.p2bonus) + '</td>'
+              + '<td style="padding:6px 10px;text-align:right;font-family:monospace;font-weight:700">' + fmtv(tot) + '</td></tr>';
+          });
+          html += '<tr style="border-bottom:2px solid var(--border)">'
+            + '<td colspan="3" style="padding:4px 10px;text-align:right;color:var(--text3);font-size:10px">'
+            + (alerta ? '<span style="color:var(--yellow);font-weight:700">⚠ soma das % = ' + Math.round(somaSplit * 100) + '% (deveria ser 100%)</span>' : 'subtotal da venda') + '</td>'
+            + '<td style="padding:4px 10px;text-align:right;color:var(--text3)">' + Math.round(somaSplit * 100) + '%</td>'
+            + '<td style="padding:4px 10px;text-align:right;font-family:monospace;color:var(--text3)">' + fmtv(somaCaixa) + '</td>'
+            + '<td colspan="2"></td>'
+            + '<td style="padding:4px 10px;text-align:right;font-family:monospace;font-weight:700">' + fmtv(somaTotal) + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<div style="padding:24px;color:var(--red)">Erro ao carregar divisões: ' + e.message + '</div>';
+      }
+    }
+
     async function renderDiferidosTab(data, periodId) {
       const el = document.getElementById('diferidosContent');
       if (!el) return;
@@ -7407,7 +7466,7 @@
     // DASHBOARD TAB SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchDashTab(tabId, btn) {
-      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDiferidos', 'tabHistorico'];
+      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDivisoes', 'tabDiferidos', 'tabHistorico'];
       allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       const target = document.getElementById(tabId);
@@ -7424,6 +7483,7 @@
         else if (tabId === 'tabComissoes') renderComissoesTab(data, periodId);
         else if (tabId === 'tabAtivacoes') renderAtivacoesTab(periodId);
         else if (tabId === 'tabRelatorio') renderRelatorioTab(data, periodId);
+        else if (tabId === 'tabDivisoes') renderDivisoesTab(periodId);
         else if (tabId === 'tabDiferidos') renderDiferidosTab(data, periodId);
         else if (tabId === 'tabHistorico') renderHistoricoTab(periodId);
 
@@ -8591,7 +8651,7 @@
           html += `<tr>
             <td>${r.data || ''}</td>
             <td style="max-width:120px;word-break:break-word;white-space:normal">${r.cliente || ''}</td>
-            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}</td>
+            <td style="font-size:10px;max-width:140px;word-break:break-word;white-space:normal">${r.item || ''}${r.splitWith ? `<br><span style="color:var(--orange);font-weight:700">↔ split com ${r.splitWith}</span>` : ''}</td>
             <td><span class="pill ${pillCls}">${r.label || r.category || ''}</span></td>
             <td class="currency">R$ ${fmt(r.valorCaixa || 0)}</td>
             <td style="text-align:right;color:var(--text3);font-size:10px">${((r.p1pct || 0) * 100).toFixed(1)}%</td>

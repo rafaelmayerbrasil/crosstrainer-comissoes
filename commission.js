@@ -158,16 +158,9 @@ const CommissionEngine = {
     }
 
     // ── Contracts (Plans) ──
-    const termosAtivacao = (this.currentConfig?.planosAtivacao || this.defaultConfig.planosAtivacao);
-    
-    // Fix 18/05/2026: usar word boundary (\b) pra evitar que "ANUAL" sobrescreva
-    // "BIANUAL" via substring match. Antes: 'BIANUAL' setava periodicidade='BIANUAL',
-    // mas logo depois 'ANUAL' (que é substring de "BIANUAL") sobrescrevia pra 'ANUAL',
-    // resultando em bônus P2 de R$ 45 (Anual Flex) ao invés de R$ 80 (Bianual VIP).
-    termosAtivacao.forEach(termo => {
-      const re = new RegExp(`\\b${termo}\\b`);
-      if (re.test(item)) r.periodicidade = termo;
-    });
+    // Fix 18/05/2026 (word boundary) extraído pra detectPeriodicidade() em 15/06/2026,
+    // pra reuso no recálculo (applyCommissionsToItem). Evita "ANUAL" casar em "BIANUAL".
+    r.periodicidade = this.detectPeriodicidade(item, this.currentConfig);
 
     if (item.includes('FLEX')) r.abrangencia = 'FLEX';
     else r.abrangencia = 'LOCAL';
@@ -220,6 +213,19 @@ const CommissionEngine = {
     return 'outro';
   },
 
+  // ─── Detecta periodicidade do plano a partir do texto do item (word boundary) ───
+  // Reusado por classifyRow (upload) e applyCommissionsToItem (recálculo). Word boundary
+  // evita que "ANUAL" case dentro de "BIANUAL". Retorna o termo ou null.
+  detectPeriodicidade(itemStr, config) {
+    const item = String(itemStr || '').toUpperCase();
+    const termos = (config && config.planosAtivacao) || this.defaultConfig.planosAtivacao;
+    let found = null;
+    termos.forEach(termo => {
+      if (new RegExp(`\\b${termo}\\b`).test(item)) found = termo;
+    });
+    return found;
+  },
+
   // ─── Extract plan start date from Itens field ───
   // Pattern: "ANUAL, TREINO HIIT (02/02/2026 - 02/02/2027)" → 02/02/2026
   parseStartDate(itemStr) {
@@ -267,6 +273,16 @@ const CommissionEngine = {
     const terms = cfg.planosAtivacao || this.defaultConfig.planosAtivacao;
     item.isActivation = terms.some(t => itemString.includes(t)) || ['novo', 'retorno', 'renovacao', 'voucher'].includes(item.category);
 
+    // B2 (15/06/2026): re-deriva periodicidade/abrangência do TEXTO do item, não confia no
+    // campo gravado. Corrige registros legados gravados como ANUAL antes do fix de 18/05
+    // (BIANUAL→ANUAL via substring). Sem manualP2, o recálculo agora paga o bônus certo.
+    const derivedPeriod = this.detectPeriodicidade(item.item, cfg);
+    if (derivedPeriod) {
+      item.periodicidade = derivedPeriod;
+      item.isContract = true;
+      item.abrangencia = itemString.includes('FLEX') ? 'FLEX' : 'LOCAL';
+    }
+
     // 2. Determine P1
     const hasManualP1 = item.manualP1 !== undefined && item.manualP1 !== null;
     const valor = parseFloat(item.valorCaixa) || 0;
@@ -298,7 +314,10 @@ const CommissionEngine = {
       // and their value doesn't count for the vendor's P3 percentage
       item.isEligibleP3 = false;
     } else if (item.isContract) {
-      item.p2bonus = this.getP2Bonus(item.periodicidade, item.abrangencia, cfg);
+      // B1 (15/06/2026): escala o bônus pelo ratio do split (splitAtivacao). Sem isso, cada
+      // perna recebia o bônus cheio → pagava em dobro. P1 já respeita o split via valorCaixa
+      // (que é gravado escalado); o P2 é valor fixo, então precisa do fator aqui.
+      item.p2bonus = this.getP2Bonus(item.periodicidade, item.abrangencia, cfg) * (item.splitAtivacao || 1);
     } else {
       item.p2bonus = 0; // Ensure it's reset if no longer a contract
     }

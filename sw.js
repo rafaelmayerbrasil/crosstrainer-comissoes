@@ -3,7 +3,7 @@
 // Cache-first for static assets, network-first for API calls
 // ═══════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'crosstrainer-v3.0';
+const CACHE_NAME = 'crosstrainer-v3.0.1'; // bump 16/06/2026: força largar cache antigo (fix split/BIANUAL/recalculo)
 const STATIC_ASSETS = [
   './',
   './index.html',
