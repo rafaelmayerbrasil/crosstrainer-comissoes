@@ -22,6 +22,7 @@ const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
+const remindersUtil = require('./reminders-util.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -197,6 +198,7 @@ async function getFeriadosForYear(year) {
 async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'cf-manual' } = {}) {
   const t0 = Date.now();
   const firestore = db();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   // Janela em horário BR:
   //   início = hoje em BR 00:00
@@ -263,7 +265,6 @@ async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'c
 
   // 2) Compõe todos os pares (slot, data) candidatos — iterando em dias BR
   const candidates = [];   // [{ slotId, slot, date, classId, extras }]
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   for (const slot of slots) {
     if (slot.weekday == null || !slot.startTime || !slot.endTime) continue;
     let cursorMs = todayBR.getTime();
@@ -488,6 +489,7 @@ const NOTIF_TYPE_TITLES = {
   coverage_available:     'Cobertura disponível',
   coverage_taken:         'Cobertura aceita',
   coverage_cancelled:     'Cobertura cancelada',
+  event_reminder:         'Lembrete de evento',
 };
 
 async function createNotification({ recipientUserId, type, body, link = null }) {
@@ -609,6 +611,57 @@ exports.notifyTeachersAboutCoverage = onDocumentCreated({
     logger.info('[notifyTeachersAboutCoverage] Notificados', notifiedUserIds.length, 'professores', covId);
   } catch (err) {
     logger.error('[notifyTeachersAboutCoverage] FALHA', err);
+  }
+});
+
+/**
+ * sendEventReminders — CF agendada (diária). Lembra o staff de eventos a 7/4/1 dia,
+ * exceto quem respondeu "Não vou". Idempotente via special_scales.remindersSent.
+ */
+exports.sendEventReminders = onSchedule({
+  schedule: '0 9 * * *',
+  timeZone: 'America/Sao_Paulo',
+  region: 'us-central1',
+  memory: '256MiB',
+}, async () => {
+  const firestore = db();
+  const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
+  logger.info('[sendEventReminders] Iniciando', todayISO);
+  try {
+    const snap = await firestore.collection('special_scales').where('tipo', '==', 'evento').get();
+    for (const doc of snap.docs) {
+      const ev = doc.data();
+      if (typeof ev.date !== 'string') continue;
+      const sent = Array.isArray(ev.remindersSent) ? ev.remindersSent : [];
+      const due = remindersUtil.dueReminderOffsets(ev.date, todayISO, sent);
+      if (!due.length) continue;
+
+      const rsvpSnap = await firestore.collection('event_rsvp').where('scaleId', '==', doc.id).get();
+      const recipients = remindersUtil.reminderRecipients(rsvpSnap.docs.map(d => d.data()));
+      const faltam = remindersUtil.daysBetween(todayISO, ev.date);
+      for (const personId of recipients) {
+        if (!personId) continue;
+        let userId = null;
+        const tDoc = await firestore.collection('teachers').doc(personId).get();
+        if (tDoc.exists) userId = tDoc.data().userId || null;
+        if (!userId) {
+          const us = await firestore.collection('users').where('professorId', '==', personId).limit(1).get();
+          if (!us.empty) userId = us.docs[0].id;
+        }
+        if (!userId) continue;
+        await createNotification({
+          recipientUserId: userId,
+          type: 'event_reminder',
+          body: `Lembrete: ${ev.name || 'evento'} em ${faltam} dia(s).`,
+          link: { type: 'escala-smart', id: doc.id },
+        });
+      }
+      await firestore.collection('special_scales').doc(doc.id).update({ remindersSent: sent.concat(due) });
+      logger.info('[sendEventReminders] Enviado', doc.id, due, 'p/', recipients.length);
+    }
+  } catch (err) {
+    logger.error('[sendEventReminders] FALHA', err);
+    throw err;
   }
 });
 

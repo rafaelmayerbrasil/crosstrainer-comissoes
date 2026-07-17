@@ -1,0 +1,46 @@
+CrossTainer — PLR: só faltam 2 coisinhas pra eu montar a conta
+===============================================================
+
+Rô, valeu pelas respostas! Já consigo seguir com a escala e o fim de ano com
+o que você mandou. Pro PLR (a avaliação que substitui a planilha) faltou só
+fechar a NOTA — me confirma essas duas, que aí eu monto o cálculo certinho.
+Pode olhar direto na sua planilha de avaliação e me passar os números.
+
+
+1) PESO DE CADA BLOCO DA NOTA
+Você disse que o engajamento entra como um bloco PRÓPRIO e explícito. Então a
+nota final de cada pessoa vai ser a soma dos blocos, cada um com seu peso.
+Me confirma quanto vale cada bloco (em % — tem que somar 100):
+
+   - Profissional ........ ____ %
+   - Comportamental ...... ____ %
+   - Técnica ............. ____ %
+   - Engajamento (placar)  ____ %
+   (a nota dos alunos fica de fora desta rodada, como combinamos — o peso dela
+    se redistribui nos blocos acima)
+
+   Soma = 100%
+
+
+Ou deixamos ter como configurar isso (eu rafa acho o melhor)
+
+
+2) PESO DOS AVALIADORES
+Você disse que o Coordenador Técnico e o Head Coach pesam mais que os demais.
+Quanto a mais? Me dá de um jeito simples, por exemplo:
+   - cada avaliador comum = peso 1
+   - Coordenador Técnico = peso ___
+   - Head Coach = peso ___
+(assim eu faço a média ponderada certinha)
+
+Rafa: Mesma coisa do ponto anterior, penso que podemos deixar para configurar direto no sistema e não no código
+
+
+3) (OPCIONAL) QUEM ENTRA NO RATEIO — só os valores PADRÃO
+Você falou que a regra de quem participa varia de ano pra ano (tempo de casa,
+saldo de pontos, mínimo de meses). Isso vai ser configurável pela gestão a
+cada rodada — eu só queria um PADRÃO pra já vir preenchido:
+   - Mínimo de meses de casa pra participar: ____
+   - Precisa ter saldo de pontos mínimo? Quanto? ____
+   - Estagiário participa? (sim / não) ____
+

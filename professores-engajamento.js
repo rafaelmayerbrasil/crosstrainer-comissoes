@@ -1,0 +1,499 @@
+// ═══════════════════════════════════════════════════════════════════════
+// CrossTainer — Módulo Professores · Engajamento/Pontos (Config · Chamada · Placar)
+// UI do submódulo de Engajamento. Consome EngagementService (config, chamadas,
+// placar). Plano: docs/superpowers/plans/2026-06-24-engajamento-ui.md (T1–T6).
+// ═══════════════════════════════════════════════════════════════════════
+
+'use strict';
+
+/* ─── Config. Pontos (admin) ───────────────────────────────────────── */
+const EngajConfigState = { cfg: null, cycles: [] };
+
+// helper: input numérico rotulado no estilo do sistema
+function ecfgNum(id, label, value, hint) {
+  const v = (value === null || value === undefined) ? '' : value;
+  return `<div class="form-group">
+    <label>${label}</label>
+    <input type="number" step="any" id="${id}" class="input" value="${v}">
+    ${hint ? `<div style="font-size:11px;color:var(--text3);margin-top:2px;">${hint}</div>` : ''}
+  </div>`;
+}
+
+async function renderEngajConfigPage() {
+  const container = document.getElementById('page-engaj-config');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="page-hdr">
+      <h1>⚙️ Config. Pontos</h1>
+      <p>Defina os valores de pontuação, penalidades e os ciclos do motor de Engajamento.</p>
+    </div>
+    <div class="loading"><div class="spinner"></div> Carregando configuração…</div>`;
+
+  const [cfgRes, cyclesRes] = await Promise.all([
+    EngagementService.getConfig(),
+    EngagementService.listCycles(),
+  ]);
+
+  if (!cfgRes.success) {
+    container.innerHTML = `<div class="page-hdr"><h1>⚙️ Config. Pontos</h1></div>
+      <p style="padding:24px;color:var(--red);">Erro ao carregar: ${cfgRes.error || 'falha'}</p>
+      <button class="btn-secondary" onclick="renderEngajConfigPage()">Tentar novamente</button>`;
+    return;
+  }
+
+  const cfg = cfgRes.data;
+  const cycles = cyclesRes.success ? cyclesRes.data : [];
+  EngajConfigState.cfg = cfg;
+  EngajConfigState.cycles = cycles;
+  const p = cfg.pts;
+
+  let cyclesRows = '';
+  if (cycles.length === 0) {
+    cyclesRows = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text2);">Nenhum ciclo cadastrado ainda.</td></tr>`;
+  } else {
+    cycles.forEach(c => {
+      cyclesRows += `<tr><td>${c.label || '—'}</td><td>${c.inicio || '—'}</td><td>${c.fim || '—'}</td>
+        <td><button class="btn-sm btn-danger" onclick="removeEngajCycle('${c.id}')">🗑️</button></td></tr>`;
+    });
+  }
+
+  container.innerHTML = `
+    <div class="page-hdr">
+      <h1>⚙️ Config. Pontos</h1>
+      <p>Tudo aqui é calibrável pela gestão. Os valores valem para o placar e, depois, para o PLR.</p>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+      <h2 style="margin-top:0;">Pontos por atividade</h2>
+      <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+        ${ecfgNum('ecfg_eiPart', 'Escola interna · participar', p.escolaInternaParticipar, 'por dia')}
+        ${ecfgNum('ecfg_eiLider', 'Escola interna · liderar', p.escolaInternaLiderar, 'por dia (o 2× que o Rodrigo pediu)')}
+        ${ecfgNum('ecfg_treinaOutra', 'Treinar como aluno em outra aula', p.treinarComoAlunoEmOutro, 'por dia, quando não dá pra ir ao treino')}
+        ${ecfgNum('ecfg_toi', 'TOI como aluno', p.toiComoAluno, 'mesmo peso da escola interna')}
+        ${ecfgNum('ecfg_reuniao', 'Reunião do staff', p.reuniaoStaff, 'mensal')}
+        ${ecfgNum('ecfg_proativ', 'Proatividade (substituição)', p.proatividadeSubstituicao, 'por substituição assumida')}
+        ${ecfgNum('ecfg_evento', 'Evento interno', p.eventoInterno, 'por evento')}
+        ${ecfgNum('ecfg_treinoPres', 'Treinamento obrigatório · presença', p.treinamentoObrigatorioPresenca, 'por presença')}
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+      <h2 style="margin-top:0;">Tempo de casa &amp; teto</h2>
+      <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+        ${ecfgNum('ecfg_casaFaixa', 'Tempo de casa · pontos por faixa', p.tempoCasaPorFaixa, 'fixo, sempre conta (fora do reset)')}
+        ${ecfgNum('ecfg_faixaAnos', 'Anos por faixa', cfg.faixaAnos, 'ex.: 2 → 0–2a, 2–4a, 4–6a…')}
+        ${ecfgNum('ecfg_teto', 'Teto mensal de itens diários', cfg.tetoMensalItensDiarios, 'vazio = sem teto')}
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
+      <h2 style="margin-top:0;">Penalidades (treinamento)</h2>
+      <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+        ${ecfgNum('ecfg_penJust', 'Falta justificada', cfg.penalidade.treinoFaltaJustificada, 'avisou antes (use 0 ou negativo)')}
+        ${ecfgNum('ecfg_penSem', 'Falta sem aviso', cfg.penalidade.treinoFaltaSemAviso, 'penalidade máxima (negativo)')}
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+        <button class="btn-primary" onclick="saveEngajConfig()">💾 Salvar configuração</button>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">
+      <h2 style="margin-top:0;">Ciclos de pontuação</h2>
+      <p style="color:var(--text2);font-size:13px;margin-top:0;">Os pontos acumulam dentro do ciclo e zeram na virada. Comece alinhado ao PLR.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Início</th><th>Fim</th><th style="width:60px;">Ações</th></tr></thead>
+          <tbody>${cyclesRows}</tbody>
+        </table>
+      </div>
+      <div class="form-grid" style="display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:14px;">
+        <div class="form-group"><label>Nome do ciclo</label><input type="text" id="ecyc_label" class="input" placeholder="Ex: 2º semestre 2026"></div>
+        <div class="form-group"><label>Início</label><input type="date" id="ecyc_inicio" class="input"></div>
+        <div class="form-group"><label>Fim</label><input type="date" id="ecyc_fim" class="input"></div>
+        <button class="btn-primary" onclick="addEngajCycle()">+ Adicionar</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveEngajConfig() {
+  const num = (id) => { const el = document.getElementById(id); const v = (el && el.value.trim()) || ''; return v === '' ? null : Number(v); };
+  const overrides = {
+    faixaAnos: num('ecfg_faixaAnos'),
+    pts: {
+      escolaInternaParticipar: num('ecfg_eiPart'),
+      escolaInternaLiderar: num('ecfg_eiLider'),
+      treinarComoAlunoEmOutro: num('ecfg_treinaOutra'),
+      toiComoAluno: num('ecfg_toi'),
+      reuniaoStaff: num('ecfg_reuniao'),
+      proatividadeSubstituicao: num('ecfg_proativ'),
+      eventoInterno: num('ecfg_evento'),
+      treinamentoObrigatorioPresenca: num('ecfg_treinoPres'),
+      tempoCasaPorFaixa: num('ecfg_casaFaixa'),
+    },
+    tetoMensalItensDiarios: num('ecfg_teto'),
+    penalidade: {
+      treinoFaltaJustificada: num('ecfg_penJust'),
+      treinoFaltaSemAviso: num('ecfg_penSem'),
+    },
+  };
+  const res = await EngagementService.saveConfig(overrides);
+  if (res.success) toast('Configuração salva!', 'success');
+  else toast('Erro: ' + (res.error || 'falha ao salvar'), 'error');
+}
+
+async function addEngajCycle() {
+  const label = (document.getElementById('ecyc_label').value || '').trim();
+  const inicio = document.getElementById('ecyc_inicio').value;
+  const fim = document.getElementById('ecyc_fim').value;
+  if (!inicio || !fim) { toast('Informe início e fim do ciclo.', 'error'); return; }
+  if (inicio > fim) { toast('O início deve ser antes do fim.', 'error'); return; }
+  const res = await EngagementService.saveCycle({ inicio, fim, label });
+  if (res.success) { toast('Ciclo salvo!', 'success'); renderEngajConfigPage(); }
+  else toast('Erro: ' + (res.error || 'falha ao salvar ciclo'), 'error');
+}
+
+async function removeEngajCycle(id) {
+  if (!confirm('Remover este ciclo?')) return;
+  const res = await EngagementService.deleteCycle(id);
+  if (res.success) { toast('Ciclo removido.', 'success'); renderEngajConfigPage(); }
+  else toast('Erro: ' + (res.error || 'falha ao remover'), 'error');
+}
+
+/* ─── Chamada (admin/supervisão) ───────────────────────────────────── */
+const EngajChamadaState = { kind: 'escola_interna', date: '', unitId: '', teachers: [], modMap: new Map(), units: [], cfg: null, marks: {} };
+
+const CHAMADA_KINDS = [
+  { id: 'escola_interna',          label: 'Escola interna' },
+  { id: 'reuniao',                 label: 'Reunião do staff' },
+  { id: 'treinamento_obrigatorio', label: 'Treinamento obrigatório' },
+  { id: 'evento',                  label: 'Evento interno' },
+];
+
+function chamadaTodayISO() { return new Date().toISOString().slice(0, 10); }
+
+function chamadaPointsFor(status, role) {
+  const cfg = EngajChamadaState.cfg; if (!cfg || !status) return 0;
+  const p = cfg.pts, pen = cfg.penalidade, k = EngajChamadaState.kind;
+  if (k === 'escola_interna') {
+    if (status === 'presente') return role === 'lider' ? p.escolaInternaLiderar : p.escolaInternaParticipar;
+    if (status === 'aluno_outro') return p.treinarComoAlunoEmOutro;
+    return 0;
+  }
+  if (k === 'reuniao') return status === 'presente' ? p.reuniaoStaff : 0;
+  if (k === 'evento')  return status === 'presente' ? p.eventoInterno : 0;
+  if (k === 'treinamento_obrigatorio') {
+    if (status === 'presente') return p.treinamentoObrigatorioPresenca;
+    if (status === 'falta_justificada') return pen.treinoFaltaJustificada;
+    if (status === 'falta_sem_aviso')   return pen.treinoFaltaSemAviso;
+    return 0;
+  }
+  return 0;
+}
+
+async function renderEngajChamadaPage() {
+  const container = document.getElementById('page-engaj-chamada');
+  if (!container) return;
+  if (!EngajChamadaState.date) EngajChamadaState.date = chamadaTodayISO();
+
+  container.innerHTML = `
+    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div class="loading"><div class="spinner"></div> Carregando colaboradores…</div>`;
+
+  const [tRes, mRes, cRes, uRes] = await Promise.all([
+    TeacherService.list(),
+    ModalityService.list(),
+    EngagementService.getConfig(),
+    (typeof UnitService === 'object' ? UnitService.list() : Promise.resolve({ success: true, data: [] })),
+  ]);
+
+  EngajChamadaState.teachers = (tRes.success ? tRes.data : []).filter(t => t.isActive !== false);
+  EngajChamadaState.modMap = new Map((mRes.success ? mRes.data : []).map(m => [m.id, m.name]));
+  EngajChamadaState.cfg = cRes.success ? cRes.data : null;
+  EngajChamadaState.units = uRes.success ? uRes.data : [];
+  renderChamadaContent();
+  await aplicarLiderPlanejado();
+}
+
+function renderChamadaContent() {
+  const container = document.getElementById('page-engaj-chamada');
+  if (!container) return;
+  const st = EngajChamadaState;
+  const kindOpts = CHAMADA_KINDS.map(k => `<option value="${k.id}" ${st.kind === k.id ? 'selected' : ''}>${k.label}</option>`).join('');
+  const unitOpts = `<option value="">Todas as unidades</option>` +
+    (st.units || []).map(u => `<option value="${u.id}" ${st.unitId === u.id ? 'selected' : ''}>${u.name || u.id}</option>`).join('');
+
+  container.innerHTML = `
+    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;"><label>Tipo</label><select id="chamadaKind" class="input" onchange="onChamadaToolbarChange()">${kindOpts}</select></div>
+      <div class="form-group" style="margin:0;"><label>Data</label><input type="date" id="chamadaDate" class="input" value="${st.date}" onchange="onChamadaToolbarChange()"></div>
+      <div class="form-group" style="margin:0;"><label>Unidade</label><select id="chamadaUnit" class="input" onchange="onChamadaToolbarChange()">${unitOpts}</select></div>
+    </div>
+    <div id="chamada-list"></div>`;
+  renderChamadaList();
+}
+
+function chamadaCbtn(tid, status, label) {
+  const m = EngajChamadaState.marks[tid] || {};
+  const active = m.status === status;
+  const colors = { presente: 'var(--green)', aluno_outro: 'var(--blue)', toi_aluno: '#8b7cf6', faltou: 'var(--red)', falta_justificada: '#caa23a', falta_sem_aviso: 'var(--red)' };
+  const c = colors[status] || 'var(--text2)';
+  const style = active ? `background:${c};color:#0a0a0a;border:1px solid ${c};font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+  return `<button onclick="setChamadaMark('${tid}','${status}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;${style}">${label}</button>`;
+}
+
+function chamadaLiderBtn(tid) {
+  const m = EngajChamadaState.marks[tid] || {};
+  const isLider = m.role === 'lider';
+  const enabled = m.status === 'presente';
+  const style = isLider ? `background:#caa23a;color:#0a0a0a;border:1px solid #caa23a;font-weight:600;` : `background:transparent;color:var(--text2);border:1px solid var(--border);`;
+  return `<button onclick="toggleChamadaLider('${tid}')" ${enabled ? '' : 'disabled'} title="Líder (×2)" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:${enabled ? 'pointer' : 'not-allowed'};opacity:${enabled ? 1 : 0.4};${style}">★ Líder</button>`;
+}
+
+function chamadaRow(t) {
+  const st = EngajChamadaState;
+  const m = st.marks[t.id] || {};
+  const pts = chamadaPointsFor(m.status, m.role);
+  const mods = (t.modalityIds || []).map(id => st.modMap.get(id)).filter(Boolean).join(' · ') || (t.type || '');
+  const initials = (t.name || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase();
+  let controls = '';
+  if (st.kind === 'escola_interna') {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'aluno_outro', 'Treinou em outra') + chamadaCbtn(t.id, 'toi_aluno', 'TOI (aluno)') + chamadaCbtn(t.id, 'faltou', 'Faltou') + chamadaLiderBtn(t.id);
+  } else if (st.kind === 'treinamento_obrigatorio') {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'falta_justificada', 'Falta justif.') + chamadaCbtn(t.id, 'falta_sem_aviso', 'Falta s/ aviso');
+  } else {
+    controls = chamadaCbtn(t.id, 'presente', 'Presente') + chamadaCbtn(t.id, 'faltou', 'Faltou');
+  }
+  const ptsColor = pts > 0 ? 'var(--green)' : (pts < 0 ? 'var(--red)' : 'var(--text3)');
+  const ptsStr = m.status ? (pts > 0 ? `+${pts}` : `${pts}`) : '';
+  return `<div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;">
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;">${initials}</div>
+    <div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;">${t.name || '—'}</div><div style="font-size:12px;color:var(--text2);">${mods}</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${controls}</div>
+    <div style="min-width:34px;text-align:right;font-weight:600;color:${ptsColor};">${ptsStr}</div>
+  </div>`;
+}
+
+function renderChamadaList() {
+  const wrap = document.getElementById('chamada-list');
+  if (!wrap) return;
+  const st = EngajChamadaState;
+  if (st.teachers.length === 0) {
+    wrap.innerHTML = `<p style="padding:20px;color:var(--text2);">Nenhum colaborador ativo cadastrado.</p>`;
+    return;
+  }
+  // filtra por unidade quando selecionada (escola interna é por unidade)
+  const visible = st.unitId
+    ? st.teachers.filter(t => (t.unitIds || []).includes(st.unitId) || t.primaryUnitId === st.unitId)
+    : st.teachers;
+  if (visible.length === 0) {
+    wrap.innerHTML = `<p style="padding:20px;color:var(--text2);">Nenhum colaborador nesta unidade.</p>`;
+    return;
+  }
+  const rows = visible.map(chamadaRow).join('');
+  let total = 0, pres = 0, faltas = 0;
+  Object.keys(st.marks).forEach(tid => {
+    const m = st.marks[tid]; if (!m || !m.status) return;
+    total += chamadaPointsFor(m.status, m.role);
+    if (m.status === 'presente' || m.status === 'aluno_outro') pres++;
+    if (m.status === 'faltou' || m.status === 'falta_justificada' || m.status === 'falta_sem_aviso') faltas++;
+  });
+  const totalStr = total > 0 ? `+${total}` : `${total}`;
+  wrap.innerHTML = rows + `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding:12px 14px;background:var(--surface2);border-radius:10px;">
+      <div style="font-size:13px;color:var(--text2);"><b style="color:var(--text);">${pres}</b> presenças · <b style="color:var(--text);">${faltas}</b> faltas · total <b style="color:${total >= 0 ? 'var(--green)' : 'var(--red)'};">${totalStr} pts</b></div>
+      <button class="btn-primary" onclick="saveChamada()">💾 Salvar presença</button>
+    </div>`;
+}
+
+function onChamadaToolbarChange() {
+  const kEl = document.getElementById('chamadaKind');
+  const k = kEl ? kEl.value : EngajChamadaState.kind;
+  if (k !== EngajChamadaState.kind) { EngajChamadaState.marks = {}; EngajChamadaState.kind = k; }
+  const dEl = document.getElementById('chamadaDate'); if (dEl) EngajChamadaState.date = dEl.value;
+  const uEl = document.getElementById('chamadaUnit'); if (uEl) EngajChamadaState.unitId = uEl.value;
+  renderChamadaContent();
+  aplicarLiderPlanejado();
+}
+
+// Pré-seleção do líder planejado (Escala Interna → Confirmar Presença).
+// A escala é o PLANO; a presença é a fonte de verdade do ponto (só ao salvar).
+// Não lança ponto: só pré-marca o líder pra a gestão confirmar/editar.
+async function aplicarLiderPlanejado() {
+  const st = EngajChamadaState;
+  if (st.kind !== 'escola_interna' || !st.date || typeof ScaleService === 'undefined') return;
+  let changed = false;
+  try {
+    const res = await ScaleService.listScales();
+    const doc = (res.success ? res.data : []).find(s => s.tipo === 'escola_interna' && s.date === st.date);
+    if (doc) {
+      (doc.slots || []).forEach(slot => {
+        if (slot.role !== 'lider' || !slot.assignedPersonId) return;
+        if (st.unitId && slot.unitId !== st.unitId) return; // respeita o filtro de unidade
+        if (!st.marks[slot.assignedPersonId]) {
+          st.marks[slot.assignedPersonId] = { status: 'presente', role: 'lider' };
+          changed = true;
+        }
+      });
+    }
+  } catch (e) { /* silencioso: pré-seleção é só conveniência */ }
+  if (changed) renderChamadaList();
+}
+
+function setChamadaMark(tid, status) {
+  const m = EngajChamadaState.marks[tid] || {};
+  m.status = status;
+  if (status !== 'presente') delete m.role;
+  EngajChamadaState.marks[tid] = m;
+  renderChamadaList();
+}
+
+function toggleChamadaLider(tid) {
+  const m = EngajChamadaState.marks[tid];
+  if (!m || m.status !== 'presente') return;
+  if (m.role === 'lider') delete m.role; else m.role = 'lider';
+  renderChamadaList();
+}
+
+async function saveChamada() {
+  const st = EngajChamadaState;
+  if (!st.date) { toast('Informe a data.', 'error'); return; }
+  const records = [];
+  Object.keys(st.marks).forEach(tid => {
+    const m = st.marks[tid];
+    if (!m || !m.status) return;
+    const rec = { personId: tid, status: m.status };
+    if (m.role) rec.role = m.role;
+    records.push(rec);
+  });
+  if (records.length === 0) { toast('Marque ao menos um colaborador.', 'error'); return; }
+  const att = {
+    id: `eng_${st.kind}_${st.date}_${st.unitId || 'all'}`,
+    kind: st.kind, date: st.date, unitId: st.unitId || null, records,
+    confirmedBy: st.kind === 'reuniao' ? (typeof currentUserId === 'function' ? currentUserId() : 'gestao') : null,
+  };
+  const res = await EngagementService.recordAttendance(att);
+  if (res.success) toast(`Presença salva! ${res.data.entriesCount} lançamento(s) no placar.`, 'success');
+  else toast('Erro: ' + (res.error || 'falha ao salvar'), 'error');
+}
+
+/* ─── Placar (todos) ───────────────────────────────────────────────── */
+const EngajPlacarState = { cycleId: null, cycles: [] };
+// fallback quando não há ciclos cadastrados: cobre todo o histórico até HOJE
+// (fim = hoje pra o tempo de casa não projetar pro futuro).
+
+function engajHireISO(t) {
+  const d = t.hireDate || t.internshipStartDate;
+  if (!d) return null;
+  if (d.toDate) return d.toDate().toISOString().slice(0, 10);
+  if (typeof d === 'string') return d.slice(0, 10);
+  return null;
+}
+
+function engajIsManagement() {
+  return (typeof isAdminGestao === 'function' && isAdminGestao()) ||
+         (typeof isSupervisao === 'function' && isSupervisao());
+}
+
+async function renderEngajPlacarPage() {
+  const container = document.getElementById('page-engaj-placar');
+  if (!container) return;
+  const mgmt = engajIsManagement();
+
+  container.innerHTML = `
+    <div class="page-hdr"><h1>🏆 Placar</h1><p>${mgmt ? 'Pontuação por colaborador no ciclo.' : 'Sua pontuação no ciclo.'}</p></div>
+    <div class="loading"><div class="spinner"></div> Calculando placar…</div>`;
+
+  const [cyclesRes, teachersRes] = await Promise.all([
+    EngagementService.listCycles(),
+    TeacherService.list(),
+  ]);
+
+  let cycles = cyclesRes.success && cyclesRes.data.length
+    ? cyclesRes.data
+    : [{ id: '_all', inicio: '1900-01-01', fim: chamadaTodayISO(), label: 'Todos os lançamentos' }];
+  if (!EngajPlacarState.cycleId || !cycles.find(c => c.id === EngajPlacarState.cycleId)) {
+    const cur = (typeof PointsEngine === 'object') ? PointsEngine.cycleIdFor(chamadaTodayISO(), cycles) : null;
+    EngajPlacarState.cycleId = cur || cycles[0].id;
+  }
+  const cycle = cycles.find(c => c.id === EngajPlacarState.cycleId) || cycles[0];
+  EngajPlacarState.cycles = cycles;
+
+  let teachers = (teachersRes.success ? teachersRes.data : []).filter(t => t.isActive !== false);
+  if (!mgmt) {
+    const pid = (typeof AppState === 'object' && AppState.userProfile) ? AppState.userProfile.professorId : null;
+    teachers = teachers.filter(t => t.id === pid);
+  }
+
+  const rows = await Promise.all(teachers.map(async t => {
+    const r = await EngagementService.scoreboard(t.id, engajHireISO(t), cycle);
+    return { t, sb: r.success ? r.data : { porTipo: {}, tempoCasa: 0, total: 0 } };
+  }));
+  rows.sort((a, b) => b.sb.total - a.sb.total);
+
+  renderPlacarContent(container, rows, cycles, cycle, mgmt);
+}
+
+function placarRow(r) {
+  const pt = r.sb.porTipo || {};
+  const escola = (pt.escola_interna || 0) + (pt.escola_interna_lider || 0) + (pt.treinar_como_aluno || 0) + (pt.toi_aluno || 0);
+  const reun = pt.reuniao || 0, pro = pt.proatividade_substituicao || 0, ev = pt.evento || 0, tr = pt.treinamento_presenca || 0, pen = pt.penalidade_treino || 0;
+  const cell = (v) => `<td style="text-align:center;color:${v ? 'var(--text)' : 'var(--text3)'};">${v || '—'}</td>`;
+  return `<tr>
+    <td style="font-weight:600;">${r.t.name || '—'}</td>
+    ${cell(r.sb.tempoCasa)}${cell(escola)}${cell(reun)}${cell(pro)}${cell(ev)}${cell(tr)}
+    <td style="text-align:center;color:${pen < 0 ? 'var(--red)' : 'var(--text3)'};">${pen || '—'}</td>
+    <td style="text-align:center;font-weight:700;color:var(--blue);">${r.sb.total}</td>
+  </tr>`;
+}
+
+function renderPlacarContent(container, rows, cycles, cycle, mgmt) {
+  const cycleOpts = cycles.map(c => `<option value="${c.id}" ${c.id === cycle.id ? 'selected' : ''}>${c.label || (c.inicio + ' a ' + c.fim)}</option>`).join('');
+  let body;
+  if (rows.length === 0) {
+    body = `<p style="padding:24px;color:var(--text2);">${mgmt ? 'Nenhum colaborador ativo.' : 'Você ainda não tem pontos neste ciclo.'}</p>`;
+  } else {
+    body = `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>Colaborador</th>
+        <th style="text-align:center;">Tempo casa</th><th style="text-align:center;">Escola int.</th>
+        <th style="text-align:center;">Reunião</th><th style="text-align:center;">Proativ.</th>
+        <th style="text-align:center;">Eventos</th><th style="text-align:center;">Treino</th>
+        <th style="text-align:center;">Penal.</th><th style="text-align:center;">Total</th>
+      </tr></thead>
+      <tbody>${rows.map(placarRow).join('')}</tbody>
+    </table></div>`;
+  }
+  container.innerHTML = `
+    <div class="page-hdr"><h1>🏆 Placar</h1><p>${mgmt ? 'Pontuação por colaborador no ciclo. Tempo de casa entra sempre (fora do reset).' : 'Sua pontuação no ciclo.'}</p></div>
+    <div style="display:flex;gap:12px;align-items:end;margin-bottom:14px;">
+      <div class="form-group" style="margin:0;"><label>Ciclo</label><select id="placarCycle" class="input" onchange="onPlacarCycleChange()">${cycleOpts}</select></div>
+    </div>
+    ${body}`;
+}
+
+function onPlacarCycleChange() {
+  const el = document.getElementById('placarCycle');
+  if (el) EngajPlacarState.cycleId = el.value;
+  renderEngajPlacarPage();
+}
+
+// Expor funções globalmente (chamadas via navigateTo)
+window.renderEngajConfigPage = renderEngajConfigPage;
+window.renderEngajChamadaPage = renderEngajChamadaPage;
+window.renderEngajPlacarPage = renderEngajPlacarPage;
+// Config
+window.saveEngajConfig = saveEngajConfig;
+window.addEngajCycle = addEngajCycle;
+window.removeEngajCycle = removeEngajCycle;
+// Chamada
+window.onChamadaToolbarChange = onChamadaToolbarChange;
+window.setChamadaMark = setChamadaMark;
+window.toggleChamadaLider = toggleChamadaLider;
+window.saveChamada = saveChamada;
+// Placar
+window.onPlacarCycleChange = onPlacarCycleChange;
+
+console.log('[CrossTainer Professores] professores-engajamento.js carregado · Config·Chamada·Placar');

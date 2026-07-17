@@ -4,12 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CROSSTRAINER ELITE — Performance</title>
+  <title>CROSSTAINER ELITE — Performance</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CROSSTRAINER ELITE">
+  <meta name="apple-mobile-web-app-title" content="CROSSTAINER ELITE">
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -19,6 +19,10 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Config + init do Firebase centralizados (detecção automática staging/produção) -->
+  <script src="firebase-config.js"></script>
+  <!-- Derivação compartilhada profiles[] → moduleAccess/role -->
+  <script src="user-model.js"></script>
   <style>
     :root {
       --bg: #0a0a0a;
@@ -213,6 +217,12 @@
       width: 20px;
       text-align: center
     }
+
+    /* Seletor de módulo (Comissões ↔ Professores) — espelho do professores.html */
+    .sb-switcher { display: flex; gap: 6px; padding: 8px 12px 4px; }
+    .sb-switcher a { font-size: 11px; padding: 3px 10px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--text3); }
+    .sb-switcher a.active { background: var(--orange); color: #1e293b; border-color: var(--orange); font-weight: 700; }
 
     .sb-section {
       font-size: 10px;
@@ -1982,7 +1992,7 @@
             <h3
               style="font-size:20px; color:var(--orange); margin:0; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">
               📜 Regras da Elite</h3>
-            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CROSSTRAINER ELITE — Performance, Metas e
+            <div style="font-size:11px; color:var(--text3); margin-top:2px;">CROSSTAINER ELITE — Performance, Metas e
               Conquistas
             </div>
           </div>
@@ -2661,7 +2671,7 @@
           </svg>
         </div>
         <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:2px;color:var(--orange);">
-          CROSSTRAINER <span style="color:var(--text)">ELITE</span></div>
+          CROSSTAINER <span style="color:var(--text)">ELITE</span></div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">Performance, Metas e Conquistas.</div>
       </div>
       <div
@@ -2850,7 +2860,7 @@
   <!-- LOGIN PAGE -->
   <div class="login-page" id="loginPage">
     <div class="login-box">
-      <div class="logo">CROSSTRAINER <span>ELITE</span></div>
+      <div class="logo">CROSSTAINER <span>ELITE</span></div>
       <div class="sub">Performance, Metas e Conquistas</div>
       <div id="loginForm">
         <div class="input-group"><label>Email</label><input type="email" id="loginEmail" placeholder="seu@email.com">
@@ -2875,7 +2885,7 @@
             <rect x="2" y="2" width="16" height="16" rx="2" stroke="#000" stroke-width="2" />
             <path d="M6 7h8M6 10h8M6 13h5" stroke="#000" stroke-width="1.5" stroke-linecap="round" />
           </svg></div>
-        <div class="sb-logo-text">CROSSTRAINER <span>ELITE</span></div>
+        <div class="sb-logo-text">CROSSTAINER <span>ELITE</span></div>
       </div>
       <nav class="sb-nav" id="sidebarNav"></nav>
       <div class="sb-user">
@@ -2979,11 +2989,14 @@
           <div class="input-group"><label>Chave PIX (Recibo)</label><input id="newUserPix"
               placeholder="Telefone, CPF, Email..."></div>
 
-          <div class="input-group"><label>Perfil</label>
-            <select id="newUserRole">
-              <option value="vendedor">Vendedor(a)</option>
-              <option value="admin">Administrador</option>
-            </select>
+          <div class="input-group"><label>Perfis</label>
+            <div id="newUserProfiles" style="display:flex; flex-direction:column; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px;">
+              <!-- checkboxes populados via renderProfileCheckboxes() -->
+            </div>
+          </div>
+          <div class="input-group" id="professorLinkGroup" style="display:none;">
+            <label>Vincular ao professor (cadastro)</label>
+            <select id="newUserProfessorId"><option value="">— selecione —</option></select>
           </div>
           <div class="input-group"><label>Acesso às Unidades</label>
             <div id="newUserUnitsContainer" style="display:flex; flex-direction:column; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; max-height:150px; overflow-y:auto;">
@@ -3218,18 +3231,12 @@
 
   <script>
     // ═══════════════════════════════════════════════════════════════
-    // FIREBASE CONFIG — REPLACE WITH YOUR PROJECT CONFIG
+    // FIREBASE — config + init centralizados em firebase-config.js
+    // (detecção automática staging vs produção pelo hostname).
+    // firebaseConfig vem de window.FIREBASE_CONFIG e é reusado pelo app
+    // 'secondary' (criação de usuário sem deslogar o admin).
     // ═══════════════════════════════════════════════════════════════
-    const firebaseConfig = {
-      apiKey: "AIzaSyCILbVvHuOgEaFsK-OrXCN7_NmJeMB5GKI",
-      authDomain: "crosstrainer-comissoes.firebaseapp.com",
-      projectId: "crosstrainer-comissoes",
-      storageBucket: "crosstrainer-comissoes.firebasestorage.app",
-      messagingSenderId: "909536955760",
-      appId: "1:909536955760:web:36a4d166aa747f5f9653b5"
-    };
-
-    firebase.initializeApp(firebaseConfig);
+    const firebaseConfig = window.FIREBASE_CONFIG;
     const auth = firebase.auth();
     const db = firebase.firestore();
 
@@ -3282,6 +3289,15 @@
           const doc = await db.collection('users').doc(user.uid).get();
           if (doc.exists) {
             userProfile = doc.data();
+            // Segregação (§4.7): quem não tem acesso ao Comissões não entra aqui.
+            const _ma = userProfile.moduleAccess
+              || UserModel.deriveUserModel(userProfile.profiles || (userProfile.role ? [userProfile.role] : [])).moduleAccess;
+            if (!_ma.comissoes) {
+              // Professor entra pelo link principal → vai direto pro módulo dele, sem clique.
+              if (_ma.professores) { location.replace('professores.html'); return; }
+              showNoComissoesAccess(); // sem acesso a módulo nenhum → tela explicativa
+              return;
+            }
             const allowed = userProfile.allowedUnits || (userProfile.unitId ? [userProfile.unitId] : ['cp']);
             if (!allowed.includes(currentUnitId)) {
               currentUnitId = allowed[0];
@@ -3302,6 +3318,20 @@
         showLogin();
       }
     });
+
+    function showNoComissoesAccess() {
+      const shell = document.getElementById('appShell');
+      if (shell) shell.style.display = 'none';
+      const lp = document.getElementById('loginPage');
+      if (lp) lp.style.display = 'none';
+      if (document.getElementById('noComissoesBlock')) return;
+      document.body.insertAdjacentHTML('beforeend',
+        '<div id="noComissoesBlock" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);color:var(--text);text-align:center;padding:20px;z-index:9999;">'
+        + '<div style="font-size:16px;font-weight:700;">Sem acesso ao módulo Comissões</div>'
+        + '<div style="font-size:13px;color:var(--text2);max-width:340px;">Seu usuário não tem acesso ao Comissões. Use o módulo Professores.</div>'
+        + '<a href="professores.html" style="background:var(--orange);color:#000;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Ir para Professores →</a>'
+        + '</div>');
+    }
 
     function showProfileRecovery(email) {
       document.getElementById('loginPage').style.display = '';
@@ -3409,6 +3439,11 @@
         loadVendorPeriods();
       }
       renderQuickUnitSelector();
+
+      // Deep-link: abre uma página específica via ?page=... (ex.: vindo do módulo Professores).
+      // Aditivo — sem o parâmetro, o pouso default acima permanece. ACL é garantida pela navigateTo.
+      const deepLinkPage = new URLSearchParams(location.search).get('page');
+      if (deepLinkPage) navigateTo(deepLinkPage);
     }
 
     function buildMobileNav() {
@@ -3536,13 +3571,24 @@
       const nav = document.getElementById('sidebarNav');
       const isAdmin = userProfile.role === 'admin';
       let html = '';
+      // Seletor de módulo (espelho do professores.html) — só pra quem tem 2+ módulos
+      const _maSw = userProfile.moduleAccess
+        || UserModel.deriveUserModel(userProfile.profiles || (userProfile.role ? [userProfile.role] : [])).moduleAccess;
+      if (_maSw.comissoes && _maSw.professores) {
+        html += `<div class="sb-switcher">
+          <a class="active" href="index.html">Comissões</a>
+          <a href="professores.html">Professores</a>
+        </div>`;
+      }
       if (isAdmin) {
         html += '<div class="sb-section">Gestão</div>';
         html += sbItem('dashboard', '📊', 'Dashboard');
         html += sbItem('comparativo', '🔄', 'Comparativo');
         html += sbItem('upload', '📤', 'Upload');
         html += '<div class="sb-section">Admin</div>';
-        html += sbItem('users', '👥', 'Usuários');
+        // D10 (hub Pessoas): gestão de usuários migrou pro hub no app Professores.
+        // A tela page-users continua no código, sem entrada de menu.
+        html += `<a class="sb-item" href="professores.html?page=pessoas" style="text-decoration:none;color:inherit;"><span class="icon">👥</span>Pessoas</a>`;
         html += sbItem('units', '🏢', 'Unidades');
         html += sbItem('audit', '📋', 'Auditoria');
         html += sbItem('settings', '⚙', 'Configurações');
@@ -3633,7 +3679,9 @@
           if (bDash) { bDash.textContent = unitName; bDash.style.display = 'inline-block'; }
           if (bVend) { bVend.textContent = unitName; bVend.style.display = 'inline-block'; }
         } else {
-          await db.collection('units').doc(currentUnitId).set({ name: 'CrossTainer CP', config: CommissionEngine.defaultConfig });
+          // Unidade inexistente: usa config default só em memória, SEM gravar.
+          // O set() antigo "ressuscitava" units órfãs como "CrossTainer CP" inativas
+          // a cada login com allowedUnits[0] apontando pra doc inexistente (bug 11/06/2026).
           unitConfig = CommissionEngine.defaultConfig;
         }
       } catch (e) { unitConfig = CommissionEngine.defaultConfig; }
@@ -3770,8 +3818,11 @@
         : users.map(u => {
           const isPendente = u.status === 'pendente';
           const isNaoCom = !isPendente && naoComList.some(n => (u.name || '').toUpperCase().includes(n));
+          const profiles = u.profiles || (u.role ? [u.role] : []);
           const roleClass = isPendente ? 'role-pendente' : u.role === 'admin' ? 'role-admin' : isNaoCom ? 'role-naocom' : 'role-vendedor';
-          const roleLabel = isPendente ? 'Pendente' : u.role === 'admin' ? 'Admin' : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
+          const roleLabel = isPendente ? 'Pendente'
+            : profiles.length ? profiles.map(p => (UserModel.PROFILE_LABELS[p] || p)).join(' · ')
+            : isNaoCom ? 'Não-com.' : 'Vendedor(a)';
           const isUserOwner = isOwner(u.email || '');
           return `<div class="user-row">
           <div class="ur-info"><div class="ur-avatar" style="${isUserOwner ? 'background:var(--orange-glow);color:var(--orange);border:1px solid var(--orange)' : ''}">${(u.name || '?')[0].toUpperCase()}</div><div><div class="ur-name">${u.name || u.email}${isUserOwner ? ' <span style="font-size:9px;background:var(--orange-glow);color:var(--orange);padding:1px 6px;border-radius:3px;font-weight:700;letter-spacing:.5px;vertical-align:middle">DESENVOLVEDOR</span>' : ''}</div><div class="ur-email">${isPendente ? 'Cadastrado repassado do Excel' : u.email}</div></div></div>
@@ -3793,7 +3844,7 @@
       try {
         // Hotfix segurança (15/06/2026): cria o Auth via app secundário pra NÃO trocar a
         // sessão do admin (antes usava o auth principal e deslogava o admin) e grava o doc
-        // pela sessão do admin (db principal) — a regra de create agora exige admin.
+        // pela sessão do admin (db principal) — a regra de create exige admin.
         const secondaryApp = firebase.apps.find(a => a.name === 'secondary')
           || firebase.initializeApp(firebaseConfig, 'secondary');
         const secondaryAuth = secondaryApp.auth();
@@ -3832,6 +3883,44 @@
       }
     }
 
+    // ─── Perfis (multi) + vínculo com professor ───────────────────────
+    function renderProfileCheckboxes(selected) {
+      const sel = selected || [];
+      const container = document.getElementById('newUserProfiles');
+      container.innerHTML = UserModel.PROFILE_ORDER.map(p =>
+        `<label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+          <input type="checkbox" class="user-profile-cb" value="${p}" ${sel.includes(p) ? 'checked' : ''} onchange="updateProfessorLinkVisibility()">
+          ${UserModel.PROFILE_LABELS[p]}
+        </label>`
+      ).join('');
+      updateProfessorLinkVisibility();
+    }
+
+    function getSelectedProfiles() {
+      return Array.from(document.querySelectorAll('#newUserProfiles .user-profile-cb:checked')).map(cb => cb.value);
+    }
+
+    function updateProfessorLinkVisibility() {
+      const show = UserModel.isTeacherProfile(getSelectedProfiles());
+      document.getElementById('professorLinkGroup').style.display = show ? '' : 'none';
+    }
+
+    async function populateTeacherSelect() {
+      const sel = document.getElementById('newUserProfessorId');
+      sel.innerHTML = '<option value="">— selecione —</option>';
+      try {
+        const snap = await db.collection('teachers').orderBy('name').get();
+        snap.forEach(doc => {
+          const opt = document.createElement('option');
+          opt.value = doc.id;
+          opt.textContent = doc.data().name || doc.id;
+          sel.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Erro ao carregar professores p/ vínculo:', e.message);
+      }
+    }
+
     async function showAddUser() {
       document.getElementById('userFormTitle').textContent = 'Novo Usuário';
       document.getElementById('editUserId').value = '';
@@ -3844,6 +3933,9 @@
       document.getElementById('newUserPix').value = '';
       document.getElementById('btnSaveUser').textContent = 'Criar';
       await populateUserUnitsCheckboxes();
+      renderProfileCheckboxes([]);
+      await populateTeacherSelect();
+      document.getElementById('newUserProfessorId').value = '';
       document.getElementById('addUserForm').style.display = '';
     }
 
@@ -3862,7 +3954,10 @@
 
           document.getElementById('newUserCpf').value = d.cpf || '';
           document.getElementById('newUserPix').value = d.pix || '';
-          document.getElementById('newUserRole').value = d.role || 'vendedor';
+          renderProfileCheckboxes(d.profiles || (d.role ? [d.role] : []));
+          await populateTeacherSelect();
+          document.getElementById('newUserProfessorId').value = d.professorId || '';
+          updateProfessorLinkVisibility();
 
           await populateUserUnitsCheckboxes();
 
@@ -3887,18 +3982,24 @@
     }
 
     async function editExistingUser(uid) {
+      const errEl = document.getElementById('addUserError');
+      errEl.textContent = '';
       const name = document.getElementById('newUserName').value.trim();
       const cpf = document.getElementById('newUserCpf').value.trim();
       const pix = document.getElementById('newUserPix').value.trim();
-      const role = document.getElementById('newUserRole').value;
+      const profiles = getSelectedProfiles();
+      if (profiles.length === 0) { errEl.textContent = 'Selecione ao menos um perfil.'; return; }
+      const { moduleAccess, role } = UserModel.deriveUserModel(profiles);
+      const professorId = UserModel.isTeacherProfile(profiles)
+        ? (document.getElementById('newUserProfessorId').value || null) : null;
       const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
-      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
-      
+      if (moduleAccess.comissoes && allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade (acesso ao Comissões).'; return; }
+
       try {
-        await db.collection('users').doc(uid).update({ 
-          name, cpf, pix, role, 
+        await db.collection('users').doc(uid).update({
+          name, cpf, pix, role, profiles, moduleAccess, professorId,
           allowedUnits,
-          unitId: allowedUnits[0] // fallback for legacy code
+          unitId: allowedUnits[0] || null // fallback for legacy code
         });
         toast(`Usuário atualizado com sucesso!`, 'success');
         document.getElementById('addUserForm').style.display = 'none';
@@ -3914,14 +4015,19 @@
       const cpf = document.getElementById('newUserCpf').value.trim();
       const pix = document.getElementById('newUserPix').value.trim();
 
-      const role = document.getElementById('newUserRole').value;
+      const profiles = getSelectedProfiles();
       const allowedUnits = Array.from(document.querySelectorAll('#newUserUnitsContainer input:checked')).map(cb => cb.value);
       const errEl = document.getElementById('addUserError');
       errEl.textContent = '';
 
       if (!name || !email || !pass) { errEl.textContent = 'Preencha todos os campos.'; return; }
-      if (allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade.'; return; }
+      if (profiles.length === 0) { errEl.textContent = 'Selecione ao menos um perfil.'; return; }
       if (pass.length < 6) { errEl.textContent = 'Senha mín. 6 caracteres.'; return; }
+
+      const { moduleAccess, role } = UserModel.deriveUserModel(profiles);
+      const professorId = UserModel.isTeacherProfile(profiles)
+        ? (document.getElementById('newUserProfessorId').value || null) : null;
+      if (moduleAccess.comissoes && allowedUnits.length === 0) { errEl.textContent = 'Selecione ao menos uma unidade (acesso ao Comissões).'; return; }
 
       try {
         // Use a secondary Firebase app so the admin session is never replaced
@@ -3933,14 +4039,13 @@
         const cred = await secondaryAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // Hotfix segurança (15/06/2026): grava o perfil pela sessão do ADMIN (db principal),
-        // não mais pela do novo usuário (secondaryDb). A regra de create passou a exigir admin,
-        // então a gravação como o próprio usuário seria negada. O admin continua logado no db
-        // principal (secondaryApp serve só pra criar o Auth sem trocar a sessão atual).
+        // Grava o perfil como ADMIN pelo db principal — as rules atuais só permitem
+        // create por admin (o padrão antigo de gravar como o usuário novo era negado
+        // e deixava Auth órfão — achado do check geral 11/06).
         await db.collection('users').doc(newUid).set({
-          name, email, cpf, pix, role, 
+          name, email, cpf, pix, role, profiles, moduleAccess, professorId,
           allowedUnits,
-          unitId: allowedUnits[0], 
+          unitId: allowedUnits[0] || null,
           status: 'ativo',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -3969,7 +4074,7 @@
         }
 
         toast(`Usuário ${name} criado com sucesso!`, 'success');
-        logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidade: ${unitId}`);
+        logAudit('user_create', `Novo usuário: ${name} (${email}) · Perfil: ${role} · Unidades: ${allowedUnits.join(', ') || '—'}`);
         document.getElementById('addUserForm').style.display = 'none';
         document.getElementById('newUserName').value = '';
         document.getElementById('newUserEmail').value = '';

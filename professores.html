@@ -150,13 +150,17 @@
     }
     .sb-logo-text span { color: var(--text); }
 
-    .sb-nav { flex: 1; overflow-y: auto; }
+    .sb-nav { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .sb-nav::-webkit-scrollbar { width: 6px; }
+    .sb-nav::-webkit-scrollbar-track { background: transparent; }
+    .sb-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .sb-nav::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
     .sb-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 20px;
+      padding: 6px 20px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text2);
@@ -175,14 +179,46 @@
     .sb-section {
       font-size: 10px;
       background: var(--surface2);
-      margin: 8px 12px 4px;
+      margin: 5px 12px 2px;
       border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       color: var(--text2);
       font-weight: 700;
-      padding: 6px 8px;
+      padding: 4px 8px;
     }
+
+    /* Seção Administração (sistema) — links cross-módulo */
+    .sb-sys-hdr { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; color: var(--orange); }
+    a.sb-item.sb-sys { text-decoration: none; }
+    a.sb-item.sb-sys:hover { background: var(--surface2); }
+
+    /* Seletor de módulo (Comissões ↔ Professores) */
+    .sb-switcher { display: flex; gap: 6px; padding: 8px 12px 4px; }
+    .sb-switcher a { font-size: 11px; padding: 3px 10px; border-radius: 999px; text-decoration: none;
+      border: 1px solid var(--border); color: var(--text3); }
+    .sb-switcher a.active { background: var(--orange); color: #1e293b; border-color: var(--orange); font-weight: 700; }
+
+    /* ─── Home / Início — Centro de Pendências (Plano C) ─── */
+    .home-wrap { max-width: 760px; }
+    .home-greet { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 16px; }
+    .home-greet .home-date { display: block; font-size: 12px; font-weight: 500; color: var(--text3); text-transform: capitalize; margin-top: 2px; }
+    .home-loading, .home-empty { color: var(--text3); font-size: 13px; padding: 8px 0; }
+    .home-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+    .home-pend { background: var(--orange-dim); border-color: var(--orange); }
+    .home-ok { color: var(--text2); font-size: 13px; }
+    .home-pt { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); font-weight: 700; margin-bottom: 10px; }
+    .home-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .home-chip { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .home-chip:hover { border-color: var(--orange); }
+    .home-chip b { color: var(--orange); font-size: 15px; margin-right: 2px; }
+    .home-chip-static, .home-chip-static:hover { cursor: default; border-color: var(--border); }
+    .home-empty-inline { color: var(--text3); font-size: 13px; }
+    .home-atalhos-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); font-weight: 700; margin: 16px 0 8px; }
+    .home-atalhos { display: flex; gap: 10px; flex-wrap: wrap; }
+    .home-atalho { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text); cursor: pointer; }
+    .home-atalho:hover { border-color: var(--orange); color: var(--orange); }
+    .home-atalho .ic { font-size: 16px; }
 
     .sb-user {
       padding: 16px 20px;
@@ -333,6 +369,47 @@
       width: auto;
     }
     .btn-outline:hover { background: var(--orange-dim); }
+
+    /* Aliases usados pelas telas mais novas (Relatórios/Férias/Engajamento/PLR/Escala):
+       btn-primary/btn-secondary não existiam no CSS → botão renderizava como default do browser */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      background: var(--orange);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      width: auto;
+    }
+    .btn-primary:hover { background: var(--orange-light); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 18px;
+      background: transparent;
+      color: var(--text2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      width: auto;
+    }
+    .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+    .btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
 
     .error-msg {
       color: var(--red);
@@ -542,6 +619,38 @@
     }
     .close-btn:hover { color: var(--text); }
 
+    /* Padrão overlay separado (Escala Inteligente/Escalas): .modal-overlay é o backdrop
+       e o .modal adjacente vira a CAIXA centralizada (sem isso o .modal base — que é
+       backdrop fullscreen — engolia o conteúdo cru na tela inteira) */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      z-index: 1000;
+    }
+    .modal-overlay + .modal {
+      position: fixed;
+      inset: auto;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: calc(100% - 40px);
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      z-index: 1001;
+    }
+    .modal-overlay + .modal h2 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 16px;
+    }
+
     .form-group { margin-bottom: 14px; }
     .form-group label {
       display: block;
@@ -581,6 +690,22 @@
       color: var(--text3);
       margin-top: 4px;
     }
+    /* .input avulso (fora de .form-group) — telas novas usam class="input" direto;
+       dentro de .form-group o seletor descendente acima continua mandando (width:100%) */
+    .input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+    }
+    .input:focus {
+      outline: none;
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px var(--orange-dim);
+    }
     .form-actions {
       display: flex;
       gap: 10px;
@@ -588,6 +713,29 @@
       margin-top: 8px;
     }
     .form-actions .btn { width: auto; padding: 10px 20px; }
+
+    /* Hub Pessoas — linha de checkbox (checkbox à esquerda, rótulo ao lado).
+       Especificidade > .form-group label / .form-group input (que são block/width:100%). */
+    .check-row,
+    .form-group label.check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px;
+      cursor: pointer;
+      text-transform: none;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0;
+    }
+    .check-row input[type="checkbox"],
+    .form-group .check-row input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: var(--orange);
+    }
 
     /* ─── PAGE TOOLBAR (header com botão de ação) ─── */
     .page-toolbar {
@@ -1648,23 +1796,23 @@
     .meus-recibos-card table { width:100%; border-collapse:collapse; font-size:13px; }
     .meus-recibos-card td { padding:8px 16px; border-bottom:1px solid var(--border); }
     /* ─── Sprint 6b — Bloco de Pagamento ──────────────────────────────────── */
-    .payment-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 12px 0; }
-    .payment-block h4 { margin: 0 0 12px 0; font-size: 15px; color: #1e293b; }
+    .payment-block { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .payment-block h4 { margin: 0 0 12px 0; font-size: 15px; color: var(--text); }
     .payment-mode-selector { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .payment-radio { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 13px; cursor: pointer; background: #fff; transition: all 0.15s; }
-    .payment-radio.active { border-color: #3b82f6; background: #eff6ff; color: #1e40af; }
-    .payment-radio input { accent-color: #3b82f6; }
-    .payment-preview { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
-    .payment-preview .preview-line { display: flex; justify-content: space-between; color: #475569; margin-bottom: 4px; }
-    .payment-preview .preview-sub { font-size: 11px; color: #94a3b8; margin-bottom: 4px; padding-left: 8px; }
-    .payment-preview .preview-total { display: flex; justify-content: space-between; font-weight: 700; color: #0f172a; font-size: 15px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; }
-    .payment-preview .preview-info { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-    .payment-preview .preview-error { color: #dc2626; font-size: 13px; }
-    .payment-preview .preview-loader { color: #94a3b8; font-size: 13px; }
+    .payment-radio { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid var(--border); border-radius: 20px; font-size: 13px; cursor: pointer; background: var(--surface); color: var(--text2); transition: all 0.15s; }
+    .payment-radio.active { border-color: var(--orange); background: var(--orange-dim); color: var(--orange); }
+    .payment-radio input { accent-color: var(--orange); }
+    .payment-preview { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
+    .payment-preview .preview-line { display: flex; justify-content: space-between; color: var(--text2); margin-bottom: 4px; }
+    .payment-preview .preview-sub { font-size: 11px; color: var(--text3); margin-bottom: 4px; padding-left: 8px; }
+    .payment-preview .preview-total { display: flex; justify-content: space-between; font-weight: 700; color: var(--text); font-size: 15px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); }
+    .payment-preview .preview-info { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .payment-preview .preview-error { color: var(--red, #ef4444); font-size: 13px; }
+    .payment-preview .preview-loader { color: var(--text3); font-size: 13px; }
     .alert-warning { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; padding: 8px 12px; border-radius: 6px; font-size: 13px; margin: 8px 0; }
-    .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-    .helper-text { display: block; font-size: 11px; color: #64748b; margin-top: 4px; }
-    .ferias-approve-info { display: flex; gap: 16px; font-size: 13px; color: #475569; margin: 8px 0 16px 0; flex-wrap: wrap; }
+    .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; color: var(--text); }
+    .helper-text { display: block; font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .ferias-approve-info { display: flex; gap: 16px; font-size: 13px; color: var(--text2); margin: 8px 0 16px 0; flex-wrap: wrap; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
     /* ─── Sprint 6b — Coluna Pagamento ────────────────────────────────────── */
@@ -1785,6 +1933,70 @@
     .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
     .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
     .empty-suggestion { font-size: 13px; color: var(--text2); max-width: 400px; margin: 0 auto; }
+
+    /* ─── MOBILE — visão do professor: cabeçalho compacto + barra inferior ─── */
+    .mobile-topbar { display: none; }
+    .bottom-nav { display: none; }
+    @media (max-width: 768px) {
+      .mobile-topbar {
+        display: flex; align-items: center; gap: 10px;
+        position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 60;
+        padding: 0 12px; background: var(--surface1, #121216);
+        border-bottom: 1px solid var(--border);
+      }
+      .mtb-btn {
+        background: none; border: none; color: var(--text); font-size: 20px;
+        min-width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; position: relative;
+      }
+      .mtb-title { flex: 1; font-size: 15px; font-weight: 500; color: var(--text); }
+      .mtb-badge {
+        position: absolute; top: 4px; right: 4px; background: var(--orange); color: #0a0a0a;
+        font-size: 10px; font-weight: 700; border-radius: 9px; padding: 0 5px; line-height: 16px;
+      }
+      .bottom-nav {
+        display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+        background: var(--surface1, #121216); border-top: 1px solid var(--border);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .bottom-nav-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        min-height: 52px; padding: 7px 2px 5px; background: none; border: none;
+        color: var(--text2); font-size: 9px; cursor: pointer;
+      }
+      .bottom-nav-item .bn-icon { font-size: 20px; line-height: 1; }
+      .bottom-nav-item.active { color: var(--orange); }
+      .menu-toggle { display: none !important; }
+      /* .main é flex item de #appShell (display:flex). Sem isto, conteúdo largo
+         (ex.: a tabela de 9 colunas do Placar) estica o .main além da viewport →
+         overflow horizontal do documento, que descola a barra fixa e a "some" no
+         mobile. min-width:0 (o clássico do flexbox) deixa o item encolher; a tabela
+         passa a rolar dentro do próprio .table-wrap (overflow-x:auto). */
+      .main { min-width: 0; }
+      .page { padding: 64px 14px calc(74px + env(safe-area-inset-bottom)) !important; }
+      #notifDropdown {
+        position: fixed !important; top: 56px; bottom: auto !important; right: 8px; left: 8px; width: auto !important;
+        max-height: 70vh; overflow-y: auto; z-index: 70;
+      }
+      .page-hdr h1 { font-size: 20px; }
+    }
+    /* ─── Abas da Escala (professor) — desktop: underline; mobile: chips ─── */
+    .escala-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 12px; flex-wrap: wrap; }
+    .escala-tab {
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--text2); font-weight: 400; font-size: 14px; padding: 8px 14px; cursor: pointer;
+    }
+    .escala-tab.active { border-bottom-color: var(--blue); color: var(--text); font-weight: 600; }
+    @media (max-width: 768px) {
+      .escala-tabs { gap: 6px; border-bottom: none; }
+      .escala-tab {
+        border: 1px solid var(--border); border-radius: 16px; padding: 8px 14px;
+        min-height: 40px; background: var(--surface2, #1c1c22);
+      }
+      .escala-tab.active {
+        border-color: var(--orange); background: var(--orange); color: #0a0a0a; font-weight: 600;
+      }
+    }
   </style>
 </head>
 
@@ -1833,6 +2045,14 @@
   <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">☰</button>
 
   <div class="app" id="appShell" style="display:none">
+    <!-- Mobile — cabeçalho compacto (☰ + título + sino). Só visível ≤768px via CSS. -->
+    <header class="mobile-topbar" id="mobileTopbar">
+      <button class="mtb-btn" onclick="toggleMenu()" aria-label="Abrir menu">☰</button>
+      <span class="mtb-title" id="mobileTopbarTitle">Início</span>
+      <button class="mtb-btn mtb-bell" id="mobileNotifBell" onclick="event.stopPropagation(); toggleNotifDropdown()" aria-label="Notificações">
+        🔔<span class="mtb-badge" id="mobileNotifBadge" style="display:none;">0</span>
+      </button>
+    </header>
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sb-logo">
@@ -1847,6 +2067,7 @@
           <span id="envBadgeApp" class="env-badge staging" style="display:none;">staging</span>
         </div>
       </div>
+      <div class="sb-switcher" id="sbSwitcher" style="display:none;"></div>
       <nav class="sb-nav" id="sidebarNav"></nav>
       <div class="sb-user">
         <div class="name" id="userName"></div>
@@ -1899,55 +2120,15 @@
           <p>Selecione uma seção no menu lateral para começar.</p>
         </div>
 
-        <div class="placeholder-grid">
-          <div class="placeholder-card">
-            <div class="icon">🏷️</div>
-            <h3>Modalidades</h3>
-            <p>Cadastrar e gerenciar as modalidades oferecidas (CrossFit, Yoga, Funcional, etc.)</p>
-            <span class="status soon">Em construção · Sprint 1</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">👥</div>
-            <h3>Professores</h3>
-            <p>Cadastrar professores, modalidades, unidades vinculadas e dados salariais.</p>
-            <span class="status soon">Em construção · Sprint 1</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">📅</div>
-            <h3>Agenda</h3>
-            <p>Grade semanal por unidade, agenda geral multi-unidade e lançamento em lote.</p>
-            <span class="status soon">Sprint 2</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">🔄</div>
-            <h3>Substituições</h3>
-            <p>Solicitar trocas diretas ou abrir cobertura. Aceitar/recusar como substituto.</p>
-            <span class="status soon">Sprint 3</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">💰</div>
-            <h3>Fechamento e Pagamento</h3>
-            <p>Consolidar horas do mês, calcular pagamento, emitir recibos.</p>
-            <span class="status soon">Sprint 4</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">⭐</div>
-            <h3>Escalas Especiais</h3>
-            <p>Sábados, feriados, domingos especiais e eventos com pesos diferenciados.</p>
-            <span class="status soon">Sprint 5</span>
-          </div>
-          <div class="placeholder-card">
-            <div class="icon">🏖️</div>
-            <h3>Férias e Recesso</h3>
-            <p>Solicitar férias CLT (efetivo) e recesso de 30 dias (estagiário).</p>
-            <span class="status soon">Sprint 6</span>
-          </div>
+        <div class="home-hint" style="color:var(--text3);font-size:13px;padding:8px 0;">
+          O painel de pendências chega em breve. Por ora, selecione uma seção no menu lateral.
         </div>
       </div>
 
       <!-- Páginas serão renderizadas dinamicamente pelos módulos JS -->
       <div class="page" id="page-modalidades"></div>
       <div class="page" id="page-professores"></div>
+      <div class="page" id="page-pessoas"></div>
       <div class="page" id="page-agenda"></div>
       <div class="page" id="page-agenda-geral"></div>
       <div class="page" id="page-minha-agenda"></div>
@@ -1959,7 +2140,16 @@
       <div class="page" id="page-meu-saldo"></div>
       <div class="page" id="page-saldos-gestao"></div>
       <div class="page" id="page-relatorios"></div>
+      <div class="page" id="page-engaj-config"></div>
+      <div class="page" id="page-engaj-chamada"></div>
+      <div class="page" id="page-engaj-placar"></div>
+      <div class="page" id="page-escala-smart"></div>
+      <div class="page" id="page-plr-config"></div>
+      <div class="page" id="page-plr-avaliacao"></div>
+      <div class="page" id="page-plr-resultado"></div>
     </div>
+    <!-- Mobile — barra inferior de navegação. Populada por buildBottomNav() no professores.js. Só ≤768px. -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Navegação rápida"></nav>
   </div>
 
   <!-- ═════════ MODAL: Modalidade (Etapa 3) ═════════ -->
@@ -2396,9 +2586,68 @@
     </div>
   </div>
 
+  <!-- ═════════ Hub Pessoas — Wizard "Nova pessoa" (passo 1: perfis) ═════════ -->
+  <div class="modal" id="pessoaWizardModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Nova pessoa — Perfis</h3>
+        <button class="close-btn" onclick="closePessoaWizard()">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Quais perfis essa pessoa tem? <span class="req">*</span></label>
+        <div id="wizardProfilesChecks"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">
+          Professor e Professor (Estagiário) são exclusivos entre si.
+          Se for professor, os próximos passos pedem os dados e o salário antes do acesso.
+        </div>
+      </div>
+      <div id="wizardError" style="color:var(--red);font-size:12px;min-height:16px;"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="closePessoaWizard()">Cancelar</button>
+        <button class="btn" onclick="wizardAdvance()">Avançar →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ Hub Pessoas — Passo Acesso (login) ═════════ -->
+  <div class="modal" id="pessoaAccessModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🔑 Acesso ao sistema</h3>
+        <button class="close-btn" onclick="closeAccessModal()">✕</button>
+      </div>
+      <div id="accessResumo" style="font-size:13px;border:1px dashed var(--text3);border-radius:6px;padding:8px;margin-bottom:10px;"></div>
+      <div class="form-group" id="accessNameWrap">
+        <label>Nome completo <span class="req">*</span></label>
+        <input type="text" id="accessName">
+      </div>
+      <div class="form-group">
+        <label>E-mail de login <span class="req">*</span></label>
+        <input type="email" id="accessEmail">
+      </div>
+      <div class="form-group">
+        <label>Senha provisória <span class="req">*</span> (mín. 6 caracteres)</label>
+        <input type="password" id="accessPass">
+      </div>
+      <div class="form-group" id="accessUnitsWrap" style="display:none;">
+        <label>Unidades (Comissões) <span class="req">*</span></label>
+        <div id="accessUnitsChecks"></div>
+      </div>
+      <div id="accessError" style="color:var(--red);font-size:12px;min-height:16px;"></div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="accessSkipBtn" onclick="skipAccess()">Pular — criar sem acesso</button>
+        <button class="btn" id="accessSaveBtn" onclick="savePessoaAccess()">Criar pessoa + acesso</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═════════ Firebase Config + Módulos JS ═════════ -->
   <script src="firebase-config.js"></script>
+  <script src="class-propagation.js"></script>
   <script src="professores-shared.js"></script>
+  <script src="engagement-config.js"></script>
+  <script src="points-engine.js"></script>
+  <script src="engagement-service.js"></script>
   <script src="professores-cadastro.js"></script>
   <script src="professores-agenda.js"></script>
   <script src="professores-fechamento.js"></script>
@@ -2406,6 +2655,19 @@
   <script src="professores-escalas.js"></script>
   <script src="professores-ferias.js"></script>
   <script src="professores-relatorios.js"></script>
+  <script src="professores-engajamento.js"></script>
+  <script src="scale-engine.js"></script>
+  <script src="scale-service.js"></script>
+  <script src="notify-service.js"></script>
+  <script src="professores-escala-smart.js"></script>
+  <script src="plr-engine.js"></script>
+  <script src="plr-service.js"></script>
+  <script src="professores-plr.js"></script>
+  <script src="user-model.js"></script>
+  <script src="pessoas-model.js"></script>
+  <script src="professores-nav.js"></script>
+  <script src="professores-home.js"></script>
+  <script src="professores-pessoas.js"></script>
   <script src="professores.js"></script>
 </body>
 

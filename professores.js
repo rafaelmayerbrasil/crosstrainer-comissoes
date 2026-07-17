@@ -25,31 +25,8 @@ const AppState = {
   currentPage: 'home',
 };
 
-/* ─── Configuração de páginas por perfil ────────────────────────── */
-const PROF_PAGES = {
-  admin:                ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-  admin_gestao:         ['home', 'modalidades', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'escalas', 'ferias', 'saldos-gestao', 'relatorios'],
-  supervisao:           ['home', 'professores', 'agenda', 'agenda-geral', 'minha-agenda', 'escalas', 'ferias', 'saldos-gestao'],
-  professor:            ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
-  professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'meus-pagamentos', 'ferias', 'meu-saldo'],
-};
-
-const PAGE_DEFINITIONS = [
-  { id: 'home',          label: 'Início',         icon: '🏠', section: null },
-  { id: 'modalidades',   label: 'Modalidades',    icon: '🏷️', section: 'Cadastros' },
-  { id: 'professores',   label: 'Professores',    icon: '👥', section: 'Cadastros' },
-  { id: 'agenda',        label: 'Agenda',         icon: '📅', section: 'Operação' },
-  { id: 'agenda-geral',  label: 'Agenda Geral',   icon: '🌐', section: 'Operação' },
-  { id: 'minha-agenda',  label: 'Minha Agenda',   icon: '📅', section: 'Minhas aulas' },
-  { id: 'fechamento',   label: 'Fechamento',     icon: '💰', section: 'Financeiro' },
-  { id: 'pagamentos',      label: 'Pagamentos',      icon: '💳', section: 'Financeiro' },
-  { id: 'meus-pagamentos', label: 'Meus Pagamentos', icon: '💳', section: 'Financeiro' },
-  { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Operação' },
-  { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Operação' },
-  { id: 'meu-saldo',      label: 'Meu Saldo',          icon: '📊', section: 'Minhas aulas' },
-  { id: 'saldos-gestao',  label: 'Saldos de Férias',   icon: '📊', section: 'Financeiro' },
-  { id: 'relatorios',     label: 'Relatórios',         icon: '📊', section: 'Financeiro' },
-];
+/* ─── Configuração de páginas/navegação (fonte única: professores-nav.js) ─── */
+const PROF_PAGES = ProfNav.PROF_PAGES;
 
 /* ─── Helpers de perfil ─────────────────────────────────────────── */
 function hasProfile(p) {
@@ -57,10 +34,10 @@ function hasProfile(p) {
   const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
   return profiles.includes(p);
 }
-function isAdminGestao() { return hasProfile('admin') || hasProfile('admin_gestao'); }
+function isAdminGestao() { return hasProfile('admin'); }  // admin_gestao dropado (D2) — nome mantido p/ não tocar os call sites
 function isSupervisao()  { return hasProfile('supervisao'); }
 function isProfessor()   { return hasProfile('professor') || hasProfile('professor_estagiario'); }
-function canSeeSalary()  { return hasProfile('admin') || hasProfile('admin_gestao'); }
+function canSeeSalary()  { return hasProfile('admin'); }  // D2: salário é só admin
 function isStrictAdmin() { return hasProfile('admin'); }  // Sprint 4a — apenas admin pode fechar mês (D1)
 
 // Sprint 3a — vínculo user logado → teacher
@@ -174,6 +151,8 @@ auth.onAuthStateChanged(async (user) => {
     }
     AppState.currentUser = null;
     AppState.userProfile = null;
+    // Derruba listeners do usuário anterior (senão tomam permission-denied em loop)
+    if (typeof _vacationUnsub === 'function') { _vacationUnsub(); _vacationUnsub = null; }
     return;
   }
 
@@ -219,14 +198,15 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 function migrateUserProfile(profile) {
-  const role = profile.role;
+  const profiles = profile.profiles || (profile.role ? [profile.role] : []);
+  // Fonte única da derivação: user-model.js (mesma regra do form de Usuários).
+  const derived = (typeof UserModel !== 'undefined')
+    ? UserModel.deriveUserModel(profiles)
+    : { moduleAccess: { comissoes: ['admin', 'vendedor'].includes(profile.role), professores: profile.role === 'admin' } };
   return {
     ...profile,
-    profiles: profile.profiles || [role],
-    moduleAccess: profile.moduleAccess || {
-      comissoes:   ['admin', 'vendedor'].includes(role),
-      professores: role === 'admin',
-    },
+    profiles,
+    moduleAccess: profile.moduleAccess || derived.moduleAccess,
   };
 }
 
@@ -240,6 +220,7 @@ function showApp() {
 
   // Build sidebar
   buildSidebar();
+  buildBottomNav();
 
   // Carrega tema preferido
   loadTheme();
@@ -250,8 +231,9 @@ function showApp() {
   // Sprint 6b — contador de férias pendentes (admin/gestão)
   setupVacationCounter();
 
-  // Roteamento inicial — sempre 'home' por enquanto
-  navigateTo('home');
+  // Deep-link ?page=... (espelho do Plano B no Comissões) — ex.: vindo do menu do index.html
+  const wanted = new URLSearchParams(location.search).get('page');
+  navigateTo(wanted && getAllowedPages().includes(wanted) ? wanted : 'home');
 }
 
 /* ─── Sprint 3b — Sino de notificações in-app ────────────────────── */
@@ -275,7 +257,9 @@ function setupNotificationsBell() {
     const wrap = document.querySelector('.notif-bell-wrap');
     const dropdown = document.getElementById('notifDropdown');
     if (!wrap || !dropdown) return;
-    if (!wrap.contains(e.target) && dropdown.style.display === 'block') {
+    // no mobile o dropdown é movido pra fora da wrap (ver toggleNotifDropdown),
+    // então checa também o próprio dropdown antes de fechar.
+    if (!wrap.contains(e.target) && !dropdown.contains(e.target) && dropdown.style.display === 'block') {
       dropdown.style.display = 'none';
     }
   });
@@ -302,6 +286,11 @@ function updateNotifBellBadge() {
     badge.style.display = 'inline-block';
     badge.textContent = n > 9 ? '9+' : String(n);
   }
+  const mBadge = document.getElementById('mobileNotifBadge');
+  if (mBadge) {
+    if (n === 0) { mBadge.style.display = 'none'; }
+    else { mBadge.style.display = 'inline-block'; mBadge.textContent = n > 9 ? '9+' : String(n); }
+  }
 }
 
 function toggleNotifDropdown() {
@@ -311,6 +300,12 @@ function toggleNotifDropdown() {
     dropdown.style.display = 'none';
   } else {
     renderNotifDropdownList();
+    // No mobile o dropdown mora dentro da .sidebar, que tem transform (off-canvas).
+    // transform cria containing block e desloca o position:fixed pra fora da tela →
+    // move o dropdown pro body (sem ancestral com transform) antes de exibir.
+    if (window.matchMedia('(max-width: 768px)').matches && dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+    }
     dropdown.style.display = 'block';
   }
 }
@@ -369,6 +364,8 @@ async function handleNotifClick(notifId, link) {
       }, 200);
     } else if (link.type === 'substitution' || link.type === 'coverage') {
       if (typeof openInboxModal === 'function') openInboxModal();
+    } else if (link.type === 'escala-smart' && typeof navigateTo === 'function') {
+      navigateTo('escala-smart');
     }
   }
   // Fecha dropdown
@@ -389,7 +386,6 @@ function formatRoleLabel() {
   const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
   const labels = {
     'admin':                'Administrador',
-    'admin_gestao':         'Gestão',
     'supervisao':           'Supervisão',
     'professor':            'Professor',
     'professor_estagiario': 'Estagiário',
@@ -401,26 +397,74 @@ function formatRoleLabel() {
 /* ─── Sidebar ─────────────────────────────────────────────────── */
 function buildSidebar() {
   const nav = document.getElementById('sidebarNav');
-  const allowed = getAllowedPages();
-  const items = PAGE_DEFINITIONS.filter(p => allowed.includes(p.id));
-
-  // Agrupa por section
-  let html = '';
-  let lastSection = undefined;
-  items.forEach(item => {
-    if (item.section !== lastSection) {
-      if (item.section) {
-        html += `<div class="sb-section">${item.section}</div>`;
-      }
-      lastSection = item.section;
-    }
-    const activeClass = item.id === AppState.currentPage ? 'active' : '';
-    html += `<div class="sb-item ${activeClass}" onclick="navigateTo('${item.id}')">
-               <span class="icon">${item.icon}</span>${item.label}
-             </div>`;
+  const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
+  const model = ProfNav.buildSidebarModel(profiles, {
+    hasProfessorLink: !!getCurrentProfessorId(),
+    moduleAccess: AppState.userProfile.moduleAccess || {},
   });
 
+  const itemHtml = (it) => {
+    const active = it.id === AppState.currentPage ? 'active' : '';
+    return `<div class="sb-item ${active}" onclick="navigateTo('${it.id}')">
+              <span class="icon">${it.icon}</span>${it.label}
+            </div>`;
+  };
+
+  let html = '';
+  if (model.home) html += itemHtml(model.home);
+  model.groups.forEach(g => {
+    html += `<div class="sb-section">${g.section}</div>`;
+    g.items.forEach(it => { html += itemHtml(it); });
+  });
+
+  // Seção de sistema (admin) — links externos pro Comissões
+  if (model.systemSection) {
+    html += `<div class="sb-section sb-sys-hdr">${model.systemSection.label}</div>`;
+    model.systemSection.items.forEach(it => {
+      html += `<a class="sb-item sb-sys" href="${it.href}">
+                 <span class="icon">${it.icon}</span>${it.label}
+               </a>`;
+    });
+  }
+
   nav.innerHTML = html;
+  renderModuleSwitcher(model.moduleSwitcher); // Task 4
+}
+
+/* ─── Barra inferior (mobile) ──────────────────────────────────── */
+function buildBottomNav() {
+  const nav = document.getElementById('bottomNav');
+  if (!nav) return;
+  const profiles = AppState.userProfile.profiles || [AppState.userProfile.role];
+  const items = ProfNav.buildBottomNavModel(profiles);
+  if (!items.length) { nav.style.display = 'none'; nav.innerHTML = ''; return; }
+  nav.style.removeProperty('display'); // deixa o CSS (display:flex ≤768) decidir
+  nav.innerHTML = items.map(it =>
+    `<button class="bottom-nav-item ${it.id === AppState.currentPage ? 'active' : ''}" onclick="navigateTo('${it.id}')">
+       <span class="bn-icon">${it.icon}</span>${it.label}
+     </button>`).join('');
+}
+
+// Atualiza item ativo da barra + título do cabeçalho conforme a rota atual.
+function syncMobileChrome() {
+  document.querySelectorAll('.bottom-nav-item').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('onclick') === `navigateTo('${AppState.currentPage}')`);
+  });
+  const titleEl = document.getElementById('mobileTopbarTitle');
+  if (titleEl) {
+    const def = (ProfNav.PAGE_DEFINITIONS || []).find(d => d.id === AppState.currentPage);
+    titleEl.textContent = def ? def.label : '';
+  }
+}
+
+function renderModuleSwitcher(sw) {
+  const el = document.getElementById('sbSwitcher');
+  if (!el) return;
+  if (!sw || !sw.show) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = sw.modules.map(m =>
+    `<a href="${m.href}" class="${m.active ? 'active' : ''}">${m.label}</a>`
+  ).join('');
 }
 
 /* ─── Roteamento ──────────────────────────────────────────────── */
@@ -447,15 +491,18 @@ function navigateTo(pageId) {
   // Atualiza item ativo na sidebar
   document.querySelectorAll('.sb-item').forEach(el => el.classList.remove('active'));
   buildSidebar();
+  syncMobileChrome();
 
   // Sprint 6b — reaplica badge de férias após rebuild da sidebar
   applyVacationBadge();
 
   // Renderiza conteúdo conforme página (delegado para módulos específicos)
-  if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
+  if (pageId === 'home' && typeof renderHomePage === 'function') {
+    renderHomePage();
+  } else if (pageId === 'modalidades' && typeof renderModalidadesPage === 'function') {
     renderModalidadesPage();
-  } else if (pageId === 'professores' && typeof renderProfessoresPage === 'function') {
-    renderProfessoresPage();
+  } else if (pageId === 'pessoas' && typeof renderPessoasPage === 'function') {
+    renderPessoasPage();
   } else if (pageId === 'agenda' && typeof renderAgendaPage === 'function') {
     renderAgendaPage();
   } else if (pageId === 'minha-agenda' && typeof renderMinhaAgendaPage === 'function') {
@@ -470,6 +517,8 @@ function navigateTo(pageId) {
     renderMeusPagamentosPage();
   } else if (pageId === 'escalas' && typeof renderEscalasPage === 'function') {
     renderEscalasPage();
+  } else if (pageId === 'escala-smart' && typeof renderEscalaSmartPage === 'function') {
+    renderEscalaSmartPage();
   } else if (pageId === 'ferias' && typeof renderFeriasGestaoPage === 'function' && typeof renderMinhasFeriasPage === 'function') {
     // Admin/Gestão/Supervisão veem tela de gestão; Professor vê "Minhas Férias"
     if (isAdminGestao() || isSupervisao()) {
@@ -483,6 +532,18 @@ function navigateTo(pageId) {
     renderSaldosGestaoPage();
   } else if (pageId === 'relatorios' && typeof renderRelatoriosPage === 'function') {
     renderRelatoriosPage();
+  } else if (pageId === 'engaj-config' && typeof renderEngajConfigPage === 'function') {
+    renderEngajConfigPage();
+  } else if (pageId === 'engaj-chamada' && typeof renderEngajChamadaPage === 'function') {
+    renderEngajChamadaPage();
+  } else if (pageId === 'engaj-placar' && typeof renderEngajPlacarPage === 'function') {
+    renderEngajPlacarPage();
+  } else if (pageId === 'plr-config' && typeof renderPlrConfigPage === 'function') {
+    renderPlrConfigPage();
+  } else if (pageId === 'plr-avaliacao' && typeof renderPlrAvaliacaoPage === 'function') {
+    renderPlrAvaliacaoPage();
+  } else if (pageId === 'plr-resultado' && typeof renderPlrResultadoPage === 'function') {
+    renderPlrResultadoPage();
   }
 
   // Fecha menu mobile se estiver aberto
@@ -541,11 +602,13 @@ function updateEnvBadges() {
 // ─── Sprint 6b — Contador de férias pendentes (sidebar) ─────────────
 
 let _vacationPendingCount = 0;
+let _vacationUnsub = null;  // unsubscribe do onSnapshot — evita listener órfão após logout (check geral 11/06)
 
 function setupVacationCounter() {
+  if (_vacationUnsub) { _vacationUnsub(); _vacationUnsub = null; }
   if (!isAdminGestao()) return;
 
-  db.collection('vacation_requests')
+  _vacationUnsub = db.collection('vacation_requests')
     .where('status', '==', 'aprovada')
     .onSnapshot(snap => {
       _vacationPendingCount = 0;

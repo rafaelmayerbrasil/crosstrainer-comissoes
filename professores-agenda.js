@@ -566,6 +566,22 @@ async function saveSlot() {
       errEl.textContent = res.error || 'Erro ao salvar.'; return;
     }
     toastMsg = 'Slot atualizado.';
+    // Propagação opt-in: se o dia da semana ficou igual e algum campo propagável
+    // mudou, oferece atualizar as aulas futuras "intocadas" desse slot.
+    const oldSlot = AgendaState.slots.find(s => s.id === SlotFormState.editingId) || {};
+    const novoWeekday = SlotFormState.weekdays[0];
+    const mudouCampo = oldSlot.teacherId !== teacherId || oldSlot.modalityId !== modalityId
+                    || oldSlot.startTime !== startTime || oldSlot.endTime !== endTime;
+    if (oldSlot.weekday === novoWeekday && mudouCampo) {
+      const novoSlot = { teacherId, modalityId, startTime, endTime, durationMinutes: endMin - startMin };
+      const plan = await ClassService.propagateSlotEditPlan(SlotFormState.editingId, novoSlot);
+      if (plan.success && plan.eligibleCount > 0
+          && confirm(`Aplicar também às ${plan.eligibleCount} próximas aulas já criadas?`)) {
+        const ap = await ClassService.propagateSlotEditApply(plan.updates);
+        if (ap.success) toastMsg = `Slot atualizado. ${ap.updated} aula(s) futura(s) atualizada(s).`;
+        else toast('Slot salvo, mas falhou ao propagar: ' + (ap.error || ''), 'error');
+      }
+    }
   } else {
     // CRIAÇÃO: itera weekdays. Se algum falhar no meio, para e reporta.
     const created = [];
@@ -654,9 +670,9 @@ function getDateRangeForFilter(filter) {
 
   switch (filter) {
     case 'previous_week': {
-      const lastSunday = new Date(today);
-      lastSunday.setDate(lastSunday.getDate() - 1);  // domingo passado
-      const prevMonday = ProfHelpers.getStartOfWeek(lastSunday);
+      // segunda desta semana − 7 dias (o "today−1" antigo só era domingo às segundas)
+      const prevMonday = ProfHelpers.getStartOfWeek(today);
+      prevMonday.setDate(prevMonday.getDate() - 7);
       return { from: prevMonday, to: ProfHelpers.getEndOfWeek(prevMonday) };
     }
     case 'current_week':
@@ -1405,6 +1421,16 @@ function closeInboxModal() {
 
 async function loadInboxData() {
   document.getElementById('inboxList').innerHTML = '<div class="loading"><div class="spinner"></div> Carregando…</div>';
+  // Dados de referência p/ os cards (nome do solicitante, modalidade). O professor
+  // pode abrir o inbox sem ter passado pela grade, então o AgendaState pode estar vazio.
+  if (!AgendaState.teachersMap.size) {
+    const tr = await TeacherService.list();
+    if (tr.success) AgendaState.teachersMap = new Map(tr.data.map(t => [t.id, t]));
+  }
+  if (!AgendaState.modalitiesMap.size) {
+    const mr = await ModalityService.list();
+    if (mr.success) AgendaState.modalitiesMap = new Map(mr.data.map(m => [m.id, m]));
+  }
   const uid = AppState.currentUser.uid;
   const myProfId = getCurrentProfessorId();
 
@@ -1455,6 +1481,17 @@ function renderInboxList() {
   }
 }
 
+// Formata "quando" de um pedido (sub/cobertura) a partir do snapshot da aula,
+// reusando o mesmo formato da notificação. Fallback: classId (pedidos antigos sem snapshot).
+function formatReqWhen(item) {
+  if (item.classDate && item.classDate.toDate) {
+    const base = buildSubstitutionNotifBody({ scheduledDate: item.classDate, startTime: item.classStartTime, endTime: item.classEndTime });
+    const mod = AgendaState.modalitiesMap.get(item.classModalityId || item.modalityId);
+    return '📅 ' + escapeHtml(base) + (mod ? ' · ' + escapeHtml(mod.name) : '');
+  }
+  return 'Aula: <code>' + escapeHtml(item.classId) + '</code>';
+}
+
 function renderInboxSubItem(s) {
   const requester = AgendaState.teachersMap.get(s.requestingTeacherId);
   const requesterName = requester ? requester.name : s.requestingTeacherId;
@@ -1466,7 +1503,7 @@ function renderInboxSubItem(s) {
         ${retro}
       </div>
       <div class="inbox-item-body">${escapeHtml(s.reason || '(sem motivo informado)')}</div>
-      <div class="inbox-item-meta">classId: <code>${escapeHtml(s.classId)}</code></div>
+      <div class="inbox-item-meta">${formatReqWhen(s)}</div>
       <div class="inbox-item-actions">
         <button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Recusar</button>
         <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Aceitar</button>
@@ -1490,7 +1527,7 @@ function renderInboxCovItem(c) {
         Aberta por: <strong>${escapeHtml(requesterName)}</strong><br>
         ${escapeHtml(c.reason || '(sem motivo)')}
       </div>
-      <div class="inbox-item-meta">classId: <code>${escapeHtml(c.classId)}</code></div>
+      <div class="inbox-item-meta">${formatReqWhen(c)}</div>
       <div class="inbox-item-actions">
         <button class="btn btn-primary btn-sm" onclick="handleCovPick('${c.id}')">Quero cobrir</button>
       </div>

@@ -56,12 +56,16 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
    - **ERRADO:** ~~`CrossTrainer`~~ · ~~`CROSSTRAINER`~~
    - Todo texto **visível ao usuário** em qualquer arquivo novo DEVE usar `CrossTainer` / `CROSSTAINER`.
    - IDs técnicos do Firebase (`crosstrainer-comissoes`, `crosstrainer-comissoes-staging`) **permanecem como estão** — são IDs estáveis e mudá-los seria caro/arriscado.
-   - Arquivos de produção atuais (`index.html`, `manifest.json`) com o nome errado serão corrigidos no momento do deploy do módulo de Professores em produção — registrado em `CONTEXTO_SESSAO.md` como pendência.
+   - ✅ Branding dos arquivos de produção **corrigido em 12/06/2026** na branch (`index.html` 6 strings visíveis + `sw.js` header; `manifest.json` já estava certo) — vai pra produção junto com o módulo.
    - Wireframe `AgendaWireframes_design.html` tem o nome errado — não modificar (é referência do designer).
 
 ## 🧠 Estado atual em uma frase
 
-**12 sprints completas em staging (07/06/2026). Sprint 9 ✅ concluída. Projeto ~99% pronto — aguardando homologação final.**
+**SISTEMA COMPLETO em staging na branch `feature/shell-integrado` (não mergeada): módulo Professores inteiro — agenda/grade, escala inteligente (4 frentes: eventos/staff/RSVP + CF lembretes), engajamento, PLR, férias, fechamento/pagamentos, hub Pessoas, shell integrado + VISÃO MOBILE do professor. HOMOLOGANDO com o Rodrigo (14/07): 2 rodadas de feedback resolvidas + pré-voo de QA feito. PRÓXIMO: Rodrigo aprova → `docs/checklist-deploy-producao.md` (reconciliar origin/main → merge → produção).**
+
+> **Onde paramos em detalhe:** `CONTEXTO_SESSAO.md` → seção **🔖 ONDE PARAMOS (sessão 42)**, sub-bloco **▶️ RETOMAR AQUI**. Contas de demo (senha `crosstainer2026`): `dono.teste@` · `professor.teste@` (Marcos) · `professor2.teste@` (Bruna). Memórias-chave: [[fix-geracao-aulas-tdz]] · [[projeto-visao-professor-mobile]] · [[frente3-escala-eventos-staff]].
+>
+> **🕰️ Histórico (jun/2026):** engajamento/escala/PLR construídos em 23–27/06; frentes 1–3 da escala + eventos em jul. Detalhe nas sessões 38–41 de `CONTEXTO_SESSAO.md`.
 
 | Sprint | Entrega | Status |
 |--------|---------|--------|
@@ -78,13 +82,16 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | 6c | Controle Anual de Saldo (período aquisitivo CLT + painel admin + soft warning + alerta vencidas) | ✅ 12/12 + 3 visuais |
 | **8** | **Relatórios e Exportações (4 relatórios em Excel + PDF, client-side, lazy load CDN)** | **✅ R1·R2·R3·R4** |
 | **9** | **Polimentos Finais (branding CrossTainer + empty states + recibo R4 html2canvas + CDN fallback + migrations + vendor/)** | **✅ deployado** |
+| **Shell** | **Navegação integrada: sidebar por domínio + seletor de módulo + home centro de pendências + deep-links (sessão 32)** | **✅ validado** |
+| **Hub** | **Hub Pessoas: cadastro unificado (união `teachers`⊕`users`), wizard, ficha 4 abas gated, `admin_gestao` DROPADO (sessão 33)** | **✅ REST 8/8 · UI 9/9** |
+| **Entrega** | **Check geral (3 bugs corrigidos) + branding index.html + sw v3.1 + cache 5min + seed demo + manuais + roteiro (sessão 33)** | **✅ publicado** |
 
-**Próxima ação:** homologação completa do módulo pelo cliente. Depois deploy em produção (regra inviolável #7).
+**Próxima ação:** cliente homologa pelo `roteiro-homologacao.html` no staging (acessos de demo: `dono.teste@` e `professor.teste@crosstainer.com`). Aprovado → executar `docs/checklist-deploy-producao.md` (2 decisões pendentes lá: antecedência de férias 5→30 dias · destino da tela legada de Usuários). **Compromisso pós-aprovação: visão do professor otimizada pra celular.**
 
 ## 🔧 Tech debt registrado (não bloqueia)
 
 1. **Classes legadas em UTC midnight** (pré-Sprint 17 bug D fix): ✅ Migração aplicada em staging (18 classes, +3h). Produção nunca teve esse bug.
-2. **`sw.js` do módulo Comissões cacheia agressivamente** arquivos de `professores.*`. Workaround em dev: DevTools → Application → Service Workers → Unregister + Clear site data. Fix estrutural (excluir `professores.*` do scope) requer autorização explícita pra tocar no sw.js (regra inviolável #1).
+2. ~~`sw.js` cacheia agressivamente `professores.*`~~ ✅ **RESOLVIDO (12/06, autorizado):** sw v3.1 — JS same-origin é network-first; CDNs seguem cache-first. Cache de JS/CSS do hosting também caiu de 7 dias → 5 min (`firebase.json`).
 3. **Audit log entries antigas** (Sprint 2/3a/3b) com `module: 'professores'` em vez de `'agenda'`: ✅ Migração aplicada em staging (35 entries, `professores` → `agenda`). Production mantém entries legadas.
 4. **CDN externo como dependência** (Sprint 8): ✅ Fallback local em `/vendor/` (5 libs) + CDN como backup.
 5. **CreditService race condition rara** no abate de créditos: aceito como tech debt (1 admin por vez em produção realística).
@@ -95,6 +102,14 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 - Commit `6f0a15b` no `main` — regex word-boundary em `commission.js` corrige detecção de BIANUAL (era sobrescrita por ANUAL via substring). Identificado em prod com Isabella Haise · PP · Abr/2026 (Augusto César +R$ 35). Migração de 1 registro feita.
 - Pendência: rodar audit BIANUAL legacy em outros meses/unidades (4 casos identificados em CP Abr não migrados).
+
+## 🔐 Hotfix de segurança em produção (15/06/2026)
+
+Falha real fechada: a regra de `/users` create em prod permitia `request.auth.uid == userId` → demitido com login Auth ativo recriava o próprio perfil como **admin** pelo form de recuperação. Confirmado explorável (Firebase Rules Test API).
+
+**Deployado em prod:** regra `/users` → `allow create: if isAdmin();` (patch mínimo sobre as regras VIVAS de prod, ruleset `01538012…`) + frontend (`origin/main` `6f0a15b`→`02e0909`): `createUser`/`activateUser` gravam como admin (app secundário); form de recuperação neutralizado. Efeito: "Remover" + a regra já bloqueiam o acesso ao app sem o Console. Disable real do Auth = CF, fica pro módulo.
+
+**⚠️ Pré-deploy do módulo:** a branch já tem o port equivalente (`2eed9d6`), mas `origin/main` ganhou `02e0909` que o `main` local NÃO tem (o `main` local está 26 commits à frente de `origin/main` = o módulo inteiro, não publicado). **Reconciliar antes de subir o módulo.** Detalhes: `docs/checklist-deploy-producao.md` + memória `hotfix-users-create-rule.md`.
 
 Para detalhes completos: leia `CONTEXTO_SESSAO.md` (seção 🔖 ONDE PARAMOS).
 Para visão técnica: leia `DOCUMENTACAO.md`.

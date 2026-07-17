@@ -1282,6 +1282,45 @@ const ClassService = {
     }
   },
 
+  // Propagação opt-in da edição de grade: LÊ as aulas do slot e planeja quais
+  // "intocadas" atualizar (via ClassPropagation puro). NÃO grava.
+  async propagateSlotEditPlan(slotId, novoSlot) {
+    if (!slotId) return { success: false, error: 'slotId obrigatório' };
+    try {
+      const snap = await db.collection('classes').where('slotId', '==', slotId).get();
+      const hojeISO = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      const aulas = snap.docs.map(d => {
+        const c = d.data();
+        const dt = (c.scheduledDate && c.scheduledDate.toDate) ? c.scheduledDate.toDate() : new Date(c.scheduledDate);
+        const dateISO = dt.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        return { id: d.id, status: c.status, monthClosingId: c.monthClosingId || null, dateISO };
+      });
+      const { updates, eligibleCount } = ClassPropagation.planClassUpdatesForSlot(novoSlot, aulas, hojeISO);
+      return { success: true, updates, eligibleCount };
+    } catch (err) {
+      console.error('[ClassService.propagateSlotEditPlan]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  // Aplica as atualizações planejadas via batch. updates: [{classId, patch}].
+  async propagateSlotEditApply(updates) {
+    if (!Array.isArray(updates) || updates.length === 0) return { success: true, updated: 0 };
+    try {
+      const batch = db.batch();
+      updates.forEach(u => {
+        batch.update(db.collection('classes').doc(u.classId), {
+          ...u.patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      await batch.commit();
+      return { success: true, updated: updates.length };
+    } catch (err) {
+      console.error('[ClassService.propagateSlotEditApply]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
   /**
    * Altera status da aula. Só admin/gestao/supervisao (validado por Security Rule).
    * Sprint 3a aceita: prevista, realizada, cancelada, nao_realizada.
@@ -1349,6 +1388,10 @@ const NOTIF_TYPE_META = {
   vacation_approved:       { icon: '✅', title: 'Férias aprovadas' },
   vacation_rejected:       { icon: '❌', title: 'Férias recusadas' },
   vacation_cancelled:      { icon: '🚫', title: 'Férias canceladas' },
+  scale_window_open:       { icon: '🗓️', title: 'Janela de escala aberta' },
+  scale_confirmed:         { icon: '🗓️', title: 'Escala confirmada' },
+  event_invite:            { icon: '📣', title: 'Convite de evento' },
+  event_reminder:          { icon: '⏰', title: 'Lembrete de evento' },
 };
 
 const SUBSTITUTION_STATUS_LABEL = {
@@ -1484,6 +1527,11 @@ const SubstitutionService = {
       const uid = currentUserId();
       const data = {
         classId,
+        // snapshot da aula p/ mostrar data/hora/modalidade no inbox do substituto (sem novo fetch)
+        classDate: cls.scheduledDate || null,
+        classStartTime: cls.startTime || null,
+        classEndTime: cls.endTime || null,
+        classModalityId: cls.modalityId || null,
         requestingTeacherId: cls.teacherId,
         requestingUserId: uid,
         substituteTeacherId,
@@ -1571,6 +1619,19 @@ const SubstitutionService = {
           link: { type: 'substitution', id: subId },
         });
       }
+      // Engajamento (5c): aceitar cobrir colega = ponto de proatividade pro substituto.
+      // Não-bloqueante e idempotente (awardSubstitution usa id estável por substituição).
+      if (newStatus === 'accepted' && before.substituteTeacherId && typeof EngagementService === 'object') {
+        try {
+          let dateISO = new Date().toISOString().slice(0, 10);
+          try {
+            const cd = await db.collection('classes').doc(before.classId).get();
+            const sd = cd.exists ? cd.data().scheduledDate : null;
+            if (sd) { const d = sd.toDate ? sd.toDate() : new Date(sd); dateISO = d.toISOString().slice(0, 10); }
+          } catch (e) { /* sem a aula, usa hoje */ }
+          await EngagementService.awardSubstitution(subId, before.substituteTeacherId, dateISO);
+        } catch (e) { console.error('[proatividade/substituicao]', e); }
+      }
       return { success: true };
     } catch (err) {
       console.error('[SubstitutionService._respond]', err);
@@ -1657,6 +1718,10 @@ const CoverageService = {
       const uid = currentUserId();
       const data = {
         classId,
+        // snapshot da aula p/ mostrar data/hora no inbox de cobertura
+        classDate: cls.scheduledDate || null,
+        classStartTime: cls.startTime || null,
+        classEndTime: cls.endTime || null,
         requestingTeacherId: cls.teacherId,
         requestingUserId: uid,
         modalityId: cls.modalityId,
@@ -2911,9 +2976,13 @@ const VacationService = {
         updatedAt: serverTs(),
       };
 
-      // Sprint 6b — se veio paymentData, inclui payment no mesmo update
+      // Sprint 6b — payment vai num UPDATE SEPARADO. As Security Rules de
+      // vacation_requests só permitem mexer em 'status' OU em 'payment' por
+      // write, nunca os dois juntos (ver firestore.rules). Por isso: 1º o
+      // status (regra B), depois o payment isolado (regra A).
+      let paymentObj = null;
       if (paymentData) {
-        after.payment = {
+        paymentObj = {
           mode: paymentData.mode,
           value: paymentData.value || 0,
           calculation: paymentData.calculation || null,
@@ -2944,12 +3013,17 @@ const VacationService = {
           details: `Definido pagamento de ${before.type} ${before.teacherName}: R$ ${(paymentData.value || 0).toFixed(2)} (${paymentData.mode})`,
           entityType: 'vacation_request', entityId: reqId,
           before: { payment: null },
-          after: { payment: after.payment },
+          after: { payment: paymentObj },
           module: 'ferias',
         });
       }
 
+      // 1º write: status e metadados de resposta (regra B — não toca payment)
       await ref.update(after);
+      // 2º write: payment isolado (regra A — hasOnly payment/paidInClosingIds/updatedAt)
+      if (paymentObj) {
+        await ref.update({ payment: paymentObj, updatedAt: serverTs() });
+      }
 
       await NotificationService.create({
         recipientUserId: before.requestedBy,

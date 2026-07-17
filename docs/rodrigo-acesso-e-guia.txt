@@ -1,0 +1,107 @@
+CrossTainer — Como entrar e o que olhar no sistema
+(Engajamento + Escala Inteligente + Fim de ano)
+======================================================================
+
+Rô, esse aqui é o "como acessar e o que testar". As PERGUNTAS pra você
+responder estão no outro arquivo que te mandei
+(perguntas-rodrigo-fechar-pendencias). Aqui é só pra você entrar e mexer.
+
+Pode brincar à vontade — é ambiente de teste, não tem como estragar nada.
+
+
+──────────────────────────────────────────────────────────────────────
+COMO ENTRAR
+──────────────────────────────────────────────────────────────────────
+
+Link:  https://crosstrainer-comissoes-staging.web.app
+(abre no computador ou no celular — pra essa primeira olhada, melhor no
+computador.)
+
+Você tem 2 acessos, pra ver dos dois lados do balcão:
+
+   GESTÃO (dono / admin)
+   e-mail:  dono.teste@crosstainer.com
+   senha:   crosstainer2026
+
+   COLABORADOR (professor)
+   e-mail:  professor.teste@crosstainer.com
+   senha:   crosstainer2026
+
+Depois de entrar, clique em "Professores" no seletor lá no topo do menu lateral
+(as duas pílulas: Comissões | Professores).
+
+Obs.: os dados são de teste — 2 unidades (CP e PP) e alguns professores
+fictícios. É só pra você sentir o sistema funcionando; nada ali é real.
+
+
+──────────────────────────────────────────────────────────────────────
+O QUE OLHAR (passo a passo)
+──────────────────────────────────────────────────────────────────────
+
+>>> ENTRANDO COMO GESTÃO (dono.teste@)
+
+No menu lateral, seção "Engajamento":
+
+1) Config. Pontos
+   - Onde você define quanto vale cada coisa: tempo de casa, escola interna,
+     reunião, proatividade (cobrir colega), evento, e liderar a escola interna
+     valendo o dobro.
+   - Já deixei preenchido com os valores que você chutou. Veja se faz sentido,
+     mude um número e salve — pra confirmar que ele guarda.
+   - Repare também na regra de "zerar a cada 6 meses".
+
+2) Chamada
+   - Onde você tica presença, rapidinho: reunião, escola interna, quem liderou,
+     quem treinou como aluno em outro horário, TOI como aluno.
+   - Lance uma presença e confira que ela entrou.
+
+3) Placar
+   - O ranking de pontos por colaborador, somando tudo (inclusive o tempo de
+     casa, calculado pela data de admissão de cada um).
+   - Veja se a ordem faz sentido com o que você lançou.
+
+No menu lateral, seção "Agenda":
+
+4) Escala Inteligente (os sábados)
+   - Abra/crie a escala de um sábado e clique em "Consolidar".
+   - O sistema sugere quem trabalha: primeiro o PISO DE JUSTIÇA (quem está
+     devendo / mínimo de 1x no mês), depois o MÉRITO (quem tem mais pontos).
+     Cada vaga mostra um selinho do PORQUÊ.
+   - Abra o "por quê" de uma vaga: aparece o ranking dos candidatos (mérito,
+     nº de sábados, dívida, preferência) com o escolhido destacado.
+   - Tem um painel de equilíbrio (quem está abaixo / na média / acima da carga).
+   - Consolide um próximo sábado também e repare que ele tende a chamar quem
+     trabalhou menos — é a compensação funcionando.
+   * Olhando as escolhas e os motivos, bate com o jeito que você decidiria
+     na mão? (responda isso na PARTE A do outro arquivo)
+
+5) Fim de ano (dentro da Escala Inteligente)
+   - Crie uma escala do tipo "fim de ano". O período já vem 21/12 a 02/01
+     (editável), com 25/12, 31/12 e 01/01 fechados e 24/12 meio período.
+   - Consolide: ele monta as duplas dia a dia, por unidade, equilibrando a carga.
+   - Quem NÃO for escalado aparece sinalizado — aí a gestão lança a folga/férias
+     na mão (o sistema não cria nada sozinho, de propósito).
+
+
+>>> ENTRANDO COMO COLABORADOR (professor.teste@)
+    (Saia no menu → Sair e entre com o outro acesso. Você vira o "Marcos".)
+
+6) Placar
+   - O colaborador vê SÓ o próprio placar — não vê o dos outros nem a
+     configuração. Confirme que é isso mesmo.
+
+7) Escala Inteligente
+   - Nas escalas com janela aberta, marque sua preferência:
+     Quero / Não quero / Não posso.
+   - Isso NÃO garante a vaga — é só preferência, entra como desempate.
+     Confirme que salvou.
+
+8) Proatividade (cobrir colega = ponto)
+   - Quando um colaborador aceita uma substituição, ele já ganha o ponto de
+     proatividade automaticamente, e isso aparece no placar.
+
+
+──────────────────────────────────────────────────────────────────────
+Deu pra entrar e mexer? Qualquer coisa que travar ou parecer estranho, manda
+um print que eu ajusto na hora. E as perguntas pra fechar o resto estão no
+outro arquivo. Valeu, Rô!

@@ -1,0 +1,116 @@
+CrossTainer — As últimas definições pra fechar tudo
+Engajamento · Escala · Fim de ano · PLR
+===================================================================
+
+Rô, beleza? Pra eu terminar os 3 pedaços que ainda faltam — (a) publicar a
+escala como agenda de verdade, (b) o fim de ano e (c) o PLR (a avaliação que
+hoje é a planilha) — preciso que você bata o martelo nessas perguntas.
+
+Pode responder do lado de cada uma, ou me mandar por áudio que eu transcrevo.
+A maioria é rápida. As do PLR (parte C) são as que destravam o pedaço grande.
+
+Obs.: tudo que for data/calendário vai ser CONFIGURÁVEL pela gestão (pode mudar
+de ano pra ano). Quando eu pergunto uma data aqui, é só pra confirmar o PADRÃO
+que já vem preenchido — pra gestão só ajustar quando precisar.
+
+
+===================================================================
+PARTE A — FIM DE ANO (21/12 a 02/01)
+===================================================================
+
+A1. Quais unidades ficam abertas? A escala de 2 pessoas/dia é POR UNIDADE
+    (cada unidade aberta com a sua dupla) ou A ACADEMIA TODA JUNTA (1 dupla
+    por dia no total)?
+    Resposta:
+
+A2. O ritmo. Você falou "trabalha 1 dia, folga 2-4, ~2-3 turnos cada". O
+    sistema deve só DISTRIBUIR de forma justa (e você ajusta na mão), ou
+    precisa FORÇAR esse rodízio automaticamente?
+    Resposta:
+
+A3. As datas serão CONFIGURÁVEIS a cada ano — a gestão define o período e quais
+    dias ficam fechados / meio período na hora de montar a escala (porque pode
+    mudar de um ano pro outro). Você só me confirma se o PADRÃO abaixo está bom
+    (é o que vem preenchido, pra gestão só ajustar quando precisar):
+      - Período: 21/12 a 02/01
+      - Fechado: 25/12, 31/12 e 01/01
+      - Meio período: 24/12
+    Esse padrão está bom?
+    Resposta:
+
+A4. Quando a dupla do fim de ano virar "aula" na agenda (pra contar hora e
+    pagamento), como conta o dia? A dupla trabalha o dia inteiro — então é
+    UM bloco de dia inteiro, ou você quer registrar manhã e tarde separados?
+    Quantas horas pagas conta por dia escalado?
+    Resposta:
+
+(Já combinado: quem não for escalado no período, o sistema só sinaliza pra
+gestão lançar a folga/férias — não cria nada automático.)
+
+
+===================================================================
+PARTE B — PESO DO SÁBADO/FERIADO NO PAGAMENTO
+===================================================================
+Esse é o ponto que destrava "publicar a escala na agenda".
+
+B1. Hoje o peso da data (sábado/feriado vale mais hora no cálculo) entra no
+    PAGAMENTO. Quando a escala nova virar aula de verdade, você quer:
+      ( ) MANTER como hoje — o peso continua multiplicando as horas pagas; ou
+      ( ) SEPARAR — o peso serve só pra equilibrar a escala (quem trabalha
+          mais x menos), e o pagamento é por hora normal.
+    Resposta:
+
+(Enquanto isso não estiver definido, a escala fica como REFERÊNCIA — mostra as
+vagas e os motivos — e não gera as aulas/pagamento sozinha.)
+
+
+===================================================================
+PARTE C — PLR (a avaliação de desempenho / o que hoje é a planilha)
+===================================================================
+O que você já definiu antes (não precisa repetir): rateio proporcional a
+horas trabalhadas × nota, 2x/ano (as datas de cada ciclo a gestão configura;
+padrão jun e nov), o sistema substitui a planilha,
+e as notas de engajamento (reunião/treino/escola interna/substituição) saem
+automáticas do placar de pontos. A nota dos alunos fica pra quando ligarmos a
+Pacto. Falta só fechar a NOTA e quem avalia:
+
+C1. A NOTA de cada pessoa. Hoje a planilha tem os blocos:
+    Profissional · Comportamental · Técnica · média dos alunos · (engajamento).
+    Pra fechar a conta, preciso saber o PESO de cada bloco na nota final.
+      - Mantemos os mesmos pesos da planilha de hoje? (se sim, me confirma os %)
+      - O engajamento (placar de pontos) entra como mais um bloco com peso
+        próprio, ou já está embutido em um dos blocos atuais?
+    Resposta:
+
+C2. Quem AVALIA cada colaborador, e quantos avaliadores? A nota é a média
+    simples dos avaliadores (como na planilha), ou algum avaliador pesa mais?
+    Resposta:
+
+C3. Nesta primeira rodada NÃO teremos a nota dos alunos (vem da Pacto depois).
+    O que fazemos com esse pedaço agora:
+      ( ) ignorar e redistribuir o peso nos outros blocos; ou
+      ( ) você digita as notas dos alunos à mão (da planilha antiga) só desta vez.
+    Resposta:
+
+C4. Quem entra no rateio do PLR? Todos os colaboradores? Estagiário entra?
+    Tem algum piso pra participar (ex.: tempo mínimo de casa / mínimo de
+    horas no semestre)?
+    Resposta:
+
+C5. O valor do pool (R$ 4.000 foi exemplo desta rodada) é a gestão que digita
+    a cada rodada, certo? Confirma.
+    Resposta:
+
+C6. Só pra eu não errar a conta — a fatia de cada um fica assim:
+      fatia = pool x (horas da pessoa x nota da pessoa)
+                    -------------------------------------
+                    soma de (horas x nota) de todo mundo
+    É isso? E "horas trabalhadas no semestre" = as horas do fechamento mensal
+    (o que já é pago), certo?
+    Resposta:
+
+
+===================================================================
+Com essas respostas eu fecho a escala-na-agenda + o fim de ano e parto pro
+PLR. Qualquer dúvida em alguma pergunta, me fala que eu explico melhor.
+Valeu, Rô!

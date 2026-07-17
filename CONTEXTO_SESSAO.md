@@ -3,7 +3,354 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — última sessão 10/06/2026 (sessão 31)
+## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — Rodrigo APROVOU → deploy de produção em andamento + frente-2 ponto eletrônico registrada
+
+### ✅ Homologação APROVADA pelo Rodrigo (17/07)
+Rodrigo deu o OK. Gatilho do `docs/checklist-deploy-producao.md` disparado. Deploy de produção do módulo em andamento nesta sessão (reconciliação `origin/main` → merge → deploys Firebase prod → GitHub Pages).
+
+### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
+Rodrigo está adquirindo ponto eletrônico (https://tecnoponto.com/). **Decisão de rumo:** objetivo é **compliance + fazer o funcionário registrar de verdade (pegar atraso)** — **NÃO** basear pagamento no ponto. Fechamento **não muda**. Integração é **aditiva e NÃO bloqueia o deploy**. O próprio aparelho + portal da TecnoPonto já resolvem ~80% standalone; integrar com o nosso sistema é **fase-2** (cruzar grade×ponto = visibilidade de atraso), só depois do aparelho instalado. Perguntas pro Rodrigo em `docs/perguntas-rodrigo-ponto-eletronico.txt`. Memória [[ponto-eletronico-tecnoponto]].
+
+### ▶️ RETOMAR AQUI (estado em 14/07)
+**Tudo construído e no ar no staging, na branch `feature/shell-integrado` (não mergeada). Aguardando o Rodrigo re-validar.**
+- **No ar + validado nesta sessão:** Frente 3 (eventos/staff/RSVP + CF lembretes validada por force-run) · otimização mobile do professor (barra inferior + cabeçalho + chips + 2 bugfixes + varredura) · fix TDZ da geração de aulas · propagação opt-in da edição de grade · 2 rodadas de feedback do Rodrigo.
+- **🧪 Pré-voo de QA feito (14/07):** varredura das 26 telas (18 admin + 8 professor) = 0 erro de console, todas renderizam; substituição ponta-a-ponta (pede→aceita→CF reatribui) OK. Sem bloqueante. NÃO exercitei write completo de fechamento (irreversível, §5), PLR, aprovação de férias, cobertura — telas abrem sem erro.
+- **Feedback do Rodrigo (2 rodadas, TODAS resolvidas + no ar):**
+  - #1: agenda vazia / não pedia substituição → fix TDZ da CF + grade de demo do Marcos + 2º professor Bruna. [[fix-geracao-aulas-tdz]]
+  - #2: "Minha Agenda" no grupo Agenda (sidebar) + card de substituição mostrava ID cru → agora mostra "📅 dia/data/hora · modalidade" + nome do solicitante (snapshot no doc + loadInboxData carrega refs).
+  - +ajuste do usuário: rótulo da **barra inferior** "Agenda" → **"Minha Agenda"** (cabe a 375px).
+- **Contas de demo (senha `crosstainer2026`):** `dono.teste@` (admin) · `professor.teste@` (Marcos, tem grade Seg/Qua/Sex) · `professor2.teste@` (Bruna, Ter/Qui). Regerar aulas: callable `generateClassesManual` (token admin) `{data:{weeksAhead:4}}`.
+- **Mensagem curta de WhatsApp pro Rodrigo** (os 2 itens dele) já entregue ao usuário.
+- **PRÓXIMO GATILHO:** Rodrigo aprova → `docs/checklist-deploy-producao.md` (reconciliar `origin/main` → merge → deploy produção). Se achar bug → corrige na branch + re-deploy staging.
+
+### 🏭 Prep de produção adiantada (12/07, enquanto o Rodrigo homologa)
+- **Reconciliação git analisada:** `origin/main` tem 6 commits à frente da branch; 4 já portados (split/BIANUAL/Divisões, `git cherry` = `-`), a **regra** de segurança `/users`=admin já na branch, e `2eed9d6` (port do frontend de segurança) **é ancestral da branch**. 2 commits mostram `+` no cherry (`02e0909` frontend-security, `222dba7` arredonda-recálculo+bump-sw) — reconciliar no merge real (`git merge origin/main` antes do `merge branch`). Smokes pré-merge 3/3 verdes.
+- **Decisões Seção 0:** férias **mantém 5 dias** em prod (decidido); tela legada Usuários = remover pós-homologação (não bloqueia).
+- **Edição de grade → propagação OPT-IN CONSTRUÍDA** (spec/plano `2026-07-12-propagacao-edicao-grade*`, 4 tasks subagent-driven + review + E2E). Ao salvar edição de slot: confirm "aplicar às N próximas aulas já criadas?" → atualiza só as intocadas (`prevista`+mês aberto+futura); nunca mês fechado/substituída/passada. `class-propagation.js` (puro+smoke) + `ClassService.propagateSlotEdit{Plan,Apply}` + hook no agenda. Client-side, sem CF/índice. Commits `275a2dd`..`509684d`. Checklist Seção 0 atualizado.
+
+### 🔁 Retorno #2 do Rodrigo (12/07) — 2 ajustes de UX → FEITOS + no staging
+1. **"Minha Agenda" agora na seção "Agenda"** (era seção própria "Minhas aulas") — `professores-nav.js` + smoke. Commit `2828…`.
+2. **Card do pedido de substituição mostrava tudo por ID cru** (o `AgendaState` fica vazio pro professor). Corrigido: snapshot da aula (data/hora/modalidade) denormalizado no doc ao criar (sub+cobertura) → card mostra "📅 Qua, 15/07 · 19:00–20:00 · HITT"; `loadInboxData` carrega teachers+modalidades → resolve **nome do solicitante** + modalidade + filtro de cobertura. `formatReqWhen` (reusa `buildSubstitutionNotifBody`), fallback classId p/ docs pré-snapshot. Verificado E2E no fluxo real da Bruna. Deploy hosting staging.
+
+### 🐛 Retorno do Rodrigo (12/07) — agenda vazia / não conseguia pedir substituição → RESOLVIDO
+Debugging por evidência (logs). **Causa dupla:** (1) a CF `generateClassesForUpcomingWeeks` estava **falhando desde 06/07** por um **TDZ** (`ONE_DAY_MS` usado antes de `const`, em `generateClassesCore`) → 0 aulas geradas em ~6 dias → agendas vazias. Fix (mover declaração pro topo) commitado + deploy das 2 funções de geração. **Levar p/ produção** (sem isso a geração nunca roda — só não afeta prod hoje pq o módulo não está lá). (2) o `professor.teste@` (conta do Rodrigo) **não tinha grade** → criei 3 slots (a pedido do usuário) + regerei via callable → 12 aulas futuras. Verificado na UI: Minha Agenda mostra as aulas, modal tem "🔄 Pedir substituição". Memória [[fix-geracao-aulas-tdz]].
+
+### 📱 Otimização MOBILE da visão do professor (1ª passada) — ENTREGUE, no staging, VALIDADA pelo cliente no celular
+
+### 📱 Otimização MOBILE da visão do professor (1ª passada) — ENTREGUE, no staging, VALIDADA pelo cliente no celular
+
+**Antecipada a pedido do usuário (não esperou a homologação — o acesso do professor é majoritariamente celular).** Brainstorm (mockups visuais) → spec → plano (5 tasks, subagent-driven) → deploy hosting staging. Branch `feature/shell-integrado`. Tudo sob `@media ≤768px` — **desktop intocado**.
+- **Barra inferior fixa** (mobile + professor; gestão fica só no drawer): Início · Minha Agenda · Escala · Placar · Pagar. Modelo puro `ProfNav.buildBottomNavModel` + smoke (`smoke-sidebar.js`).
+- **Cabeçalho compacto** ☰ + título + 🔔 (sino subiu do rodapé da sidebar pro topo no mobile).
+- **Abas da Escala viram chips** (2 linhas). Varredura leve global (padding pra barra, toque, safe-area, títulos menores).
+- **2 bugfixes achados por debugging de evidência (validados pelo cliente):** (1) barra sumia no Placar = **overflow horizontal** da tabela de 9 colunas (`.main` é flex item de `#appShell`; fix `min-width:0` → tabela rola dentro do `.table-wrap`); (2) sino não abria = `transform` da sidebar prendia o `position:fixed` (fix: mover dropdown pro `body` no mobile) + `top`+`bottom` colapsavam altura (fix: `bottom:auto`). Commits `ddfefae`, `bgc1…`.
+- Spec `docs/superpowers/specs/2026-07-11-visao-professor-mobile-design.md` · plano `docs/superpowers/plans/2026-07-11-visao-professor-mobile.md` · memória [[projeto-visao-professor-mobile]].
+- **Pendências mobile (se pedido):** varredura preventiva das outras telas do professor (Minha Agenda/Pagamentos/Férias) contra overflow/transform; 2ª passada = polir cards por dentro.
+
+---
+
+### 🗓️ Escala Inteligente FRENTE 3 (eventos + staff/RSVP + lembretes) CONSTRUÍDA e DEPLOYADA no staging (só a CF pendente de billing)
+
+**Frente 3 (a última das 3 do retorno do Rodrigo) construída via subagent-driven (8 tasks TDD, cada uma com review de spec + review de qualidade por subagente; nesta leva os subagentes se comportaram — nada precisou virar inline). Branch `feature/shell-integrado`. O evento deixou de ser vaga TOI/Hiit e virou uma LISTA DE STAFF com RSVP + convite in-app + lembretes automáticos.**
+
+- **✅ FRENTE 3 no código (commits `4181331`,`7817b0c`,`d814508`,`2c61833`,`62c56f0`,`6320624`,`be5af5b`,`45caa4d`,`b5100d5`):**
+  - **Serviço (`scale-service.js`):** `setEventStaff(id, obrigatorios[], opcionais[])` reconcilia o staff (obrigatório nasce `going:true`, opcional `going:null`, preserva quem já existia, deleta quem saiu, retorna `{added}`) · `listEventRsvp` · `setRsvp(id, personId, going)` (guard: só quem está no staff; `going` tem de ser booleano) · `summarizeRsvp` (puro → `{vao, naoVao, semResposta}`). Docs em `event_rsvp` id=`${scaleId}__${personId}`.
+  - **Puro da CF (`functions/reminders-util.js`, novo + smoke):** `dueReminderOffsets(eventDate, today, sent)` (offsets 7/4/1d, idempotente por `sent`, passado=nada) · `reminderRecipients` (todos menos quem respondeu "Não vou") · `daysBetween` (UTC sobre strings ISO — sem bug de fuso).
+  - **CF agendada nova (`functions/index.js`):** `sendEventReminders` (`onSchedule '0 9 * * *'`, America/Sao_Paulo) — varre `special_scales` tipo evento, calcula offsets devidos, resolve personId→userId (espelha `notifyTeachersAboutCoverage`), manda `event_reminder` in-app via `createNotification`, grava `remindersSent` (idempotente). `event_reminder` entrou em `NOTIF_TYPE_TITLES`.
+  - **UI gestão (`professores-escala-smart.js`):** criação de evento agora com `slots:[]` (achado: o caminho de UI injetava TOI/Hiit em TODO tipo — corrigido só p/ evento, guard TOI/Hiit pula evento); detalhe do evento = **painel de staff** (rádio Deve/Poderia/Fora por professor ativo) + "Salvar staff e convidar" (convite `event_invite` in-app só aos **recém-adicionados**, sem spam) + **consolidado** Vão/Não vão/Sem resposta.
+  - **UI professor (`professores-escala-smart.js`):** aba **Eventos acionável** — botões **Vou / Não vou** (obrigatório já vem "Vou", opcional em aberto; quem não é staff vê "informativo"); `renderEscalaPrefs` já era async.
+  - **Sino (`professores-shared.js`):** `event_invite` 📣 + `event_reminder` ⏰ em `NOTIF_TYPE_META`.
+  - **Regra (`firestore.rules`):** `event_rsvp` — read prof-module; create/update = admin|superv| (`personId == meu professorId`); delete só gestão (pois `setEventStaff` remove quem sai).
+- **✅ Verificação:** suíte completa de smokes verde (frente3, event-reminders, frente2, frente1, scale-service, tabs, notify-service) + parse de todos os arquivos.
+- **🚀 DEPLOY PARCIAL no staging (11/07):** `firestore:rules` + `hosting` **no ar** (`released rules` confirmado; frontend em `crosstrainer-comissoes-staging.web.app`). **Regra `event_rsvp` validada por REST 7/7** (`scripts/validate-frente3-rules.js`, novo): prof grava só a própria linha, linha de outro = 403, delete do prof = 403, admin grava, cleanup completo.
+- **✅ CF `sendEventReminders` DEPLOYADA e VALIDADA E2E no staging (12/07):** o billing estava suspenso (cartão vencido) e travou o deploy de Functions por horas com 403 mesmo com console verde (lag do Google entre reabrir billing × reabrir escopos de escrita); após 2º pagamento, propagou. Função ACTIVE (GEN_2/Node22, agendamento diário 9h SP). **Validação E2E por force-run** (Cloud Scheduler "Forçar execução", dirigido pelo browser logado do usuário): evento-teste a 7 dias + professor no staff → CF **criou a notificação in-app** ("Lembrete: … em 7 dia(s).", deep-link escala-smart) + resolveu personId→userId + carimbou `remindersSent=['7d']` (idempotência). Dados de teste limpos. Frente 3 **100% no staging**.
+- **Docs:** spec `docs/superpowers/specs/2026-07-10-escala-frente3-eventos-staff-design.md` · plano `docs/superpowers/plans/2026-07-10-escala-frente3-eventos-staff.md` (8 tasks).
+
+**⏭️ RETOMAR AQUI:**
+1. **CF ✅ deployada + validada E2E** (force-run: notificação criada + `remindersSent` carimbado). Frente 3 completa no staging.
+2. **E2E no browser (staging)** com `dono.teste@` / `professor.teste@crosstainer.com`: criar evento (sem vaga TOI/Hiit; detalhe = painel de staff) → marcar Deve/Poderia → "Salvar staff e convidar" (convite chega aos selecionados) → professor responde Vou/Não vou → reflete no consolidado da gestão. Console limpo.
+3. **Avisar o Rodrigo** que a Frente 3 (eventos com staff/RSVP + lembretes) está no ar pra validar.
+- **Fora de escopo (4ª rodada, cada um no seu ciclo):** tabela gestão escalado×compareceu, calendário mensal da Escola Interna, mínimo de preferências, substituição pelo lado do substituto, ajustes prontos (data 2x, escalar manual, detalhes do fim de ano). **Eventos antigos** com slots TOI/Hiit seguem inertes (sem migração; o painel ignora `slots`). Memória [[frente3-escala-eventos-staff]].
+
+---
+
+## 🔖 Sessão 41 (07–08/07/2026) — Escala Inteligente FRENTE 1 (12 ajustes do Rodrigo) CONSTRUÍDA na branch (falta E2E no staging)
+
+**Rodrigo mandou 12 ajustes/sugestões pra Escala Inteligente. Fatiados em 3 frentes; validado com ele por 2 textos não-técnicos (respondeu: e-mail pode ser depois; Escola Interna = gestão escolha o líder direto). Frente 1 construída via subagent-driven (11 tasks TDD + review por task + review holístico final). Branch `feature/shell-integrado`.**
+
+- **✅ FRENTE 1 no código (commits `55a1232`..`75080ce`):**
+  - **Camada `notify` nova** (`notify-service.js` + smoke): in-app hoje (grava em `notifications`, shape do sino), canal `email` como stub pronto pra plugar depois. Decisão do Rodrigo: e-mail depois.
+  - **Janela com prazo** (`scale-service.js`): `openElection(id,{closesAt,batchId})` + `windowClosesAt/OpenedAt/ClosedAt/BatchId`; `isWindowOpen` (comparação **hora local** via `nowLocalMinute` — bug UTC×local corrigido); `setPreference` recusa após o prazo; `listScalesByBatch`.
+  - **UI gestão** (`professores-escala-smart.js`): toggle **Próximos/Passados/Todos** (item 1); **multi-seleção + abrir janela em lote** com prazo comum + **1 aviso in-app** ao time (itens 2/3/4); abertura individual corrigida (por id, não por aba); **tela "Revisão de fechamento"** — matriz pessoas×datas (quem pegou o quê / quem não se candidatou / vagas abertas) → "Confirmar e avisar" consolida por justiça+mérito + notifica (item 5); **aba Escola Interna** com atribuição **manual** do líder pela gestão + publicar na agenda (item 10).
+  - **UI professor**: contagem regressiva do prazo + "Janela encerrada" (bloqueio) na tela de preferências.
+  - **Rename** Chamada → **Confirmar Presença** (nav + títulos + botão + toast) (item 12).
+  - **Integração** (`professores-engajamento.js`): o líder planejado na Escala Interna entra **pré-marcado** na Confirmar Presença (a escala é o plano; o ponto só no salvar — sem duplicar).
+  - **Notificações navegam** ao clicar (`professores.js` `handleNotifClick` trata `escala-smart`) + ícones no sino (`NOTIF_TYPE_META`).
+- **✅ Verificação:** 6 smokes Node verdes + parse de todos os arquivos. **Rules OK** (review final): `special_scales` é field-agnostic (aceita campos novos + `tipo:'escola_interna'`), `notifications` create liberado p/ autenticado — **nenhuma mudança de rules necessária**.
+- **Docs:** spec `docs/superpowers/specs/2026-07-07-escala-frente1-janela-eleicao-design.md` · plano `docs/superpowers/plans/2026-07-07-escala-frente1-janela-eleicao.md` (12 tasks) · memória [[frente1-escala-janela-eleicao]].
+
+**🚀 FRENTE 1 DEPLOYADA no staging (08/07) + texto de teste enviado ao Rodrigo** (aguardando validação dele).
+
+**🚀 FRENTE 2 CONSTRUÍDA E DEPLOYADA no staging (08/07) — visão do professor.** Commits `a55a08b`..`a8eac69` (7). Rules `scale_day_preferences` + hosting no ar. #11 visão do prof em 5 abas (Sábados/Feriados candidatar + "você está escalado"; Eventos read-only; Escola Interna read-only "você lidera"); #9 fim de ano por data + desmarcar turno; `consolidateByDay` respeita dia×turno (retrocompat). Spec/plano `2026-07-08-escala-frente2-*` · memória [[frente2-escala-visao-professor]]. **Nota:** subagentes deram pau no meio (delegavam em vez de executar + bateram no limite de sessão) → Tasks 6/7 feitas inline + review por diff/smokes (7 suítes verdes). **Pendência:** validar a regra por REST ([[feedback-deploy-rules-explicito]]) + E2E do professor no browser.
+
+**⏭️ RETOMAR AQUI (parou por limite de uso semanal, 08/07 noite):** Rodrigo testou F1/F2 e mandou retorno.
+- **Frente 3 (eventos) 100% VALIDADA** — brainstorm feito (evento=lista de staff, sem TOI/Hiit; RSVP obrigatório vem "Vou"/opcional aberto; lembretes 7/4/1d p/ todos menos "Não vou"; sem prazo). Falta virar spec→plano→build. Precisa de CF agendada nova; `notify-service.js` é a base.
+- **Ajustes prontos (F1/F2):** bug data 2x no card de sábado; escalar manual quando ninguém disponível (reusar `assignSlot`); fim de ano no prof mostrar unidade/horário/turno.
+- **Features novas:** tabela na gestão (sábados/feriados/escola interna feitos + escalados por prof/período); Escola Interna como calendário mensal (Google Calendar, 14:30-15:30 editável, líder+unidade por dia).
+- **3 perguntas ENVIADAS ao Rodrigo (aguardando):** mínimo de preferências (quantas/config/bloqueia?); tabela "fez" = presença real ou dias passados; substituição pelo lado do substituto (GAP — só titular inicia hoje) precisa entrada do substituto + aprovação?.
+- Detalhe completo na memória [[frente2-escala-visao-professor]] (seção "RETORNO DO RODRIGO"). **Tech debt aceito:** bloqueio de prazo client/serviço (não nas rules).
+
+---
+
+## 🔖 Sessão 40 (01/07/2026) — Escala Inteligente em 4 abas (feedback do Rodrigo) CONSTRUÍDA e NO AR no staging
+
+**Rodrigo mandou print anotado pedindo a Escala Inteligente organizada em abas. Brainstorm → spec → plano → build TDD → deploy staging, tudo na sessão. Branch `feature/shell-integrado`.**
+
+- **✅ 4 abas na mesma rota** (`professores-escala-smart.js`): **Sábados** (lista virtual de TODOS os sábados do ano, doc criado sob demanda no clique) · **Feriados** (BrasilAPI sugere nacionais c/ fallback no cache `meta/holidays_cache_*` da CF; gestão aponta; "+ Data especial" p/ municipal/estadual e domingo especial) · **Eventos** (etiqueta Interno/Externo — campo novo `eventKind`; ponto continua na Chamada) · **Fim de ano** (modal dedicado, reusa fluxo por turnos). Seletor de ano; detalhe/preferências/consolidação/publicação intactos; visão do professor intacta.
+- **✅ Helpers puros + smoke novo** (`scale-service.js` + `scripts/smoke-escala-tabs.js`): `saturdaysOfYear`, `mergeVirtualWithDocs`, `parseFeriados`, `isLegacyScaleDoc`. `listScales` agora **filtra docs legados** (formato antigo da tela Escalas Especiais: date Timestamp/sem tipo) — mata os cards quebrados "fds/Timestamp/undefined" do print do Rodrigo.
+- **✅ Gap latente corrigido:** a criação pela UI montava slots SEM horário e não lia `ScaleConfigService.horarios` → publicar geraria 0 aulas. Novo `escalaSlotsPadrao(tipo)` aplica os horários da config.
+- **✅ Tela legada "Escalas Especiais" FORA do menu** (admin/superv, `professores-nav.js`) — rota/código/dados preservados p/ rollback; CF de geração de aulas segue lendo `scaleTypeId` p/ peso. **Migração dos docs legados = tech debt** (spec §6).
+- **✅ smoke-sidebar.js atualizado** — estava desatualizado desde as sprints Engajamento/PLR (seções novas não cobertas; falha pré-existente confirmada por git stash) + asserções novas (sem `escalas`, com `escala-smart`).
+- **🚀 Deploy hosting staging + verificação por curl:** arquivos novos no ar (funções das abas servidas, nav sem `escalas` no array do admin). Smokes todos passando (exceto `smoke-9.js`, que é integração e exige `--project`).
+- **Docs:** spec `docs/superpowers/specs/2026-07-01-escala-inteligente-abas-design.md` · plano `docs/superpowers/plans/2026-07-01-escala-inteligente-abas.md` (9 tasks, todas executadas) · memória `escala-inteligente-abas`.
+
+**⏭️ PRÓXIMA AÇÃO:** (1) **E2E visual no staging** (checklist na Task 9 do plano: logar como `dono.teste@` → 4 abas, criar sábado/feriado/evento/fim-de-ano, card legado sumido, console limpo; professor vê preferências igual antes) — não foi feito no browser nesta sessão, só verificação por curl; (2) avisar o Rodrigo que as abas que ele pediu estão no ar; (3) pendências menores da spec §6 (migração docs legados, turnos default "Matutino/Vespertino"?, integração evento→chamada).
+
+---
+
+## 🔖 Sessão 39 (27–29/06/2026) — As 3 features do Rodrigo CONSTRUÍDAS, VERIFICADAS e NO AR (build autônomo /loop)
+
+**Com as respostas do Rodrigo (`docs/rodrigo-engajamento-escala-COMPLETO-respostas.txt` + follow-up PLR), as 3 frentes que faltavam foram construídas em /loop autônomo, cada uma spec→plano→TDD→E2E staging→deploy. Branch `feature/shell-integrado`.**
+
+- **✅ Feature 1 — Publicar escala na agenda + preferência Prefiro/Pode ser/Não posso.** Descoberta: escalas especiais são off-grid → publicar CRIA aulas taggeadas (`specialScaleId`), idempotente, **hora normal** (B1). `ScaleConfigService` (horários configuráveis). UI publicar/despublicar + "Pode ser em todas". Rules `classes.delete` p/ gestão (só aulas da escala não fechadas) + `scale_config`. E2E ok. Spec `docs/superpowers/specs/2026-06-27-publicar-escala-agenda-preferencia-design.md`.
+- **✅ Feature 2 — Fim de ano por turnos (Manhã/Tarde-Noite).** `templateSlotsFimDeAno` por dia×unidade×turno×pessoas; `publishToAgenda` multi-dia; UI modal (unidades + turnos editáveis + 24/12 fechado default) + detalhe por turno + publicar. E2E ok (12 vagas→12 aulas em 3 dias). Spec `...2026-06-27-fim-de-ano-turnos-design.md`.
+- **✅ Feature 3 — PLR (substitui a planilha).** `plr-engine.js`+`plr-service.js`+`professores-plr.js` (Config/Avaliação/Resultado). Nota ponderada (avaliador Coord/Head=2), engajamento auto do placar, horas do fechamento, rateio `pool×(horas×nota)/Σ` soma exata, elegibilidade configurável (3 meses/estagiário). Rules restritas. E2E ok (nota 8.4, rateio=pool). Spec `...2026-06-27-plr-design.md`.
+
+**Tudo configurável (preferência do usuário [[feedback-datas-configuraveis]]). ~20 commits + hosting deployado em `crosstrainer-comissoes-staging.web.app`.** Detalhe completo na memória [[novo-modulo-engajamento-pontos]].
+
+**⏭️ PRÓXIMA AÇÃO:** Rodrigo valida as 3 features no staging. Pendências [Menor] (não bloqueiam): nota dos alunos no PLR (vem da Pacto futura); papel formal de "avaliador" (v1 admin/superv); detecção de feriado dentro do período do fim-de-ano. Frente independente: homologação do módulo + `docs/checklist-deploy-producao.md`.
+
+---
+
+## 🔖 Sessão 38 (27/06/2026) — Sistema liberado pro Rodrigo no staging + unidade fictícia removida + doc único de validação/perguntas
+
+**Tipo: liberação (deploy hosting staging) + limpeza de dados + entrega de docs pro cliente. Branch `feature/shell-integrado`. Não construiu feature nova.**
+
+- **🚀 Sistema liberado pro Rodrigo (autorizado pelo usuário):** `firebase deploy --only hosting --project staging`. Todas as telas novas (Engajamento Config/Chamada/Placar + Escala Inteligente + Fim de ano) agora no ar em `crosstrainer-comissoes-staging.web.app` (antes só preview local). **Verificado por curl:** arquivos novos 200, `professores-escala-smart.js` servido contém fim-de-ano/`consolidateByDay`, nav tem `engaj-config/chamada/placar` + `escala-smart`. Acessos demo: `dono.teste@` / `professor.teste@crosstainer.com` (senha `crosstainer2026`) → clicar "Professores" no seletor de módulo.
+- **🧹 Unidade fictícia removida (decisão do usuário):** a demo tinha 3 unidades; na vida real só **2 (CP e PP)**. Removida a `unit-norte` ("CrossTainer Norte") via `scripts/remove-unit-norte.js` (dry-run + `--apply`): apagou `units/unit-norte`, tirou de `allowedUnits` de 2 users (incl. `abluir@`) + `unitIds` da Ana + slots Norte de 3 escalas demo. **0 aulas/fechamentos afetados.** `seed-demo.js` corrigido (allowedUnits → `['unit-cp','unit-pp']`). Confirmado: só CP/PP restam.
+- **🗓️ Decisão: datas SEMPRE configuráveis** pela gestão (não hardcoded) — período do fim-de-ano, dias fechados/meio-período, ciclos do PLR. Em pergunta pro cliente, assumir configurável e só confirmar o padrão. Memória [[feedback-datas-configuraveis]].
+- **🚫 Treino de 27/06 NÃO será registrado à mão** (cancela a nota antiga "registrar 27/06 manual") — a contagem de pontos começa só quando o sistema entrar pra valer.
+- **📄 Doc-gatilho das pendências = arquivo ÚNICO `docs/rodrigo-engajamento-escala-COMPLETO.txt`** = acesso (link+logins) + guia passo a passo (gestão/colaborador) + perguntas A/B/C. (Versões parciais `rodrigo-acesso-e-guia.txt` e `perguntas-rodrigo-fechar-pendencias.txt` existem; o COMPLETO substitui ambas.)
+  - **Perguntas em aberto:** A) fim-de-ano (A1 unidades · A2 ritmo · A3 datas=confirmar padrão configurável · **A4 nova**: como a dupla do dia vira hora/pagamento) · B) **B1 peso da data** (mantém pagando × só equilibra — destrava o publish) · C) PLR (C1 pesos dos blocos da nota + onde entra o engajamento · C2 quem avalia/média · C3 nota dos alunos sem Pacto nesta rodada · C4 quem entra no rateio · C5 pool digitado · C6 confirmar fórmula). Já respondido (não repetir): rateio horas×nota, 2×/ano jun/nov, substitui planilha, engajamento automático do placar, nota dos alunos = Pacto futura.
+
+**⏭️ PRÓXIMA AÇÃO: aguardando o Rodrigo** validar pelo sistema + responder o COMPLETO. Com as respostas:
+1. **Publicar a escala na agenda** (gerar `classes`) — gated por **B1** (inconsistência peso §15.5 × código que paga em `professores-shared.js:1826`).
+2. **Fim de ano** — como o dia vira hora/pagamento (**A4**).
+3. **PLR** — ainda **sem spec**; com as respostas C → brainstorm → spec → plano → build. **Pacto não bloqueia** (só a nota dos alunos é externa). Detalhe na memória [[novo-modulo-engajamento-pontos]].
+
+---
+
+## 🔖 Sessão 37 (23/06/2026) — Feedback do Rodrigo sobre agenda/escalas + decisão Pacto + nova frente Engajamento/Pontos
+
+**Sessão de produto/requisitos — NÃO alterou código (só `docs/` + memória).** Rodrigo (Rô, dono/futuro sócio) passou um retorno sobre o módulo de agenda. A maior parte é **funcionalidade nova e grande**, muito além do que existe.
+
+**✅ DECISÃO PACTO RESOLVIDA (Rodrigo respondeu):** construir o **sistema próprio PRIMEIRO, sem conectar**; depois de rodar na prática, avaliar conectar com a Pacto pra evitar cadastro duplicado. → Desenhar o modelo de dados **já preparado pra casar** (ex.: campo "ID externo Pacto" vazio agora). Destrava a frente que estava parada desde a sessão 36. (Memória [[pacto-decisao-rumo]].)
+
+**🆕 NOVA FRENTE GRANDE — módulo de Engajamento/Pontos + escala inteligente + PLR.** Mapa na memória [[novo-modulo-engajamento-pontos]]. Pontos:
+- **Insight central:** reunião interna, treinamento, escola interna/TOI, proatividade em substituir e eventos = **UM motor de pontos só**, consumido em 2 lugares: ordem de escolha na eleição de escala **e** PLR. Os critérios batem com a planilha `Avaliação de Desempenho_mai2026_PP.xlsx` (1 aba/colaborador; avaliadores tirando média; blocos Profissional/Comportamental/Técnica + média alunos + PLR % final).
+- **Seção 15 da spec (`docs/Proposta_Funcional_..._V3.md`) JÁ especificava** o motor de escala inteligente (janela rolante 3 meses, modelo disponível/prefere/não-pode com "preferência ≠ reserva", distribuição equilibrada/ninguém de fora + painel, alocação automática por não-resposta, poderes da gestão, pesos por data sábado 1/feriado 2/domingo 3/evento 3) — **mas NUNCA foi construído.** O código (`professores-escalas.js`) é só um STUB: etiqueta de peso que multiplica horas no pagamento.
+- **Gap do feedback do Rodrigo vs seção 15:** (1) motor de pontos de **MÉRITO** como prioridade de escolha — a spec prioriza por **JUSTIÇA** (equilíbrio+histórico); **TENSÃO a decidir: mérito × justiça, como combinam**; (2) unidade alternada explícita; (3) acúmulo de preferência não usada; (4) Escola Interna (treino Seg–Sex 14:30 editável + escala de quem lidera) / presença em Reunião / Treinamento+penalização / PLR — tudo fora da seção 15.
+- **Inconsistência a alinhar na construção:** spec 15.5 diz que o peso da data é só pra **balancear distribuição** ("não substitui regra financeira"), mas o código usa esse peso pra **PAGAR**.
+- **Renomear telas da agenda** ("Agenda da Semana" vs "Agenda Geral") — trivial, item 0.
+- **Treino de 27/06/2026** acontece antes do sistema → registrar presença manual e importar depois.
+
+**📄 Documento de perguntas pro Rodrigo:** `docs/perguntas-rodrigo-agenda-escalas.md` (8 blocos, ~25 perguntas; o que a seção 15 já decidiu virou "confirmar"; pergunta 2c isola a tensão mérito×justiça). **Aguardando as respostas dele.**
+
+**🐛 AJUSTE PENDENTE DO COMISSÕES IDENTIFICADO (23/06) — renovação virando "novo contrato" (paga o dobro).** Investigado SEM alterar código. Causa-raiz: o sistema copia novo/renovação da coluna "Tipo de Venda" do XLSX (fonte = sistema da academia); a vendedora registrou renovações como "Novo Contrato" lá → motor paga 5% em vez de 2,5% E distorce meta/P3 (novos infla, renovações esvazia). Detalhe completo + caminhos de correção na memória [[comissoes-renovacao-classificada-novo]]. **Aguardando o Rodrigo mandar o arquivo/período com os nomes citados** (não estavam no `vendas realizadas PP -0106 a 2206.xlsx`). Sugestão forte: detecção automática no upload via histórico de clientes. NADA implementado.
+
+**⏭️ PRÓXIMA AÇÃO:**
+1. **Engajamento/Escala (frente principal): AGUARDANDO RESPOSTAS DO RODRIGO** ao doc `docs/perguntas-rodrigo-validacao-engajamento-escala.txt` (2 blocos: fim-de-ano 1a-1c · peso da data 2a). Com elas → construir 5c-2 (fim-de-ano) + decidir o peso. Deploy de hosting só na hora do demo pro Rodrigo.
+2. **Comissões (renovação→novo): BAIXA PRIORIDADE.** O Rodrigo já mandou o arquivo/info, mas o usuário ainda não repassou (não é prioridade). Tratar depois. Detalhe em [[comissoes-renovacao-classificada-novo]].
+3. Agenda/Engajamento — origem: respostas do Rodrigo em `docs/respostas-rodrigo-agenda-escalas.md`; spec `docs/superpowers/specs/2026-06-24-engajamento-pontos-escala-design.md`.
+
+**✅ MÓDULO DE ENGAJAMENTO/PONTOS CONSTRUÍDO E VERIFICADO NO STAGING (24/06, via /loop). Branch `feature/shell-integrado`. Detalhe completo na memória [[novo-modulo-engajamento-pontos]].**
+- **Plano 1 — motor puro** (`engagement-config.js` + `points-engine.js`, smokes Node): tempo de casa por faixa, ciclos/reset, placar, geração idempotente por chamada, penalidades, proatividade, TOI-aluno.
+- **Plano 2 — serviço/persistência** (`engagement-service.js` + `_fake-firestore.js`): config, ciclos (CRUD), recordAttendance idempotente, awardSubstitution, scoreboard.
+- **Regras Firestore** das 4 coleções deployadas + validadas no staging (10/10 REST).
+- **Plano 3 — UI** (`professores-engajamento.js`, T1–T6): telas de **Config** (pontos/penalidades/ciclos), **Chamada** (4 tipos, líder ×2, treinou-em-outra, TOI-aluno, filtro de unidade, +pts ao vivo) e **Placar** (por pessoa/ciclo). Nav/rotas registrados. Verificado ponta a ponta no staging (admin lança→placar reflete; professor vê só o próprio e Config bloqueada; auditoria; zero erros de console). Revisão de subagente ✅.
+- **Falta pra o cliente acessar sozinho:** `firebase deploy --only hosting` no staging (não feito — pedir OK; regra de homologação). Hoje validado por preview local→staging.
+
+**✅ ESCALA INTELIGENTE DOS SÁBADOS — CONSTRUÍDA E VERIFICADA NO STAGING (24/06).** Plano 4 `scale-engine.js` (piso de justiça + mérito + slots tipados + compensação, smoke) · Plano 5a `scale-service.js` (CRUD + preferências + fairness + consolidação, smoke fake firestore) · Plano 5b UI `professores-escala-smart.js` (gestão consolida com o "porquê" + painel de equilíbrio; colaborador marca preferência) + regras das 3 coleções no staging · polish (painel + tabela por-quê) · 5c-1 proatividade (aceitar substituição = ponto). **Falta (aguarda Rodrigo):** 5c-2 fim-de-ano (modo por-dia) e o peso da data (publish adiado). Item 0 (renomear agenda) segue liberado e independente.
+
+**Pendências menores anotadas** (não bloqueiam): `faixaAnos>=1` na config; normalizar pontos/datas do Firestore; `engajHireISO` não trata `type==='eventual'`; tech-debt entry órfã; inconsistência peso-de-data §15.5 × pagamento.
+
+3. **Comissões (renovação→novo):** aguardando arquivo do Rodrigo. Detalhe em [[comissoes-renovacao-classificada-novo]].
+
+**Obs.:** homologação do cliente (módulo Professores) + `docs/checklist-deploy-producao.md` seguem pendentes, frente independente.
+
+---
+
+## 🔖 Sessão 36 (16–17/06/2026) — Pesquisa da API Pacto + alinhamento estratégico com o sócio
+
+**Contexto novo e GRANDE (muda o rumo do projeto):** o cliente (Rô — dono da Cross + futuro sócio) está migrando do **TecnoFit** para a **Pacto Soluções**. Ideia dele: puxar vendas (comissões), agenda e cadastros da Pacto **via API** em vez do upload manual de XLSX. **Esta sessão foi pesquisa + estratégia — NÃO alterou nenhum código de produção** (só `docs/` e memória).
+
+**Pesquisa da API Pacto (feita batendo nos endpoints REAIS com tokens do cliente; mapa técnico completo na memória `pacto-api-integracao.md`):**
+- API real = gateway `https://apigw.pactosolucoes.com.br`. Auth: header `Authorization: <token>` (cru, sem "Bearer") **+ header `empresaId`**. Cada endpoint tem `x-scope`; **credencial precisa ser gerada COM os escopos marcados** (sem isso vem `scope:[]` e recusa — no /prest dava erro enganoso "Problemas ao obter a secret"). Tem **SandBox** (dados fictícios).
+- **Verificado com dado real:** Comissões 🟢 (`relFaturamentoRecebido/vendas` por período = valor recebido) · Cadastros 🟢 (`colaboradores/professores-ativos` puxou prof. real; modalidades; alunos) · **Agenda 🟢** (corrige conclusão errada que tive no meio da sessão: a "Agenda de Aulas" EXISTE — aulas por professor/dia, substituição de professor, presença; o que vem vazio é "turmas", porque as modalidades da Cross são `utilizarTurma:false`).
+- **Descoberta estratégica:** a Pacto cobre **nativamente** muito do que o módulo Professores faz (agenda, **substituição**, presença, professores) e tem até **comissão nativa** → a pergunta deixou de ser "como integrar" e virou **"quanto do sistema custom ainda faz sentido manter"**.
+
+**Decisão de produto — EM ABERTO, aguardando o sócio.** Montamos juntos e o usuário **ENVIOU pro Rô** uma mensagem de WhatsApp (texto final salvo em `docs/pacto-alinhamento-socio.md`) pedindo a visão dele. Tom: papo entre sócios, assumindo que é pesquisa fresca feita com IA; a Cross é dele, o sistema é feito junto, com um "quem sabe lá na frente vira tipo a Pacto". **3 perguntas-chave enviadas:**
+1. Sistema só pra Cross, ou lá na frente virar **produto tipo Pacto** pra vender pra outras academias? *(essa muda a arquitetura)*
+2. A **troca de professor** da Pacto, se registrar direitinho quem deu cada aula, já atende — ou a nossa regra é diferente?
+3. Subir agora o que já fizemos dos professores e conectar as APIs depois, **ou** já construir direto com as APIs (menos retrabalho)?
+
+**Intuição registrada (minha + do usuário):** comissão e folha dos professores são regras específicas demais pra caber redondas num SaaS. A folha nasceu de uma **dor real** (professores trocam muito de horário; o sistema antigo não registrava nem tinha as regras → construímos troca de aula + registro de quem deu a aula → a folha veio em consequência). Provável caminho: **apoiar na Pacto pro operacional + manter comissão/folha sob medida puxando dados da API.** Mas decisão depende da resposta do Rô (sobretudo a pergunta 1).
+
+**⏭️ PRÓXIMA AÇÃO:** aguardar a resposta do Rô às 3 perguntas. Com a visão dele → escolher o caminho (apoiar na Pacto + customizar, vs já arquitetar pra virar produto) → brainstorming → spec → plano. **Antes de qualquer build com a API:** (a) gerar credencial **com escopos**; (b) confirmar se o relatório de faturamento traz **vendedor + item/plano** (decide se as comissões são plug-and-play; o exemplo do DTO só mostrava data/valor/cliente). **Não mexer no módulo/comissões até a decisão.**
+
+**Obs.:** o trabalho anterior (módulo Professores + fixes do Comissões) segue exatamente como na sessão 35 — homologação do cliente pendente, `docs/checklist-deploy-producao.md`. Independente desta nova frente da Pacto.
+
+---
+
+## 🔖 Sessão 35 (16/06/2026) — Fixes de split/BIANUAL/recálculo em PRODUÇÃO
+
+**Estado: PACOTE DE FIXES DO COMISSÕES DEPLOYADO EM PRODUÇÃO (16/06) E PORTADO PRO MÓDULO.** Achados pelo cliente ao pagar comissões. Corrigidos e validados (detalhe na memória `fix-split-bianual-recalc.md`):
+- **B1** split pagava o bônus P2 em dobro (cada perna recebia o bônus cheio) · **B2** BIANUAL legado virava ANUAL no recálculo · **B3** recálculo carregava conjunto incompleto (cache filtrado por uploadId) → corrompia meta/P3 da unidade · **RAIZ** upload re-quebrava splits (re-adicionava o cheio + deletava a perna) · **aba "Divisões" 🔀** nova (lista splits + alerta se % ≠ 100%) + U1/U2 de UI.
+- Deploy: `origin/main` (`3d6a30d`..`f6f23d5`) + **portado pra `feature/shell-integrado`** (cherry-pick → `e4514bb`..`3b35d06`, sw.js mantido v3.1, branding CrossTainer preservado). Motor Node-testado, sintaxe OK.
+- **Maio remediado** (CP R$4.598,63/69 ativ · PP R$1.973,19/30 ativ) por `backups/_remediar_maio.js`.
+
+**Pendências do CLIENTE:** GISELE (CP) ajustar caixa 618→359 (tirar 2ª parcela) + refazer split 70/30 · Francini PP registrar 1 pagamento limpo de R$52,46 (limpei os 4 recibos bagunçados, inclusive um errado de R$5.246,00) · conferir aba Divisões.
+
+**Reconciliação pré-deploy do módulo (atualizada):** tanto o hotfix de segurança quanto estes fixes estão em `origin/main` (commits que o `main` LOCAL não tem) E portados na branch (hashes diferentes, mesmo conteúdo). Ver `docs/checklist-deploy-producao.md`.
+
+---
+
+## 🔖 Sessão 34 (15/06/2026) — Hotfix de segurança em PRODUÇÃO
+
+**Estado: HOTFIX DE SEGURANÇA DEPLOYADO EM PRODUÇÃO (15/06).** Fechada falha real: a regra viva de prod (`/users` create) permitia `request.auth.uid == userId` → um colaborador demitido, com login do Firebase Auth ainda ativo, recriava o próprio perfil como **admin** pelo formulário de recuperação. Confirmado explorável via Firebase Rules Test API (e o controle provou que a regra antiga deixava ALLOW).
+
+**Deployado em produção:**
+- **Regras** (Firebase `crosstrainer-comissoes`): `/users` → `allow create: if isAdmin();`. Patch **mínimo** sobre as regras VIVAS de prod (buscadas pela Rules API), NÃO a versão endurecida do módulo. Ruleset `01538012…`, verificado pós-deploy (linha ativa = `isAdmin()`, self-create bloqueado).
+- **Frontend** (`origin/main` `6f0a15b`→`02e0909`, push fast-forward, GitHub Pages): `createUser` e `activateUser` gravam o doc como **admin** (app secundário, sem trocar a sessão); `showProfileRecovery` virou aviso "Acesso indisponível"; `doProfileRecovery` neutralizada. Verificado: produção serve a versão nova (form vulnerável sumiu).
+- **Efeito:** "Remover" + a regra já bloqueiam o acesso ao app (perfil removido + sem auto-recriação) **sem precisar do Console**. Disable real do Auth (matar a credencial) = Cloud Function → fica pro deploy do módulo (CFs nunca rodaram em prod + exige Blaze).
+
+**Branch do módulo alinhada:** `feature/shell-integrado` recebeu o port (commit `2eed9d6`: `activateUser` + form de recuperação; `createUser` já gravava como admin). **Staging redeployado** (hosting) com o fix — antes disso, `activateUser` e o form estavam **quebrados no staging desde 12/06** (a regra endurecida já estava lá), o que afetaria a homologação do cliente.
+
+**⚠️ ACHADO CRÍTICO DO REPO:** `main` local está **26 commits À FRENTE de `origin/main`** — é o **módulo Professores inteiro** (Sprints 4b–9 + shell) commitado mas **NUNCA publicado**. Produção (`origin/main`) é um frontend "puro" no GitHub Pages (sem `firestore.rules`/`firebase.json`/`.firebaserc` — a infra Firebase só existe no main local/branch). **Reconciliar antes do deploy do módulo:** `origin/main` ganhou o hotfix `02e0909` que o main local e a branch não têm (a branch tem o equivalente `2eed9d6`).
+
+**Pendências menores:** resíduo de worktrees `.claude/worktrees/hotfix-*` (OneDrive travou a remoção; `git worktree prune` + `git branch -D hotfix/*` quando soltar) · CF de disable do Auth escopar pro módulo. Detalhe na memória `hotfix-users-create-rule.md`.
+
+---
+
+## 🔖 Sessão 33 (11–12/06/2026)
+
+**Estado:** **SISTEMA PRONTO PRA HOMOLOGAÇÃO FINAL INTEGRADA (12/06).** Hub Pessoas completo (REST 8/8 + UI 9/9) + **check geral com 3 bugs reais corrigidos** (tela Pagamentos quebrada desde a 4b · índice de férias ausente · listener órfão no logout — `docs/check-geral-2026-06-11.md`) + **pacote de entrega `e9a61ed`**: branding CROSSTAINER no index.html (6 strings visíveis), createUser legado gravando como admin (era órfão de Auth) + bug `${unitId}` no logAudit, **sw.js v3.1** (JS próprio network-first — fix estrutural do tech debt #2, autorizado), cache do hosting JS/CSS 7d→**5min**, ESC nos modais do hub, plural no chip da home. **Revalidação integrada pós-pacote: Comissões ✓ (branding, menu Pessoas, tela legada criou usuária completa sem órfão) + Professores admin 11/11 ✓ + professor 6/6 ✓ + console limpo + índice de férias servindo no cliente.** Fixture 100% limpa. **Checklist de deploy em produção: `docs/checklist-deploy-producao.md`** (inclui as 2 decisões pendentes: antecedência de férias 5→30 e destino final da tela legada). Produção intacta — **falta SÓ o aceite do cliente no staging → seguir o checklist.**
+
+> **📦 KIT DE HOMOLOGAÇÃO (12/06, commit `cce1e56`):** redirect automático no `index.html` (professor que loga no link principal cai direto no professores.html — validado E2E) + 3 páginas publicadas no staging com a identidade visual do sistema: **`/manual-admin.html`** (10 seções, dois módulos), **`/manual-professores.html`** (8 seções) e **`/roteiro-homologacao.html`** (7 passos com perguntas-chave, aponta os dados de demo). Cliente recebe só os links.
+>
+> **🔀 SELETOR DE MÓDULO NO COMISSÕES (12/06, commit `0e33183`, autorizado):** cliente apontou que o admin logado no Comissões não tinha caminho visível pro módulo Professores (só o item "Pessoas"). Adicionado o seletor **Comissões | Professores** no topo da sidebar do `index.html` (espelho do `.sb-switcher` do professores.html; só renderiza com `moduleAccess` nos 2 módulos — vendedora não vê). Validado E2E nos 2 sentidos. Roteiro passo 1 atualizado orientando o caminho.
+>
+> **👤 ACESSOS DO CLIENTE no staging (12/06, `seed-demo.js --users`, validados E2E):** `dono.teste@crosstainer.com` (admin, 3 unidades) e `professor.teste@crosstainer.com` (professor → vinculado ao Marcos Estrela: aulas de sábado, substituição e o pedido de férias do roteiro). Senha de ambos: `crosstainer2026`. Roteiro ganhou o **passo 8** (entrar como professor) + nota: pós-aprovação vem a **visão do professor otimizada pra celular** (compromisso assumido com o cliente). Remoção: `seed-demo.js --cleanup` (cobre os 2 users).
+>
+> **🎬 DADOS DE DEMO no staging (12/06, `scripts/seed-demo.js`):** 56 aulas de Jun/2026 (realizadas até dia 11 → fechamento preview unit-cp dá 24 aulas · 24h · R$ 3.300; previstas dia 12+), 1 aula substituída, salário do Marcos (R$70/h; **Pedro Lima sem salário de propósito** — demonstra "Sem cadastro"), 1 férias pendente + 1 substituição pendente (home do admin acende "Precisam de você"). Tudo etiquetado `seed-demo` — remover depois da homologação com `node scripts/seed-demo.js --cleanup`.
+
+> 🎯 **Sessão 33 (11/06) — Design do wizard fechado + spec + plano + execução das Tasks 1–8.**
+>
+> **Design fechado (decisões D7–D14, todas aprovadas pelo cliente):** D7 Acesso opcional no caminho professor ("Pular — criar sem acesso") e obrigatório no não-professor; D8 professor órfão NÃO é erro (vira estado "sem acesso" recuperável pela ficha, sem rollback); D9 wizard admin-only (supervisão só edita existentes); D10 menu "Usuários" do Comissões vira link `professores.html?page=pessoas` (tela antiga fica no código sem menu); D11 entrada "Professores" some (Pessoas assume); D12 modelo = UNIÃO `teachers`⊕`users` via `professorId` (sem migração); D13 escritas PROGRESSIVAS reusando teacherModal/salaryModal via hooks `onSaved`/`onClosed`; D14 "Pessoas" na seção Cadastros (supervisão alcança; Administração fica com Unidades+Auditoria).
+>
+> **Artefatos:** spec `docs/superpowers/specs/2026-06-11-hub-pessoas-design.md` · plano `docs/superpowers/plans/2026-06-11-hub-pessoas.md` (12 tasks, código completo, nota de progresso no topo).
+>
+> **Tasks 1–8 ✅ executadas (smokes todos verdes):**
+> - `3c86e64` user-model.js sem admin_gestao (5 perfis) + smoke
+> - `73184cc` professores-nav.js: 'pessoas' em Cadastros, sem 'professores', SYSTEM_SECTION só units+audit + smoke
+> - `c9ab33f` **pessoas-model.js** novo (junção pura, 3 estados) + smoke-pessoas-model.js
+> - `0321f57` professores-cadastro.js: hooks TeacherFormState.onSaved / SalaryFormState.onClosed + supervisão edita professor (gate)
+> - `798500e` **professores-pessoas.js** novo (lista união + busca/filtro) + div/scripts no professores.html + dispatch 'pessoas' + deep-link `?page=` no showApp + helpers de professores.js sem admin_gestao (canSeeSalary = só admin)
+> - `82030ed` ficha 4 abas gated (Identidade · Professor · 🔒Salário · 🔑Acesso; owner lock D3; XOR professor/estagiário)
+> - `3a8ec2b` wizard "Nova pessoa" + modal Acesso (markup em professores.html; Auth via app 'secondary'; users doc gravado COMO ADMIN — rules atuais só permitem create por admin, diferente do createUser legado que grava como o usuário novo)
+> - `5517621` index.html: troca cirúrgica do menu (diff de 3 linhas conferido — regra #1)
+>
+> **Tasks 9–12 ✅ executadas (bloco de staging):**
+> - `77773fe` auditoria admin_gestao nos dados: **0 usuários** — limpeza segura
+> - `48da255` rules: `isAdmin()` só admin + `teachers` update p/ supervisão · deployadas (`--only firestore:rules`)
+> - `17bb633` fixture (3 estados + supervisão) + **validação REST 8/8 ✅** (supervisão sem salários/sem criar users; professor travado). Bug achado e corrigido no script: regex pegava a apiKey de PROD (1ª do firebase-config.js) — agora extrai a do bloco staging
+> - hosting deployado em `crosstrainer-comissoes-staging.web.app`
+>
+> **⏭️ PRÓXIMA AÇÃO — homologação UI pelo cliente (janela anônima no staging), roteiro de 9 passos:**
+> 1. Admin → professores.html: sidebar com **Cadastros → Pessoas** (sem "Professores"); Administração só Unidades+Auditoria
+> 2. Lista Pessoas: todos com badges; "Fixture Pessoas SemAcesso" com badge SEM ACESSO
+> 3. Wizard professor: + Nova pessoa → Professor → modal professor → salvar → modal salarial → salvar/fechar → Acesso → **Pular** → ficha com banner
+> 4. "Criar acesso" depois pela ficha → vira "Com acesso"
+> 5. Wizard vendedor: caminho curto, sem Pular, exige unidade
+> 6. Segregação: `fix.pessoas.prof@teste.com`/`fixprof123` no index.html → tela "Sem acesso"; no professores.html → sidebar professor + Minha Agenda
+> 7. Supervisão: `fix.pessoas.superv@teste.com`/`fixsuperv123` → só professores na lista, sem abas Salário/Acesso, sem "+ Nova pessoa", consegue editar professor
+> 8. Comissões (admin) → menu "Pessoas" → abre o hub direto (deep-link)
+> 9. Dark mode nos modais novos
+>
+> **✅ ROTEIRO UI EXECUTADO POR AUTOMAÇÃO (9/9, mesmo dia):** Claude controlou o browser de preview (servidor estático local na porta 8123 → `firebase-config.js` detecta localhost → STAGING real). Resultados: (1) sidebar admin OK; (2) lista união 9 pessoas + badges + "4 sem acesso"; (3) wizard professor completo — XOR perfis, teacherModal→salaryModal→Acesso encadeados pelos hooks, Pular→banner na ficha; (4) "Criar acesso" pela ficha — banner some, pill "● Com acesso", **admin não foi deslogado** (app secondary OK); (5) wizard vendedor — caminho curto sem Pular, validação de unidade obrigatória funcionou; (6) segregação §4.7 — professor no index.html cai em "Sem acesso ao módulo Comissões" + Minha Agenda carrega com professorId (era a validação B/C pendente da Plano D); (7) supervisão — lista SÓ professores sem badges de acesso, ficha só Identidade+Professor, sem "+ Nova pessoa", edita professor; (8) menu "Pessoas" no Comissões + deep-link abre o hub direto; (9) dark E light mode legíveis.
+> **Cosmético corrigido durante a avaliação do cliente:** checkboxes dos modais novos desalinhados (CSS `.form-group label` vencia por especificidade) → classe `.check-row` flex, commit `01ef284`, deployado.
+>
+> **🐛 BUG de units duplicadas — achado pelo cliente na avaliação, CORRIGIDO:** `loadUnitConfig()` (`index.html:3705`) **auto-criava** `units/{id}` "CrossTainer CP" quando `allowedUnits[0]` do usuário logado apontava pra doc inexistente → cascas "Inativa" acumulavam no staging (7 achadas). Limpeza: `scripts/audit-units-duplicadas.js` (inventário de referências users/teachers/periodos antes de apagar; 7 órfãs removidas, `unit-cp`/`unit-norte`/`unit-pp` intactas). **Fix autorizado pelo cliente no `index.html`** (commit `8c6ced5`): config default só em memória, sem gravar. Validado com regressão real: user temporário com `allowedUnits: ['unidade-fantasma-teste']` logou e NENHUM doc foi criado (antes criava). Temp user removido. Em produção o bug era latente (dados consistentes) — fix vai junto na homologação.
+> **🧹 Fixture LIMPA (cleanup estendido):** 5 logins (`fix.pessoas.*` + `fix.wizard.*`) + 3 teachers + salários + audit entries removidos do staging. Pra re-testar visualmente: `node scripts/fixture-pessoas.js` recria em segundos. Servidor local de preview: `.claude/launch.json` (`crosstrainer-static`, porta 8123).
+>
+> **Decisões de processo:** validação UI da Plano D foi ABSORVIDA pelo roteiro do hub (não validar 2x a mesma fundação). Limpeza de admin_gestao em `functions/index.js`, `storage.rules` e queries legadas do `professores-shared.js` ficou FORA de escopo (ramos mortos inofensivos; mexer exigiria redeploy de CFs).
+> Branch `feature/shell-integrado` **não mergeada no `main`**.
+
+---
+
+## 🔖 Sessão 32 (10/06/2026) — Navegação integrada (Planos A–D) + virada pro hub Pessoas
+
+**Estado:** Shell integrado: Planos A/B/C validados + bug de férias corrigido + Plano D implementado. Hub único "Pessoas" em design (concluído na sessão 33).
+
+> 🎯 **Sessão 32 (10/06) — Implementação da navegação integrada (branch `feature/shell-integrado`).**
+>
+> Specs/planos: design `docs/superpowers/specs/2026-06-10-navegacao-shell-integrado-design.md`; planos `docs/superpowers/plans/2026-06-10-shell-integrado-plano-a.md` e `-plano-b.md`.
+>
+> **Plano A ✅ (validado UI):** novo `professores-nav.js` (config + modelo puro + smoke `scripts/smoke-sidebar.js`); `buildSidebar` reescrito → **acabou a duplicação** de seções; agrupamento por domínio (Início · Agenda · Cadastros · Férias · Financeiro · Minhas aulas); seção **Administração · sistema** (admin → links pro Comissões); **seletor de módulo** (por `moduleAccess`); home estática → mensagem neutra; scrollbar fina + sidebar compacta. Paridade de permissões travada por teste (admin_gestao sem `pagamentos`).
+>
+> **Plano B ✅ (validado UI):** deep-link `index.html?page=...` no `showApp()` → links da Administração abrem direto a tela do Comissões.
+>
+> **🔴 Descoberta + fix (na branch):** o `index.html` usava config **hardcoded de produção** e NÃO o `firebase-config.js` → no staging o **Comissões falava com PRODUÇÃO** (furo de isolamento) e a sessão não era compartilhada com o Professores (staging), quebrando o deep-link. **Migrado:** `index.html` agora carrega `firebase-config.js` (detecção por hostname; `firebaseConfig` → `window.FIREBASE_CONFIG`, preservando app 'secondary'). Em produção (github.io) é inócuo (valores idênticos). Confirmado no console: `Ambiente: STAGING`.
+>
+> **Tech debt registrado (adiado pelo cliente):** o **Comissões no staging não tem dados configurados** (admin `abluir@gmail.com` com `allowedUnits: []`, 0 `periodos`) → Dashboard do Comissões dá "Erro ao carregar períodos". Só apareceu por causa do isolamento (antes lia prod). Não afeta navegação nem Professores.
+>
+> **Pendências de prod:** a migração de config do `index.html` (e futuramente `profiles[]`/`professorId` no form de Usuários — Plano D) vão pra produção junto com o módulo, via homologação (regra #7). Branch **não mergeada no `main`**.
+>
+> **Plano C ✅ (validado UI):** home "centro de pendências" — `professores-home.js` (`renderHomePage` despachado no `navigateTo('home')`). Admin: faixa "Precisam de você" (férias a aprovar, substituições pendentes) com chips que linkam + atalhos; professor: aulas de hoje + substituições + atalhos. Contador que falha é omitido (home nunca quebra). Validado com `scripts/fixture-home-c.js` (já limpa).
+>
+> **Polimento (dark mode):** modal "Aprovar Férias" (Sprint 6b) usava cores claras fixas → ilegível no dark. Convertido pra variáveis de tema (`.payment-*`/`.ferias-approve-info` em `professores.html`); radio ativo agora laranja.
+>
+> **🐛 BUG REAL de férias — CORRIGIDO (commit `a15d07a`, validado UI):** aprovar férias COM pagamento ("Adiar" / "Aprovar e definir") falhava com "Missing or insufficient permissions". Causa: `VacationService._respond` (`professores-shared.js`) gravava `status`+`payment` num único `update`, mas `firestore.rules` (`vacation_requests`, ~203-227) só permite essas mudanças **separadas**. Passou na Sprint 6b porque foi validado via Admin SDK (bypassa rules). **Fix:** o `_respond` agora faz 2 updates — 1º status (regra B), 2º payment isolado `{payment, updatedAt}` (regra A). Reject (sem payment) segue 1 write. Não-atômico (se o 2º falhar, fica aprovada com pagamento pendente — recuperável via editar pagamento).
+>
+> **Comissões staging destravado:** admin `abluir@gmail.com` recebeu `allowedUnits = [unit-cp, unit-norte, unit-pp]` (estava `[]`) → Dashboard do Comissões no staging abre sem "Erro ao carregar períodos". Ainda há 0 `periodos` (sem dados de vendas — esperado; fazer upload se quiser exercitar). Há 3 `units` duplicadas "CrossTainer CP" (REEnfj/d3Tl/hGIf) que são lixo de teste — deixadas como estão.
+>
+> **Plano D ✅ implementado (deployado em staging, commit `cefef06`; AGUARDANDO VALIDAÇÃO):** form de Usuários do Comissões evoluído. Novo `user-model.js` (derivação pura `profiles[]`→`{moduleAccess, role}`, smoke `scripts/smoke-user-model.js`), carregado em `index.html` + `professores.html`; `migrateUserProfile` (professores.js) alinhado à mesma derivação. Form (`index.html`): "Perfil" único virou **checkboxes multi** (6 perfis) + seletor **"Vincular ao professor"** (`professorId`, condicional). `createUser`/`editExistingUser` gravam `role`+`profiles`+`moduleAccess`+`professorId`; unidade só exigida se `moduleAccess.comissoes`. Lista mostra badges de perfis. **Segregação §4.7:** `index.html` agora bloqueia login de quem não tem `moduleAccess.comissoes` (`showNoComissoesAccess` → tela com link pro Professores). Mantém `role` (Comissões depende). NÃO em produção.
+>
+> **⏳ TESTAR AO VOLTAR (Plano D — janela anônima, staging):**
+> - **A) Form:** `index.html` (admin) → Usuários → "+ Novo Usuário". "Perfis" mostra 6 checkboxes; marcar **Professor** faz aparecer "Vincular ao professor". Criar (ex.: `prof.teste2@teste.com` + senha, vincular a um teacher; unidade NÃO exigida) → aparece na lista com badge "Professor".
+> - **B) Segregação:** logar como esse usuário no `index.html` → tela **"Sem acesso ao módulo Comissões"** + botão Professores (NÃO o dashboard).
+> - **C) Professor no módulo:** logar como ele em `professores.html` → entra, sidebar de professor, "Minha Agenda" carrega (professorId vinculado).
+> - **D) Não-regressão:** editar o **admin** → checkboxes refletem perfis; salvar mantém 2 módulos; login do admin no Comissões segue normal (não bloqueado).
+> - Obs.: após criar o professor, Claude pode rodar consulta Admin SDK pra mostrar os campos gravados (`profiles`/`moduleAccess`/`professorId`/`role`) — pedir o email usado.
+>
+> **🔄 VIRADA DE RUMO (decisão do cliente):** em vez de manter Usuários (Comissões) + ficha do Professor separados, o cliente optou por um **hub único "Pessoas"** — "fazer certo já de início, mesmo que atrase a homologação" (opção A). Modelo aprovado: uma tela "Pessoas" (lista + "Nova pessoa" via **wizard** + ficha com **seções gated por perfil**: Identidade / Professor / Salário / Acesso). Segurança vem das **Security Rules** (a UI só esconde/bloqueia; o backend é a trava real). **A Plano D vira fundação** (user-model.js, multi-perfil, professorId, segregação são reaproveitados, não descartados). Implica substituir/redirecionar a tela de Usuários do Comissões + absorver a ficha atual → mexe nos DOIS módulos.
+>
+> **DESIGN do hub (brainstorm EM ANDAMENTO — decisões já travadas):**
+> - **Escopo:** UMA lista "Pessoas" com TODOS (vendedores, admins, professores, supervisão). Página de SISTEMA servida no app Professores (único lugar que supervisão alcança); **substitui** "Gestão de Usuários" do Comissões + **absorve** a ficha do Professor.
+> - **Perfis SIMPLIFICADOS — cliente DROPOU `admin_gestao`:** restam `admin` (donos + dev = tudo, os 2 módulos), `supervisao` (operacional, **SEM criar login e SEM ver salário**), `professor`/`professor_estagiario`, `vendedor`. → limpar `admin_gestao` do código (entrou na Plano A/D: `user-model.js`, `professores-nav.js` PROF_PAGES).
+> - **Desenvolvedor (você, `abluir@gmail.com` = OWNER_EMAIL):** `admin` + flag de dono — preview de outros perfis (Visão Vendedor hoje; quer **Visão Professor** depois = **item PARQUEADO**, recurso à parte), não removível, perfil **NÃO replicável** (ninguém atribui "Desenvolvedor"; é amarrado ao email).
+> - **Ficha com 4 abas gated:** Identidade · Professor · 🔒 Salário · 🔑 Acesso (login/perfis). Abas Professor/Salário só aparecem se a pessoa for professor/estagiário. (Reusa o padrão que já existe: a aba Salarial já é gated por `canSeeSalary()`.)
+> - **Matriz:** admin = todas as abas. supervisão = só Identidade + Professor (Salário e Acesso ocultos). **Lista:** admin/dev vê todos; supervisão vê só professores. **Segurança real = Security Rules** (UI só reflete/esconde).
+> - **moduleAccess derivado dos perfis** (reusa `user-model.js` da Plano D): admin→{com✔,prof✔}, supervisao/professor→{com✗,prof✔}, vendedor→{com✔,prof✗}.
+> - Mockups salvos em `.superpowers/brainstorm/2537-1781139318/content/` (`hub-layout-v2.html` é o atual).
+>
+> **FALTA no design (retomar amanhã):** (1) fluxo do **wizard "Nova pessoa"** (marca perfis → se professor/estagiário, passos **entidade + salário** ANTES do **acesso**; senão direto pro acesso) + **tratamento de erro** (entidade criada mas login falhou = professor órfão); (2) destino concreto da tela de Usuários do `index.html` (deprecar/redirecionar) e da ficha atual de professor; (3) escrever o **spec** (`docs/superpowers/specs`) → revisar → plano → implementar.
+>
+> **Próxima ação:** retomar o brainstorm do hub **no wizard**, fechar o design, escrever o spec. (Pra reabrir os mockups: subir o servidor visual de novo — os HTMLs estão salvos.) Branch `feature/shell-integrado` **não mergeada no `main`**.
+
+---
+
+## 🔖 Sessão 31 (10/06/2026) — Fix R3 + homologação Sprint 9 + design de navegação
 
 **Estado:** **Sprint 9 HOMOLOGADA na UI pelo cliente (2 pendentes validados) + 1 bug do R3 achado e corrigido.** Projeto ~99% pronto — homologação dos relatórios concluída.
 

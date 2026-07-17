@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CROSSTAINER — Manual do Administrador</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0a; --surface:#131315; --surface2:#1a1a1e; --border:#2a2a30;
+      --text:#eee9e0; --text2:#908a82; --text3:#5a5650;
+      --orange:#E8920D; --green:#5cb85c; --red:#e05a3a; --blue:#5b9bd5; --yellow:#FDD835; --purple:#AB47BC;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; line-height:1.7; }
+    .wrap { max-width:820px; margin:0 auto; padding:32px 20px 80px; }
+    .hero { padding:28px; background:linear-gradient(135deg, rgba(232,146,13,.12), rgba(232,146,13,.02)); border:1px solid var(--border); border-radius:12px; margin-bottom:28px; }
+    h1 { font-family:'Bebas Neue',sans-serif; font-size:34px; letter-spacing:1.5px; color:var(--orange); }
+    .sub { font-size:13px; color:var(--text2); margin-top:4px; }
+    h2 { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:1px; color:var(--text); margin:34px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px 18px; margin-bottom:12px; }
+    .card h3 { font-size:14px; font-weight:700; margin-bottom:6px; }
+    .card p, .card li, .card td { font-size:13px; color:var(--text2); }
+    .card ul, .card ol { margin:8px 0 0 20px; }
+    .card li { margin-bottom:6px; }
+    strong { color:var(--text); }
+    .tip { border-left:3px solid var(--blue); background:rgba(91,155,213,.06); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--text2); margin-bottom:12px; }
+    .warn { border-left:3px solid var(--red); background:rgba(224,90,58,.06); border-radius:0 8px 8px 0; padding:12px 16px; font-size:12px; color:var(--text2); margin-bottom:12px; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .mini { background:var(--bg); border-radius:6px; padding:10px 12px; border-left:2px solid var(--orange); }
+    .mini b { display:block; font-size:11px; margin-bottom:3px; }
+    .mini span { font-size:10.5px; color:var(--text3); line-height:1.5; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); font-size:12px; }
+    th { color:var(--orange); font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+    .toc { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .toc a { display:block; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--text2); text-decoration:none; }
+    .toc a:hover { border-color:var(--orange); color:var(--text); }
+    @media (max-width:600px) { .toc, .grid2 { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>🔑 Manual do Administrador</h1>
+    <div class="sub">CrossTainer — Comissões + Professores num sistema só · guia de gestão completo</div>
+  </div>
+
+  <div class="toc">
+    <a href="#visao">🧭 1. Como o sistema se organiza</a>
+    <a href="#pessoas">👥 2. Pessoas — cadastro unificado</a>
+    <a href="#perfis">🛡️ 3. Perfis e permissões</a>
+    <a href="#agenda">📅 4. Agenda e geração de aulas</a>
+    <a href="#ferias">🏖️ 5. Férias, recesso e saldos</a>
+    <a href="#fechamento">💰 6. Fechamento mensal</a>
+    <a href="#pagamentos">💳 7. Pagamentos e recibos</a>
+    <a href="#relatorios">📈 8. Relatórios</a>
+    <a href="#comissoes">🛒 9. E o Comissões?</a>
+    <a href="#admin">⚙️ 10. Administração do sistema</a>
+  </div>
+
+  <h2 id="visao">🧭 1. Como o sistema se organiza</h2>
+  <div class="card">
+    <p>O CrossTainer agora é <strong>um sistema com dois módulos</strong>: <strong>Comissões</strong> (vendas, como sempre foi) e <strong>Professores</strong> (agenda, férias, fechamento e pagamento de professores). <strong>Um link, um login</strong> — cada pessoa cai no módulo certo conforme o perfil:</p>
+    <ul>
+      <li><strong>Vendedora</strong> → entra direto no Comissões (nada mudou pra ela).</li>
+      <li><strong>Professor</strong> → vai automaticamente pro módulo Professores.</li>
+      <li><strong>Admin (você)</strong> → acessa os dois e troca pelo <strong>seletor de módulo</strong> no menu lateral.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>🏠 Início = central de pendências</h3>
+    <p>A home do módulo Professores mostra o que <strong>precisa de você agora</strong>: férias aguardando aprovação e substituições pendentes. Cada aviso é clicável e leva direto pra resolução. Sem pendências = "✅ Tudo em dia".</p>
+  </div>
+
+  <h2 id="pessoas">👥 2. Pessoas — o cadastro unificado</h2>
+  <div class="card">
+    <p><strong>Cadastros → Pessoas</strong> é o lugar único pra gerenciar todo mundo: professores, vendedoras, supervisão e admins. A lista mostra os perfis de cada um e quem ainda <strong>não tem acesso</strong> ao sistema (etiqueta cinza).</p>
+  </div>
+  <div class="card">
+    <h3>➕ Cadastrar alguém — o assistente "Nova pessoa"</h3>
+    <ol>
+      <li><strong>Perfis:</strong> marque o que a pessoa é (pode mais de um — ex.: admin que também dá aula).</li>
+      <li><strong>Dados de professor</strong> <em>(só se for professor/estagiário)</em>: nome, CPF, modalidades, unidades, tipo de contrato.</li>
+      <li><strong>🔒 Salário</strong> <em>(só professores)</em>: valor-hora (efetivo/eventual) ou bolsa + limite de horas (estagiário), VR/VT, data de vigência.</li>
+      <li><strong>🔑 Acesso:</strong> email + senha provisória de login. Pode <strong>"Pular — criar sem acesso"</strong>: o professor existe no sistema (entra em agenda e fechamento) sem ter login — dá pra criar o acesso depois pela ficha dele.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>📄 A ficha da pessoa — 4 abas</h3>
+    <div class="grid2">
+      <div class="mini"><b>Identidade</b><span>Nome, CPF, email, telefone. Editável por admin e supervisão.</span></div>
+      <div class="mini" style="border-left-color:var(--blue);"><b>Professor</b><span>Tipo de contrato, modalidades, unidades, status ativo/inativo.</span></div>
+      <div class="mini" style="border-left-color:var(--red);"><b>🔒 Salário</b><span>Remuneração e benefícios. SÓ admin enxerga — nem a supervisão tem acesso.</span></div>
+      <div class="mini" style="border-left-color:var(--green);"><b>🔑 Acesso</b><span>Login, perfis e unidades. Criar acesso pra quem não tem, ajustar perfis de quem tem.</span></div>
+    </div>
+  </div>
+  <div class="tip">💡 Cadastrou o professor mas o login falhou ou foi pulado? Sem problema: a ficha mostra o aviso "sem acesso" com o botão <strong>Criar acesso</strong> — nada se perde.</div>
+
+  <h2 id="perfis">🛡️ 3. Perfis e permissões</h2>
+  <div class="card">
+    <table>
+      <tr><th>Perfil</th><th>O que pode</th></tr>
+      <tr><td><strong>Admin</strong></td><td>Tudo, nos dois módulos: cadastros, salários, fechamento, pagamentos, relatórios.</td></tr>
+      <tr><td><strong>Supervisão</strong></td><td>Operação do dia a dia: agenda, escalas, férias, dados dos professores. <strong>Não vê salários, não cria logins, não fecha mês.</strong></td></tr>
+      <tr><td><strong>Professor / Estagiário</strong></td><td>A própria agenda, substituições, férias, saldo e recibos.</td></tr>
+      <tr><td><strong>Vendedor(a)</strong></td><td>Só o Comissões (painel de vendas dela).</td></tr>
+    </table>
+    <p style="margin-top:10px;">A segurança é garantida <strong>no servidor</strong> (regras do banco de dados) — esconder na tela é só conveniência; mesmo alguém técnico não acessa o que o perfil não permite.</p>
+  </div>
+
+  <h2 id="agenda">📅 4. Agenda e geração de aulas</h2>
+  <div class="card">
+    <h3>Como a agenda funciona</h3>
+    <ol>
+      <li>Você monta a <strong>grade semanal</strong> (Agenda): horários fixos por unidade, modalidade e professor.</li>
+      <li>O sistema <strong>gera as aulas automaticamente</strong> toda semana a partir da grade (inclusive detectando feriados nacionais sozinho).</li>
+      <li>Na <strong>Agenda Geral</strong> você acompanha tudo: previstas, realizadas, substituídas e canceladas, por unidade.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>🎯 Escalas Especiais</h3>
+    <p>Sábados, feriados e eventos podem ter <strong>peso diferenciado</strong> no cálculo de horas (ex.: sábado vale 1,5×). Cadastre o tipo de escala e aplique na data — o fechamento considera o peso automaticamente.</p>
+  </div>
+  <div class="card">
+    <h3>🔄 Substituições</h3>
+    <p>Professores pedem substituição direta (escolhem o colega) ou abrem <strong>cobertura</strong> (qualquer um se candidata e você confirma). A aula conta nas horas de <strong>quem deu a aula</strong>.</p>
+  </div>
+
+  <h2 id="ferias">🏖️ 5. Férias, recesso e saldos</h2>
+  <div class="card">
+    <h3>Aprovar um pedido</h3>
+    <ol>
+      <li>O professor solicita (ou você lança por ele em "+ Nova solicitação").</li>
+      <li>Em <strong>Férias e Recesso</strong>, abra o pedido pendente → <strong>Aprovar</strong> ou Recusar.</li>
+      <li>Na aprovação você decide o <strong>pagamento</strong>: definir agora ou adiar. CLT recebe <strong>férias + 1/3</strong>; estagiário recebe a bolsa no recesso. O valor entra no fechamento do(s) mês(es) certo(s), com rateio automático se as férias cruzarem a virada do mês.</li>
+      <li>As aulas do período aprovado são <strong>puladas automaticamente</strong> pela geração de agenda.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>📊 Saldos de Férias</h3>
+    <p>Painel com o saldo CLT de cada professor por <strong>período aquisitivo</strong>. O sistema alerta quando férias estão perto de <strong>vencer</strong> — risco trabalhista que você enxerga antes de virar problema.</p>
+  </div>
+
+  <h2 id="fechamento">💰 6. Fechamento mensal</h2>
+  <div class="card">
+    <ol>
+      <li>Em <strong>Fechamento</strong>, escolha unidade + mês e gere a <strong>prévia</strong>: aulas realizadas, horas (com pesos de escala) e valor por professor — hora-aula pros efetivos/eventuais, bolsa proporcional pros estagiários, férias aprovadas do mês incluídas.</li>
+      <li>Confira os números. Ajustes (aula errada, substituição não registrada) se corrigem <strong>antes</strong> de fechar, pela Agenda Geral.</li>
+      <li><strong>Fechar o mês</strong> congela tudo e libera os pagamentos/recibos.</li>
+    </ol>
+  </div>
+  <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha mês.</div>
+  <div class="tip">💡 Professor sem cadastro salarial aparece como <strong>"Sem cadastro"</strong> na prévia e nos relatórios — em vez de R$ 0,00 enganoso. Complete o salário na ficha e gere a prévia de novo.</div>
+
+  <h2 id="pagamentos">💳 7. Pagamentos e recibos</h2>
+  <div class="card">
+    <ul>
+      <li>Após fechar o mês, <strong>Pagamentos</strong> lista cada fechamento com os professores e valores.</li>
+      <li>Marque como <strong>pago</strong> conforme efetua — recibos individuais saem em PDF prontos pra assinar (e há exportação <strong>em lote</strong>, um PDF por professor, num ZIP).</li>
+      <li>Diferenças a favor do professor viram <strong>crédito automático</strong> pro mês seguinte.</li>
+    </ul>
+  </div>
+
+  <h2 id="relatorios">📈 8. Relatórios</h2>
+  <div class="card">
+    <div class="grid2">
+      <div class="mini"><b>R1 · Fechamentos</b><span>Consolidado financeiro por unidade e período.</span></div>
+      <div class="mini" style="border-left-color:var(--blue);"><b>R2 · Aulas</b><span>Todas as aulas com status, professor e modalidade.</span></div>
+      <div class="mini" style="border-left-color:var(--green);"><b>R3 · Horas por professor</b><span>Horas e valores no período — base da folha.</span></div>
+      <div class="mini" style="border-left-color:var(--purple);"><b>R4 · Recibos em lote</b><span>ZIP com um PDF de recibo por professor.</span></div>
+    </div>
+    <p style="margin-top:10px;">Todos exportam em <strong>Excel e PDF</strong> — direto do navegador, sem instalar nada.</p>
+  </div>
+
+  <h2 id="comissoes">🛒 9. E o Comissões?</h2>
+  <div class="card">
+    <p><strong>Nada mudou pra operação de vendas.</strong> Upload, dashboard, comparativo, metas e o painel das vendedoras seguem idênticos. As novidades pra você:</p>
+    <ul>
+      <li>O antigo menu "Usuários" virou <strong>"Pessoas"</strong> — clica e cai no cadastro unificado.</li>
+      <li>O <strong>seletor de módulo</strong> no menu lateral alterna entre Comissões e Professores sem novo login.</li>
+    </ul>
+  </div>
+
+  <h2 id="admin">⚙️ 10. Administração do sistema</h2>
+  <div class="card">
+    <ul>
+      <li><strong>Modalidades</strong> (módulo Professores): cadastre as aulas que a academia oferece — são elas que aparecem na grade.</li>
+      <li><strong>Unidades</strong> (Comissões → Administração): as filiais do sistema, usadas pelos dois módulos.</li>
+      <li><strong>Auditoria</strong>: registro de quem fez o quê — cada cadastro, alteração salarial e fechamento fica logado.</li>
+    </ul>
+  </div>
+
+  <div style="margin-top:40px; text-align:center; font-size:11px; color:var(--text3);">
+    CrossTainer · manual do administrador · veja também o <a href="manual-professores.html" style="color:var(--orange);">manual do professor</a>
+  </div>
+</div>
+</body>
+</html>

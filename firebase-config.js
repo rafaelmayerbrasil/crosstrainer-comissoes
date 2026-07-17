@@ -48,6 +48,8 @@
   const picked = pickConfig();
   const firebaseConfig = picked.config;
   window.FIREBASE_ENV = picked.env;
+  // Exposto p/ apps secundários por ambiente (ex.: index.html cria usuário via app 'secondary')
+  window.FIREBASE_CONFIG = firebaseConfig;
 
   // Inicializa Firebase apenas uma vez (compartilhado entre páginas)
   if (typeof firebase !== 'undefined' && !firebase.apps.length) {

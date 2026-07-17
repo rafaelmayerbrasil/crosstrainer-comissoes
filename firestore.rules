@@ -24,7 +24,7 @@ service cloud.firestore {
       return (u.profiles != null && p in u.profiles) || u.role == p;
     }
 
-    function isAdmin()      { return hasP('admin') || hasP('admin_gestao'); }
+    function isAdmin()      { return hasP('admin'); }   // admin_gestao dropado (hub Pessoas D2)
     function isStrictAdmin(){ return hasP('admin'); }
     function isSuperv()     { return hasP('supervisao'); }
     function isProf()       { return hasP('professor') || hasP('professor_estagiario'); }
@@ -80,9 +80,10 @@ service cloud.firestore {
     }
 
     match /teachers/{id} {
-      allow read:           if isAuth() && hasProfModule();
-      allow create, update: if isAuth() && isAdmin();
-      allow delete:         if false;
+      allow read:   if isAuth() && hasProfModule();
+      allow create: if isAuth() && isAdmin();                  // D9: só admin cria (wizard)
+      allow update: if isAuth() && (isAdmin() || isSuperv());  // D5: supervisão edita Identidade/Professor
+      allow delete: if false;
     }
 
     match /modalities/{id} {
@@ -110,7 +111,10 @@ service cloud.firestore {
                        resource.data.originalTeacherId == uData().professorId &&
                        resource.data.monthClosingId == null)
                     );
-      allow delete: if false;
+      // Despublicar escala: gestão apaga SÓ aulas geradas pela escala e não fechadas
+      allow delete: if isAuth() && (isAdmin() || isSuperv()) &&
+                       resource.data.specialScaleId is string &&
+                       resource.data.monthClosingId == null;
     }
 
     match /substitutions/{id} {
@@ -173,17 +177,121 @@ service cloud.firestore {
       allow write: if isAuth() && isAdmin();
     }
 
+    // (bloco antigo de special_scales + subcoleção scale_responses removido na
+    //  auditoria 2026-07-02: era duplicata do bloco da escala inteligente abaixo
+    //  e o `allow write` reabria o delete que o outro bloco fecha. scale_responses
+    //  não é usada por nenhum JS. Ver docs/superpowers/audits/2026-07-02-*.)
+
+    // ─── Engajamento / Pontos (módulo novo) ───────────────────────────
+    // Config calibrável dos pontos + ciclos de reset: leitura p/ todo o módulo
+    // (professor precisa pra ver o próprio placar), escrita só admin.
+    match /engagement_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    match /point_cycles/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    // Livro-razão dos pontos: professor lê só os DELE; gestão lança (ticando
+    // chamada / confirmando reunião / creditando substituição). Sem delete
+    // (preserva trilha; limpeza de órfãs será operação admin futura).
+    match /point_entries/{id} {
+      allow read:   if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      resource.data.personId == uData().professorId
+                    );
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    // Chamadas (escola interna / reunião / treinamento / evento): leitura p/ o
+    // módulo, escrita pela gestão. (Self-mark de reunião pelo colaborador será
+    // refinado quando a tela de reunião for construída.)
+    match /attendance/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    // ─── Escala inteligente (sábados/feriados) ─────────────────────────
+    // Escalas + slots tipados: leitura p/ o módulo, escrita pela gestão.
     match /special_scales/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
+
+    // Preferências de escala: o colaborador grava a SUA (personId == professorId);
+    // gestão grava qualquer uma. Doc id = `${scaleId}__${personId}`.
+    match /scale_preferences/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if false;
+    }
+
+    // Preferência por data do fim de ano: colaborador grava a SUA (personId == professorId);
+    // gestão grava qualquer uma. Doc id = `${scaleId}__${personId}__${date}`.
+    match /scale_day_preferences/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if false;
+    }
+
+    // RSVP de staff de evento: colaborador grava a SUA resposta (personId == professorId);
+    // gestão monta/remove o staff. Doc id = `${eventId}__${personId}`.
+    match /event_rsvp/{id} {
+      allow read:   if isAuth() && hasProfModule();
+      allow create, update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      request.resource.data.personId == uData().professorId
+                    );
+      allow delete: if isAuth() && (isAdmin() || isSuperv());
+    }
+
+    // Contador de justiça/compensação: leitura p/ o módulo, escrita pela gestão
+    // (atualizado na consolidação). Sem delete.
+    match /fairness_counter/{id} {
       allow read:  if isAuth() && hasProfModule();
       allow write: if isAuth() && (isAdmin() || isSuperv());
+      allow delete: if false;
+    }
 
-      match /scale_responses/{tid} {
-        allow read: if isAuth() && hasProfModule();
-        allow create, update: if isAuth() && (
-                                isAdmin() || isSuperv() ||
-                                request.auth.uid == uData().professorId
-                              );
-      }
+    // Config da escala (horários-padrão das vagas) — leitura do módulo, escrita admin
+    match /scale_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+
+    // ─── PLR (avaliação de desempenho) — dado SENSÍVEL (valores/notas) ───
+    // config: leitura do módulo (pesos/blocos), escrita admin.
+    match /plr_config/{id} {
+      allow read:  if isAuth() && hasProfModule();
+      allow write: if isAuth() && isAdmin();
+    }
+    // ciclos e resultados (pool/fatias) = só gestão.
+    match /plr_cycles/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv());
+      allow write: if isAuth() && isAdmin();
+    }
+    match /plr_results/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv());
+      allow write: if isAuth() && isAdmin();
+    }
+    // avaliações: notas individuais sensíveis. Lê gestão; grava o próprio avaliador ou gestão; sem delete.
+    match /plr_evaluations/{id} {
+      allow read:   if isAuth() && (isAdmin() || isSuperv());
+      allow create, update: if isAuth() && (isAdmin() || isSuperv() ||
+                       request.resource.data.evaluatorId == request.auth.uid);
+      allow delete: if false;
     }
 
     // Cache de feriados nacionais (meta/holidays_cache_*) — apenas CF escreve via Admin SDK
