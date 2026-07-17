@@ -3,7 +3,13 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 42 (10–14/07/2026) — TUDO no staging, homologando com o Rodrigo (2 rodadas de feedback resolvidas)
+## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — Rodrigo APROVOU → deploy de produção em andamento + frente-2 ponto eletrônico registrada
+
+### ✅ Homologação APROVADA pelo Rodrigo (17/07)
+Rodrigo deu o OK. Gatilho do `docs/checklist-deploy-producao.md` disparado. Deploy de produção do módulo em andamento nesta sessão (reconciliação `origin/main` → merge → deploys Firebase prod → GitHub Pages).
+
+### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
+Rodrigo está adquirindo ponto eletrônico (https://tecnoponto.com/). **Decisão de rumo:** objetivo é **compliance + fazer o funcionário registrar de verdade (pegar atraso)** — **NÃO** basear pagamento no ponto. Fechamento **não muda**. Integração é **aditiva e NÃO bloqueia o deploy**. O próprio aparelho + portal da TecnoPonto já resolvem ~80% standalone; integrar com o nosso sistema é **fase-2** (cruzar grade×ponto = visibilidade de atraso), só depois do aparelho instalado. Perguntas pro Rodrigo em `docs/perguntas-rodrigo-ponto-eletronico.txt`. Memória [[ponto-eletronico-tecnoponto]].
 
 ### ▶️ RETOMAR AQUI (estado em 14/07)
 **Tudo construído e no ar no staging, na branch `feature/shell-integrado` (não mergeada). Aguardando o Rodrigo re-validar.**

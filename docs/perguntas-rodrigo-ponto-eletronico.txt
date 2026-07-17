@@ -1,0 +1,37 @@
+PONTO ELETRÔNICO (TecnoPonto — EVO 40 / EVO Rep C)
+Pontos pra alinhar com o Rodrigo — sem pressa, é frente pós-deploy do módulo.
+==========================================================================
+
+CONTEXTO / O QUE JÁ ENTENDEMOS
+- O objetivo é: funcionário registrar ponto de verdade (pegar quem chega
+  atrasado) + deixar formalmente legalizado. O pagamento continua saindo
+  da grade de aulas como hoje — o ponto NÃO vira a base do pagamento.
+- Pra esse objetivo, o próprio aparelho EVO + o portal da TecnoPonto já
+  entregam quase tudo sozinhos (obriga a registrar, guarda as marcações,
+  gera relatório de atraso). Integrar com o nosso sistema é um "extra"
+  que dá pra fazer depois — não é obrigatório e não segura o lançamento.
+- Por isso: subimos o módulo pra produção agora; o ponto entra como uma
+  frente separada depois que o aparelho estiver instalado.
+
+PERGUNTAS PRO RODRIGO
+1) Quem exatamente vai bater ponto? Professores CLT? Estagiários também?
+   (Estagiário tem controle de frequência, mas é um regime diferente de
+    CLT — muda como a gente trata atraso/desconto.)
+
+2) Sobre o aparelho / plano contratado da TecnoPonto:
+   - Ele exporta o arquivo AFD (o arquivo legal padrão de marcações)?
+   - Tem portal na internet ou API pra acessar as marcações por fora?
+   - O portal já entrega um relatório de atraso pronto?
+   (Isso define se dá pra puxar os dados pro nosso sistema de forma
+    automática — ou se o relatório do próprio portal já basta.)
+
+3) Ciência: no momento que o ponto vira registro legal e passa a
+   documentar atraso, cria-se a expectativa (e o risco trabalhista) de
+   agir de forma consistente sobre isso. É decisão de gestão sua — só
+   quero deixar claro que "legalizar" tem os dois lados.
+
+O QUE A INTEGRAÇÃO (FASE-2, OPCIONAL) AGREGARIA DEPOIS
+- Mostrar dentro do nosso sistema, na ficha do professor / painel admin:
+  "a aula começava 07:00 (grade) e ele bateu ponto 07:12 → atraso 12min",
+  e um relatório de pontualidade por professor — tudo no mesmo sistema que
+  a gestão já usa, em vez de abrir dois portais.
