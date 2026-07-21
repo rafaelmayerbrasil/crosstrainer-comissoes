@@ -48,16 +48,47 @@
   </div>
 
   <div class="toc">
+    <a href="#primeiro-acesso">🚀 0. Primeiro acesso — pôr pra rodar</a>
     <a href="#visao">🧭 1. Como o sistema se organiza</a>
     <a href="#pessoas">👥 2. Pessoas — cadastro unificado</a>
     <a href="#perfis">🛡️ 3. Perfis e permissões</a>
     <a href="#agenda">📅 4. Agenda e geração de aulas</a>
-    <a href="#ferias">🏖️ 5. Férias, recesso e saldos</a>
-    <a href="#fechamento">💰 6. Fechamento mensal</a>
-    <a href="#pagamentos">💳 7. Pagamentos e recibos</a>
-    <a href="#relatorios">📈 8. Relatórios</a>
-    <a href="#comissoes">🛒 9. E o Comissões?</a>
-    <a href="#admin">⚙️ 10. Administração do sistema</a>
+    <a href="#escala">🗓️ 5. Escala Inteligente</a>
+    <a href="#ferias">🏖️ 6. Férias, recesso e saldos</a>
+    <a href="#fechamento">💰 7. Fechamento mensal</a>
+    <a href="#pagamentos">💳 8. Pagamentos e recibos</a>
+    <a href="#engajamento">🏆 9. Engajamento e PLR</a>
+    <a href="#relatorios">📈 10. Relatórios</a>
+    <a href="#comissoes">🛒 11. E o Comissões?</a>
+    <a href="#admin">⚙️ 12. Administração do sistema</a>
+  </div>
+
+  <h2 id="primeiro-acesso">🚀 0. Primeiro acesso — pôr o sistema pra rodar</h2>
+  <div class="card">
+    <p>Sistema recém-instalado começa <strong>vazio</strong> — você cadastra tudo do zero. Este é o roteiro na ordem certa, do login até conferir as aulas geradas. Leva cerca de <strong>1 hora</strong>.</p>
+  </div>
+  <div class="warn">
+    <strong>Antes de começar, 3 coisas boas de saber:</strong>
+    <ul style="margin:6px 0 0 18px;">
+      <li><strong>As aulas não aparecem na hora.</strong> Depois de montar a grade, o sistema gera as aulas sozinho — elas aparecem <strong>no dia seguinte</strong>. É normal a Agenda Geral ficar vazia logo após o cadastro.</li>
+      <li><strong>Salário só o admin vê.</strong> Fica numa aba separada da ficha; supervisão e professores nunca enxergam.</li>
+      <li><strong>Professor sem login existe no sistema.</strong> Ao cadastrar, dá pra usar <strong>"Pular — criar sem acesso"</strong>: ele entra na agenda e no fechamento mesmo sem login, e você cria o acesso depois pela ficha.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Os 7 passos, na ordem</h3>
+    <ol style="margin:8px 0 0 18px;">
+      <li><strong>Entrar no sistema.</strong> Faça login como administrador (a tela de entrada mostra <strong>CROSSTAINER ELITE</strong>). Passe o olho antes de cadastrar: use o <strong>seletor de módulo</strong> no menu lateral pra alternar entre Comissões e Professores e confira que as telas dos dois abrem sem erro.</li>
+      <li><strong>Conferir as unidades</strong> — em <strong>Comissões → Administração → Unidades</strong>. Confirme que <strong>CP</strong> e <strong>PP</strong> já existem: é a elas que você vincula professores e horários.</li>
+      <li><strong>Cadastrar as modalidades</strong> — em <strong>Professores → Administração → Modalidades</strong>. Nada vem pré-pronto de propósito. Cadastre as aulas que a academia oferece (HIIT, TOI, Cross, Funcional…) — <strong>são elas que aparecem na grade</strong>, então precisam existir antes dos horários.</li>
+      <li><strong>Conferir os perfis de quem já usa</strong> — em <strong>Cadastros → Pessoas</strong>. Abra a ficha e, na aba <strong>Acesso</strong>, veja se o perfil está certo: vendedoras → <strong>Vendedor</strong>; sócios/donos → <strong>Admin</strong>.</li>
+      <li><strong>Cadastrar os professores</strong> — em <strong>Cadastros → Pessoas → Novo</strong> (assistente). Para cada um: dados de professor (nome, CPF, tipo de contrato, modalidades, unidades), <strong>salário</strong> (só você vê) e <strong>acesso</strong> (email + senha provisória, ou "Pular — criar sem acesso"). A <strong>data de admissão</strong> importa: é ela que calcula o período de férias (CLT).</li>
+      <li><strong>Montar a grade semanal</strong> — em <strong>Professores → Agenda</strong>. Defina os horários fixos: unidade + modalidade + professor + horário. A grade é o molde — o sistema a repete toda semana e já detecta feriados nacionais sozinho.</li>
+      <li><strong>No dia seguinte, conferir as aulas geradas</strong> — em <strong>Professores → Agenda Geral</strong>. As aulas da grade devem estar lá como <strong>previstas</strong>, por unidade; cada professor vê as dele em <strong>Minha Agenda</strong>.</li>
+    </ol>
+  </div>
+  <div class="tip">
+    Precisa ver as aulas <strong>na hora</strong> em vez de esperar o dia seguinte? A geração pode ser forçada manualmente — fale com o suporte técnico.
   </div>
 
   <h2 id="visao">🧭 1. Como o sistema se organiza</h2>
@@ -120,15 +151,36 @@
     </ol>
   </div>
   <div class="card">
-    <h3>🎯 Escalas Especiais</h3>
-    <p>Sábados, feriados e eventos podem ter <strong>peso diferenciado</strong> no cálculo de horas (ex.: sábado vale 1,5×). Cadastre o tipo de escala e aplique na data — o fechamento considera o peso automaticamente.</p>
+    <h3>🎯 Peso das escalas especiais</h3>
+    <p>Sábados, feriados e eventos podem valer mais no cálculo de horas (ex.: sábado 1,5×). Você monta essas escalas na <strong>Escala Inteligente</strong> (seção 5) e o fechamento considera o peso automaticamente.</p>
   </div>
   <div class="card">
     <h3>🔄 Substituições</h3>
     <p>Professores pedem substituição direta (escolhem o colega) ou abrem <strong>cobertura</strong> (qualquer um se candidata e você confirma). A aula conta nas horas de <strong>quem deu a aula</strong>.</p>
   </div>
 
-  <h2 id="ferias">🏖️ 5. Férias, recesso e saldos</h2>
+  <h2 id="escala">🗓️ 5. Escala Inteligente</h2>
+  <div class="card">
+    <p>Onde você organiza as escalas especiais de forma colaborativa, em <strong>abas</strong>: <strong>Sábados</strong>, <strong>Feriados</strong> (sugeridos automaticamente), <strong>Eventos</strong> e <strong>Fim de ano</strong>. Em vez de escalar na mão, você <strong>abre uma janela</strong> e os professores se candidatam.</p>
+  </div>
+  <div class="card">
+    <h3>Abrir eleição e fechar com justiça</h3>
+    <ol>
+      <li>Abra a data (ou várias <strong>em lote</strong>) com um <strong>prazo</strong> — os professores são avisados e informam Prefiro / Pode ser / Não posso.</li>
+      <li>Na <strong>Revisão de fechamento</strong> você vê a matriz pessoas × datas: quem se candidatou, quem não, e as vagas em aberto.</li>
+      <li><strong>Confirmar e avisar</strong> consolida por preferência + justiça (quem já pegou mais ou menos) e notifica o time. As aulas entram na agenda automaticamente.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>📣 Eventos com convidados</h3>
+    <p>Um evento vira uma <strong>lista de staff</strong>: marque quem <strong>deve</strong> e quem <strong>poderia</strong> participar, convide, e acompanhe o consolidado de <strong>Vão / Não vão / Sem resposta</strong>. O sistema envia <strong>lembretes automáticos</strong> (7, 4 e 1 dia antes) pra quem não recusou.</p>
+  </div>
+  <div class="card">
+    <h3>🏫 Escola Interna e ✅ Confirmar Presença</h3>
+    <p>Na <strong>Escola Interna</strong> você aponta o líder de cada dia direto na agenda. E a antiga "Chamada" virou <strong>Confirmar Presença</strong>: onde se registra quem realmente esteve — o líder planejado na escala já entra pré-marcado.</p>
+  </div>
+
+  <h2 id="ferias">🏖️ 6. Férias, recesso e saldos</h2>
   <div class="card">
     <h3>Aprovar um pedido</h3>
     <ol>
@@ -143,7 +195,7 @@
     <p>Painel com o saldo CLT de cada professor por <strong>período aquisitivo</strong>. O sistema alerta quando férias estão perto de <strong>vencer</strong> — risco trabalhista que você enxerga antes de virar problema.</p>
   </div>
 
-  <h2 id="fechamento">💰 6. Fechamento mensal</h2>
+  <h2 id="fechamento">💰 7. Fechamento mensal</h2>
   <div class="card">
     <ol>
       <li>Em <strong>Fechamento</strong>, escolha unidade + mês e gere a <strong>prévia</strong>: aulas realizadas, horas (com pesos de escala) e valor por professor — hora-aula pros efetivos/eventuais, bolsa proporcional pros estagiários, férias aprovadas do mês incluídas.</li>
@@ -154,7 +206,7 @@
   <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha mês.</div>
   <div class="tip">💡 Professor sem cadastro salarial aparece como <strong>"Sem cadastro"</strong> na prévia e nos relatórios — em vez de R$ 0,00 enganoso. Complete o salário na ficha e gere a prévia de novo.</div>
 
-  <h2 id="pagamentos">💳 7. Pagamentos e recibos</h2>
+  <h2 id="pagamentos">💳 8. Pagamentos e recibos</h2>
   <div class="card">
     <ul>
       <li>Após fechar o mês, <strong>Pagamentos</strong> lista cada fechamento com os professores e valores.</li>
@@ -163,7 +215,17 @@
     </ul>
   </div>
 
-  <h2 id="relatorios">📈 8. Relatórios</h2>
+  <h2 id="engajamento">🏆 9. Engajamento e PLR</h2>
+  <div class="card">
+    <h3>Placar de engajamento</h3>
+    <p>O sistema pontua os professores por <strong>frequência de aulas, coberturas, participação em eventos e tempo de casa</strong> (critérios e pesos configuráveis). O <strong>Placar</strong> mostra o ranking — um jeito objetivo de reconhecer quem mais veste a camisa.</p>
+  </div>
+  <div class="card">
+    <h3>Distribuição de PLR</h3>
+    <p>Quando a academia distribui PLR (participação nos resultados), o sistema calcula a fatia de cada um combinando <strong>pontos de engajamento e horas</strong>, respeitando a elegibilidade (tipo de contrato, tempo de casa). Você define o valor total e vê a divisão sugerida.</p>
+  </div>
+
+  <h2 id="relatorios">📈 10. Relatórios</h2>
   <div class="card">
     <div class="grid2">
       <div class="mini"><b>R1 · Fechamentos</b><span>Consolidado financeiro por unidade e período.</span></div>
@@ -174,7 +236,7 @@
     <p style="margin-top:10px;">Todos exportam em <strong>Excel e PDF</strong> — direto do navegador, sem instalar nada.</p>
   </div>
 
-  <h2 id="comissoes">🛒 9. E o Comissões?</h2>
+  <h2 id="comissoes">🛒 11. E o Comissões?</h2>
   <div class="card">
     <p><strong>Nada mudou pra operação de vendas.</strong> Upload, dashboard, comparativo, metas e o painel das vendedoras seguem idênticos. As novidades pra você:</p>
     <ul>
@@ -183,7 +245,7 @@
     </ul>
   </div>
 
-  <h2 id="admin">⚙️ 10. Administração do sistema</h2>
+  <h2 id="admin">⚙️ 12. Administração do sistema</h2>
   <div class="card">
     <ul>
       <li><strong>Modalidades</strong> (módulo Professores): cadastre as aulas que a academia oferece — são elas que aparecem na grade.</li>
