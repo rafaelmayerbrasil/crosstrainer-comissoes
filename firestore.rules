@@ -47,7 +47,10 @@ service cloud.firestore {
                         request.resource.data.diff(resource.data).affectedKeys()
                           .hasOnly(['profiles', 'moduleAccess', 'updatedAt']))
                      );
-      allow delete: if false;
+      // Delete só de placeholder PENDENTE (importado do Excel, sem conta no Auth).
+      // Usuário com Auth real NUNCA é deletado — usa-se Desligar (CF setPersonAccess),
+      // porque apagar o doc não apaga o login e reabriria o furo fechado em 15/06/2026.
+      allow delete: if isAuth() && isAdmin() && resource.data.status == 'pendente';
     }
 
     match /units/{id} {
