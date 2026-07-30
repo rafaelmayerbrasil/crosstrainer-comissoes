@@ -19,6 +19,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Necessário pro toggleUserAccess chamar a Cloud Function setPersonAccess -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <!-- Config + init do Firebase centralizados (detecção automática staging/produção) -->
   <script src="firebase-config.js"></script>
   <!-- Derivação compartilhada profiles[] → moduleAccess/role -->
@@ -3830,7 +3832,13 @@
             <span class="ur-role ${roleClass}">${roleLabel}</span>
             ${isPendente ? `<button class="btn btn-sm" style="background:var(--yellow);color:#000" onclick="activateUser('${u.id}','${u.name}')">Configurar acesso</button>` : ''}
             ${!isPendente ? `<button class="btn btn-ghost btn-sm" onclick="showEditUser('${u.id}')">✏️ Editar</button>` : ''}
-            ${!isUserOwner && u.id !== currentUser.uid ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${isPendente ? (u.name || u.id) : u.email}')">Remover</button>` : ''}
+            ${!isUserOwner && u.id !== currentUser.uid ? (
+              isPendente
+                ? `<button class="btn btn-ghost btn-sm" onclick="deleteUser('${u.id}','${u.name || u.id}')">Remover</button>`
+                : (u.status === 'inativo'
+                    ? `<button class="btn btn-outline btn-sm" onclick="toggleUserAccess('${u.id}','${u.professorId || ''}','${(u.name || u.email || '').replace(/'/g, '')}',true)">↺ Religar</button>`
+                    : `<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="toggleUserAccess('${u.id}','${u.professorId || ''}','${(u.name || u.email || '').replace(/'/g, '')}',false)">⊘ Desligar</button>`)
+            ) : ''}
           </div>
         </div>`;
         }).join('');
@@ -4118,6 +4126,25 @@
         toast('Usuário removido do sistema.', 'info');
         loadUsers();
       } catch (e) { toast('Erro: ' + e.message, 'error'); }
+    }
+
+    // Desligar / religar acesso — chama a Cloud Function setPersonAccess, que
+    // bloqueia (ou libera) o login no Firebase Auth e inativa/reativa o professor.
+    // Substitui o antigo "Remover" (delete do doc, hoje bloqueado pelas rules) para
+    // usuários com login. O histórico é preservado.
+    async function toggleUserAccess(uid, teacherId, label, active) {
+      const msg = active
+        ? `Religar ${label}?\n\nO login volta a funcionar e a pessoa retorna à agenda/escalas.`
+        : `Desligar ${label}?\n\nO login é BLOQUEADO e a pessoa sai da agenda/escalas. O histórico continua guardado. Dá pra religar depois.`;
+      if (!confirm(msg)) return;
+      try {
+        const callable = firebase.functions().httpsCallable('setPersonAccess');
+        const res = await callable({ uid, teacherId: teacherId || null, active });
+        if (res.data && res.data.success) {
+          toast(active ? 'Acesso religado.' : 'Pessoa desligada — login bloqueado.', 'success');
+          loadUsers();
+        } else { throw new Error((res.data && res.data.error) || 'Falha ao atualizar acesso'); }
+      } catch (e) { toast('Erro: ' + (e.message || 'falha'), 'error'); }
     }
 
     // ═══════════════════════════════════════════════════════════════

@@ -1226,6 +1226,130 @@ exports.regenerateClassesWithHolidays = onCall({
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// DESLIGAR / RELIGAR PESSOA
+// Faz num único passo o que o app não consegue fazer sozinho: além de
+// inativar o professor e marcar users.status, DESABILITA a conta no
+// Firebase Auth — que é o que de fato bloqueia o login (só o Admin SDK faz
+// isso). Fecha a última ponta do hotfix de segurança de 15/06: um desligado
+// deixa de conseguir autenticar. Reversível (religar reativa tudo).
+// Chamável só por admin/gestão. O histórico do professor é preservado.
+// ═══════════════════════════════════════════════════════════════════════
+
+const OWNER_EMAIL = 'abluir@gmail.com'; // dono do sistema — nunca desligável
+
+exports.setPersonAccess = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 60,
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const callerUid = request.auth.uid;
+
+  // Autorização: só admin/gestão
+  const callerDoc = await db().collection('users').doc(callerUid).get();
+  if (!callerDoc.exists) {
+    throw new HttpsError('permission-denied', 'Usuário sem perfil cadastrado.');
+  }
+  const callerData = callerDoc.data();
+  const callerProfiles = callerData.profiles || (callerData.role ? [callerData.role] : []);
+  const isAdmin = callerProfiles.includes('admin') || callerProfiles.includes('admin_gestao');
+  if (!isAdmin) {
+    throw new HttpsError('permission-denied', 'Apenas admin/gestão pode desligar ou religar pessoas.');
+  }
+
+  // Params: teacherId e/ou uid; active=false desliga, true religa
+  const data = request.data || {};
+  const teacherId = typeof data.teacherId === 'string' && data.teacherId ? data.teacherId : null;
+  const uid = typeof data.uid === 'string' && data.uid ? data.uid : null;
+  const active = data.active === true;
+  if (!teacherId && !uid) {
+    throw new HttpsError('invalid-argument', 'Informe teacherId e/ou uid.');
+  }
+
+  // Guardas: ninguém desliga a própria conta nem o dono do sistema
+  let targetName = null;
+  if (uid) {
+    if (uid === callerUid) {
+      throw new HttpsError('failed-precondition', 'Você não pode desligar a própria conta.');
+    }
+    const targetDoc = await db().collection('users').doc(uid).get();
+    if (targetDoc.exists) {
+      const td = targetDoc.data();
+      targetName = td.name || td.email || null;
+      if ((td.email || '').toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+        throw new HttpsError('failed-precondition', 'O dono do sistema não pode ser desligado.');
+      }
+    }
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const results = { teacher: false, userDoc: false, auth: false };
+
+  try {
+    // 1) Professor → isActive (some da agenda/escalas/listas; histórico intacto)
+    if (teacherId) {
+      const tRef = db().collection('teachers').doc(teacherId);
+      const tDoc = await tRef.get();
+      if (tDoc.exists) {
+        if (!targetName) targetName = tDoc.data().name || null;
+        await tRef.update({ isActive: active, updatedAt: now, updatedBy: callerUid });
+        results.teacher = true;
+      }
+    }
+
+    // 2) Perfil de acesso → users.status + Firebase Auth
+    if (uid) {
+      // 2a) users.status (se o doc existir)
+      try {
+        await db().collection('users').doc(uid).update({
+          status: active ? 'ativo' : 'inativo',
+          updatedAt: now,
+        });
+        results.userDoc = true;
+      } catch (e) {
+        logger.warn('[setPersonAccess] users.update falhou', uid, e.message);
+      }
+      // 2b) Auth disable/enable — é o que realmente bloqueia/libera o login
+      try {
+        await admin.auth().updateUser(uid, { disabled: !active });
+        results.auth = true;
+      } catch (e) {
+        // Professor sem login não tem conta no Auth — não é erro fatal
+        if (e.code === 'auth/user-not-found') {
+          logger.info('[setPersonAccess] uid sem conta no Auth, nada a bloquear', uid);
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    // 3) Audit log
+    await db().collection('audit_log').add({
+      type: active ? 'person_reactivated' : 'person_deactivated',
+      details: `Pessoa "${targetName || teacherId || uid}" ${active ? 'religada' : 'desligada'} (prof:${results.teacher} login:${results.auth})`,
+      module: 'pessoas',
+      entityType: 'person',
+      entityId: teacherId || uid,
+      before: null,
+      after: { teacherId, uid, active, results },
+      userId: callerUid,
+      userName: callerData.name || callerData.email || callerUid,
+      role: callerProfiles.join(','),
+      unitId: null,
+      timestamp: now,
+    });
+
+    logger.info('[setPersonAccess] OK', { teacherId, uid, active, results });
+    return { success: true, active, results };
+  } catch (err) {
+    logger.error('[setPersonAccess] FALHA', err);
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError('internal', err.message || 'Falha ao atualizar acesso da pessoa.');
+  }
+});
+
 // ─── Helpers de cálculo (server-side, replicam professores-shared.js) ──
 
 /**

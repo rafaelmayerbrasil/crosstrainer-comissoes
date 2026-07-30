@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — Rodrigo APROVOU → deploy de produção em andamento + frente-2 ponto eletrônico registrada
+## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — ✅ MÓDULO NO AR EM PRODUÇÃO + planilha de carga + manuais atualizados
 
 ### ✅ Homologação APROVADA + 🚀 DEPLOY DE PRODUÇÃO FEITO (17/07) — passos A–D concluídos
 Rodrigo deu o OK. Executado `docs/checklist-deploy-producao.md` passos A–D. **O MÓDULO PROFESSORES ESTÁ NO AR EM PRODUÇÃO.**
@@ -19,12 +19,31 @@ Rodrigo deu o OK. Executado `docs/checklist-deploy-producao.md` passos A–D. **
 - **Seção 5 — smoke autenticado em prod:** login admin (Comissões + Professores 11 páginas), professor real (Minha Agenda/Férias), vendedora real (não bloqueada). **Eu não faço (não manuseio senha de prod).**
 - **Não bloqueia:** remover fisicamente `page-users`, audit BIANUAL legacy, recibos vírgula BR.
 
-### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
+---
+### ▶️▶️ RETOMAR NA PRÓXIMA SESSÃO (fim da sessão 43, 17/07) — LEIA ISTO PRIMEIRO
 
-### 🕒 Frente-2 registrada: Ponto eletrônico TecnoPonto (EVO 40 / EVO Rep C)
-Rodrigo está adquirindo ponto eletrônico (https://tecnoponto.com/). **Decisão de rumo:** objetivo é **compliance + fazer o funcionário registrar de verdade (pegar atraso)** — **NÃO** basear pagamento no ponto. Fechamento **não muda**. Integração é **aditiva e NÃO bloqueia o deploy**. O próprio aparelho + portal da TecnoPonto já resolvem ~80% standalone; integrar com o nosso sistema é **fase-2** (cruzar grade×ponto = visibilidade de atraso), só depois do aparelho instalado. Perguntas pro Rodrigo em `docs/perguntas-rodrigo-ponto-eletronico.txt`. Memória [[ponto-eletronico-tecnoponto]].
+> **🔄 Atualização sessão 44 (21/07):** Rodrigo não conseguia abrir o link do **artifact** dos manuais (artifact do claude.ai é privado/só-teammates → cliente externo não acessa). **Resolvido pela Rota B (permanente):** manuais atualizados commitados (`99a9ace`) + `git push origin main` → **NO AR em produção** como páginas estáticas. Links públicos que o Rodrigo abre (sem login, celular/PC): `https://rafaelmayerbrasil.github.io/crosstrainer-comissoes/manual-admin.html` e `/manual-professores.html`. Verificado no ar. Também adicionada ao manual do admin a **seção "0. Primeiro acesso"** (roteiro de 7 passos pro cliente configurar do zero — resposta à pergunta "o Rodrigo pode usar o sistema?": **SIM, sem pendência bloqueante**; só falta o smoke autenticado da Seção 5, que precisa de login humano). O artifact `9ab2770d…` fica só pra revisão interna. **A Fase 2 (link "❓ Ajuda" no menu + "?" contextuais) segue pendente, via staging.**
 
-### ▶️ RETOMAR AQUI (estado em 14/07)
+**Módulo Professores NO AR em produção** (deploy A–D feito 17/07). `main` HEAD `99a9ace` (manuais na prod), pushado e em sincronia com `origin/main`. Branch `feature/shell-integrado` mergeada. **3 frentes abertas + o setup, nenhuma bloqueia a outra:**
+
+**1. 🗓️ Setup inicial em produção (Seção 4) — VIA PLANILHA DE CARGA.**
+- Planilha-modelo pronta e entregue: **`modelo-carga-inicial.xlsx`** (raiz do projeto). 4 abas: Instruções · Modalidades · Professores (nome/cpf/tipo/**data admissão**/unidade/modalidades/email/salário) · Grade semanal. Rodrigo preenche do zero.
+- **PRÓXIMO quando a planilha voltar:** escrever `seed-producao` (base `scripts/seed-demo.js`) que lê a planilha → cria `modalities`+`teachers`+`teacher_salaries`+slots da grade. **Testar em STAGING com dry-run ANTES da prod** (Admin SDK bypassa rules). Depois: criar logins dos profs, forçar `generateClassesManual` (token admin, `{weeksAhead:4}`), conferir aulas. Depois **Seção 5** (smoke autenticado — precisa do usuário logado, eu não manuseio senha de prod). Conferir tb perfis dos usuários atuais (vendedoras=vendedor, donos=admin); unidades CP/PP já existem. Memória [[carga-inicial-producao]].
+- **Usuário perguntou:** quer talvez o loader já adiantado (escrito+testado em staging com dados fake) antes da planilha voltar — decidir na retomada.
+
+**2. 📘 Manuais + ajuda inline.**
+- **Fase 1 FEITA + NO AR EM PRODUÇÃO (21/07):** `manual-professores.html` (10 seções, +Escala +Placar +barra celular) e `manual-admin.html` (12 seções, +Escala Inteligente +Engajamento/PLR +Confirmar Presença, **+ seção "0. Primeiro acesso"** âncora `#primeiro-acesso`). Servidos como páginas estáticas pelo GitHub Pages (commit `99a9ace`). **Links públicos pro Rodrigo:** `github.io/crosstrainer-comissoes/manual-admin.html` e `/manual-professores.html`. **Fonte da verdade = os 2 `.html` do projeto.** O artifact `9ab2770d…` é só revisão interna (privado, cliente externo não abre).
+- **Fase 2 A CONSTRUIR (via staging):** item "❓ Ajuda" no menu (`professores-nav.js`) abre o manual do perfil + ícones "?" contextuais nas telas (popover curto + link pra âncora do manual). Brainstorm→spec→plano antes de codar. Se Rodrigo pedir mudança de conteúdo: editar os 2 `.html` + re-commit/push (a URL de prod atualiza sozinha). Memória [[manuais-ajuda-inline]].
+
+**3. 🔒 Endurecer fechamento (sprint via staging).**
+- Decisão: confirm reforçado (2 passos + digitar o mês + resumo) **+ reabertura admin-only enquanto NÃO houver pagamento** (pagamento referencia `closingId`); mês pago continua trancado. Regra #5 evolui p/ "irreversível **após pagamento**". Brainstorm→spec→staging→homologação. Memória [[fechamento-reabertura-design]].
+
+**4. 🕒 Ponto eletrônico TecnoPonto** (frente-2, só pós-aparelho instalado): compliance + pegar atraso, pagamento NÃO migra, fechamento não muda, aditivo. Perguntas em `docs/perguntas-rodrigo-ponto-eletronico.txt`. Memória [[ponto-eletronico-tecnoponto]].
+
+**Contas de demo (STAGING, não prod):** senha `crosstainer2026` — `dono.teste@` · `professor.teste@` (Marcos) · `professor2.teste@` (Bruna).
+
+---
+### 🗄️ (histórico pré-deploy — snapshot do staging em 14/07, já superado pelo deploy acima)
 **Tudo construído e no ar no staging, na branch `feature/shell-integrado` (não mergeada). Aguardando o Rodrigo re-validar.**
 - **No ar + validado nesta sessão:** Frente 3 (eventos/staff/RSVP + CF lembretes validada por force-run) · otimização mobile do professor (barra inferior + cabeçalho + chips + 2 bugfixes + varredura) · fix TDZ da geração de aulas · propagação opt-in da edição de grade · 2 rodadas de feedback do Rodrigo.
 - **🧪 Pré-voo de QA feito (14/07):** varredura das 26 telas (18 admin + 8 professor) = 0 erro de console, todas renderizam; substituição ponta-a-ponta (pede→aceita→CF reatribui) OK. Sem bloqueante. NÃO exercitei write completo de fechamento (irreversível, §5), PLR, aprovação de férias, cobertura — telas abrem sem erro.

@@ -175,16 +175,44 @@ function pessoaTabsFor(p) {
   return tabs;
 }
 
+// "Desligada" = professor inativo (se houver entidade) ou, quando é só login,
+// users.status === 'inativo'. Fonte da verdade: teacher.isActive quando existe.
+function pessoaIsDesligada(p) {
+  if (p.teacher) return p.teacher.isActive === false;
+  if (p.user) return p.user.status === 'inativo';
+  return false;
+}
+
+// Botão Desligar/Religar só pra admin, e nunca pro dono nem pra própria conta.
+function pessoaCanToggle(p) {
+  if (!isStrictAdmin()) return false;
+  if ((p.email || '').toLowerCase() === PESSOAS_OWNER_EMAIL.toLowerCase()) return false;
+  const meUid = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser.uid : null;
+  if (meUid && p.uid === meUid) return false;
+  return true;
+}
+
 function renderPessoaFicha(p) {
   const tabs = pessoaTabsFor(p);
   if (!tabs.find(t => t.id === PessoasState.activeTab)) PessoasState.activeTab = 'identidade';
   const avatarType = p.teacher ? p.teacher.type : 'efetivo';
+  const desligada = pessoaIsDesligada(p);
 
-  const noAccessBanner = (isStrictAdmin() && !p.hasAccess) ? `
+  const noAccessBanner = (isStrictAdmin() && !p.hasAccess && !desligada) ? `
     <div style="border:1px solid var(--yellow);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;">
       ⚠️ Esta pessoa não tem acesso ao sistema.
       <a href="#" onclick="pessoaCriarAcesso('${p.key}');return false;" style="color:var(--orange);font-weight:600;">Criar acesso</a>
     </div>` : '';
+
+  const desligadaBanner = desligada ? `
+    <div style="border:1px solid var(--red);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;">
+      ⊘ Pessoa <strong>desligada</strong> — fora da agenda e das escalas${p.hasAccess ? ' e sem acesso ao login' : ''}. O histórico continua guardado.
+    </div>` : '';
+
+  const toggleBtn = pessoaCanToggle(p) ? (desligada
+    ? `<button class="btn btn-outline btn-sm" onclick="religarPessoa('${p.key}')">↺ Religar pessoa</button>`
+    : `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="desligarPessoa('${p.key}')">⊘ Desligar pessoa</button>`
+  ) : '';
 
   return `
     <div class="ficha-header">
@@ -194,10 +222,12 @@ function renderPessoaFicha(p) {
         <div class="ficha-header-sub">${pessoaBadgesHtml(p.profiles)}</div>
       </div>
       ${isStrictAdmin() ? `
-        <span class="pill ${p.hasAccess ? 'pill-active' : 'pill-inactive'}">
-          ${p.hasAccess ? '● Com acesso' : 'Sem acesso'}
+        <span class="pill ${desligada ? 'pill-inactive' : (p.hasAccess ? 'pill-active' : 'pill-inactive')}">
+          ${desligada ? '⊘ Desligada' : (p.hasAccess ? '● Com acesso' : 'Sem acesso')}
         </span>` : ''}
+      ${toggleBtn}
     </div>
+    ${desligadaBanner}
     ${noAccessBanner}
     <div class="ficha-tabs">
       ${tabs.map(tab => `
@@ -531,6 +561,49 @@ function pessoaCriarAcesso(key) {
   const p = PessoasState.people.find(x => x.key === key);
   if (!p || !p.teacherId) return;
   openAccessModal({ profiles: p.profiles, teacherId: p.teacherId });
+}
+
+// ── Desligar / Religar pessoa (via Cloud Function setPersonAccess) ───────
+// Um clique: inativa o professor + marca users.status + DESABILITA o login
+// no Firebase Auth (só o Admin SDK faz isso). Histórico preservado.
+async function desligarPessoa(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p) return;
+  const temLogin = !!p.uid;
+  const msg = `Desligar ${p.name}?\n\n` +
+    `• Sai da agenda, das escalas e das listas\n` +
+    (temLogin ? `• O login é BLOQUEADO — a pessoa deixa de conseguir entrar\n` : '') +
+    `• O histórico (aulas, fechamentos, recibos) continua guardado\n\n` +
+    `Dá pra religar depois, se precisar.`;
+  if (!confirm(msg)) return;
+  await _togglePessoaAccess(p, false);
+}
+
+async function religarPessoa(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p) return;
+  if (!confirm(`Religar ${p.name}?\n\nVolta pra agenda/escalas` + (p.uid ? ' e o login é reativado.' : '.'))) return;
+  await _togglePessoaAccess(p, true);
+}
+
+async function _togglePessoaAccess(p, active) {
+  const verbo = active ? 'Religando' : 'Desligando';
+  toast(`${verbo} ${p.name}…`, 'info');
+  try {
+    const callable = firebase.functions().httpsCallable('setPersonAccess');
+    const res = await callable({ teacherId: p.teacherId || null, uid: p.uid || null, active });
+    if (res.data && res.data.success) {
+      toast(`${p.name} ${active ? 'religada' : 'desligada'}.`, 'success');
+      // Invalida cache de histórico do professor (nova entrada de audit/estado)
+      if (p.teacherId && ProfessoresState.historyCache) ProfessoresState.historyCache.delete(p.teacherId);
+      await renderPessoasPage();
+    } else {
+      throw new Error((res.data && res.data.error) || 'Falha desconhecida');
+    }
+  } catch (err) {
+    console.error('[togglePessoaAccess]', err);
+    toast('Erro: ' + (err.message || 'falha ao atualizar acesso'), 'error');
+  }
 }
 
 function mapAccessAuthError(e) {

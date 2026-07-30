@@ -61,7 +61,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
-**SISTEMA COMPLETO em staging na branch `feature/shell-integrado` (não mergeada): módulo Professores inteiro — agenda/grade, escala inteligente (4 frentes: eventos/staff/RSVP + CF lembretes), engajamento, PLR, férias, fechamento/pagamentos, hub Pessoas, shell integrado + VISÃO MOBILE do professor. HOMOLOGANDO com o Rodrigo (14/07): 2 rodadas de feedback resolvidas + pré-voo de QA feito. PRÓXIMO: Rodrigo aprova → `docs/checklist-deploy-producao.md` (reconciliar origin/main → merge → produção).**
+**✅ MÓDULO PROFESSORES NO AR EM PRODUÇÃO (deploy feito 17/07, sessão 43): Rodrigo aprovou → checklist A–D executado (merge `028ff21`, Firebase rules/índices/9 functions/hosting, `git push origin main`, verificado no github.io). `main` mergeado. AGORA (3 frentes, nenhuma bloqueia): (1) SETUP inicial via planilha `modelo-carga-inicial.xlsx` → loader `seed-producao` (testar staging) + Seção 5 smoke autenticado; (2) MANUAIS Fase 1 feita (artifact publicado p/ validar) → Fase 2 = "Ajuda" no menu + "?" contextuais via staging; (3) ENDURECER FECHAMENTO (reabertura-se-não-pago) via staging. Frente-2 futura: ponto eletrônico TecnoPonto. DETALHE: `CONTEXTO_SESSAO.md` → "▶️▶️ RETOMAR NA PRÓXIMA SESSÃO".**
 
 > **Onde paramos em detalhe:** `CONTEXTO_SESSAO.md` → seção **🔖 ONDE PARAMOS (sessão 42)**, sub-bloco **▶️ RETOMAR AQUI**. Contas de demo (senha `crosstainer2026`): `dono.teste@` · `professor.teste@` (Marcos) · `professor2.teste@` (Bruna). Memórias-chave: [[fix-geracao-aulas-tdz]] · [[projeto-visao-professor-mobile]] · [[frente3-escala-eventos-staff]].
 >
@@ -86,7 +86,9 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 | **Hub** | **Hub Pessoas: cadastro unificado (união `teachers`⊕`users`), wizard, ficha 4 abas gated, `admin_gestao` DROPADO (sessão 33)** | **✅ REST 8/8 · UI 9/9** |
 | **Entrega** | **Check geral (3 bugs corrigidos) + branding index.html + sw v3.1 + cache 5min + seed demo + manuais + roteiro (sessão 33)** | **✅ publicado** |
 
-**Próxima ação:** cliente homologa pelo `roteiro-homologacao.html` no staging (acessos de demo: `dono.teste@` e `professor.teste@crosstainer.com`). Aprovado → executar `docs/checklist-deploy-producao.md` (2 decisões pendentes lá: antecedência de férias 5→30 dias · destino da tela legada de Usuários). **Compromisso pós-aprovação: visão do professor otimizada pra celular.**
+**Próxima ação (sessão 45+):** ✅ **CARGA INICIAL FEITA (29/07)** — a academia começou a usar. Em produção: 113 slots da grade, **475 aulas** (29/07→26/08), 16 professores com login, 8 modalidades, template CP+PP, `THAYNARA SILA`→`SILVA`. Ferramentas: `scripts/seed-carga-inicial.js` (+`lib-xlsx-min.js`, `gerar-aulas.js`) — tudo marcado com `seedSource` p/ rollback via `--cleanup`. Aulas geradas por **force-run do job do Cloud Scheduler** (o cron é `0 2 * * 1`, só segundas). Também no ar: **Desligar/Religar pessoa** (CF `setPersonAccess` + botão no Hub e no Comissões, E2E 14/14) e a rule de `delete` de `/users` só p/ `status=='pendente'` (7/7). Pendências: (1) **CAMILA SANTOS** cadastrada mas sem aula na grade — confirmar com Rodrigo; (2) **Yoga/TOI Mobility/TOI Combate** sem grade por decisão — lembrar que aula fora da grade NÃO entra no fechamento; (3) propagação da edição de grade **não cobre troca de dia da semana** (`professores-agenda.js:575`); (4) manuais **Fase 2**; (5) **endurecer fechamento**.
+
+> ⚠️ **O site que os usuários acessam é o GitHub Pages** (`rafaelmayerbrasil.github.io/crosstrainer-comissoes/`), que serve o **`main`**. `firebase-config.js` só trata esse host como produção — qualquer outro (inclusive `crosstrainer-comissoes.web.app`) cai em **staging**, de propósito. Logo: **publicar pro usuário = `git push origin main`**, não `firebase deploy --only hosting`.
 
 ## 🔧 Tech debt registrado (não bloqueia)
 
