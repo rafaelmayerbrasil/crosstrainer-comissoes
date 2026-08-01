@@ -29,6 +29,7 @@ const opt = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null
 const PROJECT_ALIAS = opt('--project');
 const DRY_RUN = flag('--dry-run');
 const CLEANUP = flag('--cleanup');
+const FULL_CLEANUP = flag('--full');
 const ALLOW_CREATE_TEACHERS = flag('--allow-create-teachers');
 
 const PROJECTS = { staging: 'crosstrainer-comissoes-staging', production: 'crosstrainer-comissoes' };
@@ -42,14 +43,42 @@ if (PROJECT_ALIAS === 'production' && ALLOW_CREATE_TEACHERS) {
   process.exit(1);
 }
 
-const PLANILHA = path.join(__dirname, '..', '..', '..', '..', 'carga professores agenda', 'modelo-carga-inicial.xlsx');
-const SEED_TAG = 'carga-inicial-2026-07-29'; // marca tudo que a carga criou → rollback/cleanup
+const PLANILHA = path.join(__dirname, '..', 'carga professores agenda', 'modelo-carga-inicial HORA EM HORA.xlsx');
+const SEED_TAG = 'carga-inicial-2026-07-31'; // marca tudo que a carga criou → rollback/cleanup
+// Cleanup varre também as cargas antigas (a de 29/07 era por BLOCO de período, substituída
+// pela grade hora-em-hora — trocar o bloco inteiro ao mexer numa aula era o problema).
+const TAGS_LIMPEZA = ['carga-inicial-2026-07-29', 'carga-inicial-2026-07-31'];
 const AUTOR = 'seed-carga-inicial';          // rastreável no audit; não finge ser um usuário
 
 // Correções de grafia aplicadas AO CADASTRO antes de casar os nomes.
 // THAYNARA: produção tem "SILA" (typo, falta o V); email thaynaraslva@outlook.com confirma SILVA.
 // Decidido com o usuário em 29/07/2026.
 const CORRECOES_NOME_TEACHER = { 'THAYNARA SILA': 'THAYNARA SILVA' };
+
+// Linhas cuja modalidade é INTERVALO não viram aula: é o descanso do professor.
+// Na grade por bloco (29/07) o intervalo era um BURACO entre blocos, ou seja, não era
+// tempo remunerado. Carregar como aula viraria hora paga no fechamento
+// (calculateTeacherHoursCF soma durationMinutes das classes). Conferido na Eduarda:
+// excluindo o intervalo, o total do dia bate exatamente com o da grade antiga.
+const MODALIDADES_IGNORADAS = ['INTERVALO'];
+
+// Correções de horário na GRADE (planilha hora-em-hora de 31/07).
+// Todas são sobra da quebra dos blocos em horas: a primeira linha não foi encurtada,
+// então ela cobre o intervalo inteiro e colide com as horas seguintes (o sistema
+// bloqueia professor sobreposto — decisão D6). O horário corrigido é o único que
+// fecha a sequência sem buraco nem sobreposição, e o total de horas do dia bate
+// exatamente com o da grade por bloco. Conferido linha a linha em 31/07/2026.
+//   chave: PROFESSOR|DIA|INICIO-FIM  →  { startTime, endTime } ou null p/ descartar a linha
+const CORRECOES_SLOT = {
+  // Eduarda sexta: 07:00-09:30 era o bloco; 08:00-09:00 e 09:00-09:30 já existem
+  'EDUARDASANTOS|SEXTA|07:00-09:30':   { startTime: '07:00', endTime: '08:00' },
+  // Bruno Claudino sexta: a cadeia 16:30→21:30 já está completa; 21:00-21:30 é sobra
+  'BRUNOCLAUDINO|SEXTA|21:00-21:30':   null,
+  // Thiago: 16:30-17:30 era o bloco; 17:00-18:00 já existe → a 1ª vira meia hora
+  'THIAGOVALENTIM|SEGUNDA|16:30-17:30': { startTime: '16:30', endTime: '17:00' },
+  'THIAGOVALENTIM|QUARTA|16:30-17:30':  { startTime: '16:30', endTime: '17:00' },
+  'THIAGOVALENTIM|SEXTA|16:30-17:30':   { startTime: '16:30', endTime: '17:00' },
+};
 
 // ─── auth ────────────────────────────────────────────────────────────────
 const CLIENT_ID = '563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com';
@@ -186,57 +215,123 @@ function lerPlanilha() {
 
   const gr = wb.sheet(abaGrade);
   const aulas = [];
+  const ignoradas = [];
+  const corrigidas = [];
+  const descartadas = [];
   for (const r of Object.keys(gr).map(Number).sort((a, b) => a - b)) {
     if (r <= 3) continue;
     const c = gr[r];
     const professor = (c[1] || '').trim();
     if (!professor || ehExemplo(professor)) continue;
-    aulas.push({
-      linha: r,
-      unidade: (c[0] || '').trim(),
-      professor,
-      dia: (c[2] || '').trim(),
-      weekday: WEEKDAY[norm(c[2])],
-      startTime: parseHora(c[3]),
-      endTime: parseHora(c[4]),
-      modalidade: (c[5] || '').trim(),
-    });
+    const modalidade = (c[5] || '').trim();
+    const dia = (c[2] || '').trim();
+    let startTime = parseHora(c[3]);
+    let endTime = parseHora(c[4]);
+
+    // Intervalo/descanso não vira aula (não é hora remunerada)
+    if (MODALIDADES_IGNORADAS.some(m => norm(m) === norm(modalidade))) {
+      ignoradas.push(`L${r} ${professor} ${dia} ${startTime}-${endTime}`);
+      continue;
+    }
+
+    // Correções de sobra da quebra de blocos
+    const chave = `${norm(professor)}|${norm(dia)}|${startTime}-${endTime}`;
+    if (Object.prototype.hasOwnProperty.call(CORRECOES_SLOT, chave)) {
+      const fix = CORRECOES_SLOT[chave];
+      if (fix === null) {
+        descartadas.push(`L${r} ${professor} ${dia} ${startTime}-${endTime} (sobra)`);
+        continue;
+      }
+      corrigidas.push(`L${r} ${professor} ${dia} ${startTime}-${endTime} → ${fix.startTime}-${fix.endTime}`);
+      startTime = fix.startTime;
+      endTime = fix.endTime;
+    }
+
+    aulas.push({ linha: r, unidade: (c[0] || '').trim(), professor, dia,
+      weekday: WEEKDAY[norm(dia)], startTime, endTime, modalidade });
   }
-  return { modalidades, aulas };
+  return { modalidades, aulas, ignoradas, corrigidas, descartadas };
 }
 
 // ─── cleanup ─────────────────────────────────────────────────────────────
+/**
+ * Remove a GRADE carregada (slots) e as aulas geradas a partir dela.
+ *
+ * De propósito NÃO apaga modalities, schedule_templates nem teachers: são
+ * compartilhados e reaproveitados pela carga seguinte. Apagar modalities
+ * quebraria os `modalityIds` que o admin já ajustou nas fichas dos professores,
+ * porque recriar geraria ids novos.
+ *
+ * Segurança: recusa apagar aula com uso real (status != prevista, mês fechado
+ * ou ajuste manual) — nesse caso não dá pra recarregar sem perder trabalho.
+ */
 async function cleanup() {
-  console.log(`\n⚠️  CLEANUP em ${PROJECT} — removendo tudo com seedSource="${SEED_TAG}"\n`);
-  const writes = [];
+  console.log(`\n⚠️  CLEANUP em ${PROJECT} — grade e aulas das cargas: ${TAGS_LIMPEZA.join(', ')}\n`);
 
-  // As aulas NÃO têm seedSource (a CF que as gera não conhece a carga), então
-  // removemos as que apontam para os slots da carga — senão sobram aulas órfãs
-  // apontando pra slot/professor inexistente.
-  const slotsDaCarga = (await listAll('schedule_slots')).filter(d => d.seedSource === SEED_TAG);
+  const slotsDaCarga = (await listAll('schedule_slots')).filter(d => TAGS_LIMPEZA.includes(d.seedSource));
   const idsDosSlots = new Set(slotsDaCarga.map(s => s.id));
-  const aulasOrfas = (await listAll('classes')).filter(c => idsDosSlots.has(c.slotId));
-  aulasOrfas.forEach(c => writes.push(wDel('classes', c.id)));
-  console.log(`  classes (geradas a partir desses slots): ${aulasOrfas.length} doc(s) a remover`);
+  // As aulas não têm seedSource (a CF que as gera não conhece a carga) — achamos pelo slotId.
+  const aulas = (await listAll('classes')).filter(c => idsDosSlots.has(c.slotId));
 
-  for (const coll of ['schedule_slots', 'schedule_templates', 'modalities', 'teachers']) {
-    const docs = (await listAll(coll)).filter(d => d.seedSource === SEED_TAG);
-    docs.forEach(d => writes.push(wDel(coll, d.id)));
-    console.log(`  ${coll}: ${docs.length} doc(s) a remover`);
+  const comUso = aulas.filter(c =>
+    (c.status && c.status !== 'prevista') || c.monthClosingId || c.adjustedAt || c.adjustmentNote);
+  if (comUso.length) {
+    console.log(`✗ ABORTADO: ${comUso.length} aula(s) já têm uso real (marcada, substituída, ajustada`);
+    console.log(`  ou dentro de mês fechado). Recarregar apagaria esse trabalho. Exemplos:`);
+    comUso.slice(0, 10).forEach(c =>
+      console.log(`    ${String(c.scheduledDate).slice(0, 10)} ${c.startTime} status=${c.status}`));
+    process.exit(1);
   }
+
+  const writes = [];
+  aulas.forEach(c => writes.push(wDel('classes', c.id)));
+  slotsDaCarga.forEach(s => writes.push(wDel('schedule_slots', s.id)));
+  console.log(`  classes geradas a partir dessa grade: ${aulas.length} (nenhuma com uso real)`);
+  console.log(`  schedule_slots: ${slotsDaCarga.length}`);
+  console.log(`  (modalities, templates e teachers são preservados de propósito)`);
+
+  // --full: remove também o que a carga criou de "catálogo" (modalities, templates,
+  // teachers de ensaio). Usar só pra limpar ensaio em staging — em produção isso
+  // apagaria modalidades reais e quebraria os modalityIds das fichas.
+  if (FULL_CLEANUP) {
+    for (const coll of ['schedule_templates', 'modalities', 'teachers']) {
+      const docs = (await listAll(coll)).filter(d => TAGS_LIMPEZA.includes(d.seedSource));
+      docs.forEach(d => writes.push(wDel(coll, d.id)));
+      console.log(`  [--full] ${coll}: ${docs.length}`);
+    }
+  }
+
   if (!writes.length) return console.log('\nNada pra remover.');
   if (DRY_RUN) return console.log('\n[dry-run] nada removido.');
   await commit(writes);
   console.log(`✓ cleanup completo (${writes.length} docs removidos)`);
 
-  const sobrou = (await listAll('schedule_slots')).filter(d => d.seedSource === SEED_TAG).length;
-  console.log(sobrou ? `✗ ainda sobraram ${sobrou} slots` : '✓ conferido: nenhum slot da carga restou');
+  const sobrouSlot = (await listAll('schedule_slots')).filter(d => TAGS_LIMPEZA.includes(d.seedSource)).length;
+  const sobrouAula = (await listAll('classes')).filter(c => idsDosSlots.has(c.slotId)).length;
+  console.log(sobrouSlot || sobrouAula
+    ? `✗ sobraram ${sobrouSlot} slots e ${sobrouAula} aulas`
+    : '✓ conferido: nenhum slot nem aula da carga antiga restou');
 }
 
 // ─── carga ───────────────────────────────────────────────────────────────
 async function carga() {
-  const { modalidades, aulas } = lerPlanilha();
-  console.log(`Planilha: ${modalidades.length} modalidades · ${aulas.length} aulas na grade\n`);
+  const { modalidades, aulas, ignoradas, corrigidas, descartadas } = lerPlanilha();
+  console.log(`Planilha: ${modalidades.length} modalidades · ${aulas.length} aulas a carregar\n`);
+
+  if (ignoradas.length) {
+    console.log(`⊘ ${ignoradas.length} linha(s) de INTERVALO ignoradas (descanso não é hora paga):`);
+    ignoradas.slice(0, 4).forEach(l => console.log('    ' + l));
+    if (ignoradas.length > 4) console.log(`    … e mais ${ignoradas.length - 4}`);
+  }
+  if (corrigidas.length) {
+    console.log(`\n✎ ${corrigidas.length} horário(s) corrigido(s) (sobra da quebra dos blocos):`);
+    corrigidas.forEach(l => console.log('    ' + l));
+  }
+  if (descartadas.length) {
+    console.log(`\n✎ ${descartadas.length} linha(s) descartada(s) por duplicar horário já coberto:`);
+    descartadas.forEach(l => console.log('    ' + l));
+  }
+  if (ignoradas.length || corrigidas.length || descartadas.length) console.log('');
 
   const [units, modsProd, teachersProd, templatesProd, slotsProd] = await Promise.all(
     ['units', 'modalities', 'teachers', 'schedule_templates', 'schedule_slots'].map(listAll));
