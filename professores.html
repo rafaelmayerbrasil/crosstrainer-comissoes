@@ -1997,6 +1997,27 @@
         border-color: var(--orange); background: var(--orange); color: #0a0a0a; font-weight: 600;
       }
     }
+
+    /* ─── Cor da modalidade (cadastro + agenda) ─────────────────────── */
+    .modality-color-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+    .modality-color-swatch {
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; padding: 0; outline: none;
+      transition: transform .12s ease, border-color .12s ease;
+    }
+    .modality-color-swatch:hover { transform: scale(1.12); }
+    .modality-color-swatch.selected {
+      border-color: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor;
+    }
+    .modality-color-swatch:focus-visible { border-color: var(--text); }
+    .modality-color-dot {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      margin-right: 7px; vertical-align: middle;
+    }
+    /* alvo de toque confortável no celular */
+    @media (max-width: 760px) {
+      .modality-color-swatch { width: 38px; height: 38px; }
+    }
   </style>
 </head>
 
@@ -2166,6 +2187,13 @@
       <div class="form-group">
         <label>Descrição</label>
         <textarea id="modalityDescription" placeholder="Opcional — uma breve descrição"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Cor na agenda</label>
+        <div id="modalityColorPicker" class="modality-color-picker"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">
+          Essa cor identifica a modalidade na agenda dos professores e na agenda geral.
+        </div>
       </div>
       <div class="error-msg" id="modalityError"></div>
       <div class="form-actions">

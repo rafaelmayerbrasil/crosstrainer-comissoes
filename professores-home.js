@@ -71,7 +71,9 @@ async function _renderHomeAdmin() {
 
   const chips = [];
   if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'pedido de férias a aprovar' : 'pedidos de férias a aprovar', "navigateTo('ferias')"));
-  if (subs) chips.push(_homeChip(subs, subs === 1 ? 'substituição pendente' : 'substituições pendentes', "navigateTo('agenda-geral')"));
+  // Abre a caixa de pedidos (com a visão de gestão), não a lista de aulas:
+  // a Agenda Geral não mostra pedidos, então o aviso levava a lugar nenhum.
+  if (subs) chips.push(_homeChip(subs, subs === 1 ? 'substituição pendente' : 'substituições pendentes', "openInboxModal()"));
 
   const pend = chips.length
     ? `<div class="home-card home-pend">

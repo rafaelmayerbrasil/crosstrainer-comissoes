@@ -380,7 +380,7 @@ const ModalityService = {
     }
   },
 
-  async create({ name, description = '' }) {
+  async create({ name, description = '', color }) {
     if (!name || name.trim().length < 2) {
       return { success: false, error: 'Nome inválido (mínimo 2 caracteres)' };
     }
@@ -388,6 +388,8 @@ const ModalityService = {
       const after = {
         name: name.trim(),
         description: description.trim(),
+        // Cor exibida na agenda; só aceita valor da paleta
+        color: isValidModalityColor(color) ? color : MODALITY_COLOR_DEFAULT,
         isActive: true,
         createdAt: serverTs(),
         createdBy: currentUserId(),
@@ -407,7 +409,7 @@ const ModalityService = {
     }
   },
 
-  async update(id, { name, description }) {
+  async update(id, { name, description, color }) {
     try {
       const ref = db.collection('modalities').doc(id);
       const beforeDoc = await ref.get();
@@ -416,6 +418,7 @@ const ModalityService = {
       const after = {
         name: name !== undefined ? String(name).trim() : before.name,
         description: description !== undefined ? String(description).trim() : (before.description || ''),
+        color: isValidModalityColor(color) ? color : (before.color || MODALITY_COLOR_DEFAULT),
         updatedAt: serverTs(),
         updatedBy: currentUserId(),
       };
@@ -1196,6 +1199,37 @@ const CLASS_STATUS_COLOR = {
   substituida:    { bg: 'rgba(180,120,255,0.15)', border: '#B478FF', text: '#B478FF' },
 };
 
+// ─── Cor da modalidade (escolhida no cadastro) ──────────────────────────
+// Paleta fechada em vez de seletor livre: garante contraste no tema escuro e
+// evita duas modalidades ficarem com tons quase iguais.
+// NOME: MODALITY_PALETTE, não MODALITY_COLORS — professores-agenda.js já tem um
+// MODALITY_COLORS (paleta do hash), e os dois arquivos dividem o escopo global
+// do navegador: dois `const` iguais = SyntaxError e a agenda não carrega.
+const MODALITY_PALETTE = [
+  { id: 'laranja',  nome: 'Laranja',  hex: '#FF8A3D' },
+  { id: 'azul',     nome: 'Azul',     hex: '#5EA8FF' },
+  { id: 'verde',    nome: 'Verde',    hex: '#8CC85A' },
+  { id: 'roxo',     nome: 'Roxo',     hex: '#B478FF' },
+  { id: 'rosa',     nome: 'Rosa',     hex: '#FF6FA5' },
+  { id: 'amarelo',  nome: 'Amarelo',  hex: '#FFC93D' },
+  { id: 'ciano',    nome: 'Ciano',    hex: '#3DD6D0' },
+  { id: 'vermelho', nome: 'Vermelho', hex: '#FF6464' },
+  { id: 'cinza',    nome: 'Cinza',    hex: '#9AA0A6' },
+];
+const MODALITY_COLOR_DEFAULT = '#5EA8FF';
+/** Aceita só cor da paleta — bloqueia hex arbitrário vindo de fora do form. */
+function isValidModalityColor(hex) {
+  return typeof hex === 'string' && MODALITY_PALETTE.some(c => c.hex.toLowerCase() === hex.toLowerCase());
+}
+
+// Escalas especiais não têm modalidade — rótulo e cor próprios na agenda
+const SPECIAL_SCALE_LABEL = {
+  escola_interna: 'Escola Interna',
+  evento:         'Evento',
+  feriado:        'Feriado',
+};
+const SPECIAL_SCALE_COLOR = '#FFC93D';
+
 // ─── Helpers de data ────────────────────────────────────────────────────
 
 /** Início da semana (segunda) zerada (00:00) em horário local. */
@@ -1690,6 +1724,25 @@ const SubstitutionService = {
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
     } catch (err) {
       console.error('[SubstitutionService.listPendingForSubstitute]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * TODOS os pedidos pendentes — visão de gestão.
+   * A home do admin já contava os pendentes, mas não existia tela onde ele
+   * pudesse VER e resolver: a caixa só listava os pedidos em que o próprio
+   * usuário era o substituto. Um pedido entre dois professores ficava invisível.
+   */
+  async listAllPending() {
+    try {
+      const snap = await db.collection('substitutions')
+        .where('status', '==', 'pending')
+        .orderBy('requestedAt', 'desc')
+        .get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[SubstitutionService.listAllPending]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
@@ -3989,6 +4042,9 @@ window.ProfHelpers     = {
   // Sprint 3a — helpers de data + constantes de classe
   getStartOfWeek, getEndOfWeek, ymdFromDate, formatDateBR,
   CLASS_STATUS_LABEL, CLASS_STATUS_COLOR,
+  // Cor por modalidade (cadastro) + rótulo/cor de escala especial na agenda
+  MODALITY_PALETTE, MODALITY_COLOR_DEFAULT, isValidModalityColor,
+  SPECIAL_SCALE_LABEL, SPECIAL_SCALE_COLOR,
   // Sprint 3b — constantes de notif/sub/cov
   // Sprint 6a — VacationService
   VacationService, validateVacationRequest,

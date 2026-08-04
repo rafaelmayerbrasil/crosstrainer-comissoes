@@ -671,6 +671,23 @@ async function savePessoaAccess() {
     return;
   }
 
+  // ⑤ Espelha o vínculo em teachers.userId.
+  // O elo já fica em users.professorId, mas /users só é legível pelo próprio dono
+  // ou por admin — então um PROFESSOR não consegue descobrir o login de um colega.
+  // É disso que o pedido de substituição precisa (pra notificar o substituto), e
+  // sem esse espelho o pedido nascia órfão. teachers é legível por todo o módulo.
+  if (ctx.teacherId) {
+    try {
+      await db.collection('teachers').doc(ctx.teacherId).update({
+        userId: newUid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('[criarPessoaComAcesso] não consegui gravar teachers.userId:', e.message);
+      toast('Acesso criado, mas o vínculo para substituições falhou — avise o suporte.', 'info', 6000);
+    }
+  }
+
   closeAccessModal();
   toast(`Pessoa "${name}" criada com acesso.`, 'success');
   PessoasState.selectedKey = ctx.teacherId ? 'T:' + ctx.teacherId : 'U:' + newUid;

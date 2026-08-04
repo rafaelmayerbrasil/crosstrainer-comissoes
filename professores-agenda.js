@@ -52,8 +52,23 @@ const MODALITY_COLORS = [
   { bg: 'rgba(255,140,140,0.18)',border: 'rgba(255,140,140,0.55)',text: '#FF8C8C' },  // coral
 ];
 
+/** #RRGGBB → rgba(r,g,b,alpha) — pra derivar fundo/borda da cor escolhida. */
+function hexToRgba(hex, alpha) {
+  const h = String(hex).replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
 function colorForModality(modalityId) {
   if (!modalityId) return { bg: 'var(--surface3)', border: 'var(--border)', text: 'var(--text2)' };
+
+  // Cor definida no cadastro da modalidade tem prioridade sobre o sorteio por hash
+  const mod = AgendaState.modalitiesMap.get(modalityId);
+  if (mod && mod.color) {
+    return { bg: hexToRgba(mod.color, 0.18), border: hexToRgba(mod.color, 0.55), text: mod.color };
+  }
+
+  // Fallback: modalidade antiga, sem cor escolhida — mantém o tom estável por hash
   let hash = 0;
   for (let i = 0; i < modalityId.length; i++) {
     hash = ((hash << 5) - hash) + modalityId.charCodeAt(i);
@@ -799,6 +814,15 @@ function setMinhaAgendaFilter(filter) {
   loadMinhaAgenda();
 }
 
+/**
+ * Ordena as aulas de um dia por horário de início.
+ * A consulta ordena só por scheduledDate, e todas as aulas do mesmo dia têm a
+ * MESMA data (meia-noite) — então dentro do dia a ordem vinha aleatória.
+ */
+function sortByStartTime(items) {
+  return items.sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+}
+
 function renderClassesGroupedByDate(classes) {
   // Agrupa por YYYY-MM-DD
   const groups = new Map();
@@ -809,6 +833,7 @@ function renderClassesGroupedByDate(classes) {
     if (!groups.has(key)) groups.set(key, { date: d, items: [] });
     groups.get(key).items.push(c);
   });
+  groups.forEach(g => sortByStartTime(g.items));
 
   return `
     <div class="minha-agenda-list">
@@ -824,17 +849,38 @@ function renderClassesGroupedByDate(classes) {
   `;
 }
 
-function renderClassCard(cls) {
+/**
+ * Nome a exibir para a aula.
+ * Escala especial (Escola Interna, evento…) não tem modalidade — antes caía no
+ * fallback e aparecia "—" na agenda, sem dizer o que era.
+ */
+function classDisplayName(cls) {
   const mod = AgendaState.modalitiesMap.get(cls.modalityId);
+  if (mod) return mod.name;
+  if (cls.specialScaleId || cls.specialScaleType) {
+    return ProfHelpers.SPECIAL_SCALE_LABEL?.[cls.specialScaleType] || 'Escola Interna';
+  }
+  return null;
+}
+
+/** Cor da faixa lateral: a da modalidade (definida no cadastro) ou, na falta, a do status. */
+function classAccentColor(cls) {
+  const mod = AgendaState.modalitiesMap.get(cls.modalityId);
+  if (mod && mod.color) return mod.color;
+  if (!mod && (cls.specialScaleId || cls.specialScaleType)) return ProfHelpers.SPECIAL_SCALE_COLOR;
+  return (ProfHelpers.CLASS_STATUS_COLOR[cls.status] || ProfHelpers.CLASS_STATUS_COLOR.prevista).border;
+}
+
+function renderClassCard(cls) {
   const unit = AgendaState.units.find(u => u.id === cls.unitId);
-  const modName = mod ? mod.name : '⚠ modalidade não encontrada';
+  const modName = classDisplayName(cls) || '⚠ modalidade não encontrada';
   const unitName = unit ? (unit.name || unit.id) : '⚠ unidade';
   const sColor = ProfHelpers.CLASS_STATUS_COLOR[cls.status] || ProfHelpers.CLASS_STATUS_COLOR.prevista;
   const sLabel = ProfHelpers.CLASS_STATUS_LABEL[cls.status] || cls.status;
 
   return `
     <div class="class-card" onclick="openClassModal('${cls.id}')"
-         style="border-left:3px solid ${sColor.border};">
+         style="border-left:3px solid ${classAccentColor(cls)};">
       <div class="class-card-time">
         ${cls.startTime}<span class="slot-time-sep">–</span>${cls.endTime}
       </div>
@@ -1175,6 +1221,7 @@ function renderAgendaGeralGrouped(classes) {
     if (!groups.has(key)) groups.set(key, { date: d, items: [] });
     groups.get(key).items.push(c);
   });
+  groups.forEach(g => sortByStartTime(g.items));
   return `
     <div class="minha-agenda-list">
       ${Array.from(groups.values()).map(g => `
@@ -1190,17 +1237,16 @@ function renderAgendaGeralGrouped(classes) {
 }
 
 function renderAgendaGeralCard(cls) {
-  const mod = AgendaState.modalitiesMap.get(cls.modalityId);
   const unit = AgendaState.units.find(u => u.id === cls.unitId);
   const teacher = AgendaState.teachersMap.get(cls.teacherId);
   const sColor = ProfHelpers.CLASS_STATUS_COLOR[cls.status] || ProfHelpers.CLASS_STATUS_COLOR.prevista;
   const sLabel = ProfHelpers.CLASS_STATUS_LABEL[cls.status] || cls.status;
   return `
     <div class="class-card geral-card" onclick="openClassModal('${cls.id}')"
-         style="border-left:3px solid ${sColor.border};">
+         style="border-left:3px solid ${classAccentColor(cls)};">
       <div class="class-card-time">${cls.startTime}<span class="slot-time-sep">–</span>${cls.endTime}</div>
       <div class="class-card-info">
-        <div class="class-card-modality">${escapeHtml(mod ? mod.name : '—')}</div>
+        <div class="class-card-modality">${escapeHtml(classDisplayName(cls) || '—')}</div>
         <div class="class-card-unit">👤 ${escapeHtml(teacher ? teacher.name : '—')} · 🏢 ${escapeHtml(unit ? (unit.name || unit.id) : '—')}</div>
       </div>
       <div class="class-card-status">
@@ -1403,7 +1449,7 @@ function findClassAnywhere(classId) {
 }
 
 // ─── Modal de Inbox de Pedidos ──────────────────────────────────────────
-const InboxState = { subs: [], covs: [], activeTab: 'subs' };
+const InboxState = { subs: [], covs: [], activeTab: 'subs', isMgmtView: false };
 
 async function openInboxModal() {
   const modal = document.getElementById('inboxModal');
@@ -1434,8 +1480,13 @@ async function loadInboxData() {
   const uid = AppState.currentUser.uid;
   const myProfId = getCurrentProfessorId();
 
-  // Pedidos direcionados a mim
-  const subsRes = await SubstitutionService.listPendingForSubstitute(uid);
+  // Pedidos direcionados a mim. Gestão vê TODOS os pendentes — senão um pedido
+  // entre dois professores fica sem ninguém pra resolver (a home contava, mas
+  // não havia tela onde ele aparecesse).
+  InboxState.isMgmtView = isAdminGestao() || isSupervisao();
+  const subsRes = InboxState.isMgmtView
+    ? await SubstitutionService.listAllPending()
+    : await SubstitutionService.listPendingForSubstitute(uid);
   InboxState.subs = subsRes.success ? subsRes.data : [];
 
   // Coberturas abertas aptas à minha modalidade
@@ -1468,7 +1519,11 @@ function renderInboxList() {
   if (!list) return;
   if (InboxState.activeTab === 'subs') {
     if (InboxState.subs.length === 0) {
-      list.innerHTML = '<div class="empty-state-small" style="padding:24px;">Nenhum pedido pendente para você.</div>';
+      list.innerHTML = `<div class="empty-state-small" style="padding:24px;">${
+        InboxState.isMgmtView
+          ? 'Nenhum pedido de substituição pendente na academia.'
+          : 'Nenhum pedido pendente para você.'
+      }</div>`;
       return;
     }
     list.innerHTML = InboxState.subs.map(renderInboxSubItem).join('');
@@ -1496,12 +1551,21 @@ function renderInboxSubItem(s) {
   const requester = AgendaState.teachersMap.get(s.requestingTeacherId);
   const requesterName = requester ? requester.name : s.requestingTeacherId;
   const retro = s.wasRetroactive ? '<span class="badge-retro">retroativo</span>' : '';
+  // Na visão de gestão o pedido pode ser entre outras duas pessoas — mostrar
+  // para quem foi pedido, senão o admin não sabe quem tem que responder.
+  const subst = AgendaState.teachersMap.get(s.substituteTeacherId);
+  const paraQuem = InboxState.isMgmtView
+    ? `<div class="inbox-item-body">Pedido para: <strong>${escapeHtml(subst ? subst.name : '—')}</strong>${
+        s.substituteUserId ? '' : ' <span class="badge-retro">sem login vinculado</span>'
+      }</div>`
+    : '';
   return `
     <div class="inbox-item">
       <div class="inbox-item-header">
         <span class="inbox-item-title">🔄 ${escapeHtml(requesterName)} pediu substituição</span>
         ${retro}
       </div>
+      ${paraQuem}
       <div class="inbox-item-body">${escapeHtml(s.reason || '(sem motivo informado)')}</div>
       <div class="inbox-item-meta">${formatReqWhen(s)}</div>
       <div class="inbox-item-actions">

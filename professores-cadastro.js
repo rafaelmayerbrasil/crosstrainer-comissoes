@@ -100,7 +100,10 @@ function renderModalitiesContent() {
   // Tabela
   const rows = list.map(m => `
     <tr data-id="${m.id}" style="${m.isActive ? '' : 'opacity:.55;'}">
-      <td style="font-weight:600;">${escapeHtml(m.name)}</td>
+      <td style="font-weight:600;">
+        <span class="modality-color-dot" style="background:${m.color || ProfHelpers.MODALITY_COLOR_DEFAULT};"></span>
+        ${escapeHtml(m.name)}
+      </td>
       <td style="color:var(--text2);">${escapeHtml(m.description || '—')}</td>
       <td>
         <span class="pill ${m.isActive ? 'pill-active' : 'pill-inactive'}">
@@ -165,14 +168,37 @@ function openModalityModal(id = null) {
     titleEl.textContent = 'Editar modalidade';
     nameEl.value = m.name || '';
     descEl.value = m.description || '';
+    renderModalityColorPicker(m.color || ProfHelpers.MODALITY_COLOR_DEFAULT);
   } else {
     titleEl.textContent = 'Nova modalidade';
     nameEl.value = '';
     descEl.value = '';
+    renderModalityColorPicker(ProfHelpers.MODALITY_COLOR_DEFAULT);
   }
 
   modal.classList.add('open');
   setTimeout(() => nameEl.focus(), 50);
+}
+
+// ─── Cor da modalidade (aparece na agenda) ──────────────────────────────
+// Paleta fechada, não seletor livre: garante contraste no tema escuro e evita
+// duas modalidades ficarem com tons quase iguais.
+function renderModalityColorPicker(selecionada) {
+  const box = document.getElementById('modalityColorPicker');
+  if (!box) return;
+  ModalitiesState.color = selecionada;
+  box.innerHTML = ProfHelpers.MODALITY_PALETTE.map(c => `
+    <button type="button"
+            class="modality-color-swatch${c.hex === selecionada ? ' selected' : ''}"
+            style="background:${c.hex};"
+            title="${c.nome}"
+            aria-label="${c.nome}"
+            onclick="selectModalityColor('${c.hex}')"></button>
+  `).join('');
+}
+
+function selectModalityColor(hex) {
+  renderModalityColorPicker(hex);
 }
 
 function closeModalityModal() {
@@ -214,9 +240,10 @@ async function saveModality() {
   saveBtn.disabled = true;
   saveBtn.innerHTML = '<div class="spinner"></div> Salvando...';
 
+  const color = ModalitiesState.color || ProfHelpers.MODALITY_COLOR_DEFAULT;
   const result = ModalitiesState.editingId
-    ? await ModalityService.update(ModalitiesState.editingId, { name, description })
-    : await ModalityService.create({ name, description });
+    ? await ModalityService.update(ModalitiesState.editingId, { name, description, color })
+    : await ModalityService.create({ name, description, color });
 
   if (!result.success) {
     errEl.textContent = result.error || 'Erro ao salvar.';
