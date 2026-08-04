@@ -183,6 +183,56 @@
     } catch (err) { console.error('[ScaleService.createScale]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * Edita data e/ou horários de uma escala.
+   *
+   * Só data/horário — quem lidera continua em assignSlot. Preserva o
+   * assignedPersonId de cada slot: mudar o horário não pode desescalar ninguém.
+   *
+   * NÃO republica sozinho: se a escala estiver publicada, quem chama precisa
+   * refazer unpublish→publish, senão as aulas já geradas ficam no horário velho.
+   */
+  async function updateScale(scaleId, { date, startTime, endTime }, deps) {
+    try {
+      const database = rdb(deps);
+      const ref = database.collection('special_scales').doc(scaleId);
+      const doc = await ref.get();
+      if (!doc.exists) return { success: false, error: 'Escala não encontrada' };
+      const before = doc.data();
+
+      const patch = { updatedAt: rts(deps), updatedBy: ruid(deps) };
+      if (date) {
+        patch.date = date;
+        if (before.name && /\d{2}\/\d{2}\/\d{4}/.test(before.name)) {
+          const [y, m, d] = date.split('-');
+          patch.name = before.name.replace(/\d{2}\/\d{2}\/\d{4}/, `${d}/${m}/${y}`);
+        }
+      }
+      if (startTime || endTime) {
+        patch.slots = (before.slots || []).map(s => Object.assign({}, s, {
+          startTime: startTime || s.startTime,
+          endTime: endTime || s.endTime,
+        }));
+      }
+      await ref.update(patch);
+      return { success: true, data: Object.assign({ id: scaleId }, before, patch) };
+    } catch (err) {
+      console.error('[ScaleService.updateScale]', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /** Apaga a escala. Quem chama tira as aulas da agenda antes (unpublishFromAgenda). */
+  async function deleteScale(scaleId, deps) {
+    try {
+      await rdb(deps).collection('special_scales').doc(scaleId).delete();
+      return { success: true };
+    } catch (err) {
+      console.error('[ScaleService.deleteScale]', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   async function getScale(id, deps) {
     try {
       const doc = await rdb(deps).collection('special_scales').doc(id).get();
@@ -593,5 +643,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

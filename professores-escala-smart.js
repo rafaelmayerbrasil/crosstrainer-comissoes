@@ -156,8 +156,13 @@ function escalaPersonName(id) {
 /* ─── GESTÃO ───────────────────────────────────────────────────────── */
 function escalaCardDoc(s) {
   const sel = s.id === EscalaSmartState.selectedId;
-  const statusColor = s.status === 'consolidada' ? 'var(--green)' : (s.status === 'janela_aberta' ? 'var(--blue)' : 'var(--text2)');
-  const statusTxt = (ESCALA_STATUS_LABEL[s.status] || s.status) + (s.published ? ' · ✓ publicada' : '');
+  // "Rascunho · ✓ publicada" lia como contradição. Publicada na agenda é o que
+  // importa pra quem olha, então ela manda sozinha; o status do fluxo (rascunho/
+  // janela aberta/consolidada) só aparece enquanto NÃO está publicada.
+  const publicada = !!s.published;
+  const statusColor = publicada ? 'var(--green)'
+    : (s.status === 'consolidada' ? 'var(--green)' : (s.status === 'janela_aberta' ? 'var(--blue)' : 'var(--text2)'));
+  const statusTxt = publicada ? '✓ Publicada' : (ESCALA_STATUS_LABEL[s.status] || s.status);
   const kindBadge = (s.tipo === 'evento' && s.eventKind)
     ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${s.eventKind === 'externo' ? '#2a1a2e' : 'var(--surface3)'};color:${s.eventKind === 'externo' ? '#c77dff' : 'var(--text2)'};margin-left:6px;">${s.eventKind === 'externo' ? 'Externo' : 'Interno'}</span>` : '';
   return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
@@ -412,9 +417,18 @@ function renderEscolaInternaDetail(scale) {
       <div><div style="font-size:13px;font-weight:500;">${unitName(slot.unitId)}</div><div style="font-size:12px;color:var(--text2);">${slot.startTime}–${slot.endTime} · líder</div></div>
       <select class="input" style="width:auto;" onchange="atribuirLider('${scale.id}','${slot.id}',this.value)">${opts(slot.assignedPersonId)}</select>
     </div></div>`).join('');
-  const actions = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+  // Sessão que já aconteceu não se edita nem se apaga (decisão do usuário 04/08),
+  // pelo mesmo motivo do mês fechado: não mexer em histórico.
+  const passada = escalaEhPassada(scale.date);
+  const actions = `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;align-items:center;">
     ${scale.published ? `<span style="font-size:12px;color:var(--green);margin-right:auto;">✓ publicada na agenda</span>` : ''}
-    ${!scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>`}
+    ${passada
+      ? `<span style="font-size:12px;color:var(--text2);margin-right:auto;">Sessão já realizada — não pode ser editada.</span>`
+      : `<button class="btn-secondary" onclick="abrirEdicaoEscolaInterna('${scale.id}')">✏️ Editar data/horário</button>
+         <button class="btn-secondary" style="color:var(--red);" onclick="excluirEscolaInterna('${scale.id}')">🗑️ Excluir</button>`}
+    ${!scale.published
+      ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>`
+      : `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>`}
   </div>`;
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
     <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
@@ -422,6 +436,98 @@ function renderEscolaInternaDetail(scale) {
     ${cards || '<p style="color:var(--text2);">Sem sessões.</p>'}
     ${actions}
   </div>`;
+}
+
+/** Data da sessão já passou? Compara ISO local com hoje (hoje ainda é editável). */
+function escalaEhPassada(dateISO) {
+  return String(dateISO || '') < escalaTodayISO();
+}
+
+// ─── Editar data/horário de uma Escola Interna ──────────────────────────
+function abrirEdicaoEscolaInterna(id) {
+  const scale = EscalaSmartState.scales.find(s => s.id === id);
+  if (!scale) { toast('Sessão não encontrada.', 'error'); return; }
+  if (escalaEhPassada(scale.date)) { toast('Sessão já realizada não pode ser editada.', 'error'); return; }
+
+  const slot0 = (scale.slots || [])[0] || {};
+  const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex'; modal.style.display = 'block';
+  modal.innerHTML = `
+    <h2>Editar sessão de Escola Interna</h2>
+    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label>
+      <input type="date" id="eiEditData" class="input" value="${scale.date}" min="${escalaTodayISO()}"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Início</label><input type="time" id="eiEditIni" class="input" value="${slot0.startTime || '14:30'}"></div>
+      <div class="form-group"><label>Fim</label><input type="time" id="eiEditFim" class="input" value="${slot0.endTime || '15:30'}"></div>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px;">
+      O horário vale para todas as unidades desta sessão. Quem já foi escalado para liderar continua escalado.
+      ${scale.published ? '<br><strong>Esta sessão está publicada</strong> — as aulas na agenda são atualizadas para o novo horário.' : ''}
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      <button class="btn-primary" id="eiEditSalvar" onclick="salvarEdicaoEscolaInterna('${scale.id}')">Salvar</button>
+    </div>`;
+}
+
+async function salvarEdicaoEscolaInterna(id) {
+  const scale = EscalaSmartState.scales.find(s => s.id === id);
+  if (!scale) return;
+  const date = document.getElementById('eiEditData').value;
+  const startTime = document.getElementById('eiEditIni').value;
+  const endTime = document.getElementById('eiEditFim').value;
+
+  if (!date || !startTime || !endTime) { toast('Preencha data, início e fim.', 'error'); return; }
+  if (escalaEhPassada(date)) { toast('Não dá para mover a sessão para uma data que já passou.', 'error'); return; }
+  if (endTime <= startTime) { toast('O fim tem que ser depois do início.', 'error'); return; }
+
+  const btn = document.getElementById('eiEditSalvar');
+  btn.disabled = true; btn.textContent = 'Salvando…';
+
+  // Publicada: tira as aulas antigas ANTES de gravar, senão o unpublish procura
+  // pelo horário novo e deixa as antigas órfãs na agenda.
+  if (scale.published) {
+    const un = await ScaleService.unpublishFromAgenda(id);
+    if (!un.success) { btn.disabled = false; btn.textContent = 'Salvar'; toast('Erro ao atualizar a agenda: ' + (un.error || 'falha'), 'error'); return; }
+  }
+
+  const res = await ScaleService.updateScale(id, { date, startTime, endTime });
+  if (!res.success) { btn.disabled = false; btn.textContent = 'Salvar'; toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+
+  if (scale.published) {
+    const pub = await ScaleService.publishToAgenda(id);
+    if (!pub.success) {
+      toast('Sessão salva, mas falhou ao republicar na agenda — publique de novo.', 'error', 7000);
+      closeEscalaModal(); renderEscalaGestao(); return;
+    }
+  }
+
+  toast(scale.published ? 'Sessão atualizada e agenda republicada.' : 'Sessão atualizada.', 'success');
+  closeEscalaModal();
+  renderEscalaGestao();
+}
+
+async function excluirEscolaInterna(id) {
+  const scale = EscalaSmartState.scales.find(s => s.id === id);
+  if (!scale) return;
+  if (escalaEhPassada(scale.date)) { toast('Sessão já realizada não pode ser excluída.', 'error'); return; }
+
+  const aviso = scale.published
+    ? `Excluir "${scale.name || scale.date}"?\n\nEla está PUBLICADA — as aulas dela também saem da agenda dos professores.`
+    : `Excluir "${scale.name || scale.date}"?`;
+  if (!confirm(aviso)) return;
+
+  if (scale.published) {
+    const un = await ScaleService.unpublishFromAgenda(id);
+    if (!un.success) { toast('Erro ao tirar as aulas da agenda: ' + (un.error || 'falha'), 'error'); return; }
+  }
+  const res = await ScaleService.deleteScale(id);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+
+  toast('Sessão excluída.', 'success');
+  EscalaSmartState.selectedId = null;
+  renderEscalaGestao();
 }
 
 // Evento na gestão: painel de staff (quem Deve/Poderia) + convite in-app aos novos + consolidado dos RSVP.
