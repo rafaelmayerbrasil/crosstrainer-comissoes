@@ -318,6 +318,7 @@ const SlotFormState = {
   editingId: null,
   weekdays: [1],   // CRIAÇÃO aceita múltiplos dias (lança N slots em lote).
                    // EDIÇÃO mantém só [slot.weekday] e não permite alterar.
+  lastWeekday: 1,  // último dia usado na sessão — vira o padrão do próximo slot
 };
 
 function openSlotModal(slotId = null) {
@@ -347,7 +348,11 @@ function openSlotModal(slotId = null) {
 
   const editing = slotId ? AgendaState.slots.find(s => s.id === slotId) : null;
   SlotFormState.editingId = slotId;
-  SlotFormState.weekdays = editing ? [editing.weekday] : [1];
+  // Novo slot herda o dia do último criado nesta sessão, não Segunda fixo.
+  // Antes voltava sempre pra Segunda: quem montava vários slots do mesmo dia
+  // (a manhã de sábado, por exemplo) preenchia tudo de novo, não reparava que o
+  // dia tinha voltado sozinho, e o slot nascia na Segunda. Aconteceu em produção.
+  SlotFormState.weekdays = editing ? [editing.weekday] : [SlotFormState.lastWeekday || 1];
 
   document.getElementById('slotModalTitle').textContent = editing ? 'Editar slot' : 'Novo slot';
   document.getElementById('slotModalError').textContent = '';
@@ -423,12 +428,16 @@ function renderSlotWeekdayChips() {
     if (isEditing) {
       hint.textContent = 'Edição: dia da semana fixo. Para criar em outro dia, feche e clique em "+ Novo slot".';
     } else {
-      const n = SlotFormState.weekdays.length;
+      // Diz o NOME do dia, não só a quantidade: "1 dia selecionado" não avisava
+      // que o dia era Segunda quando a pessoa achava que estava criando no sábado.
+      const dias = SlotFormState.weekdays.slice().sort((a, b) => a - b)
+        .map(w => ProfHelpers.WEEKDAY_LABEL[w]);
+      const n = dias.length;
       hint.textContent = n === 0
         ? '⚠ Selecione ao menos um dia.'
         : n === 1
-          ? '1 dia selecionado · clique em outros para criar em lote.'
-          : `${n} dias selecionados · serão criados ${n} slots iguais.`;
+          ? `Será criado em: ${dias[0].toUpperCase()} · clique em outros dias para criar em lote.`
+          : `Serão criados ${n} slots: ${dias.join(', ').toUpperCase()}.`;
     }
   }
 }
@@ -644,9 +653,12 @@ async function saveSlot() {
       await loadAgendaForUnit(AgendaState.unitId);
       return;
     }
+    // Confirma o DIA no toast — fecha o ciclo pra quem cria vários seguidos.
     toastMsg = created.length === 1
-      ? '1 slot criado.'
+      ? `Slot criado em ${created[0]}.`
       : `${created.length} slots criados (${created.join(', ')}).`;
+    // Lembra o dia pro próximo "+ Novo slot" desta sessão
+    SlotFormState.lastWeekday = SlotFormState.weekdays.slice().sort((a, b) => a - b)[0];
   }
 
   toast(toastMsg, 'success');
