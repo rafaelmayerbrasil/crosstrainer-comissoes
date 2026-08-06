@@ -1062,6 +1062,26 @@ const ScheduleSlotService = {
     }
   },
 
+  /**
+   * Slots de um professor em TODAS as unidades.
+   *
+   * A tela da agenda carrega só a unidade aberta, então a checagem de conflito
+   * não enxergava o professor escalado na outra unidade no mesmo horário —
+   * e a pessoa não se divide em duas. Usado na validação antes de salvar.
+   */
+  async listByTeacher(teacherId, opts = {}) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
+    try {
+      const snap = await db.collection('schedule_slots').where('teacherId', '==', teacherId).get();
+      let data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (!opts.includeInactive) data = data.filter(s => s.isActive !== false);
+      return { success: true, data };
+    } catch (err) {
+      console.error('[ScheduleSlotService.listByTeacher]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
   async create(slotData) {
     const err = validateSlot(slotData);
     if (err) return { success: false, error: err };

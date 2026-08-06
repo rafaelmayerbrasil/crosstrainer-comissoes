@@ -197,8 +197,10 @@ function renderAgendaContent() {
   const page = document.getElementById('page-agenda');
   if (!page) return;
 
+  // Marcado = mostra SÓ os inativos (é assim que se procura o que foi desativado).
+  // Antes misturava ativos + inativos e não dava pra achar os poucos inativos no meio.
   const visibleSlots = AgendaState.showInactive
-    ? AgendaState.slots
+    ? AgendaState.slots.filter(s => s.isActive === false)
     : AgendaState.slots.filter(s => s.isActive !== false);
 
   page.innerHTML = `
@@ -220,16 +222,16 @@ function renderAgendaToolbar(visibleCount) {
     <div class="page-toolbar">
       <div class="lhs">
         <h2>AGENDA SEMANAL</h2>
-        <div class="count">${visibleCount} slot${visibleCount === 1 ? '' : 's'} ativo${visibleCount === 1 ? '' : 's'}</div>
+        <div class="count">${visibleCount} slot${visibleCount === 1 ? '' : 's'} ${AgendaState.showInactive ? 'inativo' : 'ativo'}${visibleCount === 1 ? '' : 's'}</div>
       </div>
       <div class="rhs agenda-toolbar-rhs">
         <label class="agenda-unit-select">
           <span>Unidade:</span>
           <select onchange="onUnitChange(this.value)">${opts}</select>
         </label>
-        <label class="agenda-toggle" title="${totalInactive} slot${totalInactive === 1 ? '' : 's'} inativo${totalInactive === 1 ? '' : 's'}">
+        <label class="agenda-toggle" title="Mostra apenas os slots desativados">
           <input type="checkbox" ${AgendaState.showInactive ? 'checked' : ''} onchange="toggleShowInactive(this.checked)">
-          Mostrar inativos${totalInactive > 0 ? ` (${totalInactive})` : ''}
+          Ver só inativos${totalInactive > 0 ? ` (${totalInactive})` : ''}
         </label>
         <button class="btn btn-primary btn-sm" onclick="openSlotModal(null)">+ Novo slot</button>
       </div>
@@ -540,12 +542,19 @@ async function saveSlot() {
 
   // D6 — Detecção de conflito por dia (mesmo professor + weekday + horário sobreposto)
   // Em criação multi-dia, checa TODOS os dias e mostra todos os conflitos juntos.
+  //
+  // Compara contra os slots do professor em TODAS as unidades, não só na que está
+  // aberta na tela: ele não se divide entre CP e PP no mesmo horário. Se a busca
+  // falhar, cai pros slots já carregados — melhor validar de menos que travar o save.
+  const porTeacher = await ScheduleSlotService.listByTeacher(teacherId);
+  const universoSlots = porTeacher.success ? porTeacher.data : AgendaState.slots;
+
   const conflictsByDay = [];
   for (const w of SlotFormState.weekdays) {
     const trial = { ...baseSlotData, weekday: w };
     const conflicts = ProfHelpers.detectSlotConflict(
       trial,
-      AgendaState.slots,
+      universoSlots,
       SlotFormState.editingId   // ignora o próprio slot em caso de edição
     );
     if (conflicts.length > 0) {
@@ -554,15 +563,28 @@ async function saveSlot() {
         const t = AgendaState.teachersMap.get(c.teacherId);
         return t ? shortenName(t.name) : c.teacherId;
       })();
-      conflictsByDay.push(
-        `${ProfHelpers.WEEKDAY_LABEL_SHORT[w]} (${tName} ${c.startTime}–${c.endTime})`
-      );
+      const cMod = AgendaState.modalitiesMap.get(c.modalityId);
+      // Se o choque é na OUTRA unidade, dizer qual — senão o admin olha a tela,
+      // não vê nada no horário e acha que o sistema travou sem motivo.
+      const outraUnidade = c.unitId && c.unitId !== AgendaState.unitId;
+      const uName = outraUnidade
+        ? (() => { const u = AgendaState.units.find(x => x.id === c.unitId); return u ? (u.name || u.id) : c.unitId; })()
+        : null;
+      conflictsByDay.push({
+        dia: ProfHelpers.WEEKDAY_LABEL[w],
+        texto: `${ProfHelpers.WEEKDAY_LABEL[w]}: ${tName} já tem ${cMod ? cMod.name : 'aula'} das ${c.startTime} às ${c.endTime}`
+             + (outraUnidade ? ` na unidade ${uName}` : ''),
+      });
     }
   }
   if (conflictsByDay.length > 0) {
-    errEl.textContent = conflictsByDay.length === 1
-      ? `Conflito em ${conflictsByDay[0]}. Cancele ou ajuste horário.`
-      : `Conflitos em ${conflictsByDay.length} dias: ${conflictsByDay.join(' · ')}.`;
+    // O texto de erro fica no PÉ do formulário e passava despercebido — o usuário
+    // achava que "não salvou e não avisou nada". Agora vai também num toast.
+    const detalhe = conflictsByDay.map(c => c.texto).join(' · ');
+    errEl.textContent = `${detalhe}. O mesmo professor não pode ter duas aulas no mesmo horário — troque o professor ou o horário.`;
+    toast(conflictsByDay.length === 1
+      ? `Não salvei: ${conflictsByDay[0].texto}.`
+      : `Não salvei: conflito de professor em ${conflictsByDay.length} dias.`, 'error', 7000);
     return;
   }
 
@@ -617,6 +639,7 @@ async function saveSlot() {
         ? `${created.length} slot${created.length > 1 ? 's' : ''} criado${created.length > 1 ? 's' : ''} (${created.join(', ')}). `
         : '';
       errEl.textContent = `${ok}Falha em ${errors.join(' · ')}.`;
+      toast(`${ok}Não consegui salvar: ${errors.join(' · ')}.`, 'error', 7000);
       // Mesmo com erro parcial, recarrega para refletir os criados
       await loadAgendaForUnit(AgendaState.unitId);
       return;
