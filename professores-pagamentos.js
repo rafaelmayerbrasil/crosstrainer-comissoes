@@ -351,9 +351,13 @@ async function renderMeusPagamentosPage() {
 
   page.innerHTML = '<div class="loading">Carregando…</div>';
 
-  const [recRes, credRes] = await Promise.all([
+  const [recRes, credRes, saldoRes, movRes] = await Promise.all([
     ReceiptService.listByTeacher(professorId),
     CreditService.listHistory(professorId),
+    // Banco de horas (bloco 2) — o estagiário vê o próprio saldo. Quem não é
+    // estagiário simplesmente não tem esses docs, e o bloco não aparece.
+    InternHourBankService.getSaldo(professorId),
+    InternHourBankService.listMovimentos(professorId),
   ]);
 
   if (!recRes.success) {
@@ -367,6 +371,41 @@ async function renderMeusPagamentosPage() {
   const aplicados = creditos.filter(c => c.status === 'aplicado');
 
   let html = '';
+
+  // ── Banco de horas do estagiário ────────────────────────────────────
+  // O saldo só se mexe quando o mês fecha. Aqui ele é só leitura — e vem com a
+  // conta aberta de cada mês, senão o número não significa nada pra quem vê.
+  const movimentos = movRes.success ? (movRes.data || []) : [];
+  const saldoHoras = (saldoRes.success && saldoRes.data) ? (saldoRes.data.saldoHoras || 0) : 0;
+
+  if (movimentos.length > 0 || saldoHoras !== 0) {
+    const h = n => `${Number(n || 0).toFixed(2).replace('.', ',')}h`;
+    const deve = saldoHoras < 0;
+
+    html += `<div class="payment-block" style="border-left:3px solid ${deve ? 'var(--orange)' : 'var(--green)'};">
+      <h4 style="margin:0 0 4px;">🕒 Meu banco de horas</h4>
+      <div style="font-size:20px;font-weight:800;">${deve ? h(-saldoHoras) + ' a compensar' : 'Saldo zerado'}</div>
+      <p style="font-size:12px;color:var(--text2);margin-top:4px;">
+        ${deve
+          ? 'Horas que faltaram pra fechar o contrato dos meses anteriores. A bolsa foi paga integralmente — essas horas são compensadas quando você trabalhar acima do contrato.'
+          : 'Você está em dia com as horas do contrato.'}
+      </p>`;
+
+    if (movimentos.length > 0) {
+      html += `<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;color:var(--text2);">Extrato por mês (${movimentos.length})</summary>
+        <div style="margin-top:8px;font-size:12px;">`;
+      for (const m of movimentos) {
+        const extra = (m.horasPagas || 0) > 0 ? ` · ${h(m.horasPagas)} pagas como adicional` : '';
+        const quit = (m.horasQuitadas || 0) > 0 ? ` · ${h(m.horasQuitadas)} abateram o saldo` : '';
+        html += `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
+          <b>${m.mes || ''}</b> — ${h(m.horasTrabalhadas)} de ${h(m.contratoMes)} de contrato${quit}${extra}
+          <div style="color:var(--text2);">saldo: ${h(m.saldoAnterior)} → <b>${h(m.saldoFinal)}</b></div>
+        </div>`;
+      }
+      html += '</div></details>';
+    }
+    html += '</div>';
+  }
 
   // Créditos pendentes
   if (pendentes.length > 0) {

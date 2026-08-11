@@ -4003,6 +4003,81 @@ function isInRange(year, month, yearMin, monthMin, yearMax, monthMax) {
   return v >= vMin && v <= vMax;
 }
 
+/**
+ * Agrega as ocorrências das aulas por professor (R5, bloco 2).
+ *
+ * Separado do serviço de propósito: é a parte que tem regra de verdade (o que
+ * conta como hora paga, o que é falta, o que foi confirmado sozinho) e dá pra
+ * testar sem Firestore. Ver scripts/smoke-relatorio-ocorrencias.js.
+ *
+ * @param classes   aulas do período (docs de `classes`)
+ * @param teacherMap { [teacherId]: doc de teachers }
+ */
+function buildOcorrenciasGroups(classes, teacherMap) {
+  const groups = {};
+  const n = v => (typeof v === 'number' && v > 0) ? v : 0;
+
+  for (const c of (classes || [])) {
+    const key = c.teacherId || 'desconhecido';
+    if (!groups[key]) {
+      const t = (teacherMap || {})[key];
+      groups[key] = {
+        teacherId: key,
+        teacherName: t ? (t.name || 'Desconhecido') : 'Desconhecido',
+        teacherType: t ? (t.type || '—') : '—',
+        aulas: 0, automaticas: 0, conferidas: 0,
+        faltasSemAviso: 0, faltasAvisadas: 0,
+        atrasos: 0, atrasoMin: 0,
+        saidas: 0, saidaMin: 0,
+        extras: 0, extraMin: 0,
+        avisosProfessor: 0,
+        minutosPrevistos: 0, minutosEfetivos: 0,
+        details: [],
+      };
+    }
+    const g = groups[key];
+
+    g.aulas++;
+    if (c.status === 'realizada' && c.registroAutomatico === true) g.automaticas++;
+    else if (c.status === 'realizada') g.conferidas++;
+    if (c.faltaTipo === 'sem_aviso') g.faltasSemAviso++;
+    if (c.faltaTipo === 'justificada') g.faltasAvisadas++;
+    if (!c.faltaTipo && n(c.atrasoMinutos) > 0) { g.atrasos++; g.atrasoMin += n(c.atrasoMinutos); }
+    if (!c.faltaTipo && n(c.saidaAntecipadaMinutos) > 0) { g.saidas++; g.saidaMin += n(c.saidaAntecipadaMinutos); }
+    if (!c.faltaTipo && n(c.horaExtraMinutos) > 0) { g.extras++; g.extraMin += n(c.horaExtraMinutos); }
+    if (c.avisoProfessor && c.avisoProfessor.tipo === 'nao_aconteceu') g.avisosProfessor++;
+
+    // Escola Interna e afins ficam fora da conta de horas (não são pagas)
+    if (classCountsForPay(c)) {
+      g.minutosPrevistos += n(c.durationMinutes);
+      g.minutosEfetivos += classEffectiveMinutes(c);
+    }
+
+    const temOcorrencia = c.faltaTipo || n(c.atrasoMinutos) > 0
+      || n(c.saidaAntecipadaMinutos) > 0 || n(c.horaExtraMinutos) > 0
+      || (c.avisoProfessor && c.avisoProfessor.tipo === 'nao_aconteceu');
+    if (temOcorrencia) {
+      g.details.push({
+        date: c.scheduledDate && c.scheduledDate.toDate ? c.scheduledDate.toDate().toLocaleDateString('pt-BR') : '—',
+        startTime: c.startTime || '—',
+        ocorrencia: c.faltaTipo === 'sem_aviso' ? 'Falta sem aviso'
+          : c.faltaTipo === 'justificada' ? 'Falta avisada'
+          : [
+              n(c.atrasoMinutos) > 0 ? `Atraso ${n(c.atrasoMinutos)}min` : '',
+              n(c.saidaAntecipadaMinutos) > 0 ? `Saída ${n(c.saidaAntecipadaMinutos)}min antes` : '',
+              n(c.horaExtraMinutos) > 0 ? `Extra ${n(c.horaExtraMinutos)}min` : '',
+            ].filter(Boolean).join(' · ') || 'Professor avisou que não aconteceu',
+        minutosPrevistos: n(c.durationMinutes),
+        minutosEfetivos: classEffectiveMinutes(c),
+        status: CLASS_STATUS_LABEL[c.status] || c.status,
+        origem: c.registroAutomatico === true ? 'Automático' : 'Conferido',
+      });
+    }
+  }
+
+  return groups;
+}
+
 const ReportService = {
 
   /** R1: Fechamentos Mensais */
@@ -4299,6 +4374,178 @@ const ReportService = {
     };
   },
 
+  /**
+   * R5: Ocorrências por Professor (bloco 2, 07/08/2026)
+   *
+   * Faltas, atrasos, saídas antecipadas e horas extras do período — a base pra
+   * conferir com o relógio de ponto quando ele entrar, e o contrapeso do
+   * registro automático: mostra quanta aula foi confirmada sozinha e quanta
+   * passou por gente.
+   */
+  async getOcorrenciasReport(filters) {
+    const { unitId, teacherId, dateStart, dateEnd } = filters;
+    if (!dateStart || !dateEnd) return { success: false, error: 'Período obrigatório.' };
+
+    const start = new Date(dateStart);
+    const end = new Date(dateEnd);
+    end.setHours(23, 59, 59, 999);
+
+    const snap = await db.collection('classes')
+      .where('scheduledDate', '>=', firebase.firestore.Timestamp.fromDate(start))
+      .where('scheduledDate', '<=', firebase.firestore.Timestamp.fromDate(end))
+      .get();
+
+    let classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (unitId) classes = classes.filter(c => c.unitId === unitId);
+    if (teacherId) classes = classes.filter(c => c.teacherId === teacherId);
+    // Aula cancelada não é ocorrência de professor (dia sem expediente, por ex.)
+    classes = classes.filter(c => c.status !== 'cancelada');
+
+    if (classes.length === 0) {
+      return { success: false, error: 'Nenhuma aula encontrada pra esses filtros.' };
+    }
+
+    const teacherIds = [...new Set(classes.map(c => c.teacherId).filter(Boolean))];
+    const teacherMap = {};
+    await Promise.all(teacherIds.map(async (tid) => {
+      try {
+        const doc = await db.collection('teachers').doc(tid).get();
+        if (doc.exists) teacherMap[tid] = { id: doc.id, ...doc.data() };
+      } catch (_) {}
+    }));
+
+    const groups = buildOcorrenciasGroups(classes, teacherMap);
+
+    const rows = Object.values(groups).map(g => ({
+      teacherName: g.teacherName,
+      teacherType: g.teacherType,
+      aulas: g.aulas,
+      automaticas: g.automaticas,
+      conferidas: g.conferidas,
+      faltasSemAviso: g.faltasSemAviso,
+      faltasAvisadas: g.faltasAvisadas,
+      atrasos: g.atrasos,
+      atrasoMin: g.atrasoMin,
+      saidaMin: g.saidaMin,
+      extraMin: g.extraMin,
+      horasEfetivas: Math.round((g.minutosEfetivos / 60) * 10) / 10,
+      horasPerdidas: Math.round(((g.minutosPrevistos - g.minutosEfetivos) / 60) * 10) / 10,
+      noSalaryData: false,
+    })).sort((a, b) =>
+      (b.faltasSemAviso + b.faltasAvisadas) - (a.faltasSemAviso + a.faltasAvisadas)
+      || b.atrasoMin - a.atrasoMin
+      || a.teacherName.localeCompare(b.teacherName, 'pt-BR'));
+
+    return {
+      success: true,
+      data: {
+        title: `Ocorrências — ${new Date(dateStart).toLocaleDateString('pt-BR')} a ${new Date(dateEnd).toLocaleDateString('pt-BR')}`,
+        generatedAt: new Date(),
+        filters,
+        summaryColumns: [
+          { key: 'teacherName',    label: 'Professor',        width: 28 },
+          { key: 'teacherType',    label: 'Tipo',             width: 12 },
+          { key: 'aulas',          label: 'Aulas',            width: 8,  type: 'number' },
+          { key: 'automaticas',    label: 'Automáticas',      width: 12, type: 'number' },
+          { key: 'conferidas',     label: 'Conferidas',       width: 11, type: 'number' },
+          { key: 'faltasSemAviso', label: 'Faltas s/ aviso',  width: 14, type: 'number' },
+          { key: 'faltasAvisadas', label: 'Faltas avisadas',  width: 14, type: 'number' },
+          { key: 'atrasos',        label: 'Atrasos',          width: 9,  type: 'number' },
+          { key: 'atrasoMin',      label: 'Min atraso',       width: 11, type: 'number' },
+          { key: 'saidaMin',       label: 'Min saída antec.', width: 15, type: 'number' },
+          { key: 'extraMin',       label: 'Min extra',        width: 10, type: 'number' },
+          { key: 'horasEfetivas',  label: 'Horas pagas',      width: 12, type: 'number' },
+          { key: 'horasPerdidas',  label: 'Horas perdidas',   width: 13, type: 'number' },
+        ],
+        rows,
+        details: groups,
+        detailColumns: [
+          { key: 'date',             label: 'Data',            width: 12 },
+          { key: 'startTime',        label: 'Horário',         width: 8 },
+          { key: 'ocorrencia',       label: 'Ocorrência',      width: 32 },
+          { key: 'minutosPrevistos', label: 'Min previstos',   width: 13 },
+          { key: 'minutosEfetivos',  label: 'Min pagos',       width: 11 },
+          { key: 'status',           label: 'Status da aula',  width: 16 },
+          { key: 'origem',           label: 'Registro',        width: 12 },
+        ],
+        summary: {
+          totalProfessors: rows.length,
+          totalAulas: rows.reduce((s, r) => s + r.aulas, 0),
+          totalAutomaticas: rows.reduce((s, r) => s + r.automaticas, 0),
+          totalFaltas: rows.reduce((s, r) => s + r.faltasSemAviso + r.faltasAvisadas, 0),
+          totalMinAtraso: rows.reduce((s, r) => s + r.atrasoMin, 0),
+          totalHorasPerdidas: Math.round(rows.reduce((s, r) => s + r.horasPerdidas, 0) * 10) / 10,
+        },
+      },
+    };
+  },
+
+  /**
+   * R6: Saldos do Banco de Horas (bloco 2)
+   *
+   * Pra gestão agir antes de virar bola de neve — o alerta dado ao cliente foi
+   * que alguns contratos não batem com a grade e a dívida cresce sozinha.
+   */
+  async getSaldosBancoHorasReport(filters) {
+    const saldosRes = await InternHourBankService.listSaldos();
+    if (!saldosRes.success) return saldosRes;
+
+    const saldos = saldosRes.data || [];
+    if (saldos.length === 0) {
+      return { success: false, error: 'Nenhum estagiário com mês fechado ainda — o saldo só se move no fechamento.' };
+    }
+
+    const teacherMap = {};
+    await Promise.all(saldos.map(async (s) => {
+      try {
+        const doc = await db.collection('teachers').doc(s.teacherId || s.id).get();
+        if (doc.exists) teacherMap[doc.id] = { id: doc.id, ...doc.data() };
+      } catch (_) {}
+    }));
+
+    let rows = saldos.map(s => {
+      const tid = s.teacherId || s.id;
+      const t = teacherMap[tid];
+      const saldo = s.saldoHoras || 0;
+      return {
+        teacherName: t ? (t.name || 'Desconhecido') : 'Desconhecido',
+        teacherType: t ? (t.type || '—') : '—',
+        saldoHoras: Math.round(saldo * 100) / 100,
+        aCompensar: Math.round(Math.max(0, -saldo) * 100) / 100,
+        ultimoMes: s.ultimoMes || '—',
+        situacao: saldo >= 0 ? 'Em dia' : (saldo <= -20 ? 'Atenção' : 'Devendo horas'),
+      };
+    });
+
+    if (filters && filters.somenteDevendo) rows = rows.filter(r => r.saldoHoras < 0);
+    if (rows.length === 0) return { success: false, error: 'Nenhum estagiário devendo horas.' };
+
+    rows.sort((a, b) => a.saldoHoras - b.saldoHoras);
+
+    return {
+      success: true,
+      data: {
+        title: `Banco de Horas — Saldos dos Estagiários (${rows.length})`,
+        generatedAt: new Date(),
+        filters: filters || {},
+        columns: [
+          { key: 'teacherName', label: 'Estagiário',      width: 30 },
+          { key: 'teacherType', label: 'Tipo',            width: 12 },
+          { key: 'ultimoMes',   label: 'Último fechado',  width: 14 },
+          { key: 'saldoHoras',  label: 'Saldo (h)',       width: 12, type: 'number' },
+          { key: 'aCompensar',  label: 'A compensar (h)', width: 15, type: 'number', bold: true },
+          { key: 'situacao',    label: 'Situação',        width: 16 },
+        ],
+        rows,
+        summary: {
+          totalEstagiarios: rows.length,
+          devendo: rows.filter(r => r.saldoHoras < 0).length,
+          totalACompensar: Math.round(rows.reduce((s, r) => s + r.aCompensar, 0) * 100) / 100,
+        },
+      },
+    };
+  },
+
   /** R4: Recibos em Lote — retorna dados pra gerar recibos */
   async getRecibosLoteData(closingId) {
     const doc = await db.collection('monthly_closings').doc(closingId).get();
@@ -4349,6 +4596,7 @@ const ReportService = {
 // Expor para depuração via console
 // ────────────────────────────────────────────────────────────────────────
 window.ReportService = ReportService;
+window.InternHourBankService = InternHourBankService;
 window.VacationBalanceService = VacationBalanceService;
 window.ModalityService = ModalityService;
 window.UnitService     = UnitService;

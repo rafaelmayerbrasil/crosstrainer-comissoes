@@ -113,19 +113,31 @@ async function exportToExcel(report, fileName) {
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Dados');
 
-  // Se tiver details (R3), adiciona sheet de detalhamento
+  // Se tiver details, adiciona sheet de detalhamento.
+  // O R5 (ocorrências) tem colunas próprias — quem não declara detailColumns
+  // cai no layout do R3, que era o único quando isso nasceu.
   if (report.details) {
-    var detailRows = [['Professor', 'Data', 'Modalidade', 'Horário', 'Minutos', 'Horas', 'Valor', 'Substituição']];
+    var detCols = report.detailColumns || [
+      { key: 'date',           label: 'Data',         width: 14 },
+      { key: 'modalityName',   label: 'Modalidade',   width: 20 },
+      { key: 'startTime',      label: 'Horário',      width: 8 },
+      { key: 'durationMin',    label: 'Minutos',      width: 10 },
+      { key: 'horas',          label: 'Horas',        width: 8 },
+      { key: 'valor',          label: 'Valor',        width: 14 },
+      { key: 'isSubstitution', label: 'Substituição', width: 12, type: 'bool' },
+    ];
+    var detailRows = [['Professor'].concat(detCols.map(function(c) { return c.label; }))];
     Object.values(report.details).forEach(function(g) {
-      g.details.forEach(function(d) {
-        detailRows.push([
-          g.teacherName, d.date, d.modalityName, d.startTime,
-          d.durationMin, d.horas, d.valor, d.isSubstitution ? 'Sim' : 'Não'
-        ]);
+      (g.details || []).forEach(function(d) {
+        detailRows.push([g.teacherName].concat(detCols.map(function(c) {
+          var v = d[c.key];
+          if (c.type === 'bool') return v ? 'Sim' : 'Não';
+          return v != null ? v : '';
+        })));
       });
     });
     var ws2 = XLSX.utils.aoa_to_sheet(detailRows);
-    ws2['!cols'] = [{wch:30},{wch:14},{wch:20},{wch:8},{wch:10},{wch:8},{wch:14},{wch:12}];
+    ws2['!cols'] = [{wch:30}].concat(detCols.map(function(c) { return { wch: c.width || 14 }; }));
     XLSX.utils.book_append_sheet(wb, ws2, 'Detalhamento');
   }
 
@@ -547,6 +559,10 @@ async function renderRelatoriosPage() {
         'Detalhamento de aulas, horas e valores por professor em um período customizado.', renderHorasProfessorSection)}
       ${renderReportCard('R4', '📋 Recibos em Lote',
         'Exporta recibos de um fechamento completo em PDF único ou ZIP com PDFs individuais.', renderRecibosLoteSection)}
+      ${renderReportCard('R5', '⚠️ Ocorrências',
+        'Faltas, atrasos, saídas antecipadas e horas extras por professor — e quanta aula foi confirmada automaticamente. Base pra conferir com o ponto eletrônico.', renderOcorrenciasSection)}
+      ${renderReportCard('R6', '🕒 Banco de Horas',
+        'Saldo de horas dos estagiários: quanto cada um tem a compensar. O saldo só se move quando o mês fecha.', renderBancoHorasSection)}
     </div>
   `;
 
@@ -555,6 +571,8 @@ async function renderRelatoriosPage() {
   await renderSaldosFeriasSection();
   await renderHorasProfessorSection();
   await renderRecibosLoteSection();
+  await renderOcorrenciasSection();
+  await renderBancoHorasSection();
 }
 
 function renderReportCard(id, title, desc, renderFn) {
@@ -723,6 +741,69 @@ async function renderRecibosLoteSection() {
   `;
 }
 
+/* ─── R5: Ocorrências (bloco 2) ──────────────────────────────────────── */
+
+async function renderOcorrenciasSection() {
+  var filtersDiv = document.getElementById('report-filters-R5');
+  if (!filtersDiv) return;
+
+  var unitsSnap = await db.collection('units').get();
+  var units = unitsSnap.docs.map(function(d) { return { id: d.id, name: d.data().name || d.id }; });
+  var teachersSnap = await db.collection('teachers').where('isActive', '==', true).get();
+  var teachers = teachersSnap.docs.map(function(d) { return { id: d.id, name: d.data().name, type: d.data().type }; });
+
+  var hoje = new Date();
+  var primeiroDoMes = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0') + '-01';
+
+  filtersDiv.innerHTML = `
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>Unidade</label>
+        <select id="r5-unit" class="input">
+          <option value="">Todas</option>
+          ${units.map(function(u) { return '<option value="' + u.id + '">' + escapeHtml(u.name) + '</option>'; }).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Professor</label>
+        <select id="r5-teacher" class="input">
+          <option value="">Todos</option>
+          ${teachers.map(function(t) { return '<option value="' + t.id + '">' + escapeHtml(t.name) + ' (' + t.type + ')</option>'; }).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Data Início</label>
+        <input type="date" id="r5-dateStart" class="input" style="width:140px;" value="${primeiroDoMes}">
+      </div>
+      <div class="filter-group">
+        <label>Data Fim</label>
+        <input type="date" id="r5-dateEnd" class="input" style="width:140px;" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <button class="btn-primary" onclick="executarRelatorio('R5')" style="align-self:flex-end;">🔍 Buscar</button>
+    </div>
+  `;
+}
+
+/* ─── R6: Banco de Horas dos Estagiários (bloco 2) ───────────────────── */
+
+async function renderBancoHorasSection() {
+  var filtersDiv = document.getElementById('report-filters-R6');
+  if (!filtersDiv) return;
+
+  filtersDiv.innerHTML = `
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>Mostrar</label>
+        <select id="r6-filtro" class="input">
+          <option value="">Todos os estagiários</option>
+          <option value="devendo">Só quem tem horas a compensar</option>
+        </select>
+      </div>
+      <button class="btn-primary" onclick="executarRelatorio('R6')" style="align-self:flex-end;">🔍 Buscar</button>
+    </div>
+  `;
+}
+
 /* ─── Executar relatório ─────────────────────────────────────────────── */
 
 async function executarRelatorio(relId) {
@@ -767,6 +848,19 @@ async function executarRelatorio(relId) {
     }
     report = await ReportService.getRecibosLoteData(closingId);
     _filtrosState.R4 = { closingId: closingId };
+  } else if (relId === 'R5') {
+    var filters = {
+      unitId: getVal('r5-unit') || undefined,
+      teacherId: getVal('r5-teacher') || undefined,
+      dateStart: getVal('r5-dateStart'),
+      dateEnd: getVal('r5-dateEnd'),
+    };
+    report = await ReportService.getOcorrenciasReport(filters);
+    _filtrosState.R5 = filters;
+  } else if (relId === 'R6') {
+    var filters = { somenteDevendo: getVal('r6-filtro') === 'devendo' };
+    report = await ReportService.getSaldosBancoHorasReport(filters);
+    _filtrosState.R6 = filters;
   }
 
   if (!report || !report.success) {
@@ -842,7 +936,8 @@ async function executarRelatorio(relId) {
 async function exportarRelatorio(relId, format) {
   var data = window['_reportData_' + relId];
   if (!data) { toast('Execute a busca primeiro.', 'error'); return; }
-  var filtroMap = { R1: 'fechamentos', R2: 'saldos-ferias', R3: 'horas-professor', R4: 'recibos' };
+  var filtroMap = { R1: 'fechamentos', R2: 'saldos-ferias', R3: 'horas-professor', R4: 'recibos',
+    R5: 'ocorrencias', R6: 'banco-horas' };
   var name = (filtroMap[relId] || 'relatorio') + '-' + Date.now();
   if (format === 'xlsx') {
     await exportToExcel(data, name + '.xlsx');
