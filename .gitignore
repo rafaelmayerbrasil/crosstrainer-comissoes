@@ -38,3 +38,12 @@ tmp-preview-recibos/
 # Estado runtime das fixtures (não é código — rastreia docs criados pra cleanup)
 scripts/.fixture-*-state.json
 backups/
+
+# Planilhas e anotações de trabalho — NUNCA no repositório (ele é PÚBLICO).
+# Entraram por engano em 3c4cccf (git add -A); removidas em seguida.
+*.xlsx
+ajustes a fazer*.txt
+docs/rodrigo-roteiro-completo.txt
+apresentacao-modulo-professores.html
+.claude/launch.json
+.claude/settings.json
