@@ -34,6 +34,24 @@
       ]
     },
     {
+      "_comment": "autoConfirmarAulas (bloco 2): status=='prevista' + scheduledDate < agora. Sem este índice o cron diário falha TODA noite, e em silêncio.",
+      "collectionGroup": "classes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",        "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "_comment": "extrato do banco de horas: movimentos de um estagiário, do mais novo pro mais velho",
+      "collectionGroup": "intern_hour_movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teacherId", "order": "ASCENDING" },
+        { "fieldPath": "mes",       "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "substitutions",
       "queryScope": "COLLECTION",
       "fields": [
