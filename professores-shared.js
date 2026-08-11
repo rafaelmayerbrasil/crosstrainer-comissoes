@@ -1943,10 +1943,29 @@ function buildSubstitutionNotifBody(cls, prefix = '') {
  * @param {Array} classes — array de objetos de aula com durationMinutes e isHoliday
  * @returns {number} horas decimais (ex: 24.5)
  */
+/**
+ * A aula entra na conta de horas do fechamento?
+ *
+ * Escola Interna fica de fora: o Rafael confirmou que a academia NÃO paga essas
+ * aulas. Como ela é publicada em `classes` como aula normal, sem esse corte ela
+ * entraria na folha — 1h por dia, por professor.
+ *
+ * Checa os dois: a marca `remunerada` (gravada na publicação, a partir de
+ * 07/08/2026) E o tipo da escala, pra pegar também as aulas publicadas ANTES da
+ * marca existir, sem precisar migrar dado.
+ */
+function classCountsForPay(c) {
+  if (!c) return false;
+  if (c.remunerada === false) return false;
+  if (c.specialScaleType === 'escola_interna') return false;
+  return true;
+}
+
 function calculateTeacherHours(classes, scaleTypesMap = null) {
   if (!Array.isArray(classes) || classes.length === 0) return 0;
   let totalMinutes = 0;
   for (const c of classes) {
+    if (!classCountsForPay(c)) continue;
     const mins = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
     let weight = 1;
     // Peso variável por tipo de escala (Sprint 5a)
@@ -4072,7 +4091,7 @@ window.ProfHelpers     = {
   VACATION_ANTECEDENCIA_ESTAGIARIO: ANTECEDENCIA_ESTAGIARIO,
   NOTIF_TYPE_META, SUBSTITUTION_STATUS_LABEL, COVERAGE_STATUS_LABEL,
   // Sprint 4a — helpers de fechamento
-  calculateTeacherHours, calculateTeacherValue, getEffectiveSalaryAt,
+  calculateTeacherHours, classCountsForPay, calculateTeacherValue, getEffectiveSalaryAt,
   // Sprint 6b — VacationPaymentService
   VacationPaymentService, getEffectiveStipendAt,
   // Sprint 4b — serviços de pagamento/recibo/crédito

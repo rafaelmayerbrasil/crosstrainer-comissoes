@@ -117,14 +117,21 @@
     return { grid, semCandidatura, vagasAbertas };
   }
 
-  // Vagas da Escola Interna: 1 líder por unidade (sessão diária Seg–Sex, hora configurável).
+  // Vaga da Escola Interna: 1 líder, numa unidade só.
+  //
+  // A sessão acontece em UMA unidade por dia, nunca nas duas ao mesmo tempo
+  // (Rafael, 04/08/2026). Antes criava vaga em toda unidade marcada, e como a
+  // sessão real só rodava na PP, a vaga da CP ficava eternamente sem líder.
+  // Recebe uma lista por retrocompatibilidade, mas só a primeira unidade vale.
   function escolaInternaSlots(units, times) {
     const t = times || {};
-    return (units || []).map(u => ({
+    const u = Array.isArray(units) ? units[0] : units;
+    if (!u || !u.id) return [];
+    return [{
       id: `${u.id}_LIDER`, unitId: u.id, role: 'lider',
       requiredModalityId: null, assignedPersonId: null,
       startTime: t.startTime || '14:30', endTime: t.endTime || '15:30',
-    }));
+    }];
   }
 
   // Atribuição manual de pessoa a um slot (líder da Escola Interna, ou override).
@@ -622,7 +629,15 @@
           cancellationReason: null, cancellationNote: null,
           adjustedBy: null, adjustedAt: null, adjustmentNote: null,
           scheduledDate: dateVal, generatedBy: 'escala-smart',
-          specialScaleId: scaleId, specialScaleSlotId: s.id, specialScaleType: null,
+          specialScaleId: scaleId, specialScaleSlotId: s.id,
+          // Vinha null: a agenda não sabia dizer o que era a aula (mostrava "—") e
+          // o peso da escala nunca era aplicado. Os tipos que casam com scale_types
+          // dão o mesmo peso de hoje (sabado=1; feriado=2 já vinha por isHoliday),
+          // então preencher NÃO muda pagamento de escala nenhuma.
+          specialScaleType: scale.tipo || null,
+          // Escola Interna não é paga (confirmado pelo Rafael em 04/08/2026). Sem
+          // isso ela entraria na folha como aula normal — 1h/dia por professor.
+          remunerada: scale.tipo !== 'escola_interna',
           monthClosingId: null, createdAt: rts(deps), updatedAt: rts(deps),
         });
         created++;

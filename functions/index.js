@@ -1355,10 +1355,29 @@ exports.setPersonAccess = onCall({
 /**
  * Calcula horas de um array de classes. Feriado conta em dobro (P02).
  */
+/**
+ * A aula entra na conta de horas do fechamento?
+ * Gêmeo de classCountsForPay em professores-shared.js — manter os dois iguais.
+ *
+ * Escola Interna fica de fora: a academia NÃO paga essas aulas (confirmado pelo
+ * Rafael em 04/08/2026). Como ela é publicada em `classes` como aula normal, sem
+ * esse corte entraria na folha — 1h por dia, por professor.
+ *
+ * Checa a marca `remunerada` (gravada na publicação a partir de 07/08/2026) E o
+ * tipo da escala, pra pegar também o que foi publicado antes da marca existir.
+ */
+function classCountsForPayCF(c) {
+  if (!c) return false;
+  if (c.remunerada === false) return false;
+  if (c.specialScaleType === 'escola_interna') return false;
+  return true;
+}
+
 function calculateTeacherHoursCF(classes, scaleTypesMap = null) {
   if (!Array.isArray(classes) || classes.length === 0) return 0;
   let totalMinutes = 0;
   for (const c of classes) {
+    if (!classCountsForPayCF(c)) continue;
     const mins = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
     let weight = 1;
     // Peso variável por tipo de escala (Sprint 5a)

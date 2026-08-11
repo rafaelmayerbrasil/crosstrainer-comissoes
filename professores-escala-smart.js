@@ -278,30 +278,109 @@ function openNovaEscolaInterna() {
   const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
   if (!overlay || !modal) return;
   overlay.style.display = 'flex'; modal.style.display = 'block';
+  // Padrão PP: é onde a Escola Interna acontece na prática (Rafael, 04/08).
+  // A CP fica disponível porque "vez ou outra pode acontecer lá".
+  const pp = EscalaSmartState.units.find(u => /pp$/i.test(u.id)) || EscalaSmartState.units[0];
   modal.innerHTML = `
     <h2>Nova sessão de Escola Interna</h2>
-    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="eiData" class="input" value="${escalaTodayISO()}"></div>
+    <div class="form-group"><label>Unidade <span style="color:var(--red);">*</span></label>
+      <select id="eiUnidade" class="input">
+        ${EscalaSmartState.units.map(u => `<option value="${u.id}" ${pp && u.id === pp.id ? 'selected' : ''}>${u.name || u.id}</option>`).join('')}
+      </select>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;">A sessão acontece em uma unidade por dia.</div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="form-group"><label>Início</label><input type="time" id="eiIni" class="input" value="14:30"></div>
       <div class="form-group"><label>Fim</label><input type="time" id="eiFim" class="input" value="15:30"></div>
     </div>
-    <div class="form-group"><label>Unidades</label><div style="padding:4px 0;">${EscalaSmartState.units.map(u => `<label style="display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;"><input type="checkbox" class="eiUnit" value="${u.id}" checked> ${u.name || u.id}</label>`).join('')}</div></div>
+    <div class="form-group"><label>Criar</label>
+      <div style="padding:4px 0;">
+        <label style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="eiModo" value="dia" checked onchange="toggleEscolaInternaModo()"> Um dia só
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+          <input type="radio" name="eiModo" value="semana" onchange="toggleEscolaInternaModo()"> A semana inteira (seg a sex)
+        </label>
+      </div>
+    </div>
+    <div class="form-group" id="eiBoxDia"><label>Data <span style="color:var(--red);">*</span></label>
+      <input type="date" id="eiData" class="input" value="${escalaTodayISO()}"></div>
+    <div class="form-group" id="eiBoxSemana" style="display:none;"><label>Segunda-feira da semana <span style="color:var(--red);">*</span></label>
+      <input type="date" id="eiSemana" class="input" value="${proximaSegundaISO()}">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;">Cria as 5 sessões de uma vez. Os líderes você escolhe depois, em cada dia.</div></div>
+    <div class="error-msg" id="eiErro" style="margin-top:8px;"></div>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
-      <button class="btn-primary" onclick="criarEscolaInterna()">Criar</button>
+      <button class="btn-primary" id="eiCriarBtn" onclick="criarEscolaInterna()">Criar</button>
     </div>`;
 }
 
+/** Segunda-feira da próxima semana — a escala é montada na semana anterior. */
+function proximaSegundaISO() {
+  const d = new Date();
+  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function toggleEscolaInternaModo() {
+  const semana = document.querySelector('input[name="eiModo"]:checked').value === 'semana';
+  document.getElementById('eiBoxDia').style.display = semana ? 'none' : '';
+  document.getElementById('eiBoxSemana').style.display = semana ? '' : 'none';
+}
+
 async function criarEscolaInterna() {
-  const date = document.getElementById('eiData').value;
-  const startTime = document.getElementById('eiIni').value, endTime = document.getElementById('eiFim').value;
-  const selUnits = Array.from(document.querySelectorAll('.eiUnit:checked')).map(c => c.value);
-  if (!date || !selUnits.length) { toast('Informe data e ao menos uma unidade.', 'error'); return; }
-  const units = EscalaSmartState.units.filter(u => selUnits.includes(u.id));
-  const slots = ScaleService.escolaInternaSlots(units, { startTime, endTime });
-  const res = await ScaleService.createScale({ date, tipo: 'escola_interna', name: `Escola Interna ${escalaFmtBR(date)}`, slots });
-  if (res.success) { toast('Sessão criada!', 'success'); closeEscalaModal(); EscalaSmartState.tab = 'escola_interna'; EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
-  else toast('Erro: ' + (res.error || 'falha'), 'error');
+  const errEl = document.getElementById('eiErro');
+  errEl.textContent = '';
+  const unitId = document.getElementById('eiUnidade').value;
+  const startTime = document.getElementById('eiIni').value;
+  const endTime = document.getElementById('eiFim').value;
+  const semana = document.querySelector('input[name="eiModo"]:checked').value === 'semana';
+
+  if (!unitId) { errEl.textContent = 'Escolha a unidade.'; return; }
+  if (!startTime || !endTime) { errEl.textContent = 'Informe início e fim.'; return; }
+  if (endTime <= startTime) { errEl.textContent = 'O fim tem que ser depois do início.'; return; }
+
+  // Datas a criar: um dia, ou a semana seg–sex a partir da segunda informada
+  let datas = [];
+  if (semana) {
+    const base = document.getElementById('eiSemana').value;
+    if (!base) { errEl.textContent = 'Informe a segunda-feira da semana.'; return; }
+    const d0 = new Date(base + 'T12:00:00');
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(d0); d.setDate(d0.getDate() + i);
+      const p = n => String(n).padStart(2, '0');
+      datas.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+    }
+  } else {
+    const d = document.getElementById('eiData').value;
+    if (!d) { errEl.textContent = 'Informe a data.'; return; }
+    datas = [d];
+  }
+
+  const unit = EscalaSmartState.units.find(u => u.id === unitId);
+  const btn = document.getElementById('eiCriarBtn');
+  btn.disabled = true; btn.textContent = 'Criando…';
+
+  const criadas = [];
+  for (const date of datas) {
+    const slots = ScaleService.escolaInternaSlots([unit], { startTime, endTime });
+    const res = await ScaleService.createScale({
+      date, tipo: 'escola_interna', name: `Escola Interna ${escalaFmtBR(date)}`, slots });
+    if (!res.success) {
+      btn.disabled = false; btn.textContent = 'Criar';
+      errEl.textContent = `Criei ${criadas.length} e falhei em ${escalaFmtBR(date)}: ${res.error || 'erro'}`;
+      renderEscalaGestao();
+      return;
+    }
+    criadas.push(res.data.id);
+  }
+
+  toast(criadas.length === 1 ? 'Sessão criada!' : `${criadas.length} sessões criadas (semana inteira).`, 'success');
+  closeEscalaModal();
+  EscalaSmartState.tab = 'escola_interna';
+  EscalaSmartState.selectedId = criadas[0];
+  renderEscalaGestao();
 }
 
 function renderTabFeriados(scales) {
