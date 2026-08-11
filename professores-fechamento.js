@@ -343,6 +343,19 @@ function renderTeacherTable(teachers, totals, readOnly) {
       </tr>
     ` : '';
 
+    // Banco de horas do estagiário (bloco 2) — a conta aberta. Sem ver de onde
+    // saiu o número, ninguém confia nele: a bolsa é cheia mesmo trabalhando a
+    // menos, e o que "faltou" vira saldo de horas, não desconto.
+    const bancoRow = (t.isIntern && (t.internExplicacao || t.internSemContrato)) ? `
+      <tr class="row-banco-horas">
+        <td colspan="8" style="text-align:right;font-size:12px;padding:6px 12px;color:var(--text2);">
+          ${t.internSemContrato
+            ? '⚠️ <b>Contrato de horas não cadastrado</b> — pago só a bolsa, sem banco de horas.'
+            : `🕒 Banco de horas: ${escapeHtml(t.internExplicacao || '')}`}
+        </td>
+      </tr>
+    ` : '';
+
     return `
       <tr>
         <td>
@@ -357,6 +370,7 @@ function renderTeacherTable(teachers, totals, readOnly) {
         <td style="text-align:right;font-size:12px;">${outrosList}</td>
         <td class="mono" style="text-align:right;font-weight:700;">${fmt(t.valorTotal)}</td>
       </tr>
+      ${bancoRow}
       ${vacRow}
     `;
   }).join('');

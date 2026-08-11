@@ -348,6 +348,24 @@ function buildReceiptHtmlForExport(prof, closing) {
       '</section>';
   }
 
+  // Banco de horas do estagiário (bloco 2) — mesma conta aberta do recibo oficial
+  var bancoHtml = '';
+  if (prof.isIntern && prof.internSemContrato) {
+    bancoHtml = '<section style="background:#fffbeb;padding:10px 12px;border-left:3px solid #f59e0b;margin-bottom:16px;border-radius:2px;font-size:12px;">' +
+      '⚠️ Contrato de horas não cadastrado — pago somente a bolsa, sem banco de horas.</section>';
+  } else if (prof.isIntern && prof.internExplicacao) {
+    var hb = function(n) { return Number(n || 0).toFixed(2).replace('.', ',') + 'h'; };
+    bancoHtml = '<section style="background:#f8fafc;padding:10px 12px;border-left:3px solid #64748b;margin-bottom:16px;border-radius:2px;">' +
+      '<h3 style="font-size:13px;font-weight:700;margin-bottom:6px;">🕒 Banco de horas</h3>' +
+      '<div style="font-size:12px;line-height:1.7;">' +
+      'Horas no mês: <b>' + hb(prof.internHorasNoMes || prof.totalHoras) + '</b> · contrato do mês: <b>' + hb(prof.internContratoMes) + '</b><br>' +
+      'Saldo anterior: ' + hb(prof.internSaldoAnterior) + ' · abatido neste mês: ' + hb(prof.internHorasQuitadas) + '<br>' +
+      'Horas pagas como adicional: <b>' + hb(prof.internExcessHours) + '</b> — R$ ' + Number(prof.internExcessValue || 0).toFixed(2) + '<br>' +
+      'Bolsa: R$ ' + Number(prof.internStipendUsed || 0).toFixed(2) + ' (paga integralmente)<br>' +
+      '<b>Saldo a compensar: ' + hb(prof.internSaldoFinal) + '</b>' +
+      '</div></section>';
+  }
+
   // Total = valorTotal do fechamento + vacationValue
   var valorLiquido = (prof.valorTotal || 0) + (prof.vacationValue || 0);
   var extenso = numeroExtensoSimples(valorLiquido);
@@ -398,6 +416,7 @@ function buildReceiptHtmlForExport(prof, closing) {
     '<tr><td><strong>Total bruto do fechamento</strong></td><td class="text-right"><strong>' + valorTotalFechamento + '</strong></td></tr>' +
     '</tbody>' +
     '</table>' +
+    bancoHtml +
     vacationHtml +
     '<div class="total">VALOR LÍQUIDO: R$ ' + valorLiquido.toFixed(2) + '</div>' +
     '<div class="extenso">' + extenso + '</div>' +

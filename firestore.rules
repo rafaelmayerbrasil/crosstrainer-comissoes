@@ -145,6 +145,26 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Banco de horas do estagiário (bloco 2, 07/08/2026) ───────────
+    // Quem escreve é SÓ o fechamento, pela Cloud Function (Admin SDK ignora
+    // estas regras). Ninguém edita saldo pelo app — nem o admin: o saldo é
+    // consequência do mês fechado, não um campo.
+    match /intern_hour_balances/{teacherId} {
+      allow read:  if isAuth() && (
+                     isAdmin() || isSuperv() ||
+                     teacherId == uData().professorId    // o estagiário vê o próprio saldo
+                   );
+      allow write: if false;
+    }
+
+    match /intern_hour_movements/{id} {
+      allow read:  if isAuth() && (
+                     isAdmin() || isSuperv() ||
+                     resource.data.teacherId == uData().professorId
+                   );
+      allow write: if false;
+    }
+
     match /creditos_professores/{id} {
       allow read:  if isAuth() && (
                      isAdmin() ||

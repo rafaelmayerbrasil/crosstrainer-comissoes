@@ -2242,6 +2242,10 @@ function calculateTeacherValue(teacher, salary, hours, lastDayOfMonth) {
       internExcessHours: null,
       internExcessValue: null,
       hourlyRate: 0,
+      // null e não undefined: o Firestore recusa undefined
+      isIntern: false,
+      internLimitHours: null,
+      internPropRate: null,
     };
   }
 
@@ -2259,6 +2263,9 @@ function calculateTeacherValue(teacher, salary, hours, lastDayOfMonth) {
   let internStipendUsed = null;
   let internExcessHours = null;
   let internExcessValue = null;
+  // Dados que o banco de horas precisa pra refazer a conta do mês (bloco 2, 07/08)
+  let internLimitHours = null;
+  let internPropRate = null;
 
   const isIntern = teacher.type === 'estagiario' && salary.remunerationType !== 'hora_aula';
 
@@ -2270,6 +2277,8 @@ function calculateTeacherValue(teacher, salary, hours, lastDayOfMonth) {
     const limitHours = limitMinutes / 60;
     const stipend = (typeof effective.internMonthlyStipend === 'number') ? effective.internMonthlyStipend : 0;
     const propRate = (typeof effective.internProportionalHourlyRate === 'number') ? effective.internProportionalHourlyRate : 0;
+    internLimitHours = limitHours;
+    internPropRate = propRate;
 
     if (hours <= limitHours) {
       valorHoras = stipend;
@@ -2302,8 +2311,68 @@ function calculateTeacherValue(teacher, salary, hours, lastDayOfMonth) {
     internStipendUsed,
     internExcessHours,
     internExcessValue,
+    isIntern,
+    internLimitHours,
+    internPropRate,
   };
 }
+
+/**
+ * Banco de horas do estagiário — o serviço de leitura (quem ESCREVE é só o
+ * fechamento, pela Cloud Function; as rules impedem escrita pelo app).
+ */
+const InternHourBankService = {
+  /** Saldo atual de um estagiário (negativo = deve horas). 0 se nunca fechou mês. */
+  async getSaldo(teacherId) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
+    try {
+      const doc = await db.collection('intern_hour_balances').doc(teacherId).get();
+      return { success: true, data: doc.exists ? { id: doc.id, ...doc.data() } : { teacherId, saldoHoras: 0 } };
+    } catch (err) {
+      console.error('[InternHourBankService.getSaldo]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Saldos de todos os estagiários (gestão). */
+  async listSaldos() {
+    try {
+      const snap = await db.collection('intern_hour_balances').get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[InternHourBankService.listSaldos]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Movimento de um mês (existe quando aquele mês já foi fechado). */
+  async getMovimento(teacherId, year, month) {
+    if (!teacherId || !year || !month) return { success: false, error: 'teacherId, year e month obrigatórios' };
+    try {
+      const id = `${teacherId}_${year}-${String(month).padStart(2, '0')}`;
+      const doc = await db.collection('intern_hour_movements').doc(id).get();
+      return { success: true, data: doc.exists ? { id: doc.id, ...doc.data() } : null };
+    } catch (err) {
+      console.error('[InternHourBankService.getMovimento]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Extrato do estagiário — os meses já fechados, do mais novo pro mais velho. */
+  async listMovimentos(teacherId) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
+    try {
+      const snap = await db.collection('intern_hour_movements')
+        .where('teacherId', '==', teacherId).get();
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a, b) => (b.mes || '').localeCompare(a.mes || ''));
+      return { success: true, data };
+    } catch (err) {
+      console.error('[InternHourBankService.listMovimentos]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+};
 
 const ClosingService = {
   /**
@@ -2420,12 +2489,52 @@ const ClosingService = {
           internStipendUsed: value.internStipendUsed,
           internExcessHours: value.internExcessHours,
           internExcessValue: value.internExcessValue,
+          isIntern: value.isIntern === true,
+          internLimitHours: value.internLimitHours,
+          internPropRate: value.internPropRate,
         });
 
         totalHoras += hours;
-        totalValor += value.total;
         totalClasses += classes.length;
       }
+
+      // 8b) Banco de horas do estagiário (bloco 2) — a prévia TEM que mostrar o
+      // mesmo número que o fechamento vai pagar, senão o admin aprova um valor e
+      // paga outro. Mesma função pura que a Cloud Function usa.
+      const diasNoMes = new Date(year, month, 0).getDate();
+      await Promise.all(teacherResults.filter(t => t.isIntern).map(async (t) => {
+        const [saldoRes, movRes] = await Promise.all([
+          InternHourBankService.getSaldo(t.teacherId),
+          InternHourBankService.getMovimento(t.teacherId, year, month),
+        ]);
+        const conta = InternHourBank.calcularMesEstagiario({
+          horas: t.totalHoras,
+          limiteHoras: t.internLimitHours,
+          stipend: t.internStipendUsed || 0,
+          propRate: t.internPropRate,
+          diasNoMes,
+          // A prévia não desconta férias do contrato (o fechamento desconta) —
+          // quem estiver de férias aparece devendo mais horas aqui do que lá.
+          diasAfastado: 0,
+          movimento: movRes.success ? movRes.data : null,
+          saldoAtual: saldoRes.success ? (saldoRes.data.saldoHoras || 0) : 0,
+        });
+        t.valorHoras = conta.valorHoras;
+        t.valorTotal = Math.round((conta.valorHoras + (t.mealAllowance || 0)
+          + (t.transportAllowance || 0) + (t.totalOutros || 0)) * 100) / 100;
+        t.isInternProportional = conta.valorExtra > 0;
+        t.internExcessHours = conta.horasPagasAgora;
+        t.internExcessValue = conta.valorExtra;
+        t.internContratoMes = conta.contratoMes;
+        t.internHorasNoMes = conta.horasTrabalhadas;
+        t.internSaldoAnterior = conta.saldoAnterior;
+        t.internHorasQuitadas = conta.horasQuitadas;
+        t.internSaldoFinal = conta.saldoFinal;
+        t.internSemContrato = conta.semContrato;
+        t.internExplicacao = conta.explicacao;
+      }));
+
+      totalValor = teacherResults.reduce((s, t) => s + (t.valorTotal || 0), 0);
 
       // Ordena por nome
       teacherResults.sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'pt-BR'));
@@ -2568,6 +2677,21 @@ const ReceiptService = {
             oneThirdValue: vd.oneThirdValue || 0,
             proportionalValue: vd.proportionalValue || 0,
           })),
+          // Bloco 2 — banco de horas do estagiário: a conta que gerou o valor.
+          // Vai congelada no recibo; o saldo muda depois e o recibo não pode mudar.
+          hasBancoHoras: teacherEntry.isIntern === true && !teacherEntry.internSemContrato,
+          bancoHoras: teacherEntry.isIntern === true ? {
+            horasNoMes: teacherEntry.internHorasNoMes || teacherEntry.totalHoras || 0,
+            contratoMes: teacherEntry.internContratoMes || 0,
+            saldoAnterior: teacherEntry.internSaldoAnterior || 0,
+            horasQuitadas: teacherEntry.internHorasQuitadas || 0,
+            horasPagas: teacherEntry.internExcessHours || 0,
+            valorExtra: teacherEntry.internExcessValue || 0,
+            bolsa: teacherEntry.internStipendUsed || 0,
+            saldoFinal: teacherEntry.internSaldoFinal || 0,
+            semContrato: teacherEntry.internSemContrato === true,
+            explicacao: teacherEntry.internExplicacao || '',
+          } : null,
           status: 'aguardando_pagamento',
           emittedAt: serverTs(), emittedBy: currentUserId(), emittedByName: currentUserName(),
           paidAt: null, paidBy: null, paymentRecordId: null,
@@ -4271,8 +4395,8 @@ window.ProfHelpers     = {
   VacationBalanceService, getEntitlementStartDate, addMonths, listAcquisitionPeriods, findCurrentPeriod,
   // Sprint 8 — ReportService
   ReportService, emptyStateHtml,
-  // Bloco 2 (07/08) — ocorrencias e dias sem expediente
-  DiasSemExpedienteService,
+  // Bloco 2 (07/08) — ocorrencias, dias sem expediente e banco de horas
+  DiasSemExpedienteService, InternHourBankService,
 };
 
 console.log('[CrossTainer Professores] professores-shared.js carregado · Services Sprint 1+1.5+2+3a+3b (todos)');

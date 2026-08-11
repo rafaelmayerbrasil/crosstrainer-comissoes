@@ -1,7 +1,7 @@
 // intern-hour-bank.js — banco de horas do estagiário (bloco 2c, decidido 07/08/2026)
-// GEMEO: functions/intern-hour-bank.js — o deploy das Functions so leva a pasta
-// functions/, entao existe uma copia la. smoke-banco-horas-estagiario.js compara
-// as duas e falha se divergirem.
+// GEMEO: intern-hour-bank.js na raiz (usado pelo navegador). Esta copia existe
+// porque o deploy das Functions so leva a pasta functions/.
+// smoke-banco-horas-estagiario.js compara as duas e falha se divergirem.
 //
 // Regra combinada com o Rodrigo:
 //   • trabalhou MAIS que o contrato → recebe bolsa + as horas a mais, no mês

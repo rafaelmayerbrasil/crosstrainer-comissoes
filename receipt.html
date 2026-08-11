@@ -131,6 +131,28 @@ function renderReceipt(r) {
     </section>`;
   }
 
+  // Banco de horas do estagiário (bloco 2) — a conta aberta. A bolsa é sempre
+  // cheia; trabalhar a menos vira saldo de horas, nunca desconto no valor.
+  let bancoHtml = '';
+  const bh = r.bancoHoras;
+  if (bh && !bh.semContrato) {
+    const h = n => `${Number(n || 0).toFixed(2).replace('.', ',')}h`;
+    bancoHtml = `<section class="receipt-section" style="background:#f8fafc;padding:10px 12px;border-left:3px solid #64748b;margin-bottom:16px;border-radius:2px;">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:6px;">🕒 Banco de horas</h3>
+      <div style="font-size:12px;line-height:1.7;">
+        Horas no mês: <b>${h(bh.horasNoMes)}</b> · contrato do mês: <b>${h(bh.contratoMes)}</b><br>
+        Saldo anterior: ${h(bh.saldoAnterior)} · abatido neste mês: ${h(bh.horasQuitadas)}<br>
+        Horas pagas como adicional: <b>${h(bh.horasPagas)}</b> — R$ ${Number(bh.valorExtra || 0).toFixed(2)}<br>
+        Bolsa: R$ ${Number(bh.bolsa || 0).toFixed(2)} (paga integralmente)<br>
+        <b>Saldo a compensar: ${h(bh.saldoFinal)}</b>
+      </div>
+    </section>`;
+  } else if (bh && bh.semContrato) {
+    bancoHtml = `<section class="receipt-section" style="background:#fffbeb;padding:10px 12px;border-left:3px solid #f59e0b;margin-bottom:16px;border-radius:2px;font-size:12px;">
+      ⚠️ Contrato de horas não cadastrado — pago somente a bolsa, sem banco de horas.
+    </section>`;
+  }
+
   const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
   const periodo = `${monthNames[r.month] || r.month} de ${r.year}`;
@@ -157,6 +179,7 @@ function renderReceipt(r) {
         ${creditosHtml}
       </tbody>
     </table>
+    ${bancoHtml}
     ${vacationHtml}
     ${debitoHtml}
     <div class="total">VALOR LÍQUIDO: R$ ${(r.valorLiquido || 0).toFixed(2)}</div>

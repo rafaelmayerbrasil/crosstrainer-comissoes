@@ -23,6 +23,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const remindersUtil = require('./reminders-util.js');
+const internBank = require('./intern-hour-bank.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -1018,7 +1019,9 @@ exports.closeMonth = onCall({
     const scaleTypesMap = new Map(stSnap.docs.map(d => [d.id, d.data()]));
 
     const teacherResults = [];
-    let totalHoras = 0, totalValor = 0, totalClassesCount = 0;
+    // (o valor total é somado dos resultados em buildTotals — o banco de horas
+    //  altera o valor do estagiário depois deste laço)
+    let totalHoras = 0, totalClassesCount = 0;
     let totalCanceladas = 0, totalNaoRealizadas = 0;
 
     // Conta canceladas/não-realizadas (informativo, não entram no cálculo)
@@ -1077,10 +1080,14 @@ exports.closeMonth = onCall({
         internStipendUsed: value.internStipendUsed,
         internExcessHours: value.internExcessHours,
         internExcessValue: value.internExcessValue,
+        // Banco de horas (bloco 2): guardados aqui pra a conta ser refeita dentro
+        // da transação, já com o saldo lido sem risco de corrida.
+        isIntern: value.isIntern === true,
+        internLimitHours: value.internLimitHours != null ? value.internLimitHours : null,
+        internPropRate: value.internPropRate != null ? value.internPropRate : null,
       });
 
       totalHoras += hours;
-      totalValor += value.total;
       totalClassesCount += classes.length;
     }
 
@@ -1103,41 +1110,156 @@ exports.closeMonth = onCall({
 
     teacherResults.sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'pt'));
 
-    const totals = {
-      classesRealizadas: totalClassesCount,
-      classesSubstituidas: validClasses.filter(c => c.status === 'substituida').length,
-      classesCanceladas: totalCanceladas,
-      classesNaoRealizadas: totalNaoRealizadas,
-      totalHoras: Math.round(totalHoras * 100) / 100,
-      totalValor: Math.round(totalValor * 100) / 100,
-      // Sprint 6b — férias
-      totalVacationDays: teacherResults.reduce((s, t) => s + (t.vacationDaysInMonth || 0), 0),
-      totalVacationValue: Math.round(teacherResults.reduce((s, t) => s + (t.vacationValue || 0), 0) * 100) / 100,
-      totalGeral: Math.round((Math.round(totalValor * 100) / 100 + Math.round(teacherResults.reduce((s, t) => s + (t.vacationValue || 0), 0) * 100) / 100) * 100) / 100,
+    // Totais derivados dos resultados — refeitos depois do banco de horas, que
+    // muda o valor pago aos estagiários.
+    const diasNoMes = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const buildTotals = (results) => {
+      const valor = Math.round(results.reduce((s, t) => s + (t.valorTotal || 0), 0) * 100) / 100;
+      const ferias = Math.round(results.reduce((s, t) => s + (t.vacationValue || 0), 0) * 100) / 100;
+      return {
+        classesRealizadas: totalClassesCount,
+        classesSubstituidas: validClasses.filter(c => c.status === 'substituida').length,
+        classesCanceladas: totalCanceladas,
+        classesNaoRealizadas: totalNaoRealizadas,
+        totalHoras: Math.round(totalHoras * 100) / 100,
+        totalValor: valor,
+        // Sprint 6b — férias
+        totalVacationDays: results.reduce((s, t) => s + (t.vacationDaysInMonth || 0), 0),
+        totalVacationValue: ferias,
+        totalGeral: Math.round((valor + ferias) * 100) / 100,
+      };
     };
 
     // ── 9) Cria monthly_closings (com transação anti-race) ────────
+    //
+    // BANCO DE HORAS DO ESTAGIÁRIO (bloco 2, 07/08/2026) — dentro da transação
+    // porque o saldo é lido e reescrito: duas unidades fechando o mesmo mês ao
+    // mesmo tempo não podem ler o mesmo saldo e gravar por cima uma da outra.
+    //
+    // O saldo só se move no fechamento (decisão do Rodrigo). Reabrir o mês tem
+    // que desfazer o movimento — por isso ele fica gravado inteiro, com o saldo
+    // de onde partiu.
     const now = admin.firestore.FieldValue.serverTimestamp();
-    const closingData = {
-      unitId,
-      year,
-      month,
-      status: 'fechado',
-      closedAt: now,
-      closedBy: request.auth.uid,
-      closedByName: userData.name || userData.email || request.auth.uid,
-      totals,
-      teachers: teacherResults,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const mesRef = `${year}-${String(month).padStart(2, '0')}`;
+    const internos = teacherResults.filter(t => t.isIntern === true);
+
+    let closingData = null;
 
     await firestore.runTransaction(async (txn) => {
       const existing = await txn.get(closingRef);
       if (existing.exists) {
         throw new Error('Já existe um fechamento para este período.');
       }
+
+      // ── leituras (todas antes de qualquer escrita) ──
+      const bancoRefs = internos.map(t => ({
+        teacherId: t.teacherId,
+        saldoRef: firestore.collection('intern_hour_balances').doc(t.teacherId),
+        movRef: firestore.collection('intern_hour_movements').doc(`${t.teacherId}_${mesRef}`),
+      }));
+      const bancoSnaps = await Promise.all(bancoRefs.map(async (b) => ({
+        ...b,
+        saldo: await txn.get(b.saldoRef),
+        mov: await txn.get(b.movRef),
+      })));
+
+      // ── conta do estagiário (refeita a cada tentativa, sem mutar o original) ──
+      const finalResults = teacherResults.map(t => ({ ...t }));
+      const escritasBanco = [];
+
+      for (const b of bancoSnaps) {
+        const t = finalResults.find(x => x.teacherId === b.teacherId);
+        if (!t) continue;
+
+        const saldoAtual = b.saldo.exists ? (b.saldo.data().saldoHoras || 0) : 0;
+        const movimento = b.mov.exists ? b.mov.data() : null;
+
+        const conta = internBank.calcularMesEstagiario({
+          horas: t.totalHoras,
+          limiteHoras: t.internLimitHours,
+          stipend: t.internStipendUsed || 0,
+          propRate: t.internPropRate,
+          diasNoMes,
+          diasAfastado: t.vacationDaysInMonth || 0,
+          movimento,
+          saldoAtual,
+        });
+
+        // O que a tela e o recibo mostram: a conta aberta.
+        t.valorHoras = conta.valorHoras;
+        t.valorTotal = Math.round((conta.valorHoras + (t.mealAllowance || 0)
+          + (t.transportAllowance || 0) + (t.totalOutros || 0)) * 100) / 100;
+        t.isInternProportional = conta.valorExtra > 0;
+        t.internExcessHours = conta.horasPagasAgora;
+        t.internExcessValue = conta.valorExtra;
+        t.internContratoMes = conta.contratoMes;
+        t.internHorasNoMes = conta.horasTrabalhadas;
+        t.internSaldoAnterior = conta.saldoAnterior;
+        t.internHorasQuitadas = conta.horasQuitadas;
+        t.internSaldoFinal = conta.saldoFinal;
+        t.internSemContrato = conta.semContrato;
+        t.internExplicacao = conta.explicacao;
+
+        escritasBanco.push({ b, conta });
+      }
+
+      // O doc de fechamento é legível por qualquer usuário do módulo, então não
+      // guarda o contrato nem o valor/hora do estagiário — servem só pra fazer a
+      // conta aqui dentro.
+      finalResults.forEach(t => { delete t.internLimitHours; delete t.internPropRate; });
+
+      const finalTotals = buildTotals(finalResults);
+
+      closingData = {
+        unitId,
+        year,
+        month,
+        status: 'fechado',
+        closedAt: now,
+        closedBy: request.auth.uid,
+        closedByName: userData.name || userData.email || request.auth.uid,
+        totals: finalTotals,
+        teachers: finalResults,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      // ── escritas ──
       txn.set(closingRef, closingData);
+
+      for (const { b, conta } of escritasBanco) {
+        if (conta.semContrato) continue;  // sem contrato não mexe no saldo
+
+        txn.set(b.saldoRef, {
+          teacherId: b.teacherId,
+          saldoHoras: conta.saldoFinal,
+          ultimoMes: mesRef,
+          ultimoFechamentoId: closingId,
+          updatedAt: now,
+        }, { merge: true });
+
+        txn.set(b.movRef, {
+          teacherId: b.teacherId,
+          year, month, mes: mesRef,
+          horasTrabalhadas: conta.horasTrabalhadas,
+          contratoMes: conta.contratoMes,
+          saldoAnterior: conta.saldoAnterior,   // pra reabertura conseguir voltar atrás
+          horasQuitadas: conta.horasQuitadas,
+          horasPagas: conta.horasPagas,
+          saldoFinal: conta.saldoFinal,
+          diasAfastado: (finalResults.find(x => x.teacherId === b.teacherId) || {}).vacationDaysInMonth || 0,
+          closingIds: admin.firestore.FieldValue.arrayUnion(closingId),
+          unitIds: admin.firestore.FieldValue.arrayUnion(unitId),
+          updatedAt: now,
+        }, { merge: true });
+      }
+    });
+
+    const totals = closingData.totals;
+    logger.info('[closeMonth] banco de horas', {
+      estagiarios: internos.length,
+      saldos: (closingData.teachers || []).filter(t => t.isIntern)
+        .map(t => `${t.teacherName}: ${t.internSaldoFinal}h`),
     });
 
     // ── 10) Batched update nas classes ──────────────────────────────
@@ -1581,6 +1703,8 @@ function calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth) {
       otherBenefits: [], totalOutros: 0, hourlyRate: 0,
       isInternProportional: false, internStipendUsed: null,
       internExcessHours: null, internExcessValue: null,
+      // null e não undefined: o Firestore recusa undefined
+      isIntern: false, internLimitHours: null, internPropRate: null,
     };
   }
 
@@ -1598,6 +1722,9 @@ function calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth) {
   let internStipendUsed = null;
   let internExcessHours = null;
   let internExcessValue = null;
+  // Dados que o banco de horas precisa pra refazer a conta do mês (bloco 2, 07/08)
+  let internLimitHours = null;
+  let internPropRate = null;
 
   const isIntern = teacher.type === 'estagiario' && salary.remunerationType !== 'hora_aula';
 
@@ -1608,6 +1735,8 @@ function calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth) {
     const limitHours = limitMinutes / 60;
     const stipend = (typeof effective.internMonthlyStipend === 'number') ? effective.internMonthlyStipend : 0;
     const propRate = (typeof effective.internProportionalHourlyRate === 'number') ? effective.internProportionalHourlyRate : 0;
+    internLimitHours = limitHours;
+    internPropRate = propRate;
 
     if (hours <= limitHours) {
       valorHoras = stipend;
@@ -1631,6 +1760,7 @@ function calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth) {
     total, valorHoras, mealAllowance: meal, transportAllowance: transport,
     otherBenefits, totalOutros, hourlyRate,
     isInternProportional, internStipendUsed, internExcessHours, internExcessValue,
+    isIntern, internLimitHours, internPropRate,
   };
 }
 
