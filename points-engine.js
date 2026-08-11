@@ -86,5 +86,39 @@
     };
   }
 
-  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard, entriesFromAttendance, entryForSubstitution };
+  /**
+   * Lançamentos de pontos a partir das OCORRÊNCIAS das aulas (bloco 2, 07/08/2026).
+   *
+   * O Rodrigo pediu "punição máxima nos pontos" pra falta injustificada e sem
+   * aviso. O desconto no pagamento acontece em outro lugar (minutos efetivos);
+   * aqui é só o efeito no engajamento.
+   *
+   * @param classes — aulas do período, já com faltaTipo/atrasoMinutos
+   * @returns lançamentos no mesmo formato de entriesFromAttendance
+   */
+  function entriesFromClassOccurrences(classes, cfg) {
+    const out = [];
+    const pen = (cfg && cfg.penalidade) || {};
+    (classes || []).forEach(c => {
+      if (!c || !c.teacherId) return;
+      // A data do lançamento é a da aula, pra cair no ciclo certo
+      const refDate = typeof c.dateISO === 'string' ? c.dateISO
+        : (typeof c.scheduledDate === 'string' ? c.scheduledDate.slice(0, 10) : null);
+      if (!refDate) return;
+
+      const mk = (tipo, pontos) => ({
+        id: `${c.id}:${tipo}`, personId: c.teacherId, tipo, refDate,
+        pontos: Number(pontos) || 0, origem: c.id,
+      });
+
+      if (c.faltaTipo === 'sem_aviso') out.push(mk('aula_falta_sem_aviso', pen.aulaFaltaSemAviso));
+      else if (c.faltaTipo === 'justificada') out.push(mk('aula_falta_justificada', pen.aulaFaltaJustificada));
+
+      // Atraso conta por ocorrência, não por minuto — quem faltou não leva as duas
+      if (!c.faltaTipo && Number(c.atrasoMinutos) > 0) out.push(mk('aula_atraso', pen.aulaAtraso));
+    });
+    return out;
+  }
+
+  return { completedYears, tempoDeCasaPontos, cycleIdFor, entriesForCycle, scoreboard, entriesFromAttendance, entryForSubstitution, entriesFromClassOccurrences };
 });

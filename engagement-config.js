@@ -23,6 +23,14 @@
     penalidade: {
       treinoFaltaJustificada: 0,
       treinoFaltaSemAviso: -15,
+      // Falta em AULA (bloco 2, 07/08/2026). O Rodrigo pediu "punição máxima nos
+      // pontos" pra falta injustificada e sem aviso — daí ser mais pesada que a
+      // de treinamento. Valores editáveis pela gestão, como os demais.
+      aulaFaltaJustificada: -5,
+      aulaFaltaSemAviso: -25,
+      // Atraso: por ocorrência, não por minuto. O desconto proporcional já
+      // acontece no pagamento; aqui é o efeito no engajamento.
+      aulaAtraso: -3,
     },
   };
 

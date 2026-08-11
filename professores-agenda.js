@@ -999,9 +999,36 @@ async function openClassModal(classId) {
     if (saveBtn) saveBtn.style.display = '';
     document.getElementById('classNewStatus').value = cls.status;
     document.getElementById('classStatusNote').value = '';
+    // Ocorrências já lançadas
+    document.getElementById('classFaltaTipo').value = cls.faltaTipo || '';
+    document.getElementById('classAtraso').value = cls.atrasoMinutos || '';
+    document.getElementById('classSaidaAntecipada').value = cls.saidaAntecipadaMinutos || '';
+    document.getElementById('classHoraExtra').value = cls.horaExtraMinutos || '';
+    ['classAtraso', 'classSaidaAntecipada', 'classHoraExtra'].forEach(id => {
+      document.getElementById(id).oninput = atualizarPreviewHoras;
+    });
+    onClassFaltaChange();
   } else {
     editBlock.style.display = 'none';
     if (saveBtn) saveBtn.style.display = 'none';
+  }
+
+  // Professor: só o aviso de "não aconteceu", na aula dele e fora de mês fechado
+  const profBlock = document.getElementById('classProfBlock');
+  if (profBlock) {
+    const minhaAula = !canEdit && getCurrentProfessorId()
+      && (cls.originalTeacherId === getCurrentProfessorId() || cls.teacherId === getCurrentProfessorId());
+    const jaAvisou = !!cls.avisoProfessor;
+    profBlock.style.display = (minhaAula && !isLocked && !jaAvisou) ? '' : 'none';
+    if (minhaAula && jaAvisou) {
+      const hint = document.getElementById('classModalReadOnlyHint');
+      if (hint) {
+        hint.textContent = 'Você já avisou que esta aula não aconteceu. A gestão vai confirmar.';
+        hint.style.display = '';
+      }
+    }
+    const nota = document.getElementById('classProfNota');
+    if (nota) nota.value = '';
   }
 
   const noteHint = document.getElementById('classModalReadOnlyHint');
@@ -1026,6 +1053,60 @@ function closeClassModal() {
   MinhaAgendaState.selectedClassId = null;
 }
 
+/** Falta zera o resto — não existe "faltou e chegou 10 min atrasado". */
+function onClassFaltaChange() {
+  const falta = document.getElementById('classFaltaTipo').value;
+  ['classAtraso', 'classSaidaAntecipada', 'classHoraExtra'].forEach(id => {
+    const el = document.getElementById(id);
+    el.disabled = !!falta;
+    if (falta) el.value = '';
+  });
+  atualizarPreviewHoras();
+}
+
+/** Mostra na hora quanto a aula vai valer — o admin vê o efeito antes de salvar. */
+function atualizarPreviewHoras() {
+  const box = document.getElementById('classHorasPreview');
+  if (!box) return;
+  const cls = MinhaAgendaState.classes.find(c => c.id === MinhaAgendaState.selectedClassId);
+  if (!cls) { box.textContent = ''; return; }
+
+  const num = id => Number(document.getElementById(id).value) || 0;
+  const simulada = {
+    durationMinutes: cls.durationMinutes,
+    faltaTipo: document.getElementById('classFaltaTipo').value || null,
+    atrasoMinutos: num('classAtraso'),
+    saidaAntecipadaMinutos: num('classSaidaAntecipada'),
+    horaExtraMinutos: num('classHoraExtra'),
+  };
+  const efetivos = ProfHelpers.classEffectiveMinutes(simulada);
+  const base = cls.durationMinutes || 0;
+  const paga = ProfHelpers.classCountsForPay(cls);
+
+  if (!paga) {
+    box.innerHTML = 'ℹ️ Esta aula <strong>não entra na conta de horas</strong> (Escola Interna).';
+    return;
+  }
+  const dif = efetivos - base;
+  box.innerHTML = efetivos === base
+    ? `Vale <strong>${base} min</strong> — a duração cheia.`
+    : `Vale <strong>${efetivos} min</strong> em vez de ${base} `
+      + `(<strong style="color:var(--${dif < 0 ? 'red' : 'green'})">${dif > 0 ? '+' : ''}${dif} min</strong>).`;
+}
+
+/** Professor avisa que a aula não aconteceu — a gestão confirma depois. */
+async function professorAvisaAulaNaoAconteceu() {
+  const classId = MinhaAgendaState.selectedClassId;
+  if (!classId) return;
+  const nota = (document.getElementById('classProfNota').value || '').trim();
+  if (!confirm('Avisar a gestão de que esta aula não aconteceu?')) return;
+  const res = await ClassService.avisarNaoAconteceu(classId, nota);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Aviso enviado. A gestão vai confirmar.', 'success');
+  closeClassModal();
+  await loadMinhaAgenda();
+}
+
 async function saveClassStatus() {
   const classId = MinhaAgendaState.selectedClassId;
   const errEl = document.getElementById('classModalError');
@@ -1034,12 +1115,19 @@ async function saveClassStatus() {
 
   const newStatus = document.getElementById('classNewStatus').value;
   const note = document.getElementById('classStatusNote').value.trim();
+  const num = id => Number(document.getElementById(id).value) || 0;
+  const ocorrencias = {
+    faltaTipo: document.getElementById('classFaltaTipo').value || null,
+    atrasoMinutos: num('classAtraso'),
+    saidaAntecipadaMinutos: num('classSaidaAntecipada'),
+    horaExtraMinutos: num('classHoraExtra'),
+  };
 
   const btn = document.getElementById('classSaveBtn');
   btn.disabled = true;
   btn.textContent = 'Salvando…';
 
-  const res = await ClassService.updateStatus(classId, newStatus, note);
+  const res = await ClassService.updateStatus(classId, newStatus, note, ocorrencias);
 
   btn.disabled = false;
   btn.textContent = 'Salvar';

@@ -1380,7 +1380,12 @@ const ClassService = {
    * Sprint 3a aceita: prevista, realizada, cancelada, nao_realizada.
    * Status 'substituida' só via fluxo de Substituição (Sprint 3b).
    */
-  async updateStatus(classId, newStatus, note = '') {
+  /**
+   * @param ocorrencias — opcional: { faltaTipo, atrasoMinutos, saidaAntecipadaMinutos, horaExtraMinutos }
+   *   Passe `null` em faltaTipo pra limpar. Falta força o status pra 'nao_realizada',
+   *   senão a aula continuaria contando como dada no fechamento.
+   */
+  async updateStatus(classId, newStatus, note = '', ocorrencias = null) {
     if (!classId) return { success: false, error: 'classId obrigatório' };
     const allowed = ['prevista', 'realizada', 'cancelada', 'nao_realizada'];
     if (!allowed.includes(newStatus)) {
@@ -1400,12 +1405,33 @@ const ClassService = {
         adjustedBy: uid,
         adjustedAt: serverTs(),
         adjustmentNote: (note || '').toString().slice(0, 500) || null,
+        // Mão humana passou aqui: deixa de ser "confirmada automaticamente"
+        registroAutomatico: false,
         updatedAt: serverTs(),
       };
       // Se mudando pra cancelada, registra como cancellationNote também
       if (newStatus === 'cancelada' && note) {
         after.cancellationNote = note.toString().slice(0, 500);
       }
+
+      // Ocorrências: só grava se vieram, pra não zerar o que já estava lá numa
+      // troca de status simples.
+      if (ocorrencias) {
+        const min = v => {
+          const n = Number(v);
+          return (Number.isFinite(n) && n > 0) ? Math.min(Math.round(n), 600) : 0;
+        };
+        const falta = ocorrencias.faltaTipo === 'justificada' || ocorrencias.faltaTipo === 'sem_aviso'
+          ? ocorrencias.faltaTipo : null;
+        after.faltaTipo = falta;
+        // Falta zera o resto: não faz sentido "faltou e chegou 10 min atrasado"
+        after.atrasoMinutos = falta ? 0 : min(ocorrencias.atrasoMinutos);
+        after.saidaAntecipadaMinutos = falta ? 0 : min(ocorrencias.saidaAntecipadaMinutos);
+        after.horaExtraMinutos = falta ? 0 : min(ocorrencias.horaExtraMinutos);
+        // Falta força 'nao_realizada' — senão a aula seguiria contando como dada
+        if (falta) after.status = 'nao_realizada';
+      }
+
       await ref.update(after);
       await AuditService.log({
         type: 'class_status_changed',
@@ -1418,6 +1444,135 @@ const ClassService = {
       return { success: true };
     } catch (err) {
       console.error('[ClassService.updateStatus]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * O professor avisa que a aula NÃO aconteceu.
+   *
+   * Não muda o status nem mexe em pagamento — é um sinalizador pra gestão
+   * confirmar. Os professores estavam "ficando perdidos" sem saber se algo foi
+   * registrado; isso fecha esse ciclo sem dar a eles a caneta da folha.
+   *
+   * As rules já permitem: professor atualiza a aula dele fora de mês fechado.
+   */
+  async avisarNaoAconteceu(classId, nota = '') {
+    if (!classId) return { success: false, error: 'classId obrigatório' };
+    try {
+      const ref = db.collection('classes').doc(classId);
+      const doc = await ref.get();
+      if (!doc.exists) return { success: false, error: 'Aula não encontrada' };
+      const before = doc.data();
+      if (before.monthClosingId) {
+        return { success: false, error: 'Mês já fechado — fale com a gestão.' };
+      }
+      const after = {
+        avisoProfessor: {
+          tipo: 'nao_aconteceu',
+          nota: (nota || '').toString().slice(0, 300) || null,
+          por: currentUserId(),
+          em: serverTs(),
+        },
+        updatedAt: serverTs(),
+      };
+      await ref.update(after);
+      await AuditService.log({
+        type: 'class_aviso_professor',
+        details: `Professor avisou que a aula não aconteceu${nota ? ': ' + nota : ''}`,
+        entityType: 'class', entityId: classId,
+        before, after: { ...before, ...after },
+        module: 'agenda',
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[ClassService.avisarNaoAconteceu]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+};
+
+// ─── Dias sem expediente ────────────────────────────────────────────────
+// A academia abre em quase todo feriado; as exceções conhecidas são 25/12 e
+// 01/01 (Rodrigo, 07/08). Em vez de uma lista fixa no código, a gestão marca a
+// data — serve pros dois feriados e pra qualquer fechamento inesperado.
+//
+// Sem isso, com o registro automático ligado, um dia fechado viraria ~75 aulas
+// confirmadas como dadas — e feriado ainda paga EM DOBRO.
+
+const DiasSemExpedienteService = {
+  async list() {
+    try {
+      const doc = await db.collection('scale_config').doc('default').get();
+      const arr = doc.exists ? doc.data().diasSemExpediente : null;
+      return { success: true, data: Array.isArray(arr) ? arr.slice().sort() : [] };
+    } catch (err) {
+      console.error('[DiasSemExpedienteService.list]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * Marca o dia como sem expediente e cancela as aulas dele.
+   * Não toca em aula de mês fechado nem em aula já resolvida à mão.
+   */
+  async marcar(dateISO, motivo = '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateISO || ''))) {
+      return { success: false, error: 'Data inválida' };
+    }
+    try {
+      const atual = await this.list();
+      if (!atual.success) return atual;
+      if (!atual.data.includes(dateISO)) {
+        await db.collection('scale_config').doc('default')
+          .set({ diasSemExpediente: atual.data.concat([dateISO]).sort(), updatedAt: serverTs() }, { merge: true });
+      }
+
+      // Cancela as aulas do dia. Intervalo em horário BR (a data é salva à meia-noite BR).
+      const ini = new Date(dateISO + 'T00:00:00');
+      const fim = new Date(dateISO + 'T23:59:59');
+      const snap = await db.collection('classes')
+        .where('scheduledDate', '>=', ini).where('scheduledDate', '<=', fim).get();
+
+      let canceladas = 0, travadas = 0;
+      const uid = currentUserId();
+      const nota = motivo ? `Academia não abriu: ${motivo}` : 'Academia não abriu neste dia';
+      let batch = db.batch(); let n = 0;
+      for (const d of snap.docs) {
+        const c = d.data();
+        if (c.monthClosingId) { travadas++; continue; }
+        if (c.status !== 'prevista' && c.status !== 'realizada') { continue; }
+        batch.update(d.ref, {
+          status: 'cancelada', cancellationReason: 'sem_expediente', cancellationNote: nota,
+          registroAutomatico: false, adjustedBy: uid, adjustedAt: serverTs(), updatedAt: serverTs(),
+        });
+        canceladas++; n++;
+        if (n >= 400) { await batch.commit(); batch = db.batch(); n = 0; }
+      }
+      if (n) await batch.commit();
+
+      await AuditService.log({
+        type: 'dia_sem_expediente', details: `${dateISO} marcado como sem expediente (${canceladas} aula(s) canceladas)`,
+        entityType: 'scale_config', entityId: 'default', before: null,
+        after: { dateISO, canceladas, travadas }, module: 'agenda',
+      });
+      return { success: true, data: { canceladas, travadas } };
+    } catch (err) {
+      console.error('[DiasSemExpedienteService.marcar]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Desfaz a marcação. NÃO ressuscita as aulas — quem quiser de volta gera de novo. */
+  async desmarcar(dateISO) {
+    try {
+      const atual = await this.list();
+      if (!atual.success) return atual;
+      await db.collection('scale_config').doc('default')
+        .set({ diasSemExpediente: atual.data.filter(d => d !== dateISO), updatedAt: serverTs() }, { merge: true });
+      return { success: true };
+    } catch (err) {
+      console.error('[DiasSemExpedienteService.desmarcar]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
@@ -1961,12 +2116,28 @@ function classCountsForPay(c) {
   return true;
 }
 
+/**
+ * Minutos que a aula realmente vale, depois das ocorrências.
+ *
+ *   duração − atraso − saída antecipada + hora extra
+ *
+ * Falta zera: se não deu a aula, não recebe por ela (decisão do Rodrigo, 07/08).
+ * Nunca devolve negativo — atraso maior que a aula não vira desconto de outra.
+ */
+function classEffectiveMinutes(c) {
+  if (!c) return 0;
+  if (c.faltaTipo) return 0;
+  const base = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
+  const n = v => (typeof v === 'number' && v > 0) ? v : 0;
+  return Math.max(0, base - n(c.atrasoMinutos) - n(c.saidaAntecipadaMinutos) + n(c.horaExtraMinutos));
+}
+
 function calculateTeacherHours(classes, scaleTypesMap = null) {
   if (!Array.isArray(classes) || classes.length === 0) return 0;
   let totalMinutes = 0;
   for (const c of classes) {
     if (!classCountsForPay(c)) continue;
-    const mins = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
+    const mins = classEffectiveMinutes(c);
     let weight = 1;
     // Peso variável por tipo de escala (Sprint 5a)
     if (c.specialScaleType && scaleTypesMap && scaleTypesMap.has(c.specialScaleType)) {
@@ -4091,7 +4262,7 @@ window.ProfHelpers     = {
   VACATION_ANTECEDENCIA_ESTAGIARIO: ANTECEDENCIA_ESTAGIARIO,
   NOTIF_TYPE_META, SUBSTITUTION_STATUS_LABEL, COVERAGE_STATUS_LABEL,
   // Sprint 4a — helpers de fechamento
-  calculateTeacherHours, classCountsForPay, calculateTeacherValue, getEffectiveSalaryAt,
+  calculateTeacherHours, classCountsForPay, classEffectiveMinutes, calculateTeacherValue, getEffectiveSalaryAt,
   // Sprint 6b — VacationPaymentService
   VacationPaymentService, getEffectiveStipendAt,
   // Sprint 4b — serviços de pagamento/recibo/crédito
@@ -4100,6 +4271,8 @@ window.ProfHelpers     = {
   VacationBalanceService, getEntitlementStartDate, addMonths, listAcquisitionPeriods, findCurrentPeriod,
   // Sprint 8 — ReportService
   ReportService, emptyStateHtml,
+  // Bloco 2 (07/08) — ocorrencias e dias sem expediente
+  DiasSemExpedienteService,
 };
 
 console.log('[CrossTainer Professores] professores-shared.js carregado · Services Sprint 1+1.5+2+3a+3b (todos)');

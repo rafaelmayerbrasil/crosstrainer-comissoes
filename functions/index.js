@@ -618,6 +618,139 @@ exports.notifyTeachersAboutCoverage = onDocumentCreated({
  * sendEventReminders — CF agendada (diária). Lembra o staff de eventos a 7/4/1 dia,
  * exceto quem respondeu "Não vou". Idempotente via special_scales.remindersSent.
  */
+// ═══════════════════════════════════════════════════════════════════════
+// REGISTRO AUTOMÁTICO DA AULA DADA
+//
+// A aula vira 'realizada' sozinha DEPOIS que o horário passou. A gestão só
+// lança o que fugiu do normal (falta, atraso, saída antecipada, hora extra).
+//
+// Por quê: até 07/08/2026 havia 383 aulas passadas e 382 ainda 'prevista' —
+// ninguém nunca marcou nenhuma. O fechamento só conta 'realizada'/'substituida',
+// então agosto fecharia com 1 aula na academia inteira. Marcar uma a uma, com
+// ~75 aulas/dia, é inviável: a ferramenta não servia pro volume.
+//
+// O cliente aceitou conscientemente a inversão do ônus: antes, silêncio = ninguém
+// recebia; agora, silêncio = todos recebem. As travas são a janela de correção
+// (livre até fechar o mês) e o próprio fechamento.
+// ═══════════════════════════════════════════════════════════════════════
+
+// Antes disso o sistema não estava em uso de verdade — julho fica fora da folha
+// (decisão do Rodrigo: "começa a valer de agosto em diante").
+const AUTO_CONFIRM_DESDE = '2026-08-01';
+
+/** YYYY-MM-DD (horário BR) de uma Date. */
+function brYMD(date) {
+  const c = brComponents(date);
+  const p = n => String(n).padStart(2, '0');
+  return `${c.year}-${p(c.month + 1)}-${p(c.day)}`;
+}
+
+/** Dias em que a academia não abriu — a gestão marca na tela. */
+async function getDiasSemExpediente() {
+  try {
+    const doc = await db().collection('scale_config').doc('default').get();
+    const arr = doc.exists ? doc.data().diasSemExpediente : null;
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    logger.warn('[getDiasSemExpediente] falhou, assumindo nenhum', e.message);
+    return new Set();
+  }
+}
+
+/**
+ * Confirma as aulas cujo horário já terminou.
+ * Idempotente: só mexe em 'prevista', fora de mês fechado, e nunca no futuro.
+ */
+async function autoConfirmarAulasCore({ dryRun = false } = {}) {
+  const firestore = db();
+  const agora = new Date();
+  const hojeYMD = brYMD(agora);
+  const fechados = await getDiasSemExpediente();
+
+  // Só o passado: pega tudo até ontem, e de hoje só o que já terminou.
+  const limite = brMidnightUTC(
+    brComponents(agora).year, brComponents(agora).month, brComponents(agora).day + 1);
+
+  const snap = await firestore.collection('classes')
+    .where('status', '==', 'prevista')
+    .where('scheduledDate', '<', limite)
+    .get();
+
+  // brComponents só devolve ano/mês/dia/weekday — a hora vem do mesmo deslocamento.
+  const agoraHHMM = (() => {
+    const s = new Date(agora.getTime() - BR_OFFSET_MS);
+    return `${String(s.getUTCHours()).padStart(2, '0')}:${String(s.getUTCMinutes()).padStart(2, '0')}`;
+  })();
+
+  let confirmadas = 0, puladas = { antesDeAgosto: 0, semExpediente: 0, mesFechado: 0, aindaNaoTerminou: 0 };
+  const batchWrites = [];
+
+  snap.docs.forEach(d => {
+    const c = d.data();
+    const dia = c.scheduledDate && c.scheduledDate.toDate ? brYMD(c.scheduledDate.toDate()) : null;
+    if (!dia) return;
+
+    if (dia < AUTO_CONFIRM_DESDE) { puladas.antesDeAgosto++; return; }
+    if (fechados.has(dia)) { puladas.semExpediente++; return; }
+    if (c.monthClosingId) { puladas.mesFechado++; return; }
+    // Aula de hoje só conta depois do horário de término
+    if (dia === hojeYMD && c.endTime && c.endTime > agoraHHMM) { puladas.aindaNaoTerminou++; return; }
+
+    batchWrites.push({ ref: d.ref, id: d.id });
+    confirmadas++;
+  });
+
+  if (!dryRun) {
+    for (let i = 0; i < batchWrites.length; i += 400) {
+      const batch = firestore.batch();
+      batchWrites.slice(i, i + 400).forEach(w => batch.update(w.ref, {
+        status: 'realizada',
+        registroAutomatico: true,   // distingue de "conferido por gente" no relatório
+        confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }));
+      await batch.commit();
+    }
+  }
+
+  logger.info('[autoConfirmarAulas]', { confirmadas, puladas, dryRun });
+  return { confirmadas, puladas, dryRun };
+}
+
+/** Roda todo dia às 03:00 BR — depois do fim de qualquer aula do dia anterior. */
+exports.autoConfirmarAulas = onSchedule({
+  schedule: '0 3 * * *',
+  timeZone: 'America/Sao_Paulo',
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 540,
+}, async () => {
+  try { await autoConfirmarAulasCore({}); }
+  catch (err) { logger.error('[autoConfirmarAulas] FALHA', err); throw err; }
+});
+
+/** Disparo manual pela gestão (também serve pra recuperar dias perdidos). */
+exports.autoConfirmarAulasManual = onCall({
+  memory: '256MiB', timeoutSeconds: 540,
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const userDoc = await db().collection('users').doc(request.auth.uid).get();
+  if (!userDoc.exists) throw new HttpsError('permission-denied', 'Usuário sem perfil.');
+  const u = userDoc.data();
+  const profiles = u.profiles || (u.role ? [u.role] : []);
+  if (!profiles.includes('admin') && !profiles.includes('supervisao')) {
+    throw new HttpsError('permission-denied', 'Apenas gestão pode confirmar aulas em lote.');
+  }
+  try {
+    return await autoConfirmarAulasCore({ dryRun: (request.data || {}).dryRun === true });
+  } catch (err) {
+    logger.error('[autoConfirmarAulasManual] FALHA', err);
+    throw new HttpsError('internal', err.message || 'Falha ao confirmar aulas.');
+  }
+});
+
 exports.sendEventReminders = onSchedule({
   schedule: '0 9 * * *',
   timeZone: 'America/Sao_Paulo',
@@ -1373,12 +1506,29 @@ function classCountsForPayCF(c) {
   return true;
 }
 
+/**
+ * Minutos que a aula realmente vale, depois das ocorrências.
+ * Gêmeo de classEffectiveMinutes em professores-shared.js — manter iguais.
+ *
+ *   duração − atraso − saída antecipada + hora extra
+ *
+ * Falta zera: se não deu a aula, não recebe por ela (decisão do Rodrigo, 07/08).
+ * Nunca devolve negativo.
+ */
+function classEffectiveMinutesCF(c) {
+  if (!c) return 0;
+  if (c.faltaTipo) return 0;
+  const base = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
+  const n = v => (typeof v === 'number' && v > 0) ? v : 0;
+  return Math.max(0, base - n(c.atrasoMinutos) - n(c.saidaAntecipadaMinutos) + n(c.horaExtraMinutos));
+}
+
 function calculateTeacherHoursCF(classes, scaleTypesMap = null) {
   if (!Array.isArray(classes) || classes.length === 0) return 0;
   let totalMinutes = 0;
   for (const c of classes) {
     if (!classCountsForPayCF(c)) continue;
-    const mins = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
+    const mins = classEffectiveMinutesCF(c);
     let weight = 1;
     // Peso variável por tipo de escala (Sprint 5a)
     if (c.specialScaleType && scaleTypesMap && scaleTypesMap.has(c.specialScaleType)) {
