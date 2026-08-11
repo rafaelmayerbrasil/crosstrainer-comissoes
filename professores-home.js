@@ -106,7 +106,9 @@ async function _renderHomeProfessor() {
 
   let aulas = [];
   try {
-    const res = await ClassService.listByTeacher(pid, { from: start, to: end });
+    // "Suas aulas de hoje" = as que você vai dar. O que você passou pra outro
+    // aparece na Minha Agenda com etiqueta, não aqui como se fosse sua.
+    const res = await ClassService.listByTeacher(pid, { from: start, to: end, semSubstituidas: true });
     aulas = (res && res.success ? res.data : []).filter(c => ['prevista', 'realizada', 'substituida'].includes(c.status));
   } catch (e) { console.warn('[home aulas]', e && e.message); }
 

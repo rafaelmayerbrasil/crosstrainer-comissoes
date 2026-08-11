@@ -906,6 +906,30 @@ function classAccentColor(cls) {
   return (ProfHelpers.CLASS_STATUS_COLOR[cls.status] || ProfHelpers.CLASS_STATUS_COLOR.prevista).border;
 }
 
+/**
+ * Etiqueta de substituição no cartão (bloco 3).
+ *
+ * A aula substituída continua na agenda dos DOIS: quem passou precisa saber que
+ * deu certo e pra quem; quem pegou precisa saber de quem está cobrindo. Antes a
+ * aula simplesmente sumia da lista do titular.
+ */
+function renderSubstitutionTag(cls) {
+  const papel = ProfHelpers.classSubstitutionRole(cls, getCurrentProfessorId());
+  if (!papel) return '';
+
+  const outro = AgendaState.teachersMap.get(papel.outroId);
+  const nome = outro ? (outro.name || 'outro professor') : 'outro professor';
+  const quando = cls.adjustedAt && cls.adjustedAt.toDate
+    ? ' · aceito em ' + cls.adjustedAt.toDate().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    : '';
+
+  const texto = papel.role === 'cobrindo'
+    ? `⇄ Cobrindo ${nome}`
+    : `⇄ Substituída por ${nome}${quando}`;
+
+  return `<div class="class-card-sub-tag">${escapeHtml(texto)}</div>`;
+}
+
 function renderClassCard(cls) {
   const unit = AgendaState.units.find(u => u.id === cls.unitId);
   const modName = classDisplayName(cls) || '⚠ modalidade não encontrada';
@@ -922,6 +946,7 @@ function renderClassCard(cls) {
       <div class="class-card-info">
         <div class="class-card-modality">${escapeHtml(modName)}</div>
         <div class="class-card-unit">${escapeHtml(unitName)}</div>
+        ${renderSubstitutionTag(cls)}
       </div>
       <div class="class-card-status">
         <span class="class-status-badge" style="background:${sColor.bg};color:${sColor.text};border:1px solid ${sColor.border};">
@@ -974,6 +999,19 @@ async function openClassModal(classId) {
         <div class="info-field-label">Professor</div>
         <div class="info-field-value">${escapeHtml(teacher ? teacher.name : '—')}</div>
       </div>
+      ${(() => {
+        // Bloco 3: quem passou a aula precisa ver que deu certo, e pra quem.
+        const orig = cls.originalTeacherId && cls.originalTeacherId !== cls.teacherId
+          ? AgendaState.teachersMap.get(cls.originalTeacherId) : null;
+        if (!orig) return '';
+        const quando = cls.adjustedAt && cls.adjustedAt.toDate
+          ? ' · aceito em ' + cls.adjustedAt.toDate().toLocaleDateString('pt-BR') : '';
+        return `
+      <div>
+        <div class="info-field-label">Substituição</div>
+        <div class="info-field-value">⇄ No lugar de ${escapeHtml(orig.name || '—')}${escapeHtml(quando)}</div>
+      </div>`;
+      })()}
       <div>
         <div class="info-field-label">Status atual</div>
         <div class="info-field-value">

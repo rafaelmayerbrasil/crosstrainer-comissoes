@@ -43,6 +43,15 @@
       ]
     },
     {
+      "_comment": "bloco 3: a agenda do titular busca tambem as aulas que ele passou pra outro (originalTeacherId) — senao elas somem no instante em que a substituicao e aceita",
+      "collectionGroup": "classes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "originalTeacherId", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate",     "order": "ASCENDING" }
+      ]
+    },
+    {
       "_comment": "extrato do banco de horas: movimentos de um estagiário, do mais novo pro mais velho",
       "collectionGroup": "intern_hour_movements",
       "queryScope": "COLLECTION",

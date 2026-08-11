@@ -12,10 +12,10 @@
   // admin_gestao dropado + 'professores' absorvido pelo hub 'pessoas' (D2/D11 — 11/06/2026)
   const PROF_PAGES = {
     // 'escalas' (tela legada Escalas Especiais) fora do menu em 01/07/2026 — Escala Inteligente (4 abas) assume; rota preservada p/ rollback
-    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'fechamento', 'pagamentos', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar', 'plr-config', 'plr-avaliacao', 'plr-resultado'],
-    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar', 'plr-avaliacao', 'plr-resultado'],
-    professor:            ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
-    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'substituicoes', 'fechamento', 'pagamentos', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar', 'plr-config', 'plr-avaliacao', 'plr-resultado'],
+    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'substituicoes', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar', 'plr-avaliacao', 'plr-resultado'],
+    professor:            ['home', 'agenda-geral', 'minha-agenda', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
   };
 
   // section agora reflete o agrupamento por DOMÍNIO (decisão D3 do design).
@@ -35,6 +35,7 @@
     { id: 'meus-pagamentos',label: 'Meus Pagamentos',   icon: '💳', section: 'Financeiro' },
     { id: 'relatorios',     label: 'Relatórios',        icon: '📈', section: 'Financeiro' },
     { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Agenda' },
+    { id: 'substituicoes',  label: 'Substituições',     icon: '⇄', section: 'Agenda' },
     { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Engajamento' },
     { id: 'engaj-chamada',  label: 'Confirmar Presença', icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },

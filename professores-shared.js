@@ -1310,14 +1310,25 @@ const ClassService = {
         ? (opts.to.toDate ? opts.to : firebase.firestore.Timestamp.fromDate(opts.to))
         : null;
 
-      let q = db.collection('classes').where('teacherId', '==', teacherId);
-      if (fromTs) q = q.where('scheduledDate', '>=', fromTs);
-      if (toTs)   q = q.where('scheduledDate', '<=', toTs);
-      q = q.orderBy('scheduledDate', 'asc');
+      const consultar = async (campo) => {
+        let q = db.collection('classes').where(campo, '==', teacherId);
+        if (fromTs) q = q.where('scheduledDate', '>=', fromTs);
+        if (toTs)   q = q.where('scheduledDate', '<=', toTs);
+        q = q.orderBy('scheduledDate', 'asc');
+        const snap = await q.get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      };
 
-      const snap = await q.get();
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      return { success: true, data };
+      const minhas = await consultar('teacherId');
+
+      // Bloco 3: as aulas que EU passei pra outro continuam sendo minhas de
+      // origem. Sem esta segunda consulta elas somem da agenda do titular no
+      // instante em que a substituição é aceita — a CF troca o teacherId.
+      if (opts.semSubstituidas === true) {
+        return { success: true, data: minhas };
+      }
+      const passadasAdiante = await consultar('originalTeacherId');
+      return { success: true, data: mergeClassesById(minhas, passadasAdiante) };
     } catch (err) {
       console.error('[ClassService.listByTeacher]', err);
       return { success: false, error: err.message, code: err.code };
@@ -1713,6 +1724,23 @@ const NotificationService = {
 
 // ─── SubstitutionService ────────────────────────────────────────────────
 
+/**
+ * Ordena substituições: pendentes primeiro (são as que precisam de ação), o
+ * resto por data da aula, mais recente antes.
+ */
+function sortSubstitutions(subs) {
+  const ms = (v) => {
+    if (!v) return 0;
+    return v.toDate ? v.toDate().getTime() : new Date(v).getTime();
+  };
+  return (subs || []).slice().sort((a, b) => {
+    const pa = a.status === 'pending' ? 0 : 1;
+    const pb = b.status === 'pending' ? 0 : 1;
+    if (pa !== pb) return pa - pb;
+    return (ms(b.classDate) || ms(b.requestedAt)) - (ms(a.classDate) || ms(a.requestedAt));
+  });
+}
+
 const SubstitutionService = {
   /**
    * Cria pedido de substituição direta.
@@ -1899,6 +1927,42 @@ const SubstitutionService = {
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
     } catch (err) {
       console.error('[SubstitutionService.listPendingForSubstitute]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * Histórico de substituições de um professor (bloco 3) — as que ele PEDIU e as
+   * que ele COBRIU, em qualquer status.
+   *
+   * Busca por teacherId (e não userId) de propósito: `substituteUserId` pode ser
+   * null quando o professor ainda não tem login vinculado, e aí o histórico dele
+   * sumiria. [[fix-substituicao-orfa]]
+   */
+  async listHistoryForTeacher(teacherId) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
+    try {
+      const [pediSnap, cobriSnap] = await Promise.all([
+        db.collection('substitutions').where('requestingTeacherId', '==', teacherId).get(),
+        db.collection('substitutions').where('substituteTeacherId', '==', teacherId).get(),
+      ]);
+      const pedi = pediSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const cobri = cobriSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      return { success: true, data: { pedi: sortSubstitutions(pedi), cobri: sortSubstitutions(cobri) } };
+    } catch (err) {
+      console.error('[SubstitutionService.listHistoryForTeacher]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Todas as substituições da academia — visão de gestão (bloco 3). */
+  async listAll({ limit = 500 } = {}) {
+    try {
+      const snap = await db.collection('substitutions')
+        .orderBy('requestedAt', 'desc').limit(limit).get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[SubstitutionService.listAll]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
@@ -2109,6 +2173,43 @@ function buildSubstitutionNotifBody(cls, prefix = '') {
  * 07/08/2026) E o tipo da escala, pra pegar também as aulas publicadas ANTES da
  * marca existir, sem precisar migrar dado.
  */
+/**
+ * Como esta aula se relaciona com quem está olhando (bloco 3, 11/08/2026).
+ *
+ * Ao aceitar uma substituição, a CF troca `classes.teacherId` pelo substituto.
+ * Como a agenda busca "aulas onde eu sou o professor", a aula SUMIA da lista do
+ * titular — é o "sumiu, não sei se deu certo" que os professores reclamam.
+ * `originalTeacherId` é preservado, então dá pra resolver na exibição.
+ *
+ * @returns null (nada a dizer) · { role: 'cobrindo'|'substituida', outroId }
+ */
+function classSubstitutionRole(cls, professorId) {
+  if (!cls || !professorId) return null;
+  const orig = cls.originalTeacherId || null;
+  const atual = cls.teacherId || null;
+  // Sem os dois lados não dá pra afirmar nada — aula legada não pode virar etiqueta errada
+  if (!orig || !atual || orig === atual) return null;
+  if (atual === professorId) return { role: 'cobrindo', outroId: orig };
+  if (orig === professorId) return { role: 'substituida', outroId: atual };
+  return null;
+}
+
+/**
+ * Junta as listas das duas consultas da agenda (sou o professor · sou o titular
+ * original) numa só: sem repetir e em ordem de data.
+ */
+function mergeClassesById(...listas) {
+  const porId = new Map();
+  listas.forEach(l => (l || []).forEach(c => { if (c && c.id) porId.set(c.id, c); }));
+  const ms = c => {
+    const d = c.scheduledDate;
+    if (!d) return 0;
+    return d.toDate ? d.toDate().getTime() : new Date(d).getTime();
+  };
+  return Array.from(porId.values()).sort((a, b) =>
+    ms(a) - ms(b) || String(a.startTime || '').localeCompare(String(b.startTime || '')));
+}
+
 function classCountsForPay(c) {
   if (!c) return false;
   if (c.remunerada === false) return false;
@@ -4635,6 +4736,8 @@ window.ProfHelpers     = {
   NOTIF_TYPE_META, SUBSTITUTION_STATUS_LABEL, COVERAGE_STATUS_LABEL,
   // Sprint 4a — helpers de fechamento
   calculateTeacherHours, classCountsForPay, classEffectiveMinutes, calculateTeacherValue, getEffectiveSalaryAt,
+  // Bloco 3 (11/08) — a aula substituída continua visível pros dois lados
+  classSubstitutionRole, mergeClassesById,
   // Sprint 6b — VacationPaymentService
   VacationPaymentService, getEffectiveStipendAt,
   // Sprint 4b — serviços de pagamento/recibo/crédito

@@ -509,6 +509,8 @@ function navigateTo(pageId) {
     renderMinhaAgendaPage();
   } else if (pageId === 'agenda-geral' && typeof renderAgendaGeralPage === 'function') {
     renderAgendaGeralPage();
+  } else if (pageId === 'substituicoes' && typeof renderSubstituicoesPage === 'function') {
+    renderSubstituicoesPage();
   } else if (pageId === 'fechamento' && typeof renderFechamentoPage === 'function') {
     renderFechamentoPage();
   } else if (pageId === 'pagamentos' && typeof renderPagamentosPage === 'function') {

@@ -107,11 +107,15 @@ service cloud.firestore {
     match /classes/{id} {
       allow read:   if isAuth() && hasProfModule();
       allow create: if isAuth() && (isAdmin() || isSuperv());
-      // Professor só pode atualizar a aula que é DELE e que não foi fechada
+      // Professor só pode atualizar a aula que é DELE e que não foi fechada.
+      // "Dele" = titular original OU quem está cobrindo (bloco 3): a spec diz que
+      // os DOIS lados podem registrar. Antes só o titular podia, então quem pegou
+      // a substituição não conseguia nem avisar que a aula não aconteceu.
       allow update: if isAuth() && (
                       isAdmin() || isSuperv() ||
                       (isProf() &&
-                       resource.data.originalTeacherId == uData().professorId &&
+                       (resource.data.originalTeacherId == uData().professorId ||
+                        resource.data.teacherId == uData().professorId) &&
                        resource.data.monthClosingId == null)
                     );
       // Despublicar escala: gestão apaga SÓ aulas geradas pela escala e não fechadas
