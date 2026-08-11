@@ -3,6 +3,34 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 46 (11/08/2026) — ✅ BLOCO 2 COMPLETO E VALIDADO NO STAGING (não publicado em produção)
+
+**Spec do sprint: `docs/superpowers/specs/2026-08-07-controle-horas-e-substituicao-design.md`** (fonte da verdade — a conversa que gerou está no WhatsApp). Bloco 1 (Escola Interna fora da folha + uma unidade por dia + semana inteira) foi `3c4cccf`. Bloco 2 = registro automático + ocorrências + banco de horas. Bloco 3 (histórico de substituição) **ainda não começou**.
+
+### ✅ Bloco 2 fechado (commits `e84b41d` · `64b3385` · `e459558` · `8472ce6`)
+- **Registro automático:** `autoConfirmarAulas` (cron 03:00 BR) + `autoConfirmarAulasManual` (gestão). Confirma só o que **já terminou** (compara inclusive a hora do dia), de **01/08 em diante** (julho fica fora da folha), pulando dia sem expediente e mês fechado. Marca `registroAutomatico` — editar na tela zera a marca.
+- **Ocorrências:** falta (avisada/sem aviso), atraso, saída antecipada e hora extra no cartão da aula, com prévia do quanto a aula vai valer. Nasceu o **minuto efetivo** (`duração − atraso − saída + extra`, falta zera), que alimenta o fechamento com o peso de feriado por cima.
+- **Banco de horas do estagiário plugado no fechamento:** trabalhou a mais → as extras primeiro **quitam** o saldo, só o que sobra vira dinheiro; a menos → **bolsa cheia** e a diferença vira saldo negativo. Bolsa nunca encolhe. `intern_hour_balances` (saldo) + `intern_hour_movements` (o mês, com o `saldoAnterior` gravado pra reabertura conseguir voltar atrás). **Escrita só pela CF** (rules `write:false` — nem admin edita saldo pelo app).
+  - **Cuidado que quase virou bug de dinheiro:** o fechamento é **por unidade**. Quem dá aula na CP e na PP tem o mês fechado 2×, e cada um sozinho compararia meia grade com o contrato inteiro. `revisarMes` refaz o mês inteiro a partir do saldo anterior e paga só a diferença — validado E2E.
+  - **Sem contrato cadastrado** não chuta: paga só a bolsa e marca `semContrato` (aviso na tela e no recibo).
+- **A conta aberta** (sem isso ninguém confia no número): linha no fechamento, seção no recibo oficial e no recibo em lote, e **o estagiário vê o próprio saldo + extrato** em "Meus Pagamentos".
+- **Relatórios novos:** **R5 Ocorrências** (faltas/atrasos/saídas/extras + **automáticas × conferidas**, detalhamento só das aulas com ocorrência) e **R6 Banco de Horas** (quem está devendo, do pior pro melhor).
+- **Pontos:** penalidade de falta em aula configurável (sem aviso −25, avisada −5, atraso −3).
+
+### 🧪 Validação (staging: rules + índices + 3 functions + hosting no ar)
+- Smokes: banco de horas 24 casos · ocorrências/horas 14 · pontos 9 · relatório de ocorrências 7 · **suíte completa verde**.
+- **Rules por REST 11/11** (`scripts/validate-banco-horas-rules.js`): estagiário lê só o próprio saldo; ninguém escreve pelo app.
+- **Fechamento E2E 19/19** (`scripts/validate-fechamento-banco-horas.js`): roda a CF real, cobre o caso das 2 unidades e limpa a fixture.
+- **Registro automático rodado de verdade:** 13 confirmadas · 77 puladas (julho) · 1 pulada por não ter terminado ainda.
+- **🐛 Achado ao rodar a CF:** faltava o índice composto `classes(status, scheduledDate)` — sem ele o cron falharia **toda noite em silêncio** (mesma classe do TDZ que parou a geração de aulas por 6 dias). Corrigido e deployado.
+
+### ▶️ PRÓXIMO
+1. **Bloco 3 — histórico de substituição:** a aula continua aparecendo pros dois lados com etiqueta (`originalTeacherId` já é preservado), tela "Minhas substituições" (pedi/cobri) e visão de gestão. É o que está incomodando os professores.
+2. **Publicar o bloco 2 em produção** quando o usuário mandar: `git push origin main` (**site dos usuários = GitHub Pages**, [[publicar-para-usuario-github-pages]]) + `firebase deploy --project production` de **rules, índices e functions** (`closeMonth`, `autoConfirmarAulas`, `autoConfirmarAulasManual`). ⚠️ O índice novo precisa ir junto, senão o cron nasce quebrado.
+3. **Pendências do cliente (spec §Pendências):** Rodrigo revisar os contratos de horas dos estagiários (Thaynara acumula dívida impagável), 4 logins sem cadastro vinculado, modalidade "TOIZAO SÁB" sem aula.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 43 (17/07/2026) — ✅ MÓDULO NO AR EM PRODUÇÃO + planilha de carga + manuais atualizados
 
 ### ✅ Homologação APROVADA + 🚀 DEPLOY DE PRODUÇÃO FEITO (17/07) — passos A–D concluídos
