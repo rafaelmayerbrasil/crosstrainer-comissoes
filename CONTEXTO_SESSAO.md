@@ -45,6 +45,15 @@ Rodrigo pediu pra **abrir a Escala Inteligente para os próximos 2 meses**. O re
 
 **Aviso operacional pro Rodrigo:** sábados e feriados são **lotes separados** (o tipo vem da aba ativa) e **o prazo é um só pro lote inteiro**.
 
+### 🧹 Excluir evento + cancelar pedido de férias (commit `3239e5a`, em produção)
+Fecha os dois travamentos operacionais do dia. **Excluir evento:** regra de `delete` em `special_scales` liberada **só para `tipo=='evento'`** — sábado/feriado/fim de ano/escola interna seguem barrados de propósito (a consolidação já mexeu no contador de justiça; apagar corromperia a rotação). `ScaleService.deleteEvent` apaga os `event_rsvp` **antes** do evento, senão sobram linhas órfãs que ninguém mais acha. O aviso de confirmação diz quantos convidados perdem o convite e quantos já confirmaram. **Cancelar pedido de férias:** "Cancelar" agora também aparece em **pendente**, pedindo motivo (padrão "Pedido duplicado") — cancelar ≠ recusar, que dava a entender que a gestão negou o descanso.
+
+**Terceira ocorrência do bug de permissão**, achada de passagem: `VacationService.cancel` repetia a varredura de `/users` quando era o **próprio professor** cancelando. Migrada pra CF `onVacationCancelled`. **Não sobrou nenhuma varredura de `/users` no cliente** — vale como regra pro futuro.
+
+**Testes:** `smoke-excluir-evento.js` (4 casos, inclui sábado recusado e RSVP órfão) + `validate-excluir-evento-rules.js` **6/6** no staging via REST (professor barrado · gestão apaga evento · sábado protegido até pra gestão). Suíte completa verde.
+
+**⚠️ Não há service account de PRODUÇÃO local** (só `scripts/serviceAccount-staging.json`) — limpeza de dado de produção por script é impossível; por isso a saída foi liberar na tela. Quem limpa é o Rodrigo.
+
 ### ▶️ RETOMAR AQUI
 1. Homologar no staging com o cliente → depois produção (é `git push origin main`, GitHub Pages).
 2. Continua na fila: **vazamento de salário no fechamento** (prioridade #1), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes.
