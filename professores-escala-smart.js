@@ -990,6 +990,20 @@ function abrirJanelaEscala(id) {
   openAbrirJanelaModal({ scaleId: id, date: scale.date });
 }
 
+/**
+ * Férias/recessos APROVADOS — alimentam a exclusão de candidatos na consolidação.
+ * Falha silenciosa devolve [] de propósito: sem a lista, o motor volta a se comportar
+ * como antes (escala mesmo quem está de férias) em vez de travar a consolidação.
+ * A gestão ainda vê o resultado na Revisão antes de confirmar.
+ */
+async function escalaCarregarFerias() {
+  if (typeof VacationService !== 'object' || typeof VacationService.listAll !== 'function') return [];
+  try {
+    const res = await VacationService.listAll({ status: 'aprovada' });
+    return (res && res.success) ? res.data : [];
+  } catch (e) { console.warn('[escalaCarregarFerias]', e); return []; }
+}
+
 async function consolidarEscala(id) {
   toast('Consolidando…', 'info');
   // monta ctx: professores ativos + mérito (placar do ciclo atual) + opts
@@ -1007,6 +1021,7 @@ async function consolidarEscala(id) {
   const ctx = {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 },
+    vacations: await escalaCarregarFerias(),
   };
   const scale = EscalaSmartState.scales.find(s => s.id === id) || {};
   const res = scale.tipo === 'fim_de_ano'
@@ -1029,10 +1044,20 @@ async function abrirRevisaoLote(batchId) {
   }
   const people = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false).map(t => ({ id: t.id, name: t.name }));
   const matrix = ScaleService.buildConsolidationMatrix(scales, prefsByScale, people);
-  renderRevisaoFechamento(batchId, scales, matrix);
+  // Quem está de férias em alguma data do lote — a gestão precisa ver ANTES de
+  // confirmar por que aquela pessoa não vai aparecer em nenhuma vaga.
+  const vacs = await escalaCarregarFerias();
+  const feriasPorPessoa = new Map();
+  scales.forEach(s => {
+    ScaleService.personsOnVacation(vacs, s.date).forEach(pid => {
+      if (!feriasPorPessoa.has(pid)) feriasPorPessoa.set(pid, []);
+      feriasPorPessoa.get(pid).push(escalaFmtBR(s.date));
+    });
+  });
+  renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa);
 }
 
-function renderRevisaoFechamento(batchId, scales, matrix) {
+function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
   const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
   if (!overlay || !modal) return;
   overlay.style.display = 'flex'; modal.style.display = 'block';
@@ -1044,12 +1069,17 @@ function renderRevisaoFechamento(batchId, scales, matrix) {
   </tr>`).join('');
   const semCand = matrix.semCandidatura.length
     ? `<p style="font-size:12px;color:#caa23a;margin:8px 0;">Não se candidataram a nada: ${matrix.semCandidatura.map(p => p.name).join(', ')}</p>` : '';
+  const ferias = (feriasPorPessoa && feriasPorPessoa.size)
+    ? `<p style="font-size:12px;color:var(--blue);margin:8px 0;">🏖️ De férias e por isso fora da escala: ${
+        Array.from(feriasPorPessoa.entries()).map(([pid, datas]) => `${escalaPersonName(pid)} (${datas.join(', ')})`).join(' · ')
+      }</p>` : '';
   modal.innerHTML = `
     <h2>Revisão de fechamento</h2>
     <p style="font-size:12px;color:var(--text2);">★ prefiro · ✓ pode ser · ✕ não posso · célula destacada = escalado. Vagas abertas: ${matrix.vagasAbertas}.</p>
     <div style="overflow:auto;max-height:50vh;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
     ${semCand}
-    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito e avisa todos no sistema.</p>
+    ${ferias}
+    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito e avisa todos no sistema. Quem está de férias aprovadas na data <b>não é escalado</b>.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>
       <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Confirmar escala e avisar todos</button>
@@ -1075,6 +1105,7 @@ async function confirmarEAvisar(batchId) {
   const ctx = {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 },
+    vacations: await escalaCarregarFerias(),
   };
   for (const s of byBatch.data) {
     await ScaleService.closeElection(s.id);

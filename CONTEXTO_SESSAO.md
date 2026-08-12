@@ -31,6 +31,20 @@ Rodrigo criou o "Treinamento Ginástico com o Bruninho" (15/08), convidou 19 e 1
 - `escalaCardDoc`: eventos não mostram mais o status do fluxo (sábado/feriado seguem mostrando — lá significa algo).
 - `renderEventoDetail`: faixa verde **"Evento no ar — N convidados, recebem lembrete 7/4/1 dia antes, nada mais a confirmar aqui"** quando já há staff; sem staff, instrui a convidar e avisa que **evento não precisa ser publicado**.
 
+### 🏖️ Férias passam a bloquear a escala (pedido do Rodrigo: abrir 2 meses de uma vez)
+Rodrigo pediu pra **abrir a Escala Inteligente para os próximos 2 meses**. O recurso já existe (seleção múltipla → "📨 Abrir janela nas selecionadas" → um prazo pro lote → "🧮 Revisar fechamento" → "✅ Confirmar escala e avisar todos" consolida o lote inteiro). Mas a auditoria do código achou uma lacuna que **só dói em janela longa**: `ScaleEngine.consolidate` excluía apenas quem marcasse `nao_posso` — **quem estava de férias aprovadas e não respondia continuava elegível e podia ser escalado**. Com 15 dias de janela é azar; com 2 meses é rotina.
+
+**Decisão do Rafael (12/08): não escalar, sem perguntar.** Implementado:
+- `ScaleService.personsOnVacation(vacationDocs, dateISO)` — **puro**, exportado. Só `status==='aprovada'`, limites inclusivos, multi-período, aceita Timestamp/Date/string (compara como `YYYY-MM-DD` pra não escorregar de fuso — mesma semântica da CF que pula aula em férias).
+- `consolidate()` remove essas pessoas do pool **antes** do cálculo (não é candidato preterido, é candidato inexistente). `consolidateByDay()` (fim de ano) filtra **por dia**.
+- UI: `escalaCarregarFerias()` alimenta `ctx.vacations` nos dois caminhos (`consolidarEscala` e `confirmarEAvisar`). **Falha silenciosa devolve `[]` de propósito** — sem a lista o motor volta ao comportamento antigo em vez de travar a consolidação.
+- Revisão de fechamento ganhou a linha **"🏖️ De férias e por isso fora da escala: Fulano (05/09)…"** + o rodapé explicando a regra.
+- Se todos estiverem de férias, a vaga **fica aberta** (`reason: 'sem_elegivel'`) — nunca escala de férias na marra.
+
+**Teste:** `scripts/smoke-escala-ferias.js` (novo). Cada cenário de consolidação roda em **banco novo** — consolidar move o contador de justiça, e reaproveitar o banco fazia a justiça (não as férias) decidir a vaga seguinte: o teste passava pelo motivo errado. Suíte completa verde (só `smoke-9.js` "falha", mas ele exige `--project` e não é teste puro). Sem índice novo (`status+requestedAt` já existia).
+
+**Aviso operacional pro Rodrigo:** sábados e feriados são **lotes separados** (o tipo vem da aba ativa) e **o prazo é um só pro lote inteiro**.
+
 ### ▶️ RETOMAR AQUI
 1. Homologar no staging com o cliente → depois produção (é `git push origin main`, GitHub Pages).
 2. Continua na fila: **vazamento de salário no fechamento** (prioridade #1), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes.

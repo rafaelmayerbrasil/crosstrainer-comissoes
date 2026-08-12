@@ -440,6 +440,39 @@
     return (scale.slots || []).some(s => s.assignedPersonId === personId);
   }
 
+  /**
+   * PURO: quem está de férias/recesso APROVADO na data.
+   *
+   * O motor só excluía quem marcasse "Não posso" — quem estava de férias e não
+   * respondia continuava elegível e podia ser escalado. Passa despercebido numa
+   * janela de 15 dias; com 2 meses abertos de uma vez (pedido do Rodrigo em
+   * 12/08) vira certeza. Decisão do Rafael: não escalar, sem perguntar.
+   *
+   * Aceita Timestamp do Firestore, Date ou string — compara como 'YYYY-MM-DD'
+   * pra não escorregar em fuso (mesma semântica da CF que pula aula em férias).
+   * @returns {Set<string>} teacherIds
+   */
+  function personsOnVacation(vacationDocs, dateISO) {
+    const out = new Set();
+    if (!dateISO) return out;
+    const ymd = (v) => {
+      if (!v) return null;
+      if (typeof v === 'string') return v.slice(0, 10);
+      const d = (typeof v.toDate === 'function') ? v.toDate() : v;
+      if (!(d instanceof Date) || isNaN(d)) return null;
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    (vacationDocs || []).forEach(v => {
+      if (!v || v.status !== 'aprovada' || !v.teacherId || !Array.isArray(v.periods)) return;
+      const cobre = v.periods.some(p => {
+        const ini = ymd(p && p.startDate), fim = ymd(p && p.endDate);
+        return ini && fim && ini <= dateISO && dateISO <= fim;
+      });
+      if (cobre) out.add(v.teacherId);
+    });
+    return out;
+  }
+
   function buildCandidates(ctx) {
     const merito = ctx.meritoById || {};
     const fair = ctx.fairnessById || {};
@@ -466,7 +499,10 @@
       const prefsRes = await listPreferences(scaleId, deps);
       const prefById = {};
       (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
-      const teachers = ctx.teachers || [];
+      // Quem está de férias aprovadas nesta data sai do páreo antes de qualquer
+      // cálculo — não é candidato preterido, é candidato inexistente.
+      const deFerias = personsOnVacation(ctx.vacations, scale.date);
+      const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
       const fairnessById = {};
       for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
       const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById });
@@ -548,10 +584,13 @@
       days.forEach(day => {
         const daySlots = slots.filter(s => s.day === day);
         const shifts = [...new Set(daySlots.map(s => s.shift || '_'))];
+        // Férias valem por DIA aqui: o período de fim de ano cruza recesso de gente.
+        const deFeriasNoDia = personsOnVacation(ctx.vacations, day);
         shifts.forEach(shift => {
           const shiftSlots = daySlots.filter(s => (s.shift || '_') === shift);
           const prefById = {};
           const eligible = teachers.filter(t => {
+            if (deFeriasNoDia.has(t.id)) return false;      // de férias aprovadas nesse dia
             const a = (avail[t.id] || {})[day];
             if (!a) { return true; }                       // sem pref = disponível (retrocompat)
             if (a.pref === 'nao_posso') return false;       // dia bloqueado
@@ -658,5 +697,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
