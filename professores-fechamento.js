@@ -72,7 +72,7 @@ function renderFechamentoUI() {
 
   page.innerHTML = `
     <div class="page-hdr">
-      <h1>💰 Fechamento Mensal</h1>
+      <h1>💰 Fechamento Mensal${ajudaBtn("fechamento")}</h1>
       <p>Consolidar aulas do mês, calcular valores e congelar período.</p>
     </div>
 

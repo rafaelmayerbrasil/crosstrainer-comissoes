@@ -25,7 +25,7 @@ async function renderEngajConfigPage() {
 
   container.innerHTML = `
     <div class="page-hdr">
-      <h1>⚙️ Config. Pontos</h1>
+      <h1>⚙️ Config. Pontos${ajudaBtn("engaj-config")}</h1>
       <p>Defina os valores de pontuação, penalidades e os ciclos do motor de Engajamento.</p>
     </div>
     <div class="loading"><div class="spinner"></div> Carregando configuração…</div>`;
@@ -36,7 +36,7 @@ async function renderEngajConfigPage() {
   ]);
 
   if (!cfgRes.success) {
-    container.innerHTML = `<div class="page-hdr"><h1>⚙️ Config. Pontos</h1></div>
+    container.innerHTML = `<div class="page-hdr"><h1>⚙️ Config. Pontos${ajudaBtn("engaj-config")}</h1></div>
       <p style="padding:24px;color:var(--red);">Erro ao carregar: ${cfgRes.error || 'falha'}</p>
       <button class="btn-secondary" onclick="renderEngajConfigPage()">Tentar novamente</button>`;
     return;
@@ -60,7 +60,7 @@ async function renderEngajConfigPage() {
 
   container.innerHTML = `
     <div class="page-hdr">
-      <h1>⚙️ Config. Pontos</h1>
+      <h1>⚙️ Config. Pontos${ajudaBtn("engaj-config")}</h1>
       <p>Tudo aqui é calibrável pela gestão. Os valores valem para o placar e, depois, para o PLR.</p>
     </div>
 
@@ -162,7 +162,9 @@ async function removeEngajCycle(id) {
 }
 
 /* ─── Chamada (admin/supervisão) ───────────────────────────────────── */
-const EngajChamadaState = { kind: 'escola_interna', date: '', unitId: '', teachers: [], modMap: new Map(), units: [], cfg: null, marks: {} };
+const EngajChamadaState = { kind: 'escola_interna', date: '', unitId: '', teachers: [], modMap: new Map(), units: [], cfg: null, marks: {},
+  // Vínculo com a Escala: qual evento desta data alimenta a pré-marcação do "Vou".
+  scales: [], scaleId: '', planNote: '' };
 
 const CHAMADA_KINDS = [
   { id: 'escola_interna',          label: 'Escola interna' },
@@ -198,22 +200,31 @@ async function renderEngajChamadaPage() {
   if (!EngajChamadaState.date) EngajChamadaState.date = chamadaTodayISO();
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div class="page-hdr"><h1>✅ Confirmar Presença${ajudaBtn("engaj-chamada")}</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
     <div class="loading"><div class="spinner"></div> Carregando colaboradores…</div>`;
 
-  const [tRes, mRes, cRes, uRes] = await Promise.all([
+  const [tRes, mRes, cRes, uRes, sRes] = await Promise.all([
     TeacherService.list(),
     ModalityService.list(),
     EngagementService.getConfig(),
     (typeof UnitService === 'object' ? UnitService.list() : Promise.resolve({ success: true, data: [] })),
+    (typeof ScaleService === 'object' ? ScaleService.listScales() : Promise.resolve({ success: true, data: [] })),
   ]);
 
   EngajChamadaState.teachers = (tRes.success ? tRes.data : []).filter(t => t.isActive !== false);
   EngajChamadaState.modMap = new Map((mRes.success ? mRes.data : []).map(m => [m.id, m.name]));
   EngajChamadaState.cfg = cRes.success ? cRes.data : null;
   EngajChamadaState.units = uRes.success ? uRes.data : [];
+  EngajChamadaState.scales = sRes.success ? sRes.data : [];
   renderChamadaContent();
-  await aplicarLiderPlanejado();
+  await aplicarPlanejado();
+}
+
+/** Eventos da Escala na data selecionada — alimentam o seletor e a pré-marcação. */
+function chamadaEventosDaData() {
+  const st = EngajChamadaState;
+  if (!st.date) return [];
+  return (st.scales || []).filter(s => s.tipo === 'evento' && s.date === st.date);
 }
 
 function renderChamadaContent() {
@@ -225,14 +236,69 @@ function renderChamadaContent() {
     (st.units || []).map(u => `<option value="${u.id}" ${st.unitId === u.id ? 'selected' : ''}>${u.name || u.id}</option>`).join('');
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>✅ Confirmar Presença</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:14px;">
+    <div class="page-hdr"><h1>✅ Confirmar Presença${ajudaBtn("engaj-chamada")}</h1><p>Marque rápido quem participou. Os pontos entram no placar automaticamente.</p></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:10px;">
       <div class="form-group" style="margin:0;"><label>Tipo</label><select id="chamadaKind" class="input" onchange="onChamadaToolbarChange()">${kindOpts}</select></div>
       <div class="form-group" style="margin:0;"><label>Data</label><input type="date" id="chamadaDate" class="input" value="${st.date}" onchange="onChamadaToolbarChange()"></div>
       <div class="form-group" style="margin:0;"><label>Unidade</label><select id="chamadaUnit" class="input" onchange="onChamadaToolbarChange()">${unitOpts}</select></div>
     </div>
+    ${renderChamadaVinculo()}
     <div id="chamada-list"></div>`;
   renderChamadaList();
+}
+
+/**
+ * Faixa de vínculo com a Escala Inteligente. Resolve as duas dores relatadas:
+ * "não acho onde criar o evento" (atalho) e "digitar de novo quem vem" (pré-marcação).
+ */
+function renderChamadaVinculo() {
+  const st = EngajChamadaState;
+  const isEscola = st.kind === 'escola_interna';
+  const eventos = isEscola ? [] : chamadaEventosDaData();
+
+  const btnLabel = isEscola ? '+ Criar sessão na Escala' : '+ Criar evento na Escala';
+  const btn = `<button class="btn-secondary" style="font-size:13px;padding:8px 12px;" onclick="irCriarNaEscala()">${btnLabel}</button>`;
+
+  let seletor = '';
+  if (!isEscola) {
+    if (eventos.length) {
+      const opts = `<option value="">— não vincular —</option>` +
+        eventos.map(e => `<option value="${e.id}" ${st.scaleId === e.id ? 'selected' : ''}>${e.name || e.date}</option>`).join('');
+      seletor = `<div class="form-group" style="margin:0;min-width:240px;">
+          <label>Evento da escala</label>
+          <select id="chamadaScale" class="input" onchange="onChamadaScaleChange()">${opts}</select>
+        </div>`;
+    } else {
+      seletor = `<span style="font-size:12px;color:var(--text2);">Nenhum evento criado nesta data. Você pode marcar a presença assim mesmo — ou criar o evento pra convidar o time antes.</span>`;
+    }
+  } else {
+    seletor = `<span style="font-size:12px;color:var(--text2);">O líder planejado da sessão do dia já vem pré-marcado.</span>`;
+  }
+
+  const nota = st.planNote
+    ? `<div style="margin-top:8px;font-size:12px;color:var(--blue);background:rgba(94,168,255,0.1);border:1px solid var(--blue);border-radius:8px;padding:8px 10px;">${st.planNote}</div>`
+    : '';
+
+  return `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">${seletor}</div>
+      ${btn}
+    </div>${nota}`;
+}
+
+/** Atalho: leva pra Escala Inteligente já na aba certa, com o modal aberto e a data preenchida. */
+function irCriarNaEscala() {
+  const st = EngajChamadaState;
+  if (typeof abrirEscalaSmartNovo !== 'function') { toast('Abra a Escala Inteligente pelo menu Agenda.', 'error'); return; }
+  abrirEscalaSmartNovo(st.kind === 'escola_interna' ? 'escola_interna' : 'evento', st.date);
+}
+
+async function onChamadaScaleChange() {
+  const el = document.getElementById('chamadaScale');
+  EngajChamadaState.scaleId = el ? el.value : '';
+  EngajChamadaState.marks = {};
+  EngajChamadaState.planNote = '';
+  await aplicarPlanejado();
+  renderChamadaContent();
 }
 
 function chamadaCbtn(tid, status, label) {
@@ -308,26 +374,68 @@ function renderChamadaList() {
     </div>`;
 }
 
-function onChamadaToolbarChange() {
+async function onChamadaToolbarChange() {
+  const st = EngajChamadaState;
   const kEl = document.getElementById('chamadaKind');
-  const k = kEl ? kEl.value : EngajChamadaState.kind;
-  if (k !== EngajChamadaState.kind) { EngajChamadaState.marks = {}; EngajChamadaState.kind = k; }
-  const dEl = document.getElementById('chamadaDate'); if (dEl) EngajChamadaState.date = dEl.value;
-  const uEl = document.getElementById('chamadaUnit'); if (uEl) EngajChamadaState.unitId = uEl.value;
+  const k = kEl ? kEl.value : st.kind;
+  const dEl = document.getElementById('chamadaDate');
+  const novaData = dEl ? dEl.value : st.date;
+  // Trocar tipo ou data invalida o que já estava marcado e o vínculo com o evento.
+  if (k !== st.kind || novaData !== st.date) { st.marks = {}; st.scaleId = ''; st.planNote = ''; }
+  st.kind = k;
+  st.date = novaData;
+  const uEl = document.getElementById('chamadaUnit'); if (uEl) st.unitId = uEl.value;
+
+  // Só um evento na data? Vincula sozinho — é o caso comum e poupa um clique.
+  if (st.kind !== 'escola_interna' && !st.scaleId) {
+    const evs = chamadaEventosDaData();
+    if (evs.length === 1) st.scaleId = evs[0].id;
+  }
+
   renderChamadaContent();
-  aplicarLiderPlanejado();
+  await aplicarPlanejado();
+  renderChamadaContent();
 }
 
-// Pré-seleção do líder planejado (Escala Interna → Confirmar Presença).
+// Pré-seleção a partir do PLANO (Escala Inteligente → Confirmar Presença).
 // A escala é o PLANO; a presença é a fonte de verdade do ponto (só ao salvar).
-// Não lança ponto: só pré-marca o líder pra a gestão confirmar/editar.
+// Não lança ponto: só pré-marca pra a gestão confirmar/editar.
+//   · Escola Interna → líder planejado do dia
+//   · Evento/reunião/treinamento → quem respondeu "Vou" no convite
+async function aplicarPlanejado() {
+  const st = EngajChamadaState;
+  if (!st.date || typeof ScaleService === 'undefined') return;
+  if (st.kind === 'escola_interna') return aplicarLiderPlanejado();
+  if (!st.scaleId) return;
+
+  try {
+    const res = await ScaleService.listEventRsvp(st.scaleId);
+    if (!res.success) return;
+    const resumo = ScaleService.summarizeRsvp(res.data);
+    let marcados = 0;
+    resumo.vao.forEach(pid => {
+      if (!st.marks[pid]) { st.marks[pid] = { status: 'presente' }; marcados++; }
+    });
+    const ev = (st.scales || []).find(s => s.id === st.scaleId);
+    const nome = (ev && ev.name) || 'o evento';
+    if (marcados) {
+      st.planNote = `✓ Pré-marcamos ${marcados} pessoa(s) que confirmaram "Vou" em ${nome}. `
+        + (resumo.naoVao.length ? `${resumo.naoVao.length} avisou que não ia. ` : '')
+        + (resumo.semResposta.length ? `${resumo.semResposta.length} não respondeu. ` : '')
+        + 'Confira quem realmente apareceu antes de salvar — o ponto é da presença, não da confirmação.';
+    } else {
+      st.planNote = `Ninguém confirmou "Vou" em ${nome} ainda. Marque na mão quem apareceu.`;
+    }
+    renderChamadaList();
+  } catch (e) { /* silencioso: pré-seleção é só conveniência */ }
+}
+
 async function aplicarLiderPlanejado() {
   const st = EngajChamadaState;
   if (st.kind !== 'escola_interna' || !st.date || typeof ScaleService === 'undefined') return;
   let changed = false;
   try {
-    const res = await ScaleService.listScales();
-    const doc = (res.success ? res.data : []).find(s => s.tipo === 'escola_interna' && s.date === st.date);
+    const doc = (st.scales || []).find(s => s.tipo === 'escola_interna' && s.date === st.date);
     if (doc) {
       (doc.slots || []).forEach(slot => {
         if (slot.role !== 'lider' || !slot.assignedPersonId) return;
@@ -372,6 +480,7 @@ async function saveChamada() {
   const att = {
     id: `eng_${st.kind}_${st.date}_${st.unitId || 'all'}`,
     kind: st.kind, date: st.date, unitId: st.unitId || null, records,
+    scaleId: st.scaleId || null, // rastreia de qual evento da Escala veio esta chamada
     confirmedBy: st.kind === 'reuniao' ? (typeof currentUserId === 'function' ? currentUserId() : 'gestao') : null,
   };
   const res = await EngagementService.recordAttendance(att);

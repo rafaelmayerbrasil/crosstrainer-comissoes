@@ -112,7 +112,10 @@
     const systemSection = isAdmin(profiles) ? SYSTEM_SECTION : null;
     const moduleSwitcher = buildModuleSwitcher(ctx.moduleAccess, 'professores');
 
-    return { home, groups, systemSection, moduleSwitcher };
+    // Ajuda: manual do perfil, em nova aba. Aparece pra todo mundo, sempre por último.
+    const helpItem = { id: 'ajuda', label: 'Ajuda', icon: '❓' };
+
+    return { home, groups, systemSection, moduleSwitcher, helpItem };
   }
 
   function buildModuleSwitcher(moduleAccess, activeId) {

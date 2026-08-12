@@ -50,6 +50,7 @@
       batch.set(database.collection('attendance').doc(att.id), {
         kind: att.kind, date: att.date, unitId: att.unitId || null,
         records: att.records || [], confirmedBy: att.confirmedBy || null,
+        scaleId: att.scaleId || null,
         updatedAt: rts(deps), updatedBy: ruid(deps),
       });
       entries.forEach(e => {

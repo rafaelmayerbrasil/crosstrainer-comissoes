@@ -418,6 +418,34 @@
       min-height: 18px;
     }
 
+    /* ─── AJUDA CONTEXTUAL (botão "?" + balão) ─── */
+    .ajuda-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; margin-left: 10px; vertical-align: middle;
+      border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text2);
+      font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1;
+      cursor: pointer; padding: 0;
+    }
+    .ajuda-btn:hover { border-color: var(--orange, #ff6a13); color: var(--orange, #ff6a13); }
+    .ajuda-popover {
+      position: fixed; z-index: 4000; top: 84px; right: 28px; width: 340px; max-width: calc(100vw - 32px);
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+    }
+    .ajuda-popover-hdr { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+    .ajuda-popover p { font-size: 13px; line-height: 1.55; color: var(--text2); margin: 0 0 10px; }
+    .ajuda-popover a { font-size: 13px; font-weight: 600; color: var(--orange, #ff6a13); text-decoration: none; }
+    .ajuda-popover a:hover { text-decoration: underline; }
+    .ajuda-popover-x {
+      background: none; border: none; color: var(--text2);
+      font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px;
+    }
+    @media (max-width: 768px) {
+      /* No celular vira faixa embaixo, acima da barra de navegação */
+      .ajuda-popover { top: auto; bottom: 76px; left: 12px; right: 12px; width: auto; }
+    }
+
     /* ─── PAGE HEADER ─── */
     .page-hdr { margin-bottom: 28px; }
     .page-hdr h1 {
@@ -2732,7 +2760,7 @@
   <script src="professores-shared.js?v=20260811"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
-  <script src="engagement-service.js?v=20260811"></script>
+  <script src="engagement-service.js?v=20260812"></script>
   <script src="professores-cadastro.js?v=20260811"></script>
   <script src="professores-agenda.js?v=20260811"></script>
   <script src="professores-substituicoes.js?v=20260811"></script>
@@ -2741,20 +2769,21 @@
   <script src="professores-escalas.js?v=20260811"></script>
   <script src="professores-ferias.js?v=20260811"></script>
   <script src="professores-relatorios.js?v=20260811"></script>
-  <script src="professores-engajamento.js?v=20260811"></script>
+  <script src="professores-engajamento.js?v=20260812"></script>
   <script src="scale-engine.js?v=20260811"></script>
-  <script src="scale-service.js?v=20260811"></script>
+  <script src="scale-service.js?v=20260812"></script>
   <script src="notify-service.js?v=20260811"></script>
-  <script src="professores-escala-smart.js?v=20260811"></script>
+  <script src="professores-escala-smart.js?v=20260812"></script>
   <script src="plr-engine.js?v=20260811"></script>
   <script src="plr-service.js?v=20260811"></script>
   <script src="professores-plr.js?v=20260811"></script>
   <script src="user-model.js?v=20260811"></script>
   <script src="pessoas-model.js?v=20260811"></script>
-  <script src="professores-nav.js?v=20260811"></script>
+  <script src="professores-ajuda.js?v=20260812"></script>
+  <script src="professores-nav.js?v=20260812"></script>
   <script src="professores-home.js?v=20260811"></script>
   <script src="professores-pessoas.js?v=20260811"></script>
-  <script src="professores.js?v=20260811"></script>
+  <script src="professores.js?v=20260812"></script>
 </body>
 
 </html>

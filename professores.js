@@ -427,6 +427,13 @@ function buildSidebar() {
     });
   }
 
+  // Ajuda — abre o manual do perfil na seção da tela atual (nova aba)
+  if (model.helpItem) {
+    html += `<div class="sb-item" onclick="abrirManual()" title="Manual do sistema">
+               <span class="icon">${model.helpItem.icon}</span>${model.helpItem.label}
+             </div>`;
+  }
+
   nav.innerHTML = html;
   renderModuleSwitcher(model.moduleSwitcher); // Task 4
 }

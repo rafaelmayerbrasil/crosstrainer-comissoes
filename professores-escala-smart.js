@@ -67,6 +67,29 @@ async function escalaLoadFeriados(year) {
 }
 
 function escalaSetTab(t) { EscalaSmartState.tab = t; EscalaSmartState.selectedId = null; renderEscalaSmartPage(); }
+
+// Deep-link vindo da tela "Confirmar Presença": abre a aba certa e já sobe o modal
+// de criação com a data preenchida. Consumido uma única vez em renderEscalaGestao.
+let escalaSmartPendingNew = null;
+function abrirEscalaSmartNovo(tipo, dateISO) {
+  const tab = tipo === 'escola_interna' ? 'escola_interna' : 'evento';
+  escalaSmartPendingNew = { tipo, date: dateISO || escalaTodayISO() };
+  EscalaSmartState.tab = tab;
+  EscalaSmartState.selectedId = null;
+  if (dateISO && /^\d{4}/.test(dateISO)) EscalaSmartState.year = parseInt(dateISO.slice(0, 4), 10);
+  EscalaSmartState.timeframe = 'todos'; // a data pode ser passada (chamada retroativa)
+  if (typeof navigateTo === 'function') navigateTo('escala-smart');
+  else renderEscalaSmartPage();
+}
+
+// Abre o modal pendente depois que a tela terminou de montar.
+function escalaConsumirPendingNew() {
+  const pend = escalaSmartPendingNew;
+  if (!pend) return;
+  escalaSmartPendingNew = null;
+  if (pend.tipo === 'escola_interna') openNovaEscolaInterna(pend.date);
+  else openNovoEvento(pend.date);
+}
 function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaSmartPage(); }
 function escalaSetTimeframe(tf) { EscalaSmartState.timeframe = tf; renderEscalaSmartPage(); }
 
@@ -175,7 +198,7 @@ async function renderEscalaGestao() {
   const container = document.getElementById('page-escala-smart');
   if (!container) return;
   container.innerHTML = `
-    <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
+    <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     <div class="loading"><div class="spinner"></div> Carregando escalas…</div>`;
 
   await escalaLoadBase();
@@ -224,7 +247,7 @@ async function renderEscalaGestao() {
       </div>` : '';
 
   container.innerHTML = `
-    <div class="page-hdr"><h1>🗓️ Escala Inteligente</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
+    <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     ${renderEquilibrioPainel()}
     ${tabsHtml}
     ${revisaoBar}
@@ -239,6 +262,8 @@ async function renderEscalaGestao() {
     </div>
     <div id="escalaModalOverlay" class="modal-overlay" style="display:none;"></div>
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
+
+  escalaConsumirPendingNew(); // atalho vindo da Confirmar Presença
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
@@ -274,7 +299,7 @@ function renderTabEscolaInterna(scales) {
   return topo + body;
 }
 
-function openNovaEscolaInterna() {
+function openNovaEscolaInterna(dateISO) {
   const overlay = document.getElementById('escalaModalOverlay'), modal = document.getElementById('escalaModal');
   if (!overlay || !modal) return;
   overlay.style.display = 'flex'; modal.style.display = 'block';
@@ -304,7 +329,7 @@ function openNovaEscolaInterna() {
       </div>
     </div>
     <div class="form-group" id="eiBoxDia"><label>Data <span style="color:var(--red);">*</span></label>
-      <input type="date" id="eiData" class="input" value="${escalaTodayISO()}"></div>
+      <input type="date" id="eiData" class="input" value="${dateISO || escalaTodayISO()}"></div>
     <div class="form-group" id="eiBoxSemana" style="display:none;"><label>Segunda-feira da semana <span style="color:var(--red);">*</span></label>
       <input type="date" id="eiSemana" class="input" value="${proximaSegundaISO()}">
       <div style="font-size:11px;color:var(--text3);margin-top:4px;">Cria as 5 sessões de uma vez. Os líderes você escolhe depois, em cada dia.</div></div>
@@ -800,7 +825,7 @@ async function criarDataEspecial() {
   await criarEscalaData(tipo, date, `${nome} ${escalaFmtBR(date)}`);
 }
 
-function openNovoEvento() {
+function openNovoEvento(dateISO) {
   const overlay = document.getElementById('escalaModalOverlay');
   const modal = document.getElementById('escalaModal');
   if (!overlay || !modal) return;
@@ -808,8 +833,8 @@ function openNovoEvento() {
   modal.style.display = 'block';
   modal.innerHTML = `
     <h2>Novo evento</h2>
-    <div class="form-group"><label>Nome <span style="color:var(--red);">*</span></label><input type="text" id="evNome" class="input" placeholder="Ex.: Campeonato interbox"></div>
-    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="evData" class="input" value="${escalaTodayISO()}"></div>
+    <div class="form-group"><label>Nome <span style="color:var(--red);">*</span></label><input type="text" id="evNome" class="input" placeholder="Ex.: Reunião do staff, treinamento interno, trilha, beach games"></div>
+    <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="evData" class="input" value="${dateISO || escalaTodayISO()}"></div>
     <div class="form-group"><label>Classificação</label><div style="display:flex;gap:14px;padding:4px 0;">
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;"><input type="radio" name="evKind" value="interno" checked> Interno (reunião, treinamento)</label>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;"><input type="radio" name="evKind" value="externo"> Externo (campeonato, evento fora)</label>
@@ -1077,7 +1102,7 @@ async function despublicarEscala(id) {
 async function renderEscalaPrefs() {
   const container = document.getElementById('page-escala-smart');
   if (!container) return;
-  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
+  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas${ajudaBtn("escala-smart")}</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
     <div class="loading"><div class="spinner"></div> Carregando…</div>`;
 
   const pid = escalaProfId();
@@ -1098,7 +1123,7 @@ async function renderEscalaPrefs() {
   else if (tab === 'evento')                    body = await renderProfEventos();
   else                                          body = renderProfEscolaInterna(pid);
 
-  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
+  container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas${ajudaBtn("escala-smart")}</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
     ${tabsHtml}
     ${body}`;
 }

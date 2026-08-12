@@ -3,6 +3,35 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 47 (12/08/2026) — 🎓 AJUDA NO APP + ATALHO/PRÉ-MARCAÇÃO DE EVENTO (staging)
+
+### ❓ O que gerou a sessão
+Rodrigo perguntou onde se criam os eventos (reunião interna, treinamento de profs/estagiários, trilha, beach games) pra depois marcar comparecimento e dar pontos — "não estou achando aonde". **Verificado: estava tudo construído e em produção desde julho.** O que faltava era achabilidade: criar o evento fica em `Agenda → Escala Inteligente → aba Eventos → "+ Novo evento"`, e a presença (que é o que pontua) fica em `Engajamento → Confirmar Presença`. Duas telas, dois menus.
+
+### ✅ Construído nesta sessão (NO STAGING, aguardando homologação)
+1. **Atalho "+ Criar evento na Escala"** na tela Confirmar Presença → leva pra Escala Inteligente já na aba certa, com o modal aberto e a data da chamada preenchida (`abrirEscalaSmartNovo()` em `professores-escala-smart.js`; consumido por `escalaConsumirPendingNew()` no fim de `renderEscalaGestao`). Para tipo `escola_interna` abre "Nova sessão"; para os demais, "Novo evento".
+2. **Pré-marcação do "Vou"**: `aplicarLiderPlanejado` virou `aplicarPlanejado`. Escola Interna segue pré-marcando o líder; evento/reunião/treinamento agora lê o RSVP (`listEventRsvp` + `summarizeRsvp`) e pré-marca como **presente** quem confirmou. Novo campo **"Evento da escala"** na barra (auto-vincula quando só há 1 evento na data). Nunca sobrescreve marcação feita à mão. `attendance` ganhou o campo `scaleId` (rastreabilidade).
+3. **Ajuda dentro do app (Fase 2 dos manuais)** — arquivo novo `professores-ajuda.js`:
+   - item **❓ Ajuda** no fim da sidebar (todos os perfis) → abre o manual do perfil **na âncora da tela atual**;
+   - componente **`ajudaBtn(pageId)`** = "?" ao lado do título → balão com texto curto + "Ver no manual completo". Colocado em **Confirmar Presença, Escala Inteligente (gestão e professor), Config. Pontos e Fechamento**. Blurbs de Agenda/Pessoas já escritos, só faltou onde pendurar (os títulos dessas telas não usam `page-hdr`).
+   - CSS `.ajuda-btn` / `.ajuda-popover` em `professores.html` (vira faixa inferior no celular).
+4. **Manuais atualizados**: `manual-admin.html` ganhou o passo-a-passo de criar evento + o aviso "o evento é o plano, não o ponto" + card novo de Confirmar Presença; `manual-professores.html` explica que responder "Vou" não pontua (comparecer, sim) e de onde vêm os pontos.
+
+### 🧪 Validação
+- `scripts/smoke-ajuda-evento.js` **novo, 6/6** — inclui um teste que confere se **toda âncora do mapa existe de fato nos manuais** (pega link quebrado antes do usuário).
+- Regressão: `smoke-engagement-service`, `smoke-engagement-config`, `smoke-escala-frente3`, `smoke-escala-tabs`, `smoke-sidebar` — todos verdes.
+- Staging (`firebase deploy --only hosting --project staging`): sem erro de console, funções novas carregadas, CSS no ar, balão abre/fecha e cabe no mobile (375px, acima da barra inferior), manual abre na âncora certa.
+- **Falta:** click-through autenticado (criar evento → convidar → responder Vou → abrir a chamada e ver a pré-marcação) e o OK do Rodrigo.
+
+### ✅ Limite conhecido — FECHADO POR DECISÃO DO CLIENTE (12/08)
+O id da chamada é `eng_{tipo}_{data}_{unidade}` — dois eventos do mesmo tipo, no mesmo dia e na mesma unidade compartilhariam a mesma folha de presença (o segundo sobrescreve). **Rafael: "isso não é pra acontecer nunca; se fizerem, erraram".** Ou seja, é regra de operação, não bug a corrigir. Não mexer no esquema de id (o id do `point_entry` deriva dele — mudar orfaniza lançamento já gravado).
+
+### ▶️ RETOMAR AQUI
+1. Homologar no staging com o cliente → depois produção (é `git push origin main`, GitHub Pages).
+2. Continua na fila: **vazamento de salário no fechamento** (prioridade #1), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 46 (11/08/2026) — 🚀 BLOCOS 1–3 NO AR EM PRODUÇÃO
 
 ### 🚀 DEPLOY DE PRODUÇÃO FEITO (11/08) — a frente inteira de controle de horas
