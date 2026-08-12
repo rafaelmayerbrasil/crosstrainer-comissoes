@@ -155,8 +155,36 @@
     <p>Sábados, feriados e eventos podem valer mais no cálculo de horas (ex.: sábado 1,5×). Você monta essas escalas na <strong>Escala Inteligente</strong> (seção 5) e o fechamento considera o peso automaticamente.</p>
   </div>
   <div class="card">
+    <h3>✅ Registro automático da aula dada</h3>
+    <p><strong>Você não marca aula por aula.</strong> Depois que o horário termina, a aula vira <strong>REALIZADA</strong> sozinha, numa rotina que roda de madrugada. A administração só lança <strong>o que fugiu do normal</strong>.</p>
+    <ul>
+      <li>Só entra no automático aula cujo <strong>horário já terminou</strong> — nunca aula em andamento ou futura.</li>
+      <li>Vale de <strong>01/08/2026 em diante</strong>. O que é anterior fica como estava e não entra na folha.</li>
+      <li>O sistema guarda se a aula foi confirmada <strong>automaticamente</strong> ou <strong>conferida por uma pessoa</strong> — o relatório de Ocorrências (seção 10) mostra os dois números.</li>
+      <li>Correção é livre <strong>até o mês fechar</strong>. O fechamento é a trava final.</li>
+    </ul>
+    <div class="warn">⚠️ Isso inverte de quem é o trabalho. Antes, se ninguém marcasse nada, ninguém recebia. Agora, se ninguém disser nada, <strong>todos recebem</strong> — inclusive por aula que não aconteceu. Por isso o relatório de Ocorrências existe.</div>
+  </div>
+  <div class="card">
+    <h3>⚠️ Ocorrências — falta, atraso, saída antes da hora, hora extra</h3>
+    <p>Abra a aula na Agenda Geral e lance a ocorrência. O efeito no pagamento:</p>
+    <ul>
+      <li><strong>Falta</strong> (com ou sem aviso) — tira a aula do pagamento e marca como não realizada.</li>
+      <li><strong>Atraso</strong> e <strong>saída antecipada</strong> — descontam proporcional aos minutos.</li>
+      <li><strong>Hora extra</strong> — soma proporcional.</li>
+    </ul>
+    <p>A tela mostra <strong>na hora</strong> quanto a aula vai valer depois do lançamento. Falta em aula também tira pontos no Placar (o valor é configurável em Engajamento).</p>
+    <p>O professor pode <strong>avisar</strong> que a aula dele não aconteceu. É só um aviso: não muda pagamento nenhum sozinho, quem confirma é a administração.</p>
+  </div>
+  <div class="card">
+    <h3>🚪 Dias em que a academia não abre</h3>
+    <p>A academia abre em quase todo feriado — e feriado <strong>paga em dobro</strong>. As exceções (25/12 e 01/01, por padrão) ficam numa <strong>lista que você edita na tela</strong>, não no código. Marcou o dia: as aulas dele são canceladas e o registro automático passa a pular a data. Serve também pra fechamento inesperado.</p>
+  </div>
+  <div class="card">
     <h3>🔄 Substituições</h3>
     <p>Professores pedem substituição direta (escolhem o colega) ou abrem <strong>cobertura</strong> (qualquer um se candidata e você confirma). A aula conta nas horas de <strong>quem deu a aula</strong>.</p>
+    <p>A tela <strong>Substituições</strong> (menu, seção Agenda) mostra <strong>todas as substituições da academia</strong>, com filtro por professor (dos dois lados) e por período da aula. É o histórico completo, não só o que está pendente — serve pra conferir o mês antes de fechar.</p>
+    <p>Pode ser registrada <strong>depois</strong> da aula ter acontecido; trava quando o mês fecha.</p>
   </div>
 
   <h2 id="escala">🗓️ 5. Escala Inteligente</h2>
@@ -178,6 +206,8 @@
   <div class="card">
     <h3>🏫 Escola Interna e ✅ Confirmar Presença</h3>
     <p>Na <strong>Escola Interna</strong> você aponta o líder de cada dia direto na agenda. E a antiga "Chamada" virou <strong>Confirmar Presença</strong>: onde se registra quem realmente esteve — o líder planejado na escala já entra pré-marcado.</p>
+    <p>Dá pra criar <strong>a semana inteira de uma vez</strong> (a escala é montada na semana anterior) e a sessão nasce em <strong>uma unidade por dia</strong> — padrão PP, com opção de CP. Antes nascia nas duas, e por isso a CP vivia sem líder.</p>
+    <div class="warn">⚠️ Escola Interna <strong>não é remunerada</strong>: aparece na agenda de quem conduz, mas fica <strong>fora da conta de horas</strong> do fechamento. O reconhecimento dela é por <strong>pontos</strong> no Placar (participar 1 · conduzir 2).</div>
   </div>
 
   <h2 id="ferias">🏖️ 6. Férias, recesso e saldos</h2>
@@ -205,6 +235,20 @@
   </div>
   <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha mês.</div>
   <div class="tip">💡 Professor sem cadastro salarial aparece como <strong>"Sem cadastro"</strong> na prévia e nos relatórios — em vez de R$ 0,00 enganoso. Complete o salário na ficha e gere a prévia de novo.</div>
+  <div class="card">
+    <h3>🕒 Banco de horas do estagiário</h3>
+    <p>Estagiário tem <strong>bolsa fixa</strong> vinculada a uma carga horária de contrato. O desconto proporcional não servia pra ele — bolsa de estágio não pode encolher. Então a diferença vira <strong>horas</strong>:</p>
+    <ul>
+      <li><strong>Trabalhou mais que o contrato:</strong> bolsa + as horas a mais, pagas no mês.</li>
+      <li><strong>Trabalhou menos:</strong> <strong>bolsa integral do mesmo jeito</strong>, e as horas que faltaram viram <strong>saldo negativo</strong>.</li>
+      <li><strong>Mês seguinte com horas a mais:</strong> elas primeiro <em>quitam</em> o saldo; só o que sobra vira pagamento.</li>
+      <li><strong>Férias e recesso não geram dívida</strong> — reduzem o contrato do mês proporcionalmente.</li>
+      <li>Sobra nunca vira crédito (é paga na hora) e estágio encerrado com saldo negativo <strong>encerra sem dívida financeira</strong>.</li>
+    </ul>
+    <p>A prévia do fechamento e o recibo mostram a <strong>conta aberta</strong>: horas do mês, contrato, quanto foi abatido, quanto foi pago de adicional e o saldo restante. O estagiário vê o próprio saldo em "Meus Pagamentos". <strong>O saldo só se mexe quando o mês fecha</strong> — ninguém edita esse número na mão, nem o Admin.</p>
+    <div class="warn">⚠️ Se o contrato de horas não estiver cadastrado, o sistema paga <strong>só a bolsa</strong> e avisa na tela — em vez de chutar e pagar o mês inteiro como hora extra.</div>
+    <div class="tip">💡 Vale revisar os contratos: quando a carga contratada não bate com a grade real, o saldo cresce todo mês sozinho, sem ninguém mudar de comportamento. O relatório <strong>R6 · Banco de Horas</strong> mostra quem está acumulando.</div>
+  </div>
 
   <h2 id="pagamentos">💳 8. Pagamentos e recibos</h2>
   <div class="card">
@@ -232,6 +276,8 @@
       <div class="mini" style="border-left-color:var(--blue);"><b>R2 · Aulas</b><span>Todas as aulas com status, professor e modalidade.</span></div>
       <div class="mini" style="border-left-color:var(--green);"><b>R3 · Horas por professor</b><span>Horas e valores no período — base da folha.</span></div>
       <div class="mini" style="border-left-color:var(--purple);"><b>R4 · Recibos em lote</b><span>ZIP com um PDF de recibo por professor.</span></div>
+      <div class="mini" style="border-left-color:var(--orange);"><b>R5 · Ocorrências</b><span>Faltas, atrasos, saídas antecipadas e horas extras por professor — e quantas aulas foram confirmadas <b>automaticamente</b> × conferidas por gente.</span></div>
+      <div class="mini" style="border-left-color:var(--blue);"><b>R6 · Banco de Horas</b><span>Saldo de horas dos estagiários, do pior pro melhor. Mostra quem está acumulando antes de virar bola de neve.</span></div>
     </div>
     <p style="margin-top:10px;">Todos exportam em <strong>Excel e PDF</strong> — direto do navegador, sem instalar nada.</p>
   </div>

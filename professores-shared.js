@@ -1327,7 +1327,16 @@ const ClassService = {
       if (opts.semSubstituidas === true) {
         return { success: true, data: minhas };
       }
-      const passadasAdiante = await consultar('originalTeacherId');
+
+      // A 2ª consulta depende de um índice próprio. Se ele ainda estiver
+      // construindo (logo depois de um deploy), é melhor a agenda vir sem as
+      // aulas passadas adiante do que vir vazia com erro.
+      let passadasAdiante = [];
+      try {
+        passadasAdiante = await consultar('originalTeacherId');
+      } catch (e) {
+        console.warn('[ClassService.listByTeacher] aulas substituídas fora desta vez:', e.message);
+      }
       return { success: true, data: mergeClassesById(minhas, passadasAdiante) };
     } catch (err) {
       console.error('[ClassService.listByTeacher]', err);
