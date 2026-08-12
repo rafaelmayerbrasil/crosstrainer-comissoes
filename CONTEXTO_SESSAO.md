@@ -26,6 +26,11 @@ Rodrigo perguntou onde se criam os eventos (reunião interna, treinamento de pro
 ### ✅ Limite conhecido — FECHADO POR DECISÃO DO CLIENTE (12/08)
 O id da chamada é `eng_{tipo}_{data}_{unidade}` — dois eventos do mesmo tipo, no mesmo dia e na mesma unidade compartilhariam a mesma folha de presença (o segundo sobrescreve). **Rafael: "isso não é pra acontecer nunca; se fizerem, erraram".** Ou seja, é regra de operação, não bug a corrigir. Não mexer no esquema de id (o id do `point_entry` deriva dele — mudar orfaniza lançamento já gravado).
 
+### 🔧 Follow-up do mesmo dia — o "Rascunho" do evento (commit `8ef3acd`, em produção)
+Rodrigo criou o "Treinamento Ginástico com o Bruninho" (15/08), convidou 19 e 16 já confirmaram — mas o card mostrava **Rascunho** e ele perguntou o que faltava fazer. **Não faltava nada.** Evento não passa por janela/consolidação/publicação; o selo era herança do fluxo de sábado/feriado. Confirmado no código que **nada olha esse status** para eventos: a aba do professor (`renderProfEventos`) e a CF `sendEventReminders` ignoram `status`. Correções:
+- `escalaCardDoc`: eventos não mostram mais o status do fluxo (sábado/feriado seguem mostrando — lá significa algo).
+- `renderEventoDetail`: faixa verde **"Evento no ar — N convidados, recebem lembrete 7/4/1 dia antes, nada mais a confirmar aqui"** quando já há staff; sem staff, instrui a convidar e avisa que **evento não precisa ser publicado**.
+
 ### ▶️ RETOMAR AQUI
 1. Homologar no staging com o cliente → depois produção (é `git push origin main`, GitHub Pages).
 2. Continua na fila: **vazamento de salário no fechamento** (prioridade #1), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes.
