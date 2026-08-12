@@ -680,9 +680,44 @@ function renderEventoDetail(scale) {
     ${prontoBar}
     <div style="font-size:13px;font-weight:500;margin-bottom:6px;">Staff — quem deve / poderia participar</div>
     <div style="max-height:40vh;overflow:auto;">${linhas || '<p style="color:var(--text2);">Nenhum colaborador ativo.</p>'}</div>
-    <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn-primary" onclick="salvarStaffEvento('${scale.id}')">Salvar staff e convidar</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;">
+      <button class="btn-secondary" style="color:var(--red);border-color:var(--red);" onclick="excluirEvento('${scale.id}')">🗑️ Excluir evento</button>
+      <button class="btn-primary" onclick="salvarStaffEvento('${scale.id}')">Salvar staff e convidar</button>
+    </div>
     ${consolidado}
   </div>`;
+}
+
+/**
+ * Exclui um evento. Só evento — a regra do Firestore recusa o resto.
+ * O aviso diz quantas pessoas perdem o convite: apagar o evento errado depois de
+ * 16 confirmações seria bem pior do que conviver com o duplicado.
+ */
+async function excluirEvento(scaleId) {
+  const scale = EscalaSmartState.scales.find(s => s.id === scaleId);
+  if (!scale) { toast('Evento não encontrado.', 'error'); return; }
+  const rsvp = EscalaSmartState.eventoRsvp || new Map();
+  const convidados = rsvp.size;
+  const confirmados = Array.from(rsvp.values()).filter(r => r.going === true).length;
+
+  let aviso = `Excluir "${scale.name || scale.date}"?\n\nEssa ação não tem volta.`;
+  if (convidados) {
+    aviso += `\n\n⚠️ ${convidados} pessoa(s) foram convidadas` +
+             (confirmados ? ` e ${confirmados} já confirmaram presença` : '') +
+             `. Elas perdem o convite e param de receber os lembretes.`;
+  } else {
+    aviso += `\n\nNinguém foi convidado ainda.`;
+  }
+  if (!confirm(aviso)) return;
+
+  toast('Excluindo…', 'info');
+  const res = await ScaleService.deleteEvent(scaleId);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Evento excluído.', 'success');
+  EscalaSmartState.selectedId = null;
+  EscalaSmartState.eventoRsvp = new Map();
+  await escalaLoadBase();
+  renderEscalaGestao();
 }
 
 async function salvarStaffEvento(scaleId) {

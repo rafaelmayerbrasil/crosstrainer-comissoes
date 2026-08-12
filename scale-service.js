@@ -369,6 +369,29 @@
     } catch (err) { console.error('[ScaleService.setEventStaff]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * Apaga um EVENTO e os RSVPs dele. Só evento — a regra do Firestore recusa
+   * qualquer outro tipo, porque sábado/feriado já mexeram no contador de justiça.
+   * Apaga os RSVPs primeiro: se o evento sumisse antes, sobrariam linhas órfãs
+   * que ninguém mais consegue achar pra limpar.
+   */
+  async function deleteEvent(scaleId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      if (scaleRes.data.tipo !== 'evento') {
+        return { success: false, error: 'Só evento pode ser excluído. Para sábado/feriado, edite a escala.' };
+      }
+      const database = rdb(deps);
+      const rsvps = await listEventRsvp(scaleId, deps);
+      if (rsvps.success) {
+        for (const r of rsvps.data) await database.collection('event_rsvp').doc(r.id).delete();
+      }
+      await database.collection('special_scales').doc(scaleId).delete();
+      return { success: true, data: { rsvpsRemovidos: rsvps.success ? rsvps.data.length : 0 } };
+    } catch (err) { console.error('[ScaleService.deleteEvent]', err); return { success: false, error: err.message }; }
+  }
+
   async function setRsvp(scaleId, personId, going, deps) {
     try {
       if (typeof going !== 'boolean') return { success: false, error: 'Resposta inválida.' };
@@ -697,5 +720,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

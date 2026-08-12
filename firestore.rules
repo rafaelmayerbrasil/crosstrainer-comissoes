@@ -248,7 +248,12 @@ service cloud.firestore {
     match /special_scales/{id} {
       allow read:   if isAuth() && hasProfModule();
       allow create, update: if isAuth() && (isAdmin() || isSuperv());
-      allow delete: if false;
+      // Só EVENTO pode ser apagado (gestão criou duplicado e ficava preso — Rodrigo,
+      // 12/08/2026). Sábado/feriado/fim de ano/escola interna continuam intocáveis:
+      // a consolidação já mexeu no contador de justiça e apagar corromperia a
+      // rotação. Pra esses o caminho é editar, não excluir.
+      allow delete: if isAuth() && (isAdmin() || isSuperv())
+                    && resource.data.tipo == 'evento';
     }
 
     // Preferências de escala: o colaborador grava a SUA (personId == professorId);

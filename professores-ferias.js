@@ -238,7 +238,8 @@ async function renderFeriasGestaoPage() {
         <td style="white-space:nowrap;">
           ${r.status === 'pendente'
             ? `<button class="btn-sm" style="background:var(--green-bg);color:var(--green);" onclick="aprovarVacation('${r.id}')">✓ Aprovar</button>
-               <button class="btn-sm btn-danger" onclick="recusarVacation('${r.id}')">✗ Recusar</button>`
+               <button class="btn-sm btn-danger" onclick="recusarVacation('${r.id}')">✗ Recusar</button>
+               <button class="btn-sm" onclick="cancelarVacationAdmin('${r.id}')" title="Some da lista sem virar recusa — use para pedido duplicado ou aberto por engano">Cancelar</button>`
             : (r.status === 'aprovada'
               ? `<button class="btn-sm btn-danger" onclick="cancelarVacationAdmin('${r.id}')">Cancelar</button>`
               : '')}
@@ -312,7 +313,8 @@ async function filtrarFeriasPorStatus(status) {
           <td style="white-space:nowrap;">
             ${r.status === 'pendente'
               ? `<button class="btn-sm" style="background:var(--green-bg);color:var(--green);" onclick="aprovarVacation('${r.id}')">✓ Aprovar</button>
-                 <button class="btn-sm btn-danger" onclick="recusarVacation('${r.id}')">✗ Recusar</button>`
+                 <button class="btn-sm btn-danger" onclick="recusarVacation('${r.id}')">✗ Recusar</button>
+                 <button class="btn-sm" onclick="cancelarVacationAdmin('${r.id}')" title="Some da lista sem virar recusa — use para pedido duplicado ou aberto por engano">Cancelar</button>`
               : (r.status === 'aprovada'
                 ? `<button class="btn-sm btn-danger" onclick="cancelarVacationAdmin('${r.id}')">Cancelar</button>`
                 : '')}
@@ -1021,8 +1023,11 @@ async function cancelarVacation(reqId) {
 }
 
 async function cancelarVacationAdmin(reqId) {
-  if (!confirm('Cancelar este pedido aprovado?')) return;
-  const res = await VacationService.cancel(reqId, 'Cancelado pela gestão');
+  // Cancelar ≠ recusar. Recusado dá a entender que a gestão negou o descanso;
+  // cancelado é pra pedido duplicado ou aberto por engano (Rafael, 12/08/2026).
+  const motivo = prompt('Por que está cancelando? (aparece no histórico)', 'Pedido duplicado');
+  if (motivo === null) return;
+  const res = await VacationService.cancel(reqId, motivo.trim() || 'Cancelado pela gestão');
   if (res.success) {
     toast('Pedido cancelado.', 'success');
     await renderFeriasGestaoPage();

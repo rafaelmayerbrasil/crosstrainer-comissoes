@@ -492,7 +492,16 @@ const NOTIF_TYPE_TITLES = {
   coverage_cancelled:     'Cobertura cancelada',
   event_reminder:         'Lembrete de evento',
   vacation_requested:     'Nova solicitação de férias',
+  vacation_cancelled:     'Pedido de férias cancelado',
 };
+
+/** Admins/gestão que devem receber avisos de férias. Só CF chama (lê /users). */
+async function listAdminUserIds() {
+  const snap = await db().collection('users')
+    .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
+    .get();
+  return [...new Set(snap.docs.map(d => d.id))];
+}
 
 async function createNotification({ recipientUserId, type, body, link = null }) {
   if (!recipientUserId || !type) return;
@@ -583,17 +592,11 @@ exports.onVacationRequested = onDocumentCreated({
   logger.info('[onVacationRequested] Iniciando', reqId);
 
   try {
-    const firestore = db();
-    const admins = new Map(); // userId → doc (dedup: quem é admin E admin_gestao aparece 1x)
-    const snap = await firestore.collection('users')
-      .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
-      .get();
-    snap.docs.forEach(d => admins.set(d.id, d.data()));
-
+    const admins = await listAdminUserIds();
     const dias = req.totalDays != null ? `${req.totalDays} dias` : 'período a confirmar';
     const quem = req.teacherName || 'Colaborador';
     const tipo = req.type === 'recesso' ? 'recesso' : 'férias';
-    for (const userId of admins.keys()) {
+    for (const userId of admins) {
       await createNotification({
         recipientUserId: userId,
         type: 'vacation_requested',
@@ -601,10 +604,48 @@ exports.onVacationRequested = onDocumentCreated({
         link: { type: 'vacation', id: reqId },
       });
     }
-    logger.info('[onVacationRequested] Avisados', admins.size, 'admin(s) sobre', reqId);
+    logger.info('[onVacationRequested] Avisados', admins.length, 'admin(s) sobre', reqId);
   } catch (err) {
     // Não relança: o pedido já está gravado e vale. Falhar aqui só perderia o aviso.
     logger.error('[onVacationRequested] FALHA ao avisar gestão', reqId, err);
+  }
+});
+
+/**
+ * onVacationCancelled — avisa a gestão quando o PRÓPRIO solicitante cancela.
+ *
+ * Contrapartida da onVacationRequested: o cliente não pode varrer /users, então
+ * esse aviso também sai daqui. Quando quem cancela é a gestão, o aviso vai direto
+ * pro solicitante lá no cliente (escrita direcionada, permitida) — e aqui a gente
+ * não faz nada pra não notificar duas vezes.
+ */
+exports.onVacationCancelled = onDocumentUpdated({
+  document: 'vacation_requests/{reqId}',
+  region: 'us-central1',
+}, async (event) => {
+  const before = event.data.before.data();
+  const after  = event.data.after.data();
+  if (!before || !after) return;
+  if (before.status === after.status || after.status !== 'cancelada') return;
+  // Só o cancelamento feito pelo próprio solicitante precisa de aviso daqui.
+  if (!after.cancelledBy || after.cancelledBy !== after.requestedBy) return;
+
+  const reqId = event.params.reqId;
+  try {
+    const admins = await listAdminUserIds();
+    const quem = after.teacherName || 'Colaborador';
+    const tipo = after.type === 'recesso' ? 'recesso' : 'férias';
+    for (const userId of admins) {
+      await createNotification({
+        recipientUserId: userId,
+        type: 'vacation_cancelled',
+        body: `${quem} cancelou o pedido de ${tipo}.`,
+        link: { type: 'vacation', id: reqId },
+      });
+    }
+    logger.info('[onVacationCancelled] Avisados', admins.length, 'admin(s) sobre', reqId);
+  } catch (err) {
+    logger.error('[onVacationCancelled] FALHA ao avisar gestão', reqId, err);
   }
 });
 

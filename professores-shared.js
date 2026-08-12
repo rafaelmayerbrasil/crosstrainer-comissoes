@@ -3559,38 +3559,33 @@ const VacationService = {
       };
       await ref.update(after);
 
-      // Notif: se admin cancelou, avisa solicitante; se solicitante cancelou, avisa admins
+      // ⚠️ Mesma armadilha da solicitação: quando é o PRÓPRIO professor que cancela,
+      // varrer /users atrás dos admins estoura permissão — e o cancelamento já foi
+      // gravado, então a tela mentiria dizendo que falhou. Quem avisa a gestão nesse
+      // caso é a CF onVacationCancelled. Aqui só o caminho inverso (gestão cancelou
+      // → avisa o solicitante), que é uma escrita direcionada e permitida.
       const isSelfCancel = before.requestedBy === uid;
-      if (isSelfCancel) {
-        const adminsSnap = await db.collection('users')
-          .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
-          .get();
-        for (const u of adminsSnap.docs) {
+      if (!isSelfCancel) {
+        try {
           await NotificationService.create({
-            recipientUserId: u.id,
+            recipientUserId: before.requestedBy,
             type: 'vacation_cancelled',
             title: 'Pedido de férias cancelado',
-            body: `${before.teacherName} cancelou o pedido de ${before.type}`,
+            body: `Seu pedido de ${before.type} foi cancelado pela gestão.`,
             link: { type: 'vacation', id: reqId },
           });
-        }
-      } else {
-        await NotificationService.create({
-          recipientUserId: before.requestedBy,
-          type: 'vacation_cancelled',
-          title: 'Pedido de férias cancelado',
-          body: `Seu pedido de ${before.type} foi cancelado pela gestão.`,
-          link: { type: 'vacation', id: reqId },
-        });
+        } catch (e) { console.warn('[VacationService.cancel] aviso falhou (cancelamento vale)', e); }
       }
 
-      await AuditService.log({
-        type: 'vacation_cancelled',
-        details: `Pedido de ${before.type} cancelado (${before.teacherName})`,
-        entityType: 'vacation_request', entityId: reqId,
-        before, after: { ...before, ...after },
-        module: 'ferias',
-      });
+      try {
+        await AuditService.log({
+          type: 'vacation_cancelled',
+          details: `Pedido de ${before.type} cancelado (${before.teacherName})`,
+          entityType: 'vacation_request', entityId: reqId,
+          before, after: { ...before, ...after },
+          module: 'ferias',
+        });
+      } catch (e) { console.warn('[VacationService.cancel] auditoria falhou (cancelamento vale)', e); }
       return { success: true };
     } catch (err) {
       console.error('[VacationService.cancel]', err);
