@@ -3,7 +3,24 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 46 (11/08/2026) — ✅ BLOCO 2 COMPLETO E VALIDADO NO STAGING (não publicado em produção)
+## 🔖 ONDE PARAMOS — sessão 46 (11/08/2026) — 🚀 BLOCOS 1–3 NO AR EM PRODUÇÃO
+
+### 🚀 DEPLOY DE PRODUÇÃO FEITO (11/08) — a frente inteira de controle de horas
+Ordem executada (índices primeiro, porque demoram a construir; site por último):
+1. `firebase deploy --only firestore:indexes --project production` ✅
+2. `firebase deploy --only firestore:rules --project production` ✅
+3. `firebase deploy --only functions:closeMonth,functions:autoConfirmarAulas,functions:autoConfirmarAulasManual --project production` ✅ (3/3, demorou ~10 min)
+4. `git push origin main` (`b1c5957..e86a41c`) ✅ — **é este passo que publica pros usuários** [[publicar-para-usuario-github-pages]]
+5. Verificação sem login no `github.io`: projeto `crosstrainer-comissoes`, tela de substituições + banco de horas + R5/R6 carregados, **0 erro de console**, manuais no ar.
+
+- **Proteção adicionada antes de publicar:** se o índice novo da agenda ainda estiver construindo, a 2ª consulta falha em silêncio e a agenda vem **sem** as aulas passadas adiante, em vez de vir vazia com erro.
+- **⏰ ATENÇÃO NA MADRUGADA:** às 03:00 BRT o `autoConfirmarAulas` roda pela **1ª vez em produção** e vai marcar como `realizada` as aulas de agosto já passadas (eram 382 paradas). É o objetivo da frente, mas é a primeira escrita em massa — conferir no dia seguinte.
+- **NÃO feito:** smoke autenticado em produção (não manuseio senha de prod) — quem confirma "vejo a etiqueta na minha agenda" é o usuário/cliente.
+- **Manuais atualizados e no ar** (`manual-admin.html` · `manual-professores.html`), `DOCUMENTACAO.md` atualizada (status do módulo, 11 CFs, coleções novas, seção 14, bugs históricos, estrutura de arquivos).
+
+---
+
+### ✅ BLOCO 2 — validado no staging antes de subir
 
 **Spec do sprint: `docs/superpowers/specs/2026-08-07-controle-horas-e-substituicao-design.md`** (fonte da verdade — a conversa que gerou está no WhatsApp). Bloco 1 (Escola Interna fora da folha + uma unidade por dia + semana inteira) foi `3c4cccf`. Bloco 2 = registro automático + ocorrências + banco de horas. Bloco 3 (histórico de substituição) **ainda não começou**.
 
@@ -32,11 +49,13 @@
 - **Limitação conhecida:** substituição em cadeia (A→B→C) deixa B sem a aula (o `originalTeacherId` guarda só o titular). Não apareceu em produção.
 
 ### ▶️ PRÓXIMO (ordem definida pelo usuário em 11/08)
-> **Ordem revisada pelo usuário (11/08, depois de eu explicar que o vazamento não é ajuste de uma linha):** bloco 3 ✅ → **Comissões** → vazamento de salário. O item 0 abaixo continua valendo, só saiu da frente da fila.
+> **Ordem revisada pelo usuário (11/08):** bloco 3 ✅ → deploy de produção ✅ → manuais ✅ → texto pra gestão ✅ → **próximo: COMISSÕES** → depois o vazamento de salário. O item 0 abaixo continua valendo, só saiu da frente da fila.
+>
+> **Pendências conhecidas do Comissões** (escolher qual atacar): (a) audit de contratos **BIANUAL legado** — 4 casos em CP/Abril não migrados; (b) **renovação classificada como "Novo Contrato"** na fonte, que paga o dobro — estava esperando o arquivo do cliente com os nomes, sugestão é detecção automática por histórico [[comissoes-renovacao-classificada-novo]].
 
 0. 🚨 **Professor está vendo o salário dos colegas.** `monthly_closings` tem `allow read: if isAuth() && hasProfModule()`, e `hasProfModule()` inclui `professor` — o doc traz `hourlyRate`/`valorHoras`/`valorTotal` de **todo mundo** no array `teachers`. Qualquer professor logado lê via REST. É anterior ao bloco 2 (Sprint 4a); apareceu ao plugar o banco de horas. Usuário: *"isso é grave, precisamos que ele veja só o seu"*. Firestore não filtra campo dentro de doc → **mexe no modelo**: ou o fechamento vira admin/supervisão e o professor enxerga o mês dele só pelo **recibo** (`receipts` já tem a regra certa), ou a parte por professor sai pra subcoleção. Antes de mexer, mapear o que a visão do professor lê (`ClosingService`, `getRecibosLoteData`, `renderMeusPagamentosPage`). Validar por REST em staging (modelo: `scripts/validate-banco-horas-rules.js`). Memória [[vazamento-salario-fechamento]].
 1. ✅ **Bloco 3 — feito** (ver acima).
-2. **Publicar o bloco 2 em produção** quando o usuário mandar: `git push origin main` (**site dos usuários = GitHub Pages**, [[publicar-para-usuario-github-pages]]) + `firebase deploy --project production` de **rules, índices e functions** (`closeMonth`, `autoConfirmarAulas`, `autoConfirmarAulasManual`). ⚠️ O índice novo precisa ir junto, senão o cron nasce quebrado.
+2. ✅ **Publicado em produção 11/08** (ver topo).
 3. **Pendências do cliente (spec §Pendências):** Rodrigo revisar os contratos de horas dos estagiários (Thaynara acumula dívida impagável), 4 logins sem cadastro vinculado, modalidade "TOIZAO SÁB" sem aula.
 
 ---
