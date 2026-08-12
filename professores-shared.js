@@ -1452,6 +1452,18 @@ const ClassService = {
         if (falta) after.status = 'nao_realizada';
       }
 
+      // A gestão salvar É a resposta ao aviso do professor. Se o aviso ficasse,
+      // a aula apareceria pendente pra sempre e ninguém saberia se foi tratada.
+      // Guarda o rastro do que ele tinha informado.
+      if (before.avisoProfessor) {
+        after.avisoProfessor = null;
+        after.avisoProfessorAtendido = {
+          ...before.avisoProfessor,
+          atendidoPor: uid,
+          atendidoEm: serverTs(),
+        };
+      }
+
       await ref.update(after);
       await AuditService.log({
         type: 'class_status_changed',
@@ -1507,6 +1519,61 @@ const ClassService = {
       return { success: true };
     } catch (err) {
       console.error('[ClassService.avisarNaoAconteceu]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * Professor avisa atraso / saída antecipada / hora extra na aula dele.
+   *
+   * Até 12/08/2026 só a gestão lançava ocorrência: quem chegou atrasado ou
+   * esticou a aula não tinha onde dizer isso ("não tem nenhum botão pra adicionar
+   * que chegou mais tarde, só a opção de falar que cancelou a aula"). Agora o
+   * professor registra e a GESTÃO valida — o aviso mora em `avisoProfessor` e
+   * **não entra no fechamento** enquanto a gestão não copiar pros campos oficiais.
+   * Minuto vira dinheiro; quem confirma continua sendo a gestão.
+   */
+  async avisarOcorrencia(classId, dados = {}) {
+    if (!classId) return { success: false, error: 'classId obrigatório' };
+    const min = (v) => {
+      const n = Math.round(Number(v) || 0);
+      return n > 0 ? Math.min(n, 600) : 0;   // teto de 10h: erro de digitação não vira folha
+    };
+    const atrasoMinutos = min(dados.atrasoMinutos);
+    const saidaAntecipadaMinutos = min(dados.saidaAntecipadaMinutos);
+    const horaExtraMinutos = min(dados.horaExtraMinutos);
+    if (!atrasoMinutos && !saidaAntecipadaMinutos && !horaExtraMinutos) {
+      return { success: false, error: 'Informe ao menos um valor em minutos.' };
+    }
+    try {
+      const ref = db.collection('classes').doc(classId);
+      const doc = await ref.get();
+      if (!doc.exists) return { success: false, error: 'Aula não encontrada' };
+      const before = doc.data();
+      if (before.monthClosingId) {
+        return { success: false, error: 'Mês já fechado — fale com a gestão.' };
+      }
+      const after = {
+        avisoProfessor: {
+          tipo: 'ocorrencia',
+          atrasoMinutos, saidaAntecipadaMinutos, horaExtraMinutos,
+          nota: (dados.nota || '').toString().slice(0, 300) || null,
+          por: currentUserId(),
+          em: serverTs(),
+        },
+        updatedAt: serverTs(),
+      };
+      await ref.update(after);
+      await AuditService.log({
+        type: 'class_aviso_professor',
+        details: `Professor informou ocorrência (atraso ${atrasoMinutos}min · saída ${saidaAntecipadaMinutos}min · extra ${horaExtraMinutos}min)`,
+        entityType: 'class', entityId: classId,
+        before, after: { ...before, ...after },
+        module: 'agenda',
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[ClassService.avisarOcorrencia]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },

@@ -111,12 +111,18 @@ service cloud.firestore {
       // "Dele" = titular original OU quem está cobrindo (bloco 3): a spec diz que
       // os DOIS lados podem registrar. Antes só o titular podia, então quem pegou
       // a substituição não conseguia nem avisar que a aula não aconteceu.
+      // O professor só encosta no PRÓPRIO aviso. Ele passou a poder informar
+      // atraso/hora extra (12/08/2026), mas quem grava os campos que viram folha
+      // de pagamento é a gestão, ao confirmar. Sem essa trava, bastaria o console
+      // do navegador pra alguém se creditar horas.
       allow update: if isAuth() && (
                       isAdmin() || isSuperv() ||
                       (isProf() &&
                        (resource.data.originalTeacherId == uData().professorId ||
                         resource.data.teacherId == uData().professorId) &&
-                       resource.data.monthClosingId == null)
+                       resource.data.monthClosingId == null &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['avisoProfessor', 'updatedAt']))
                     );
       // Despublicar escala: gestão apaga SÓ aulas geradas pela escala e não fechadas
       allow delete: if isAuth() && (isAdmin() || isSuperv()) &&

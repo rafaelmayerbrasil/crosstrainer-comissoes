@@ -18,6 +18,11 @@ module.exports = function makeFakeDb() {
         if (opts && opts.merge) col(name)[id] = Object.assign({}, col(name)[id] || {}, clone);
         else col(name)[id] = clone;
       },
+      // update = merge, mas estoura se o doc não existe (igual ao Firestore de verdade)
+      async update(obj) {
+        if (col(name)[id] === undefined) throw new Error(`NOT_FOUND: ${name}/${id}`);
+        col(name)[id] = Object.assign({}, col(name)[id], JSON.parse(JSON.stringify(obj)));
+      },
       async delete() { delete col(name)[id]; },
     };
   }

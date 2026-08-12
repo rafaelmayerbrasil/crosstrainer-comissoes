@@ -750,6 +750,28 @@ async function salvarStaffEvento(scaleId) {
   renderEscalaGestao();
 }
 
+/**
+ * Troca quem trabalha numa vaga de sábado/feriado, sem refazer a escala inteira.
+ * Se a escala já está publicada, republica: senão a agenda (e o pagamento que sai
+ * dela) continuaria com a pessoa antiga. Publicar é idempotente e respeita aula
+ * de mês já pago, então republicar aqui é seguro.
+ */
+async function trocarPessoaEscala(scaleId, slotId, personId) {
+  const res = await ScaleService.reassignSlot(scaleId, slotId, personId || null);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); renderEscalaGestao(); return; }
+  if (!res.data.changed) return;
+
+  let msg = 'Vaga atualizada.';
+  if (res.data.fairnessAjustada) msg += ' Contador de justiça acertado.';
+  if (res.data.published) {
+    const pub = await ScaleService.publishToAgenda(scaleId);
+    msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
+  }
+  toast(msg, res.data.published ? 'success' : 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
+}
+
 async function atribuirLider(scaleId, slotId, personId) {
   const res = await ScaleService.assignSlot(scaleId, slotId, personId || null);
   if (res.success) { toast('Líder atualizado.', 'success'); await escalaLoadBase(); renderEscalaGestao(); }
@@ -767,7 +789,22 @@ function renderEscalaDetail(scale) {
   const reasonChip = (r) => {
     if (r === 'justica') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--blue-bg,#1a2a3a);color:var(--blue);">⚖ Justiça</span>`;
     if (r === 'merito') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#2a2410;color:#caa23a;">★ Mérito</span>`;
+    if (r === 'manual') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#2a1a2e;color:#c77dff;">✋ Escolha da gestão</span>`;
     return '';
+  };
+
+  // Troca manual da pessoa na vaga. Quem tem a modalidade vem primeiro; os demais
+  // ficam num grupo à parte — a gestão pode escalar assim mesmo, mas vendo que
+  // aquela pessoa não é habilitada.
+  const pessoaOpts = (slot) => {
+    const req = slot.requiredModalityId;
+    const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+    const temMod = (t) => !req || (t.modalityIds || []).includes(req);
+    const opt = (t) => `<option value="${t.id}" ${t.id === slot.assignedPersonId ? 'selected' : ''}>${t.name}</option>`;
+    const aptos = ativos.filter(temMod).map(opt).join('');
+    const outros = ativos.filter(t => !temMod(t)).map(opt).join('');
+    return `<option value="">— vaga aberta —</option>${aptos}` +
+           (outros ? `<optgroup label="Não habilitados nesta modalidade">${outros}</optgroup>` : '');
   };
 
   let unitsHtml = '';
@@ -782,6 +819,9 @@ function renderEscalaDetail(scale) {
           ${filled ? reasonChip(slot.reason) : '<span style="font-size:11px;color:var(--text3);">vaga aberta</span>'}
         </div>
         <div style="font-size:14px;font-weight:${filled ? '600' : '400'};color:${filled ? 'var(--text)' : 'var(--text3)'};">${filled ? person : 'ninguém habilitado disponível'}</div>
+        <select class="input" style="width:100%;margin-top:6px;font-size:12px;"
+                onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
+                title="Trocar quem trabalha nesta vaga">${pessoaOpts(slot)}</select>
         ${filled ? whyTableHtml(slot) : ''}
       </div>`;
     }).join('');
@@ -1438,6 +1478,7 @@ window.renderTabEscolaInterna = renderTabEscolaInterna;
 window.openNovaEscolaInterna = openNovaEscolaInterna;
 window.criarEscolaInterna = criarEscolaInterna;
 window.atribuirLider = atribuirLider;
+window.trocarPessoaEscala = trocarPessoaEscala;
 window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

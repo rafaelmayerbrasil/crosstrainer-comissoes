@@ -2584,15 +2584,34 @@
       <!-- Professor: só avisa que não aconteceu; a gestão resolve o resto -->
       <div id="classProfBlock" style="display:none;">
         <div class="form-divider"></div>
-        <div class="section-label" style="margin-top:0;">Essa aula não aconteceu?</div>
+        <div class="section-label" style="margin-top:0;">Aconteceu algo fora do normal?</div>
         <div class="hint" style="margin-bottom:10px;">
-          Avise aqui e a gestão confirma. Serve pra você não ficar sem saber se foi registrado.
+          Avise aqui e a gestão confirma. Nada entra no fechamento antes disso.
         </div>
         <div class="form-group">
           <input type="text" id="classProfNota" maxlength="300" placeholder="O que houve? (opcional)">
         </div>
         <button class="btn btn-outline btn-sm" onclick="professorAvisaAulaNaoAconteceu()">
-          Avisar que não aconteceu
+          A aula não aconteceu
+        </button>
+
+        <div class="section-label" style="margin-top:16px;">Ou informe os minutos</div>
+        <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          <div class="form-group">
+            <label for="classProfAtraso">Cheguei atrasado</label>
+            <input type="number" id="classProfAtraso" min="0" max="600" step="1" placeholder="min">
+          </div>
+          <div class="form-group">
+            <label for="classProfSaida">Saí antes</label>
+            <input type="number" id="classProfSaida" min="0" max="600" step="1" placeholder="min">
+          </div>
+          <div class="form-group">
+            <label for="classProfExtra">Fiquei além</label>
+            <input type="number" id="classProfExtra" min="0" max="600" step="1" placeholder="min">
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="professorAvisaOcorrencia()">
+          Enviar para a gestão
         </button>
       </div>
 
@@ -2757,12 +2776,12 @@
   <script src="firebase-config.js?v=20260811"></script>
   <script src="class-propagation.js?v=20260811"></script>
   <script src="intern-hour-bank.js?v=20260811"></script>
-  <script src="professores-shared.js?v=20260812e"></script>
+  <script src="professores-shared.js?v=20260812f"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
   <script src="engagement-service.js?v=20260812"></script>
   <script src="professores-cadastro.js?v=20260811"></script>
-  <script src="professores-agenda.js?v=20260812d"></script>
+  <script src="professores-agenda.js?v=20260812f"></script>
   <script src="professores-substituicoes.js?v=20260811"></script>
   <script src="professores-fechamento.js?v=20260811"></script>
   <script src="professores-pagamentos.js?v=20260811"></script>
@@ -2771,9 +2790,9 @@
   <script src="professores-relatorios.js?v=20260811"></script>
   <script src="professores-engajamento.js?v=20260812"></script>
   <script src="scale-engine.js?v=20260811"></script>
-  <script src="scale-service.js?v=20260812e"></script>
+  <script src="scale-service.js?v=20260812f"></script>
   <script src="notify-service.js?v=20260811"></script>
-  <script src="professores-escala-smart.js?v=20260812e"></script>
+  <script src="professores-escala-smart.js?v=20260812f"></script>
   <script src="plr-engine.js?v=20260811"></script>
   <script src="plr-service.js?v=20260811"></script>
   <script src="professores-plr.js?v=20260811"></script>

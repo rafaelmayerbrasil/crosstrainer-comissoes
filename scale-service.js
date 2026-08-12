@@ -147,6 +147,61 @@
     } catch (err) { console.error('[ScaleService.assignSlot]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * Troca manualmente quem ocupa uma vaga de sábado/feriado já consolidada.
+   *
+   * Antes só existia "Reconsolidar", que refaz a escala inteira pelo algoritmo:
+   * discordar de UMA pessoa custava perder todo o resto (Rafael, 12/08/2026 —
+   * "podemos apontar algum erro/mudança na criação dela?"). Na Escola Interna a
+   * troca já existia; aqui não.
+   *
+   * O pulo do gato é o contador de JUSTIÇA. Ele já foi creditado na consolidação
+   * pra quem o algoritmo escolheu; se a gestão troca e ninguém mexe no contador,
+   * quem saiu fica com um dia de crédito que não trabalhou e quem entrou trabalha
+   * de graça no rodízio — o insumo central do motor se corrompe em silêncio.
+   * Por isso a troca move o crédito junto, e só quando a escala já foi contabilizada.
+   */
+  async function reassignSlot(scaleId, slotId, newPersonId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      const slot = (scale.slots || []).find(s => s.id === slotId);
+      if (!slot) return { success: false, error: 'Vaga não encontrada.' };
+
+      const antes = slot.assignedPersonId || null;
+      const depois = newPersonId || null;
+      if (antes === depois) return { success: true, data: { changed: false } };
+
+      // Ninguém cobre duas vagas no mesmo dia — o motor já respeita isso.
+      if (depois && (scale.slots || []).some(s => s.id !== slotId && s.assignedPersonId === depois)) {
+        return { success: false, error: 'Essa pessoa já está em outra vaga desta escala.' };
+      }
+
+      const slots = (scale.slots || []).map(s => s.id === slotId
+        // reason:'manual' pra tabela do "porquê" não seguir alegando justiça/mérito
+        // numa escolha que foi da gestão.
+        ? Object.assign({}, s, { assignedPersonId: depois, reason: depois ? 'manual' : null, explain: [] })
+        : s);
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+
+      let fairnessAjustada = false;
+      if (scale.fairnessApplied === true) {
+        if (antes) {
+          const cur = (await getFairness(antes, deps)).data;
+          await saveFairness(antes, { diasTrabalhados: Math.max(0, cur.diasTrabalhados - 1), divida: cur.divida }, deps);
+        }
+        if (depois) {
+          const cur = (await getFairness(depois, deps)).data;
+          await saveFairness(depois, { diasTrabalhados: cur.diasTrabalhados + 1, divida: cur.divida }, deps);
+        }
+        fairnessAjustada = true;
+      }
+      return { success: true, data: { changed: true, from: antes, to: depois, fairnessAjustada, published: !!scale.published } };
+    } catch (err) { console.error('[ScaleService.reassignSlot]', err); return { success: false, error: err.message }; }
+  }
+
   // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
   const DEFAULT_HORARIOS = {
     sabado:           { startTime: '08:00', endTime: '12:00' },
@@ -720,5 +775,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

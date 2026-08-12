@@ -960,6 +960,51 @@ function renderClassCard(cls) {
 // ────────────────────────────────────────────────────────────────────────
 // Modal de aula — visualização + (admin) alteração de status
 // ────────────────────────────────────────────────────────────────────────
+/**
+ * O que o professor avisou sobre a aula, pra gestão ver e confirmar.
+ * O aviso NÃO entra no fechamento sozinho: o botão só preenche o formulário,
+ * e quem grava continua sendo a gestão clicando em Salvar.
+ */
+function avisoProfessorHtml(cls, podeAplicar) {
+  const av = cls.avisoProfessor;
+  if (!av) return '';
+  const quando = av.em && av.em.toDate ? av.em.toDate().toLocaleDateString('pt-BR') : '';
+  if (av.tipo === 'nao_aconteceu') {
+    return `<div class="info-callout" style="margin-top:14px;border-color:#caa23a;">
+      ⚠️ <strong>O professor avisou que esta aula não aconteceu.</strong>${quando ? ` (${quando})` : ''}
+      ${av.nota ? `<br>"${escapeHtml(av.nota)}"` : ''}
+      ${podeAplicar ? `<br><span style="font-size:12px;color:var(--text2);">Ajuste o status abaixo e salve para confirmar.</span>` : ''}
+    </div>`;
+  }
+  if (av.tipo === 'ocorrencia') {
+    const partes = [];
+    if (av.atrasoMinutos) partes.push(`chegou <b>${av.atrasoMinutos} min</b> atrasado`);
+    if (av.saidaAntecipadaMinutos) partes.push(`saiu <b>${av.saidaAntecipadaMinutos} min</b> antes`);
+    if (av.horaExtraMinutos) partes.push(`ficou <b>${av.horaExtraMinutos} min</b> além`);
+    return `<div class="info-callout" style="margin-top:14px;border-color:#caa23a;">
+      ⚠️ <strong>O professor informou:</strong> ${partes.join(' · ')}${quando ? ` (${quando})` : ''}
+      ${av.nota ? `<br>"${escapeHtml(av.nota)}"` : ''}
+      <br><span style="font-size:12px;color:var(--text2);">Ainda não entrou no fechamento.</span>
+      ${podeAplicar ? `<br><button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="aplicarAvisoProfessor()">Usar esses valores</button>` : ''}
+    </div>`;
+  }
+  return '';
+}
+
+/** Copia o que o professor informou pro formulário. Gravar mesmo, só no Salvar. */
+function aplicarAvisoProfessor() {
+  const cls = MinhaAgendaState.classes.find(c => c.id === MinhaAgendaState.selectedClassId)
+           || AgendaGeralState.classes.find(c => c.id === MinhaAgendaState.selectedClassId);
+  const av = cls && cls.avisoProfessor;
+  if (!av || av.tipo !== 'ocorrencia') return;
+  document.getElementById('classAtraso').value = av.atrasoMinutos || '';
+  document.getElementById('classSaidaAntecipada').value = av.saidaAntecipadaMinutos || '';
+  document.getElementById('classHoraExtra').value = av.horaExtraMinutos || '';
+  if (av.nota) document.getElementById('classStatusNote').value = av.nota;
+  if (typeof atualizarPreviewHoras === 'function') atualizarPreviewHoras();
+  toast('Valores preenchidos. Confira e clique em Salvar.', 'info');
+}
+
 async function openClassModal(classId) {
   // A Agenda Geral guarda as aulas na PRÓPRIA lista. Procurar só em
   // MinhaAgendaState fazia TODA aula clicada na Agenda Geral cair em "Aula não
@@ -1033,6 +1078,7 @@ async function openClassModal(classId) {
         ℹ️ <strong>Última observação:</strong> "${escapeHtml(cls.adjustmentNote)}"
       </div>
     ` : ''}
+    ${avisoProfessorHtml(cls, canEdit && !isLocked)}
   `;
 
   // Form de edição (só admin/gestao/supervisao) + botão Salvar
@@ -1067,12 +1113,15 @@ async function openClassModal(classId) {
     if (minhaAula && jaAvisou) {
       const hint = document.getElementById('classModalReadOnlyHint');
       if (hint) {
-        hint.textContent = 'Você já avisou que esta aula não aconteceu. A gestão vai confirmar.';
+        hint.textContent = cls.avisoProfessor.tipo === 'ocorrencia'
+          ? 'Você já informou o que aconteceu nesta aula. A gestão vai confirmar.'
+          : 'Você já avisou que esta aula não aconteceu. A gestão vai confirmar.';
         hint.style.display = '';
       }
     }
-    const nota = document.getElementById('classProfNota');
-    if (nota) nota.value = '';
+    ['classProfNota', 'classProfAtraso', 'classProfSaida', 'classProfExtra'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
   }
 
   const noteHint = document.getElementById('classModalReadOnlyHint');
@@ -1148,7 +1197,42 @@ async function professorAvisaAulaNaoAconteceu() {
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
   toast('Aviso enviado. A gestão vai confirmar.', 'success');
   closeClassModal();
-  await loadMinhaAgenda();
+  await recarregarAgendaAtual();
+}
+
+// Professor informa atraso / saída antecipada / hora extra. Vira aviso, não
+// lançamento: só entra no fechamento depois que a gestão confirmar.
+async function professorAvisaOcorrencia() {
+  const classId = MinhaAgendaState.selectedClassId;
+  if (!classId) return;
+  const num = (id) => Number(document.getElementById(id).value) || 0;
+  const dados = {
+    atrasoMinutos: num('classProfAtraso'),
+    saidaAntecipadaMinutos: num('classProfSaida'),
+    horaExtraMinutos: num('classProfExtra'),
+    nota: (document.getElementById('classProfNota').value || '').trim(),
+  };
+  if (!dados.atrasoMinutos && !dados.saidaAntecipadaMinutos && !dados.horaExtraMinutos) {
+    toast('Preencha ao menos um dos campos de minutos.', 'error'); return;
+  }
+  const partes = [];
+  if (dados.atrasoMinutos) partes.push(`${dados.atrasoMinutos} min de atraso`);
+  if (dados.saidaAntecipadaMinutos) partes.push(`saiu ${dados.saidaAntecipadaMinutos} min antes`);
+  if (dados.horaExtraMinutos) partes.push(`${dados.horaExtraMinutos} min a mais`);
+  if (!confirm(`Enviar para a gestão: ${partes.join(' · ')}?\n\nEla confirma antes de entrar no fechamento.`)) return;
+
+  const res = await ClassService.avisarOcorrencia(classId, dados);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Enviado. A gestão vai confirmar.', 'success');
+  closeClassModal();
+  await recarregarAgendaAtual();
+}
+
+/** Recarrega a tela em que a pessoa está — Minha Agenda e Agenda Geral têm listas próprias. */
+async function recarregarAgendaAtual() {
+  const emAgendaGeral = typeof AppState === 'object' && AppState && AppState.currentPage === 'agenda-geral';
+  if (emAgendaGeral) await loadAgendaGeral();
+  else await loadMinhaAgenda();
 }
 
 async function saveClassStatus() {
