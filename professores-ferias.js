@@ -375,7 +375,7 @@ async function openFeriasRequestModal() {
     <div id="feriasValidationError" style="color:var(--red);font-size:13px;margin:8px 0;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-secondary" onclick="closeFeriasModal()">Cancelar</button>
-      <button class="btn-primary" onclick="submitFeriasRequest()">Enviar solicitação</button>
+      <button class="btn-primary" id="feriasSubmitBtn" onclick="submitFeriasRequest()">Enviar solicitação</button>
     </div>
   `;
 
@@ -455,7 +455,7 @@ async function openFeriasRequestModalAdmin() {
     <div id="feriasValidationError" style="color:var(--red);font-size:13px;margin:8px 0;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-secondary" onclick="closeFeriasModal()">Cancelar</button>
-      <button class="btn-primary" onclick="submitFeriasRequestAdmin()">Enviar solicitação</button>
+      <button class="btn-primary" id="feriasSubmitBtnAdmin" onclick="submitFeriasRequestAdmin()">Enviar solicitação</button>
     </div>
   `;
 
@@ -1383,6 +1383,30 @@ async function submitFeriasRequestComSaldo() {
   }
 }
 
+/**
+ * Trava de reentrância do envio de solicitação.
+ *
+ * O motivo real dos 5 pedidos idênticos do Leonardo (12/08/2026) era o falso
+ * erro de permissão — já corrigido. Mas o botão continuava aceitando clique em
+ * cima de clique, e cada um vira um pedido novo (o id do doc é sorteado). Segura
+ * o botão enquanto está enviando e devolve o rótulo no fim, dê certo ou não.
+ */
+let feriasSubmitInFlight = false;
+async function withFeriasSubmitLock(btnId, fn) {
+  if (feriasSubmitInFlight) return;
+  feriasSubmitInFlight = true;
+  const btn = btnId ? document.getElementById(btnId) : null;
+  const rotulo = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  try {
+    return await fn();
+  } finally {
+    feriasSubmitInFlight = false;
+    // O modal costuma fechar no sucesso — só restaura se o botão ainda existe.
+    if (btn && document.body.contains(btn)) { btn.disabled = false; btn.textContent = rotulo; }
+  }
+}
+
 // Expor globalmente
 window.renderMinhasFeriasPage = renderMinhasFeriasPage;
 window.renderFeriasGestaoPage = renderFeriasGestaoPage;
@@ -1394,8 +1418,8 @@ window.openFeriasRequestModalAdmin = openFeriasRequestModalAdmin;
 window.onAdminFeriasTeacherChange = onAdminFeriasTeacherChange;
 window.closeFeriasModal = closeFeriasModal;
 window.addFeriasPeriod = addFeriasPeriod;
-window.submitFeriasRequest = submitFeriasRequestComSaldo;
-window.submitFeriasRequestAdmin = submitFeriasRequestAdmin;
+window.submitFeriasRequest = () => withFeriasSubmitLock('feriasSubmitBtn', submitFeriasRequestComSaldo);
+window.submitFeriasRequestAdmin = () => withFeriasSubmitLock('feriasSubmitBtnAdmin', submitFeriasRequestAdmin);
 window.aprovarVacation = aprovarVacation;
 window.recusarVacation = recusarVacation;
 window.cancelarVacation = cancelarVacation;

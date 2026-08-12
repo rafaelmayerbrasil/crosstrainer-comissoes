@@ -491,6 +491,7 @@ const NOTIF_TYPE_TITLES = {
   coverage_taken:         'Cobertura aceita',
   coverage_cancelled:     'Cobertura cancelada',
   event_reminder:         'Lembrete de evento',
+  vacation_requested:     'Nova solicitação de férias',
 };
 
 async function createNotification({ recipientUserId, type, body, link = null }) {
@@ -563,6 +564,50 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
  * Dispara quando coverage_applications/{covId} é criada.
  * Busca professores ativos com modalidade compatível e cria 1 notificação pra cada.
  */
+/**
+ * onVacationRequested — avisa a gestão que entrou pedido de férias/recesso.
+ *
+ * Isso era feito no navegador, mas a regra de /users só deixa cada um ler o
+ * próprio doc: pro professor a varredura por admins estourava permissão DEPOIS
+ * de gravar o pedido. A tela mostrava erro num pedido que tinha dado certo, a
+ * pessoa clicava de novo, e a gestão não recebia aviso nenhum (12/08/2026 —
+ * Benny travado, Leonardo com 5 pedidos idênticos). Aqui roda com Admin SDK.
+ */
+exports.onVacationRequested = onDocumentCreated({
+  document: 'vacation_requests/{reqId}',
+  region: 'us-central1',
+}, async (event) => {
+  const req = event.data && event.data.data();
+  if (!req || req.status !== 'pendente') return;
+  const reqId = event.params.reqId;
+  logger.info('[onVacationRequested] Iniciando', reqId);
+
+  try {
+    const firestore = db();
+    const admins = new Map(); // userId → doc (dedup: quem é admin E admin_gestao aparece 1x)
+    const snap = await firestore.collection('users')
+      .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
+      .get();
+    snap.docs.forEach(d => admins.set(d.id, d.data()));
+
+    const dias = req.totalDays != null ? `${req.totalDays} dias` : 'período a confirmar';
+    const quem = req.teacherName || 'Colaborador';
+    const tipo = req.type === 'recesso' ? 'recesso' : 'férias';
+    for (const userId of admins.keys()) {
+      await createNotification({
+        recipientUserId: userId,
+        type: 'vacation_requested',
+        body: `${quem} solicitou ${tipo} · ${dias}. Aprove ou recuse em Férias e Recesso.`,
+        link: { type: 'vacation', id: reqId },
+      });
+    }
+    logger.info('[onVacationRequested] Avisados', admins.size, 'admin(s) sobre', reqId);
+  } catch (err) {
+    // Não relança: o pedido já está gravado e vale. Falhar aqui só perderia o aviso.
+    logger.error('[onVacationRequested] FALHA ao avisar gestão', reqId, err);
+  }
+});
+
 exports.notifyTeachersAboutCoverage = onDocumentCreated({
   document: 'coverage_applications/{covId}',
   region: 'us-central1',

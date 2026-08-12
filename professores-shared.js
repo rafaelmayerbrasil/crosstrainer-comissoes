@@ -3420,27 +3420,24 @@ const VacationService = {
       };
       await ref.set(data);
 
-      // Notif pros admins/gestão
-      const adminsSnap = await db.collection('users')
-        .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
-        .get();
-      for (const u of adminsSnap.docs) {
-        await NotificationService.create({
-          recipientUserId: u.id,
-          type: 'vacation_requested',
-          title: 'Nova solicitação de férias',
-          body: `${teacher.name} (${teacher.type}) solicitou ${type} · ${totalDays} dias`,
-          link: { type: 'vacation', id: ref.id },
-        });
-      }
+      // ⚠️ NÃO avisar os admins daqui. A regra de /users só deixa cada um ler o
+      // PRÓPRIO doc (ou admin ler todos), então essa varredura estourava
+      // "Missing or insufficient permissions" pro professor — DEPOIS do set().
+      // Resultado em produção (12/08/2026): o pedido era gravado, a tela mostrava
+      // erro, a pessoa clicava de novo. O Leonardo acabou com 5 pedidos idênticos
+      // e a gestão sem nenhum aviso. Quem notifica agora é a CF onVacationRequested,
+      // que roda com Admin SDK e enxerga /users.
 
-      await AuditService.log({
-        type: 'vacation_requested',
-        details: `Solicitação de ${type} criada (${teacher.name} · ${totalDays} dias)`,
-        entityType: 'vacation_request', entityId: ref.id,
-        before: null, after: { ...data, id: ref.id },
-        module: 'ferias',
-      });
+      // Auditoria é efeito colateral: se falhar, não derruba a solicitação.
+      try {
+        await AuditService.log({
+          type: 'vacation_requested',
+          details: `Solicitação de ${type} criada (${teacher.name} · ${totalDays} dias)`,
+          entityType: 'vacation_request', entityId: ref.id,
+          before: null, after: { ...data, id: ref.id },
+          module: 'ferias',
+        });
+      } catch (e) { console.warn('[VacationService.request] auditoria falhou (pedido salvo)', e); }
 
       return { success: true, data: { id: ref.id, ...data } };
     } catch (err) {

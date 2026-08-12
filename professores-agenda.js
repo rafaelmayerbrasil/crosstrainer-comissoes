@@ -961,7 +961,13 @@ function renderClassCard(cls) {
 // Modal de aula — visualização + (admin) alteração de status
 // ────────────────────────────────────────────────────────────────────────
 async function openClassModal(classId) {
-  const cls = MinhaAgendaState.classes.find(c => c.id === classId);
+  // A Agenda Geral guarda as aulas na PRÓPRIA lista. Procurar só em
+  // MinhaAgendaState fazia TODA aula clicada na Agenda Geral cair em "Aula não
+  // encontrada na lista atual" — e pra quem é gestão sem vínculo de professor
+  // essa lista está sempre vazia, então a tela inteira ficava inclicável
+  // (Rodrigo e Rafael, 12/08/2026).
+  const cls = MinhaAgendaState.classes.find(c => c.id === classId)
+           || AgendaGeralState.classes.find(c => c.id === classId);
   if (!cls) {
     toast('Aula não encontrada na lista atual.', 'error');
     return;
@@ -1176,7 +1182,11 @@ async function saveClassStatus() {
   }
   toast('Status atualizado.', 'success');
   closeClassModal();
-  await loadMinhaAgenda();
+  // Recarrega a tela de onde a aula foi aberta: a Agenda Geral tem lista própria
+  // e ficaria mostrando o status velho até alguém trocar de página.
+  const emAgendaGeral = typeof AppState === 'object' && AppState && AppState.currentPage === 'agenda-geral';
+  if (emAgendaGeral) await loadAgendaGeral();
+  else await loadMinhaAgenda();
 }
 
 // ────────────────────────────────────────────────────────────────────────
