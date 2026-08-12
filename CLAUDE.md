@@ -61,6 +61,9 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
+> **📌 ÚLTIMO DEPLOY (12/08, sessão 47 — commit `25549d8`, já em produção):** Rodrigo achou que reunião/treinamento/trilha/beach games não existiam — **existiam desde julho**, o problema era achabilidade (criar é em `Agenda → Escala Inteligente → aba Eventos`, pontuar é em `Engajamento → Confirmar Presença`). Entregue: atalho **"+ Criar evento na Escala"** na chamada, **pré-marcação de quem respondeu "Vou"**, e a **Ajuda dentro do app** (item ❓ no menu abrindo o manual do perfil na âncora da tela + botão "?" contextual em 4 telas) — `professores-ajuda.js` novo, `scripts/smoke-ajuda-evento.js` 6/6. Uma folha de presença por tipo+data+unidade é **regra de operação, não bug** (decisão do Rafael). Detalhe: `CONTEXTO_SESSAO.md` → sessão 47.
+
+
 **✅ MÓDULO PROFESSORES NO AR EM PRODUÇÃO (deploy feito 17/07, sessão 43): Rodrigo aprovou → checklist A–D executado (merge `028ff21`, Firebase rules/índices/9 functions/hosting, `git push origin main`, verificado no github.io). `main` mergeado. AGORA (3 frentes, nenhuma bloqueia): (1) SETUP inicial via planilha `modelo-carga-inicial.xlsx` → loader `seed-producao` (testar staging) + Seção 5 smoke autenticado; (2) MANUAIS Fase 1 feita (artifact publicado p/ validar) → Fase 2 = "Ajuda" no menu + "?" contextuais via staging; (3) ENDURECER FECHAMENTO (reabertura-se-não-pago) via staging. Frente-2 futura: ponto eletrônico TecnoPonto. DETALHE: `CONTEXTO_SESSAO.md` → "▶️▶️ RETOMAR NA PRÓXIMA SESSÃO".**
 
 > **Onde paramos em detalhe:** `CONTEXTO_SESSAO.md` → seção **🔖 ONDE PARAMOS (sessão 42)**, sub-bloco **▶️ RETOMAR AQUI**. Contas de demo (senha `crosstainer2026`): `dono.teste@` · `professor.teste@` (Marcos) · `professor2.teste@` (Bruna). Memórias-chave: [[fix-geracao-aulas-tdz]] · [[projeto-visao-professor-mobile]] · [[frente3-escala-eventos-staff]].
