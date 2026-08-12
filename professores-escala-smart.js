@@ -185,7 +185,11 @@ function escalaCardDoc(s) {
   const publicada = !!s.published;
   const statusColor = publicada ? 'var(--green)'
     : (s.status === 'consolidada' ? 'var(--green)' : (s.status === 'janela_aberta' ? 'var(--blue)' : 'var(--text2)'));
-  const statusTxt = publicada ? '✓ Publicada' : (ESCALA_STATUS_LABEL[s.status] || s.status);
+  // Evento não passa por janela/consolidação/publicação — ele funciona por lista de
+  // staff + convite + RSVP. Mostrar "Rascunho" aqui é herança do fluxo de sábado/
+  // feriado e só assusta (Rodrigo, 12/08: "ficou como rascunho, o que tem que fazer?").
+  const statusTxt = s.tipo === 'evento' ? ''
+    : (publicada ? '✓ Publicada' : (ESCALA_STATUS_LABEL[s.status] || s.status));
   const kindBadge = (s.tipo === 'evento' && s.eventKind)
     ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${s.eventKind === 'externo' ? '#2a1a2e' : 'var(--surface3)'};color:${s.eventKind === 'externo' ? '#c77dff' : 'var(--text2)'};margin-left:6px;">${s.eventKind === 'externo' ? 'Externo' : 'Interno'}</span>` : '';
   return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
@@ -658,10 +662,22 @@ function renderEventoDetail(scale) {
         ${bloco('Vão', sum.vao, 'var(--green)')}${bloco('Não vão', sum.naoVao, 'var(--red)')}${bloco('Sem resposta', sum.semResposta, '#caa23a')}
       </div>` : '';
 
+  // Sem etapa de "publicar": convidou, está valendo. A faixa abaixo diz isso em
+  // voz alta pra ninguém ficar procurando um botão de confirmação que não existe.
+  const prontoBar = rsvp.size
+    ? `<div style="display:flex;align-items:flex-start;gap:8px;background:var(--green-bg,rgba(92,184,92,0.08));border:1px solid var(--green);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <span style="color:var(--green);">✓</span>
+        <span style="font-size:12px;color:var(--text2);"><b style="color:var(--green);">Evento no ar.</b> ${rsvp.size} pessoa(s) convidada(s) — elas já veem o evento no app e recebem lembrete 7, 4 e 1 dia antes. Não há nada mais pra confirmar aqui. Depois do evento, registre quem veio em <b style="color:var(--text);">Engajamento → Confirmar Presença</b>: é o que gera os pontos.</span>
+      </div>`
+    : `<div style="font-size:12px;color:var(--text2);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        Marque abaixo quem <b>deve</b> e quem <b>poderia</b> participar e clique em <b>Salvar staff e convidar</b>. É só isso — evento não precisa ser publicado.
+      </div>`;
+
   const kindBadge = scale.eventKind === 'externo' ? 'Externo' : 'Interno';
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
     <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
       <div style="font-size:12px;color:var(--text2);">${scale.date} · ${kindBadge}</div></div>
+    ${prontoBar}
     <div style="font-size:13px;font-weight:500;margin-bottom:6px;">Staff — quem deve / poderia participar</div>
     <div style="max-height:40vh;overflow:auto;">${linhas || '<p style="color:var(--text2);">Nenhum colaborador ativo.</p>'}</div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn-primary" onclick="salvarStaffEvento('${scale.id}')">Salvar staff e convidar</button></div>
