@@ -413,8 +413,16 @@ function buildSidebar() {
   let html = '';
   if (model.home) html += itemHtml(model.home);
   model.groups.forEach(g => {
-    html += `<div class="sb-section">${g.section}</div>`;
-    g.items.forEach(it => { html += itemHtml(it); });
+    // A seção da página atual nunca nasce recolhida — senão a pessoa perde de
+    // vista onde está.
+    const temPaginaAtual = g.items.some(it => it.id === AppState.currentPage);
+    const recolhida = !temPaginaAtual && secoesRecolhidas().includes(g.section);
+    html += `<div class="sb-section ${recolhida ? 'collapsed' : ''}" onclick="alternarSecaoMenu(this,'${g.section}')" title="Clique para recolher ou expandir">
+               <span class="sb-caret">▾</span>${g.section}
+             </div>
+             <div class="sb-group" data-secao="${g.section}"${recolhida ? ' style="display:none;"' : ''}>` +
+            g.items.map(itemHtml).join('') +
+            `</div>`;
   });
 
   // Seção de sistema (admin) — links externos pro Comissões
@@ -436,7 +444,52 @@ function buildSidebar() {
 
   nav.innerHTML = html;
   renderModuleSwitcher(model.moduleSwitcher); // Task 4
+  atualizarAvisoDeMenu();
 }
+
+/* ─── Menu longo: recolher seções + avisar que continua abaixo ─────
+ * O Will não achou "Férias e Recesso" e concluiu que o perfil dele não tinha
+ * acesso. Tinha: a seção fica depois do PLR, abaixo da dobra, e a barra de
+ * rolagem passa despercebida (12/08/2026).
+ */
+const MENU_SECOES_KEY = 'ct_menu_secoes_recolhidas';
+
+function secoesRecolhidas() {
+  try { return JSON.parse(localStorage.getItem(MENU_SECOES_KEY)) || []; }
+  catch (e) { return []; }
+}
+
+function alternarSecaoMenu(hdr, secao) {
+  const grupo = hdr.parentNode.querySelector(`.sb-group[data-secao="${secao}"]`);
+  if (!grupo) return;
+  const vaiRecolher = grupo.style.display !== 'none';
+  grupo.style.display = vaiRecolher ? 'none' : '';
+  hdr.classList.toggle('collapsed', vaiRecolher);
+  const atuais = secoesRecolhidas().filter(s => s !== secao);
+  if (vaiRecolher) atuais.push(secao);
+  try { localStorage.setItem(MENU_SECOES_KEY, JSON.stringify(atuais)); } catch (e) { /* modo anônimo */ }
+  atualizarAvisoDeMenu();
+}
+
+/** Mostra "▾ mais opções" só quando há conteúdo escondido abaixo. */
+function atualizarAvisoDeMenu() {
+  const nav = document.getElementById('sidebarNav');
+  const aviso = document.getElementById('sbMore');
+  if (!nav || !aviso) return;
+  const sobra = nav.scrollHeight - nav.clientHeight - nav.scrollTop;
+  aviso.style.display = sobra > 8 ? '' : 'none';
+}
+
+function rolarMenu() {
+  const nav = document.getElementById('sidebarNav');
+  if (nav) nav.scrollBy({ top: Math.round(nav.clientHeight * 0.7), behavior: 'smooth' });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const nav = document.getElementById('sidebarNav');
+  if (nav) nav.addEventListener('scroll', atualizarAvisoDeMenu);
+  window.addEventListener('resize', atualizarAvisoDeMenu);
+});
 
 /* ─── Barra inferior (mobile) ──────────────────────────────────── */
 function buildBottomNav() {

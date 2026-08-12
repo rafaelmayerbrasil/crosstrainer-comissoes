@@ -150,6 +150,25 @@
     }
     .sb-logo-text span { color: var(--text); }
 
+    /* Envelope só pra ancorar o aviso de "tem mais coisa abaixo" */
+    .sb-nav-wrap { flex: 1; position: relative; display: flex; min-height: 0; }
+    .sb-more {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      border: none; cursor: pointer;
+      padding: 10px 0 8px;
+      font-size: 11px; font-weight: 700; letter-spacing: .5px;
+      color: var(--orange);
+      background: linear-gradient(to bottom, transparent, var(--surface) 55%);
+      text-transform: uppercase;
+    }
+    .sb-more:hover { color: var(--text); }
+
+    /* Seções recolhíveis: menu longo cabe na tela sem depender de rolagem */
+    .sb-section { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }
+    .sb-section:hover { color: var(--text); }
+    .sb-caret { display: inline-block; transition: transform .15s; font-size: 9px; }
+    .sb-section.collapsed .sb-caret { transform: rotate(-90deg); }
+
     .sb-nav { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
     .sb-nav::-webkit-scrollbar { width: 6px; }
     .sb-nav::-webkit-scrollbar-track { background: transparent; }
@@ -2125,7 +2144,12 @@
         </div>
       </div>
       <div class="sb-switcher" id="sbSwitcher" style="display:none;"></div>
-      <nav class="sb-nav" id="sidebarNav"></nav>
+      <div class="sb-nav-wrap">
+        <nav class="sb-nav" id="sidebarNav"></nav>
+        <!-- Aviso de que o menu continua abaixo. O Will não achou "Férias e Recesso"
+             porque ela fica depois do PLR e a barra de rolagem passa despercebida. -->
+        <button type="button" class="sb-more" id="sbMore" style="display:none;" onclick="rolarMenu()">▾ mais opções</button>
+      </div>
       <div class="sb-user">
         <div class="name" id="userName"></div>
         <div class="role" id="userRole"></div>
@@ -2792,7 +2816,7 @@
   <script src="scale-engine.js?v=20260811"></script>
   <script src="scale-service.js?v=20260812f"></script>
   <script src="notify-service.js?v=20260811"></script>
-  <script src="professores-escala-smart.js?v=20260812f"></script>
+  <script src="professores-escala-smart.js?v=20260812g"></script>
   <script src="plr-engine.js?v=20260811"></script>
   <script src="plr-service.js?v=20260811"></script>
   <script src="professores-plr.js?v=20260811"></script>
@@ -2802,7 +2826,7 @@
   <script src="professores-nav.js?v=20260812"></script>
   <script src="professores-home.js?v=20260811"></script>
   <script src="professores-pessoas.js?v=20260811"></script>
-  <script src="professores.js?v=20260812"></script>
+  <script src="professores.js?v=20260812g"></script>
 </body>
 
 </html>

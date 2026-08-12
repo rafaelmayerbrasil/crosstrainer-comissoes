@@ -176,6 +176,20 @@ function escalaPersonName(id) {
   return t ? t.name : id;
 }
 
+/**
+ * Horário da escala, tirado das vagas. "Também não fala o horário" (Rafael,
+ * 12/08/2026): a lista dizia só a data, e quem olhava não sabia se o sábado era
+ * de manhã ou à tarde. Quando as vagas têm horários diferentes, mostra do
+ * primeiro começo ao último fim em vez de esconder a diferença.
+ */
+function escalaHorario(scale) {
+  const slots = (scale && scale.slots) || [];
+  const inicios = slots.map(s => s.startTime).filter(Boolean).sort();
+  const fins    = slots.map(s => s.endTime).filter(Boolean).sort();
+  if (!inicios.length || !fins.length) return '';
+  return `${inicios[0]}–${fins[fins.length - 1]}`;
+}
+
 /* ─── GESTÃO ───────────────────────────────────────────────────────── */
 function escalaCardDoc(s) {
   const sel = s.id === EscalaSmartState.selectedId;
@@ -193,7 +207,7 @@ function escalaCardDoc(s) {
   const kindBadge = (s.tipo === 'evento' && s.eventKind)
     ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${s.eventKind === 'externo' ? '#2a1a2e' : 'var(--surface3)'};color:${s.eventKind === 'externo' ? '#c77dff' : 'var(--text2)'};margin-left:6px;">${s.eventKind === 'externo' ? 'Externo' : 'Interno'}</span>` : '';
   return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${s.date}</div></div>
+    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''}</div></div>
     <span style="font-size:12px;font-weight:600;color:${statusColor};">${statusTxt}</span>
   </div>`;
 }
@@ -818,6 +832,7 @@ function renderEscalaDetail(scale) {
           <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--surface3);color:var(--text);">${modLabel}</span>
           ${filled ? reasonChip(slot.reason) : '<span style="font-size:11px;color:var(--text3);">vaga aberta</span>'}
         </div>
+        ${slot.startTime ? `<div style="font-size:11px;color:var(--text2);margin-bottom:4px;">🕗 ${slot.startTime}–${slot.endTime || ''}</div>` : ''}
         <div style="font-size:14px;font-weight:${filled ? '600' : '400'};color:${filled ? 'var(--text)' : 'var(--text3)'};">${filled ? person : 'ninguém habilitado disponível'}</div>
         <select class="input" style="width:100%;margin-top:6px;font-size:12px;"
                 onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
@@ -1285,13 +1300,13 @@ async function renderProfSabadosFeriados(pid, tab) {
       right = open
         ? `<div style="display:flex;gap:6px;">${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>`
         : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
-      return profDateRow(s, `${s.date} · ${prazo}`, right);
+      return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${prazo}`, right);
     }
     const escalado = ScaleService.isPersonAssigned(s, pid);
     right = escalado
       ? `<span style="font-size:12px;color:var(--green);font-weight:600;">✓ Você está escalado</span>`
       : `<span style="font-size:12px;color:var(--text3);">Não escalado</span>`;
-    return profDateRow(s, `${s.date} · ${ESCALA_STATUS_LABEL[s.status] || s.status}`, right);
+    return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${ESCALA_STATUS_LABEL[s.status] || s.status}`, right);
   }).join('');
 }
 
