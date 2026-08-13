@@ -39,6 +39,19 @@ assert.strictEqual(CP.isUntouchedClass({ status: 'realizada', monthClosingId: nu
 assert.strictEqual(CP.isUntouchedClass({ status: 'prevista', monthClosingId: null, dateISO: '2026-07-05' }, HOJE), false, 'passada não é intocada');
 console.log('✓ isUntouchedClass aceita só prevista + sem fechamento + de hoje em diante');
 
+// ════════════ hasAlreadyEndedToday: aula de hoje que já acabou não nasce ════════════
+// Cenário real (13/08/2026): mover um horário às 13h fazia o gerador criar a
+// aula das 07:00 de HOJE, que nunca aconteceu — e ela entrava na conta de horas.
+const H = CP.hasAlreadyEndedToday;
+assert.strictEqual(H('2026-08-13', '08:00', '2026-08-13', '13:20'), true,  'hoje, já terminou → pula');
+assert.strictEqual(H('2026-08-13', '20:00', '2026-08-13', '13:20'), false, 'hoje, ainda vai acontecer → cria');
+assert.strictEqual(H('2026-08-13', '14:00', '2026-08-13', '13:20'), false, 'hoje, em andamento → cria (a aula está acontecendo)');
+assert.strictEqual(H('2026-08-13', '13:20', '2026-08-13', '13:20'), true,  'terminou exatamente agora → pula');
+assert.strictEqual(H('2026-08-20', '07:00', '2026-08-13', '13:20'), false, 'dia futuro nunca é pulado');
+assert.strictEqual(H('2026-08-06', '07:00', '2026-08-13', '13:20'), false, 'dia passado não é assunto desta regra');
+assert.strictEqual(H('2026-08-13', '', '2026-08-13', '13:20'), false, 'sem horário de fim → não arrisca, cria');
+console.log('✓ hasAlreadyEndedToday pula só a aula de hoje que já terminou');
+
 // ════════════ as duas cópias não podem divergir ════════════
 // O deploy das Functions leva só functions/, então existe um gêmeo lá.
 // Comparar COMPORTAMENTO, não texto: os cabeçalhos diferem de propósito.
@@ -55,6 +68,18 @@ const casos = [
 casos.forEach(c => {
   assert.strictEqual(CPF.isUntouchedClass(c, HOJE), CP.isUntouchedClass(c, HOJE),
     `as duas cópias divergiram em isUntouchedClass(${JSON.stringify(c)})`);
+});
+const casosFim = [
+  ['2026-08-13', '08:00', '2026-08-13', '13:20'],
+  ['2026-08-13', '20:00', '2026-08-13', '13:20'],
+  ['2026-08-13', '13:20', '2026-08-13', '13:20'],
+  ['2026-08-20', '07:00', '2026-08-13', '13:20'],
+  ['2026-08-06', '07:00', '2026-08-13', '13:20'],
+  ['2026-08-13', '',      '2026-08-13', '13:20'],
+];
+casosFim.forEach(a => {
+  assert.strictEqual(CPF.hasAlreadyEndedToday(...a), CP.hasAlreadyEndedToday(...a),
+    `as duas cópias divergiram em hasAlreadyEndedToday(${a.join(', ')})`);
 });
 console.log('✓ cópia da raiz e cópia de functions/ concordam');
 

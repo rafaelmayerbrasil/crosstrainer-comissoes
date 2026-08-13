@@ -99,6 +99,12 @@ function ymdISOFromDateBR(d) {
   return `${c.year}-${String(c.month + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`;
 }
 
+/** HH:MM em BR a partir de uma Date — usado pra saber se a aula de hoje já acabou. */
+function hhmmFromDateBR(d) {
+  const shifted = new Date(d.getTime() - BR_OFFSET_MS);
+  return `${String(shifted.getUTCHours()).padStart(2, '0')}:${String(shifted.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 // Sprint 6b — recorta período de férias ao mês corrente
 function splitVacationAcrossMonth(vacReq, year, month) {
   const monthStart = brMidnightUTC(year, month - 1, 1);
@@ -265,6 +271,12 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
   });
 
   let vacationSkippedCount = 0;
+  let pastTodaySkippedCount = 0;
+
+  // Referência de "agora" em BR, pra não criar aula de hoje que já terminou.
+  const agoraBR = new Date();
+  const hojeISO = ymdISOFromDateBR(agoraBR);
+  const agoraHHMM = hhmmFromDateBR(agoraBR);
 
   // 2) Compõe todos os pares (slot, data) candidatos — iterando em dias BR
   const candidates = [];   // [{ slotId, slot, date, classId, extras }]
@@ -280,6 +292,17 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
         const teacherVacations = vacationDatesByTeacher.get(slot.teacherId);
         if (teacherVacations && teacherVacations.has(ymdStr)) {
           vacationSkippedCount++;
+          cursorMs += ONE_DAY_MS;
+          continue;
+        }
+
+        // Aula de HOJE que já terminou não nasce (decisão do Rafael, 13/08/2026).
+        // Sem isso, mover um horário às 13h criava a aula das 07:00 de hoje, que
+        // nunca aconteceu — e entrava na conta de horas do mês como se tivesse
+        // acontecido. O cron das segundas 02:00 não é afetado: às 2 da manhã
+        // nenhuma aula do dia terminou ainda.
+        if (classPropagation.hasAlreadyEndedToday(ymdStr, slot.endTime, hojeISO, agoraHHMM)) {
+          pastTodaySkippedCount++;
           cursorMs += ONE_DAY_MS;
           continue;
         }
@@ -336,6 +359,8 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
       created: 0,
       skipped: existingIds.size,
       wouldCreate: toCreate.length,
+      vacationSkipped: vacationSkippedCount,
+      pastTodaySkipped: pastTodaySkippedCount,
       dryRun: true,
       sample,
       slotsScanned: slots.length,
@@ -397,6 +422,7 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
     created: toCreate.length,
     skipped: existingIds.size,
     vacationSkipped: vacationSkippedCount,
+    pastTodaySkipped: pastTodaySkippedCount,
     dryRun: false,
     sample,
     slotsScanned: slots.length,
