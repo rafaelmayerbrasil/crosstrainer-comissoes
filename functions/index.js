@@ -6,6 +6,7 @@
 //   ✅ healthCheck ............................. Sprint 0-B
 //   ✅ generateClassesForUpcomingWeeks (cron) .. Sprint 3a
 //   ✅ generateClassesManual (callable) ........ Sprint 3a
+//   ✅ moveSlotClasses (callable) .............. 13/08/2026
 //
 // Próximas:
 //   - processSubstitutionAcceptance ............ Sprint 3b
@@ -24,6 +25,7 @@ const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/
 const logger = require('firebase-functions/logger');
 const remindersUtil = require('./reminders-util.js');
 const internBank = require('./intern-hour-bank.js');
+const classPropagation = require('./class-propagation.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -480,6 +482,90 @@ exports.generateClassesManual = onCall({
     logger.error('[generateClassesManual] FALHA', err);
     throw new HttpsError('internal', err.message || 'Falha na geração');
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// Troca de dia da semana de um slot — move as aulas futuras intocadas
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Por que APAGAR E REGERAR em vez de mudar a data das aulas existentes:
+// o classId embute a data (`${slotId}_${YYYYMMDD}`). Alterar a data por dentro
+// deixaria o id inconsistente com o conteúdo, e a geração — que é idempotente
+// POR ESSE ID — criaria uma segunda aula na data nova. Duplicata garantida.
+//
+// Por que NO SERVIDOR: a rule de `classes` só permite delete de aula de escala
+// especial, de propósito (proteção do fechamento). Em vez de afrouxar a rule,
+// a operação roda aqui com Admin SDK, restrita a admin.
+//
+// De brinde, regerar pelo generateClassesCore mantém feriado, escala especial
+// e férias sendo respeitados — mover na mão exigiria reimplementar tudo isso.
+exports.moveSlotClasses = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 540,
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const userDoc = await db().collection('users').doc(request.auth.uid).get();
+  if (!userDoc.exists) {
+    throw new HttpsError('permission-denied', 'Usuário sem perfil cadastrado.');
+  }
+  const userData = userDoc.data();
+  const profiles = userData.profiles || (userData.role ? [userData.role] : []);
+  if (!profiles.includes('admin') && !profiles.includes('admin_gestao')) {
+    throw new HttpsError('permission-denied', 'Apenas admin/gestão pode mover aulas.');
+  }
+
+  const data = request.data || {};
+  const slotId = String(data.slotId || '').trim();
+  const dryRun = data.dryRun === true;
+  if (!slotId) throw new HttpsError('invalid-argument', 'slotId obrigatório.');
+
+  const t0 = Date.now();
+  const firestore = db();
+
+  const slotDoc = await firestore.collection('schedule_slots').doc(slotId).get();
+  if (!slotDoc.exists) throw new HttpsError('not-found', 'Slot não encontrado.');
+
+  const hojeISO = ymdISOFromDateBR(new Date());
+  const snap = await firestore.collection('classes').where('slotId', '==', slotId).get();
+
+  const paraApagar = [];
+  let skipped = 0;
+  snap.docs.forEach(d => {
+    const c = d.data();
+    const dt = c.scheduledDate && c.scheduledDate.toDate ? c.scheduledDate.toDate() : new Date(c.scheduledDate);
+    const alvo = {
+      status: c.status,
+      monthClosingId: c.monthClosingId || null,
+      dateISO: ymdISOFromDateBR(dt),
+    };
+    if (classPropagation.isUntouchedClass(alvo, hojeISO)) paraApagar.push(d.id);
+    else skipped++;
+  });
+
+  if (dryRun) {
+    return { deleted: paraApagar.length, created: 0, skipped, dryRun: true, durationMs: Date.now() - t0 };
+  }
+
+  const BATCH_LIMIT = 400;
+  for (let i = 0; i < paraApagar.length; i += BATCH_LIMIT) {
+    const batch = firestore.batch();
+    paraApagar.slice(i, i + BATCH_LIMIT).forEach(id => batch.delete(firestore.collection('classes').doc(id)));
+    await batch.commit();
+  }
+  logger.info('[moveSlotClasses] apagadas', { slotId, deleted: paraApagar.length, skipped });
+
+  const gen = await generateClassesCore({ weeksAhead: 8, dryRun: false, source: 'cf-move-slot' });
+  logger.info('[moveSlotClasses] regerado', { slotId, created: gen.created });
+
+  return {
+    deleted: paraApagar.length,
+    created: gen.created,
+    skipped,
+    dryRun: false,
+    durationMs: Date.now() - t0,
+  };
 });
 
 // ═══════════════════════════════════════════════════════════════════════
