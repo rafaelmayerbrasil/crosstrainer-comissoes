@@ -420,7 +420,8 @@ function toggleShowInactive(checked) {
 const SlotFormState = {
   editingId: null,
   weekdays: [1],   // CRIAÇÃO aceita múltiplos dias (lança N slots em lote).
-                   // EDIÇÃO mantém só [slot.weekday] e não permite alterar.
+                   // EDIÇÃO usa seleção única: trocar o dia MOVE o horário.
+  originalWeekday: null,  // dia com que o modal abriu — é o que detecta a troca no save
   lastWeekday: 1,  // último dia usado na sessão — vira o padrão do próximo slot
 };
 
@@ -456,6 +457,7 @@ function openSlotModal(slotId = null) {
   // (a manhã de sábado, por exemplo) preenchia tudo de novo, não reparava que o
   // dia tinha voltado sozinho, e o slot nascia na Segunda. Aconteceu em produção.
   SlotFormState.weekdays = editing ? [editing.weekday] : [SlotFormState.lastWeekday || 1];
+  SlotFormState.originalWeekday = editing ? editing.weekday : null;
 
   document.getElementById('slotModalTitle').textContent = editing ? 'Editar slot' : 'Novo slot';
   document.getElementById('slotModalError').textContent = '';
@@ -513,23 +515,25 @@ function renderSlotWeekdayChips() {
 
   wrap.innerHTML = WEEKDAY_ORDER.map(w => {
     const isSelected = SlotFormState.weekdays.includes(w);
-    // Em edição: só o weekday original é interativo; os outros ficam disabled
-    const isDisabled = isEditing && !isSelected;
     const cls = ['chip-toggle'];
     if (isSelected) cls.push('selected');
-    if (isDisabled) cls.push('chip-disabled');
-    const onClick = isDisabled ? '' : `onclick="setSlotWeekday(${w})"`;
-    const title = isDisabled
-      ? 'Edição não permite alterar o dia. Crie um novo slot para outro dia.'
+    // Em edição todos os dias são clicáveis: clicar em outro MOVE o horário
+    // (com confirmação no save). Antes ficavam travados e não havia como mudar.
+    const title = isEditing
+      ? (isSelected ? 'Dia atual deste horário' : 'Clique para mover este horário para cá')
       : (isSelected ? 'Clique para remover' : 'Clique para adicionar');
-    return `<span class="${cls.join(' ')}" data-weekday="${w}" ${onClick} title="${title}">${ProfHelpers.WEEKDAY_LABEL_SHORT[w]}</span>`;
+    return `<span class="${cls.join(' ')}" data-weekday="${w}" onclick="setSlotWeekday(${w})" title="${title}">${ProfHelpers.WEEKDAY_LABEL_SHORT[w]}</span>`;
   }).join('');
 
   // Hint dinâmico abaixo dos chips
   const hint = document.getElementById('slotWeekdayHint');
   if (hint) {
     if (isEditing) {
-      hint.textContent = 'Edição: dia da semana fixo. Para criar em outro dia, feche e clique em "+ Novo slot".';
+      const original = SlotFormState.originalWeekday;
+      const atual = SlotFormState.weekdays[0];
+      hint.textContent = atual === original
+        ? `Dia atual: ${ProfHelpers.WEEKDAY_LABEL[atual].toUpperCase()}. Clique em outro dia para mover este horário.`
+        : `Vai mudar de ${ProfHelpers.WEEKDAY_LABEL[original].toUpperCase()} para ${ProfHelpers.WEEKDAY_LABEL[atual].toUpperCase()} — as aulas futuras acompanham (o sistema confirma antes de salvar).`;
     } else {
       // Diz o NOME do dia, não só a quantidade: "1 dia selecionado" não avisava
       // que o dia era Segunda quando a pessoa achava que estava criando no sábado.
@@ -546,8 +550,12 @@ function renderSlotWeekdayChips() {
 }
 
 function setSlotWeekday(w) {
-  // Em edição, não permite alterar
-  if (SlotFormState.editingId) return;
+  if (SlotFormState.editingId) {
+    // Edição mexe em UM slot: seleção única. Clicar em outro dia move o horário.
+    SlotFormState.weekdays = [w];
+    renderSlotWeekdayChips();
+    return;
+  }
   const idx = SlotFormState.weekdays.indexOf(w);
   if (idx >= 0) {
     SlotFormState.weekdays.splice(idx, 1);  // toggle off
@@ -707,28 +715,70 @@ async function saveSlot() {
 
   let toastMsg;
   if (SlotFormState.editingId) {
-    // EDIÇÃO: só 1 slot, weekday é o original
-    const slotData = { ...baseSlotData, weekday: SlotFormState.weekdays[0] };
+    // EDIÇÃO: só 1 slot.
+    const oldSlot = AgendaState.slots.find(s => s.id === SlotFormState.editingId) || {};
+    const novoWeekday = SlotFormState.weekdays[0];
+    const mudouDia = oldSlot.weekday !== undefined && oldSlot.weekday !== novoWeekday;
+
+    // TROCA DE DIA: perguntar ANTES de gravar qualquer coisa. Se cancelar, nada
+    // é salvo — salvar a grade e deixar as aulas no dia velho é exatamente a
+    // inconsistência que motivou esta mudança (decisão do Rodrigo, 13/08/2026).
+    let moverAulas = false;
+    if (mudouDia) {
+      const previa = await ClassService.moveSlotClasses(SlotFormState.editingId, { dryRun: true });
+      if (!previa.success) {
+        btn.disabled = false; btn.textContent = 'Salvar';
+        errEl.textContent = 'Não consegui verificar as aulas deste horário: ' + (previa.error || '');
+        return;
+      }
+      const de = ProfHelpers.WEEKDAY_LABEL[oldSlot.weekday];
+      const para = ProfHelpers.WEEKDAY_LABEL[novoWeekday];
+      if (previa.deleted > 0) {
+        const ok = confirm(
+          `Você está mudando de ${de} para ${para}.\n\n` +
+          `Existem ${previa.deleted} aula(s) futura(s) na ${de}. Elas serão movidas para a ${para}.\n` +
+          `Aulas já substituídas, canceladas ou de mês fechado ficam onde estão.\n\n` +
+          `Confirma?`
+        );
+        if (!ok) { btn.disabled = false; btn.textContent = 'Salvar'; return; }
+      }
+      // Mesmo com ZERO aula a mover, chama o move depois de salvar: é ele que
+      // regera as aulas no dia novo. Sem isso o dia novo ficaria vazio até a
+      // geração automática de segunda-feira.
+      moverAulas = true;
+    }
+
+    const slotData = { ...baseSlotData, weekday: novoWeekday };
     const res = await ScheduleSlotService.update(SlotFormState.editingId, slotData);
     if (!res.success) {
       btn.disabled = false; btn.textContent = 'Salvar';
       errEl.textContent = res.error || 'Erro ao salvar.'; return;
     }
     toastMsg = 'Slot atualizado.';
-    // Propagação opt-in: se o dia da semana ficou igual e algum campo propagável
-    // mudou, oferece atualizar as aulas futuras "intocadas" desse slot.
-    const oldSlot = AgendaState.slots.find(s => s.id === SlotFormState.editingId) || {};
-    const novoWeekday = SlotFormState.weekdays[0];
-    const mudouCampo = oldSlot.teacherId !== teacherId || oldSlot.modalityId !== modalityId
-                    || oldSlot.startTime !== startTime || oldSlot.endTime !== endTime;
-    if (oldSlot.weekday === novoWeekday && mudouCampo) {
-      const novoSlot = { teacherId, modalityId, startTime, endTime, durationMinutes: endMin - startMin };
-      const plan = await ClassService.propagateSlotEditPlan(SlotFormState.editingId, novoSlot);
-      if (plan.success && plan.eligibleCount > 0
-          && confirm(`Aplicar também às ${plan.eligibleCount} próximas aulas já criadas?`)) {
-        const ap = await ClassService.propagateSlotEditApply(plan.updates);
-        if (ap.success) toastMsg = `Slot atualizado. ${ap.updated} aula(s) futura(s) atualizada(s).`;
-        else toast('Slot salvo, mas falhou ao propagar: ' + (ap.error || ''), 'error');
+
+    if (moverAulas) {
+      btn.textContent = 'Movendo aulas…';
+      const mv = await ClassService.moveSlotClasses(SlotFormState.editingId, { dryRun: false });
+      if (mv.success) {
+        toastMsg = mv.deleted > 0
+          ? `Horário movido para ${ProfHelpers.WEEKDAY_LABEL[novoWeekday]}. ${mv.deleted} aula(s) movida(s).`
+          : `Horário movido para ${ProfHelpers.WEEKDAY_LABEL[novoWeekday]}.`;
+      } else {
+        toast('Horário salvo, mas falhou ao mover as aulas: ' + (mv.error || ''), 'error', 7000);
+      }
+    } else {
+      // Mesmo dia: propagação in-place dos outros campos (comportamento de 12/07).
+      const mudouCampo = oldSlot.teacherId !== teacherId || oldSlot.modalityId !== modalityId
+                      || oldSlot.startTime !== startTime || oldSlot.endTime !== endTime;
+      if (mudouCampo) {
+        const novoSlot = { teacherId, modalityId, startTime, endTime, durationMinutes: endMin - startMin };
+        const plan = await ClassService.propagateSlotEditPlan(SlotFormState.editingId, novoSlot);
+        if (plan.success && plan.eligibleCount > 0
+            && confirm(`Aplicar também às ${plan.eligibleCount} próximas aulas já criadas?`)) {
+          const ap = await ClassService.propagateSlotEditApply(plan.updates);
+          if (ap.success) toastMsg = `Slot atualizado. ${ap.updated} aula(s) futura(s) atualizada(s).`;
+          else toast('Slot salvo, mas falhou ao propagar: ' + (ap.error || ''), 'error');
+        }
       }
     }
   } else {
