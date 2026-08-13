@@ -10,7 +10,13 @@ function ids(model) { return model.groups.flatMap(g => g.items.map(i => i.id)); 
 let m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: false, moduleAccess: { professores: true } });
 const secs = sections(m);
 assert.deepStrictEqual(secs, [...new Set(secs)], 'Admin: seção repetida na sidebar');
-assert.deepStrictEqual(secs, ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro'], 'Admin: ordem/grupos errados');
+// Ordem por FREQUÊNCIA DE USO, não por assunto (Rafael, 13/08/2026): o que se
+// usa todo dia em cima, o que quase não se mexe embaixo. Configurações é a
+// última do módulo — só admin vê, e existe justamente pra não ficar do lado
+// das telas do dia a dia.
+assert.deepStrictEqual(secs,
+  ['Agenda', 'Engajamento', 'Férias', 'Financeiro', 'PLR', 'Cadastros', 'Configurações'],
+  'Admin: ordem/grupos errados');
 assert.ok(!ids(m).includes('minha-agenda'), 'Admin sem vínculo não deve ver Minha Agenda');
 assert.ok(!ids(m).includes('home'), 'Início não entra em grupo (é item solto)');
 
@@ -23,6 +29,23 @@ assert.ok(ids(m).includes('pessoas'), 'Admin deve ver Pessoas');
 assert.ok(!ids(m).includes('professores'), 'Entrada Professores foi absorvida pelo hub (D11)');
 const cadastros = m.groups.find(g => g.section === 'Cadastros');
 assert.ok(cadastros.items.some(i => i.id === 'pessoas'), 'Pessoas fica na seção Cadastros (D14)');
+
+// 1d) Grupo Configurações: o que se cadastra/ajusta uma vez e quase não se mexe.
+// Fica separado das telas do dia a dia justamente pra ninguém alterar de
+// passagem (Rafael, 13/08/2026).
+const config = m.groups.find(g => g.section === 'Configurações');
+assert.ok(config, 'Admin deve ter a seção Configurações');
+assert.deepStrictEqual(config.items.map(i => i.id).sort(),
+  ['engaj-config', 'modalidades', 'plr-config'],
+  'Configurações deve ter Config. Pontos, Modalidades e PLR · Config');
+assert.ok(!cadastros.items.some(i => i.id === 'modalidades'),
+  'Modalidades saiu de Cadastros — cadastra uma vez, não é rotina como Pessoas');
+const engaj = m.groups.find(g => g.section === 'Engajamento');
+assert.ok(!engaj.items.some(i => i.id === 'engaj-config'),
+  'Config. Pontos não pode ficar ao lado de Confirmar Presença/Placar');
+const plr = m.groups.find(g => g.section === 'PLR');
+assert.ok(!plr.items.some(i => i.id === 'plr-config'),
+  'PLR · Config não pode ficar ao lado de Avaliação/Resultado');
 
 // 2) Admin COM vínculo: ganha minha-agenda DENTRO da seção "Agenda" (não é mais seção própria — pedido do Rodrigo 12/07)
 m = Nav.buildSidebarModel(['admin'], { hasProfessorLink: true, moduleAccess: { professores: true } });

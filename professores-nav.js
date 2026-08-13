@@ -26,7 +26,9 @@
     { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Agenda' },
     { id: 'escala-smart',   label: 'Escala Inteligente',icon: '🗓️', section: 'Agenda' },
     { id: 'pessoas',        label: 'Pessoas',           icon: '👥', section: 'Cadastros' },
-    { id: 'modalidades',    label: 'Modalidades',       icon: '🏷️', section: 'Cadastros' },
+    // Modalidade se cadastra uma vez e quase não se mexe — vive em Configurações,
+    // não em Cadastros junto com Pessoas, que se abre a cada entrada/saída.
+    { id: 'modalidades',    label: 'Modalidades',       icon: '🏷️', section: 'Configurações' },
     { id: 'ferias',         label: 'Férias e Recesso',  icon: '🏖️', section: 'Férias' },
     { id: 'saldos-gestao',  label: 'Saldos de Férias',  icon: '📊', section: 'Férias' },
     { id: 'meu-saldo',      label: 'Meu Saldo',         icon: '📊', section: 'Férias' },
@@ -36,15 +38,18 @@
     { id: 'relatorios',     label: 'Relatórios',        icon: '📈', section: 'Financeiro' },
     { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Agenda' },
     { id: 'substituicoes',  label: 'Substituições',     icon: '⇄', section: 'Agenda' },
-    { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Engajamento' },
+    { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Configurações' },
     { id: 'engaj-chamada',  label: 'Confirmar Presença', icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },
-    { id: 'plr-config',     label: 'PLR · Config',      icon: '⚙️', section: 'PLR' },
+    { id: 'plr-config',     label: 'PLR · Config',      icon: '⚙️', section: 'Configurações' },
     { id: 'plr-avaliacao',  label: 'PLR · Avaliação',   icon: '📝', section: 'PLR' },
     { id: 'plr-resultado',  label: 'PLR · Resultado',   icon: '🏅', section: 'PLR' },
   ];
 
-  const SECTION_ORDER = ['Agenda', 'Engajamento', 'PLR', 'Cadastros', 'Férias', 'Financeiro'];
+  // Ordem por FREQUÊNCIA DE USO, não por assunto (Rafael, 13/08/2026): o que se
+  // abre todo dia fica em cima, o que quase não se mexe desce. Encurta a parte
+  // do menu que importa no dia a dia e tira as telas de configuração do caminho.
+  const SECTION_ORDER = ['Agenda', 'Engajamento', 'Férias', 'Financeiro', 'PLR', 'Cadastros', 'Configurações'];
 
   // Seção de sistema (cross-módulo). Links apontam pro Comissões com ?page=
   // (deep-link só funciona após o Plano B; antes disso cai na home do Comissões).

@@ -1532,6 +1532,39 @@
       margin-right: 4px;
     }
 
+    /* ─── Trava de leitura das telas de configuração (13/08) ──────────── */
+    .cfg-lock {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--text3);
+      border-radius: var(--radius);
+    }
+    .cfg-lock-on {
+      border-left-color: var(--accent);
+      background: var(--orange-glow);
+    }
+    .cfg-lock-ico { font-size: 18px; line-height: 1; }
+    .cfg-lock-txt { flex: 1; font-size: 13px; color: var(--text2); }
+    .cfg-lock-txt strong { color: var(--text); }
+    /* Campo travado precisa PARECER travado — sem isso o admin acha que digitou
+       e o sistema comeu o valor. */
+    .cfg-lock ~ * input:disabled,
+    .cfg-lock ~ * select:disabled,
+    .cfg-lock ~ * textarea:disabled {
+      opacity: .65;
+      cursor: not-allowed;
+      background: var(--surface2);
+    }
+    @media (max-width: 640px) {
+      .cfg-lock { flex-wrap: wrap; }
+      .cfg-lock-txt { flex-basis: 100%; order: 3; }
+    }
+
     /* ─── Agenda Geral — toggle dia/período + navegação de data (12/08) ── */
     .agenda-geral-toolbar-controls {
       display: flex;
@@ -2961,6 +2994,7 @@
   <script src="class-propagation.js?v=20260811"></script>
   <script src="intern-hour-bank.js?v=20260811"></script>
   <script src="professores-shared.js?v=20260812f"></script>
+  <script src="professores-config-lock.js?v=20260813"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
   <script src="engagement-service.js?v=20260812"></script>
@@ -2972,18 +3006,18 @@
   <script src="professores-escalas.js?v=20260811"></script>
   <script src="professores-ferias.js?v=20260812e"></script>
   <script src="professores-relatorios.js?v=20260811"></script>
-  <script src="professores-engajamento.js?v=20260812"></script>
+  <script src="professores-engajamento.js?v=20260813"></script>
   <script src="scale-engine.js?v=20260811"></script>
   <script src="scale-service.js?v=20260812f"></script>
   <script src="notify-service.js?v=20260811"></script>
   <script src="professores-escala-smart.js?v=20260812g"></script>
   <script src="plr-engine.js?v=20260811"></script>
   <script src="plr-service.js?v=20260811"></script>
-  <script src="professores-plr.js?v=20260811"></script>
+  <script src="professores-plr.js?v=20260813"></script>
   <script src="user-model.js?v=20260811"></script>
   <script src="pessoas-model.js?v=20260811"></script>
   <script src="professores-ajuda.js?v=20260812"></script>
-  <script src="professores-nav.js?v=20260812"></script>
+  <script src="professores-nav.js?v=20260813"></script>
   <script src="professores-home.js?v=20260811"></script>
   <script src="professores-pessoas.js?v=20260811"></script>
   <script src="professores.js?v=20260812g"></script>

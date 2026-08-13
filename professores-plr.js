@@ -50,7 +50,10 @@ async function renderPlrConfigPage() {
 
   const avalRows = plrAvalRowsHtml(aval);
 
+  configLockInit('plr-config', renderPlrConfigPage);
+
   c.innerHTML = `<div class="page-hdr"><h1>⚙️ PLR — Configuração</h1><p>Pesos da nota, avaliadores e elegibilidade. Tudo configurável.</p></div>
+    ${configLockBanner('plr-config')}
     <div style="max-width:640px;">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
         <h3 style="margin:0 0 10px;font-size:15px;">Pesos dos blocos da nota <span id="plrPesoSoma" style="font-size:12px;color:var(--text2);"></span></h3>
@@ -60,7 +63,7 @@ async function renderPlrConfigPage() {
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
         <h3 style="margin:0 0 10px;font-size:15px;">Avaliadores (peso na média)</h3>
         <div id="plrAvalList">${avalRows}</div>
-        <button class="btn-secondary" onclick="plrAddAvaliador()" style="margin-top:6px;">+ Avaliador</button>
+        <button class="btn-secondary" data-cfg-edit onclick="plrAddAvaliador()" style="margin-top:6px;">+ Avaliador</button>
         <p style="font-size:12px;color:var(--text2);margin-top:6px;">Coordenador Técnico e Head Coach com peso 2; demais peso 1.</p>
       </div>
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">
@@ -69,10 +72,11 @@ async function renderPlrConfigPage() {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;font-size:14px;">Saldo de pontos mínimo (vazio = desligado)</span><input type="number" min="0" id="plrMinSaldo" class="input" value="${el.minSaldoPontos != null ? el.minSaldoPontos : ''}" style="width:90px;"></div>
         <label style="display:inline-flex;align-items:center;gap:6px;font-size:14px;"><input type="checkbox" id="plrEstagiario" ${el.estagiarioEntra !== false ? 'checked' : ''}> Estagiário entra no rateio</label>
       </div>
-      <div style="display:flex;justify-content:flex-end;"><button class="btn-primary" onclick="salvarPlrConfig()">💾 Salvar configuração</button></div>
+      <div style="display:flex;justify-content:flex-end;"><button class="btn-primary" data-cfg-edit onclick="salvarPlrConfig()">💾 Salvar configuração</button></div>
     </div>`;
   plrAtualizaSoma();
   document.querySelectorAll('.plrBlocoPeso').forEach(inp => inp.addEventListener('input', plrAtualizaSoma));
+  configLockApply('plr-config');
 }
 
 function plrAtualizaSoma() {
@@ -90,7 +94,7 @@ function plrAvalRowsHtml(aval) {
   return (aval || []).map((a, i) => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;" data-row="${i}" data-aval-id="${escapeHtml(a.id || '')}">
     <input type="text" class="input plrAvalNome" value="${escapeHtml(a.nome || '')}" placeholder="Nome do avaliador" style="flex:1;">
     <input type="number" min="1" class="input plrAvalPeso" value="${a.peso || 1}" style="width:80px;" title="Peso">
-    <button class="btn-secondary" onclick="plrRemoveAvaliador(${i})" style="padding:6px 10px;">✕</button>
+    <button class="btn-secondary" data-cfg-edit onclick="plrRemoveAvaliador(${i})" style="padding:6px 10px;">✕</button>
   </div>`).join('');
 }
 // Re-injeta SÓ a lista a partir do estado em memória (não recarrega o Firestore — A2)

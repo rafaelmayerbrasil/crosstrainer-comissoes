@@ -54,15 +54,18 @@ async function renderEngajConfigPage() {
   } else {
     cycles.forEach(c => {
       cyclesRows += `<tr><td>${c.label || '—'}</td><td>${c.inicio || '—'}</td><td>${c.fim || '—'}</td>
-        <td><button class="btn-sm btn-danger" onclick="removeEngajCycle('${c.id}')">🗑️</button></td></tr>`;
+        <td><button class="btn-sm btn-danger" data-cfg-edit onclick="removeEngajCycle('${c.id}')">🗑️</button></td></tr>`;
     });
   }
+
+  configLockInit('engaj-config', renderEngajConfigPage);
 
   container.innerHTML = `
     <div class="page-hdr">
       <h1>⚙️ Config. Pontos${ajudaBtn("engaj-config")}</h1>
       <p>Tudo aqui é calibrável pela gestão. Os valores valem para o placar e, depois, para o PLR.</p>
     </div>
+    ${configLockBanner('engaj-config')}
 
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;">
       <h2 style="margin-top:0;">Pontos por atividade</h2>
@@ -94,7 +97,7 @@ async function renderEngajConfigPage() {
         ${ecfgNum('ecfg_penSem', 'Falta sem aviso', cfg.penalidade.treinoFaltaSemAviso, 'penalidade máxima (negativo)')}
       </div>
       <div style="margin-top:16px;display:flex;justify-content:flex-end;">
-        <button class="btn-primary" onclick="saveEngajConfig()">💾 Salvar configuração</button>
+        <button class="btn-primary" data-cfg-edit onclick="saveEngajConfig()">💾 Salvar configuração</button>
       </div>
     </div>
 
@@ -111,10 +114,12 @@ async function renderEngajConfigPage() {
         <div class="form-group"><label>Nome do ciclo</label><input type="text" id="ecyc_label" class="input" placeholder="Ex: 2º semestre 2026"></div>
         <div class="form-group"><label>Início</label><input type="date" id="ecyc_inicio" class="input"></div>
         <div class="form-group"><label>Fim</label><input type="date" id="ecyc_fim" class="input"></div>
-        <button class="btn-primary" onclick="addEngajCycle()">+ Adicionar</button>
+        <button class="btn-primary" data-cfg-edit onclick="addEngajCycle()">+ Adicionar</button>
       </div>
     </div>
   `;
+
+  configLockApply('engaj-config');
 }
 
 async function saveEngajConfig() {
