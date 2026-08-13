@@ -77,8 +77,33 @@ Pedido do Rafael: *"deixar o que é mais usado na parte superior e ir descendo p
 - **Conferido de propósito:** Confirmar Presença, Pessoas e Modalidades seguem **sem** trava — travar tela do dia a dia seria o estrago grave.
 - `scripts/smoke-config-lock.js` (novo, 7 casos): inclui "nasce travada" e um caso que quebra se algum botão de salvar perder o `data-cfg-edit`. Cuidado: o teste é **por handler nomeado**, não por varredura do arquivo — `professores-engajamento.js` também tem a tela Confirmar Presença, que deu falso positivo na 1ª versão.
 
+### 📖 Como a agenda das próximas semanas é gerada (levantado nesta sessão — o Rafael perguntou, vale ter escrito)
+
+Conferido **no código**, não de memória (`functions/index.js` → `generateClassesCore`):
+
+- **`schedule_slots` = a grade recorrente** (dia da semana + hora + professor + modalidade, **sem data**). **`classes` = as aulas reais** (com data, status, substituição, ocorrência, vínculo com fechamento). A geração transforma um no outro. A **Agenda Semanal edita a grade**; **Agenda Geral / Minha Agenda mostram as aulas geradas**.
+- **Cron `0 2 * * 1` (America/Sao_Paulo)** — toda **segunda 02:00 BRT**, gera **4 semanas** à frente. Como repete semanalmente com janela de 4, sempre há ~1 mês pronto e as janelas **se sobrepõem** — é essa sobreposição que dá margem se uma execução falhar.
+- **Idempotente:** `classId = ${slotId}_${YYYYMMDD}`; consulta os ids existentes em lotes de 30 e só cria o que falta. Rodar N vezes dá o mesmo resultado.
+- **Já resolve sozinha na criação:** feriado nacional (BrasilAPI + cache) → marca `isHoliday`/peso; `special_scales` ativa na data+unidade → vincula; **férias `aprovada` → não cria a aula** (`vacationSkipped`).
+- **`generateClassesManual`** (callable, admin, `weeksAhead` 1–52 + `dryRun`) **existe e funciona, mas NÃO tem botão na UI** — hoje só por console/Firebase. Foi assim que saiu a carga de 29/07 (475 aulas), por force-run do job no Scheduler, já que o cron só dispara às segundas.
+- **Grava `originalTeacherId = slot.teacherId`** — é o que sustenta o histórico de substituição do bloco 3.
+
+**As duas consequências que sempre voltam na conversa com o cliente:**
+1. Modalidade **sem slot na grade não gera aula**, e sem aula não há hora no fechamento (Yoga · TOI Mobility · TOI Combate).
+2. **Propagação da edição da grade — CUIDADO, a memória antiga estava desatualizada.** Conferido no código em 13/08: **a propagação EXISTE e funciona** (`professores-agenda.js` ~l.690 + `class-propagation.js`). Ao salvar um slot, se o **dia da semana não mudou** e mudou professor/modalidade/horário, o sistema **pergunta** "Aplicar também às N próximas aulas já criadas?" e atualiza as **intocadas** (`status==='prevista'` + sem `monthClosingId` + data ≥ hoje). O que **NÃO** propaga é **troca de dia da semana** — o `classId` é `slotId_YYYYMMDD`, então mudar terça→quarta exigiria apagar e recriar.
+   - ⚠️ **Eu errei isso no texto que o Rafael ia mandar pra gestão** (afirmei que nada propagava) — corrigido antes do envio. **Lição: memória de 47 dias sobre comportamento de código precisa ser reconferida no código antes de virar afirmação pro cliente.**
+
+### ❓ Texto enviado à gestão pedindo decisão (13/08) — AGUARDANDO RESPOSTA
+Montado a pedido do Rafael, explicando a geração em linguagem não-técnica e pedindo decisão sobre 5 pontos:
+
+1. O fluxo bate com o que a operação espera?
+2. **Renomear "Agenda Semanal"?** Duas telas "Agenda …", uma sendo o modelo e a outra a realidade, confunde. Opções propostas: **Grade de Horários** (termo que a academia já usa no dia a dia — meu favorito) · Base da Agenda · Modelo da Semana.
+3. 4 semanas de antecedência bastam, ou 8 / um trimestre? (é 1 parâmetro: `weeksAhead`)
+4. Criar botão **"Gerar agenda agora"**? (callable já existe, só falta UI — pequeno)
+5. **Troca de dia da semana na grade deveria mover as aulas futuras já criadas?** ← **a mais importante da lista**. Hoje a propagação cobre professor/modalidade/horário (com confirmação), mas **não** o dia da semana. Memória: [[agenda-edicao-nao-propaga]].
+
 ### ▶️ RETOMAR AQUI (próxima sessão)
-0. **PENDENTE DE PUBLICAÇÃO:** commits `aadf600` (tema claro) e `662e737` (menu + trava) estão **no staging, validados, mas NÃO em produção** — o Rafael pediu pra subir os dois juntos. `git push origin main` publica.
+0. ✅ **PUBLICADO EM PRODUÇÃO 13/08** (`ad1f7d6..46edcfa`): tema claro + menu por frequência + trava de configuração. Verificado no `github.io`: projeto `crosstrainer-comissoes`, menu na ordem nova, trava carregada, **0 erro de console**.
 1. **Homologar A+B com o Rodrigo no staging** → depois produção (`git push origin main`, GitHub Pages — [[publicar-para-usuario-github-pages]]). Vai junto o `shortenName` invertido.
 2. Também aguardando OK do Rodrigo (sessão 47, já no staging): ajuda no app + atalho/pré-marcação de evento.
 3. Continua na fila: **vazamento de salário no fechamento** (prioridade #1, ver sessão 46 item 0), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes dos manuais.
