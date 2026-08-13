@@ -39,6 +39,10 @@
       --orange-light: #F5A623;
       --orange-dim: rgba(232, 146, 13, 0.08);
       --orange-glow: rgba(232, 146, 13, 0.12);
+      /* Laranja para TEXTO/BORDA sobre fundo pálido (chip selecionado, card
+         expandido). Existe separado do --orange porque no tema claro o laranja
+         da marca é claro demais pra ler em cima de fundo claro. */
+      --accent: #E8920D;
       --green: #5cb85c;
       --green-bg: rgba(92, 184, 92, 0.08);
       --red: #e05a3a;
@@ -66,6 +70,8 @@
       --orange-light: #E8920D;
       --orange-dim: rgba(232, 146, 13, 0.06);
       --orange-glow: rgba(232, 146, 13, 0.10);
+      /* Bem mais escuro que o --orange: é texto pequeno sobre fundo claro. */
+      --accent: #8F5200;
       --green: #2d8a2d;
       --green-bg: rgba(45, 138, 45, 0.08);
       --red: #cc3a1a;
@@ -1956,7 +1962,17 @@
     .chip-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
     .chip { padding:5px 12px; border-radius:6px; font-size:12px; cursor:pointer; background:var(--surface2); border:1px solid var(--border); color:var(--text2); transition:all .15s; user-select:none; }
     .chip:hover { border-color:var(--accent); color:var(--text); }
-    .chip.chip-active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    /* Era `background:var(--accent); color:#fff` com --accent que NUNCA foi
+       definida: o fundo caía pra transparente e sobrava texto branco — no tema
+       claro o chip selecionado ficava invisível (Rafael, 13/08, print da Agenda
+       Geral: os chips de Unidade sumiam por completo). Mesmo padrão visual do
+       .chip-toggle.selected: fundo pálido + texto/borda no laranja de leitura. */
+    .chip.chip-active {
+      background: var(--orange-glow);
+      color: var(--accent);
+      border-color: var(--accent);
+      font-weight: 700;
+    }
     .chip-mini { padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; display:inline-block; }
     .chip-mini.chip-orange { background:var(--orange-glow); color:var(--orange); }
     .chip-mini.chip-green { background:var(--green-bg); color:var(--green); }
@@ -1967,8 +1983,16 @@
     .pag-closing-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); }
     .pag-closing-card.expanded { border-color:var(--accent); }
     .pag-closing-header { padding:12px 16px; background:var(--surface2); display:flex; justify-content:space-between; align-items:center; }
-    .pag-closing-card.expanded .pag-closing-header { background:var(--accent); color:#fff; }
-    .pag-card-toolbar { padding:8px 16px; background:var(--surface1); border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; }
+    /* Mesmo bug do chip: com --accent indefinida o fundo sumia e o texto branco
+       ficava ilegível no tema claro. Fundo pálido + texto no laranja de leitura. */
+    .pag-closing-card.expanded .pag-closing-header {
+      background: var(--orange-glow);
+      color: var(--accent);
+      border-bottom: 1px solid var(--accent);
+    }
+    /* era var(--surface1), que não existe → caía em transparente e mostrava o
+       fundo do card; --surface é exatamente esse fundo, agora explícito. */
+    .pag-card-toolbar { padding:8px 16px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; justify-content:flex-end; }
     .pag-teacher-table { width:100%; border-collapse:collapse; font-size:13px; }
     .pag-teacher-table th { padding:8px 16px; text-align:left; background:var(--surface3); font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); }
     .pag-teacher-table td { padding:10px 16px; border-bottom:1px solid var(--border); }
@@ -2129,7 +2153,10 @@
       .mobile-topbar {
         display: flex; align-items: center; gap: 10px;
         position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 60;
-        padding: 0 12px; background: var(--surface1, #121216);
+        /* era var(--surface1, #121216): --surface1 não existe, então a barra
+           ficava SEMPRE escura — no tema claro dava texto escuro em fundo
+           escuro no celular, que é a tela que o professor mais usa. */
+        padding: 0 12px; background: var(--surface);
         border-bottom: 1px solid var(--border);
       }
       .mtb-btn {
@@ -2144,7 +2171,7 @@
       }
       .bottom-nav {
         display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-        background: var(--surface1, #121216); border-top: 1px solid var(--border);
+        background: var(--surface); border-top: 1px solid var(--border);
         padding-bottom: env(safe-area-inset-bottom);
       }
       .bottom-nav-item {
