@@ -305,10 +305,38 @@ function renderAgendaToolbar(visibleCount, totalNoStatus, filtrando) {
           <input type="checkbox" ${AgendaState.showInactive ? 'checked' : ''} onchange="toggleShowInactive(this.checked)">
           Ver só inativos${totalInactive > 0 ? ` (${totalInactive})` : ''}
         </label>
+        <button class="btn btn-outline btn-sm" id="btnGerarAgenda" onclick="gerarAgendaAgora()"
+          title="Cria as aulas das próximas 8 semanas sem esperar a geração automática de segunda-feira">⚡ Gerar agenda agora</button>
         <button class="btn btn-primary btn-sm" onclick="openSlotModal(null)">+ Novo slot</button>
       </div>
     </div>
   `;
+}
+
+// Geração sob demanda. A automática roda toda segunda às 02:00; este botão existe
+// pra quem acabou de cadastrar horário novo e não quer esperar até segunda.
+async function gerarAgendaAgora() {
+  if (!isAdminGestao()) {
+    toast('Apenas a administração pode gerar a agenda.', 'error');
+    return;
+  }
+  if (!confirm('Gerar as aulas das próximas 8 semanas agora?\n\nAulas que já existem não são duplicadas.')) return;
+
+  const btn = document.getElementById('btnGerarAgenda');
+  const textoOriginal = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Gerando…'; }
+
+  const res = await ClassService.generateNow(8);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = textoOriginal; }
+
+  if (!res.success) {
+    toast('Não consegui gerar: ' + (res.error || 'erro desconhecido'), 'error', 7000);
+    return;
+  }
+  toast(res.created > 0
+    ? `${res.created} aula(s) criada(s) nas próximas 8 semanas.`
+    : 'Nenhuma aula nova — a agenda das próximas 8 semanas já estava completa.', 'success', 6000);
 }
 
 function renderWeeklyGrid(slots) {
