@@ -364,11 +364,14 @@ function renderSlotCard(slot) {
   `;
 }
 
+// Primeiro nome + inicial do último sobrenome (Rafael, 12/08: inverter de
+// "R. Brasil" pra "Rafael B." — o primeiro nome é o que identifica a pessoa
+// no time, a inicial do sobrenome só desempata).
 function shortenName(fullName) {
   if (!fullName) return '—';
   const parts = fullName.trim().split(/\s+/);
   if (parts.length === 1) return parts[0];
-  return parts[0][0] + '. ' + parts[parts.length - 1];
+  return parts[0] + ' ' + parts[parts.length - 1][0] + '.';
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -814,6 +817,22 @@ function getDateRangeForFilter(filter) {
   }
 }
 
+/** Intervalo de um dia específico: 00:00:00 a 23:59:59 local. */
+function getDayRange(date) {
+  const from = new Date(date);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(date);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+// Estados que fogem do previsto — só esses ganham selo na lista organizada
+// (Opção A da proposta 12/08: "prevista" é o normal, não precisa se anunciar).
+const AGENDA_GERAL_ABNORMAL_STATUSES = new Set(['cancelada', 'substituida', 'nao_realizada']);
+function isAbnormalStatus(status) {
+  return AGENDA_GERAL_ABNORMAL_STATUSES.has(status);
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Entry point — chamado por professores.js → navigateTo('minha-agenda')
 // ────────────────────────────────────────────────────────────────────────
@@ -928,6 +947,50 @@ function setMinhaAgendaFilter(filter) {
  */
 function sortByStartTime(items) {
   return items.sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+}
+
+/**
+ * Agrupa aulas por unidade, na ORDEM do cadastro de unidades (não na ordem
+ * de chegada do Firestore) — pra lista sempre mostrar CP antes de PP, por
+ * exemplo, do jeito que o time já espera ver. Só entram unidades com aula.
+ */
+function groupClassesByUnit(classes, units) {
+  const byUnitId = new Map();
+  classes.forEach(c => {
+    if (!byUnitId.has(c.unitId)) byUnitId.set(c.unitId, []);
+    byUnitId.get(c.unitId).push(c);
+  });
+  const groups = [];
+  units.forEach(unit => {
+    const items = byUnitId.get(unit.id);
+    if (items && items.length > 0) {
+      groups.push({ unit, items: sortByStartTime(items.slice()) });
+    }
+  });
+  return groups;
+}
+
+/**
+ * Monta a grade da Opção B: linhas = horários distintos que têm pelo menos
+ * uma aula no dia (não a grade cheia 00:00-23:00 — ninguém quer rolar past
+ * 40 linhas vazias), colunas = unidades selecionadas, na ordem do cadastro.
+ * Célula pode ter mais de uma aula (duas turmas no mesmo horário/unidade).
+ */
+function buildDayGrid(classes, unitIds, allUnits) {
+  const units = allUnits.filter(u => unitIds.includes(u.id));
+  const timesSet = new Set(classes.map(c => c.startTime).filter(Boolean));
+  const times = Array.from(timesSet).sort((a, b) => a.localeCompare(b));
+
+  const rows = times.map(time => {
+    const cellsByUnit = {};
+    units.forEach(u => { cellsByUnit[u.id] = []; });
+    classes
+      .filter(c => c.startTime === time)
+      .forEach(c => { if (cellsByUnit[c.unitId]) cellsByUnit[c.unitId].push(c); });
+    return { time, cellsByUnit };
+  });
+
+  return { units, times, rows };
 }
 
 function renderClassesGroupedByDate(classes) {
@@ -1369,10 +1432,18 @@ const AgendaGeralState = {
   unitIds: [],          // multi-select
   modalityId: '',       // single ('' = todas)
   teacherId: '',        // single ('' = todos)
+  viewMode: 'period',   // 'period' (semana/mês, lista) | 'day' (grade por horário)
   filter: 'current_week',
+  selectedDate: null,   // Date (meia-noite local) — usado só quando viewMode==='day'
   classes: [],
   loading: false,
 };
+
+// Modos de visão da Agenda Geral (decisão do Rodrigo, 12/08: grade no dia, lista em semana/mês)
+const AGENDA_GERAL_VIEW_MODES = [
+  { id: 'period', label: 'Semana/Mês' },
+  { id: 'day',    label: 'Dia' },
+];
 
 async function renderAgendaGeralPage() {
   const page = document.getElementById('page-agenda-geral');
