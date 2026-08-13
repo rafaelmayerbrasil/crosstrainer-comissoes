@@ -3,6 +3,61 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 48 (12/08/2026) — 🔍 FILTROS NA AGENDA + AGENDA GERAL EM 2 MODOS (A+B aprovado e construído)
+
+### ❓ O que gerou a sessão
+Continuação da sessão 47, mesma conversa: usuário pediu filtro por professor e modalidade na Agenda Semanal, e para o ponto pendente da Agenda Geral (formato "lista corrida" que incomoda) montar uma proposta visual pro Rodrigo aprovar/sugerir — não implementar direto.
+
+### ✅ Feito e **EM PRODUÇÃO** (commit `8124e31`, push origin/main confirmado)
+1. **Agenda Semanal** ganhou filtros de **Professor** e **Modalidade** ao lado do seletor de Unidade (`professores-agenda.js`, `professores.html`). Opções vêm de quem **realmente tem slot** naquela unidade, não do cadastro inteiro. Contagem "12 de 181 slots ativos" + atalho "limpar filtros". Grade vazia por filtro explica o motivo em vez de 7 colunas "Sem aulas". Trocar de unidade com filtro ligado mantém a seleção marcada como "(sem horário aqui)". Toolbar ganhou `flex-wrap`.
+2. **Agenda Geral** — os filtros de professor/modalidade **já existiam**, mas eram 2 selects sem rótulo, perdidos abaixo da barra (por isso ninguém achava). Ganharam rótulo ("Professor:", "Modalidade:") + atalho de limpar.
+3. Validado no staging (contagem, combinação dos 2 filtros, estado vazio, limpeza) antes do push. Suíte completa verde.
+
+### 📋 Proposta visual da Agenda Geral — publicada, **aguardando resposta do Rodrigo**
+Ponto que ficou em aberto na sessão 47: a Agenda Geral parece "lista corrida", tudo com o mesmo peso visual. Em vez de decidir sozinho, montei um artifact com 3 telas (nomes reais da academia) para o Rodrigo comparar e escolher:
+- **Como está hoje** — nomeado o incômodo: peso visual uniforme, selo "Prevista" ocupando destaque sem informar nada.
+- **Opção A — lista organizada**: dia como marco grande, aulas agrupadas por unidade, horário em destaque, selo só quando foge do normal (cancelada/substituída). Funciona no mobile, aguenta semana/mês, entrega rápida.
+- **Opção B — grade por horário**: linhas de horário × colunas de unidade (linguagem da Agenda que ele já usa). Bate o olho no dia inteiro incluindo buracos, mas só funciona 1 dia por vez, vira rolagem lateral no mobile, e é reescrita de tela.
+- Bloco de decisão no rodapé pedindo só uma letra: A, B, as duas, ou nenhuma. Sugestão registrada no texto: grade pro dia + lista pra semana/mês.
+- Deixado explícito que é **desenho, não mudança feita** — só os filtros (item acima) já estão no ar.
+
+**Link do artifact:** https://claude.ai/code/artifact/074e8dac-81b8-4b10-a6f2-92c1b6cb2443 (privado até o usuário compartilhar; arquivo fonte também salvo em scratchpad de sessão anterior, não versionado no repo — se precisar recriar, o conteúdo está descrito acima).
+
+**Não verificado visualmente** (navegador da sessão não tem acesso à conta claude.ai do usuário) — só o código foi validado (temas claro/escuro, sem cor presa em media query, sem rolagem lateral, HTML fechado). Usuário avisado para dar uma olhada antes de mandar pro Rodrigo.
+
+### ✅ RESPOSTA DO RODRIGO: **A+B** — implementado no staging (mesma sessão)
+Rodrigo respondeu à proposta: *"As duas. Grade quando olhar um dia, lista organizada quando olhar semana ou mês."* Construído e no staging (commits `3e4007d` · `6416e27` · `5e455b8` · `a74c183`).
+
+**Plano:** `docs/superpowers/plans/2026-08-12-agenda-geral-dia-lista.md` (8 tasks, todas executadas).
+
+**O que a Agenda Geral tem agora:** chip **Semana/Mês** ↔ **Dia** na barra.
+- **Semana/Mês (Opção A, lista organizada):** dia vira marco grande (nº + dia da semana + "3 aulas · 1 unidade"), aulas agrupadas **por unidade** na ordem do cadastro, horário em destaque, modalidade como etiqueta colorida, e o **selo de estado só aparece quando foge do normal** (`cancelada`/`substituida`/`nao_realizada`). "Prevista" e "Realizada" não poluem mais a tela.
+- **Dia (Opção B, grade):** linhas = horários que **têm aula** (não a grade cheia 00–23), colunas = unidades selecionadas, célula vazia diz "sem aula", e duas turmas no mesmo horário/unidade **empilham** na mesma célula. Navegação ◀ / input de data / ▶.
+- Os filtros de professor/modalidade/unidade funcionam **igual nos dois modos**.
+
+**Funções puras novas** (testáveis, sem DOM): `getDayRange`, `isAbnormalStatus`, `groupClassesByUnit`, `buildDayGrid`. Teste: `scripts/smoke-agenda-geral-dia-lista.js` **7/7**; suíte completa 32 OK (`smoke-9.js` "falha" por exigir `--project`, como sempre).
+
+**🐛 2 bugs achados só no browser** (o smoke não pegaria — cobre função pura, não render):
+1. A tela **morria em modo período** com `Cannot read properties of null`. O HTML do navegador de dia era montado **sempre** — template literal avalia mesmo quando o ternário joga fora o resultado — chamando `isoDateInputValue(selectedDate)` com `selectedDate` ainda `null`.
+2. Filtrar por professor sem aula no dia dizia **"Nenhuma aula nesse dia"**, como se o sistema tivesse perdido a agenda dele. Agora nomeia o filtro e oferece "limpar filtros" (`renderAgendaGeralVazio`), igual à Agenda Semanal.
+
+**⚠️ Lição de deploy:** `professores.html` versiona os scripts por query (`?v=20260812j`). **Mudar o .js sem bumpar o `?v=` faz o navegador servir o arquivo velho** — perdi tempo achando que o deploy não tinha subido. Bumpar sempre que mexer num `professores-*.js`.
+
+**Verificado em staging autenticado** (`dono.teste@`): lista e grade batendo com o desenho aprovado, navegação de dia sem escorregar de fuso (11/08 continua terça), filtros nos 2 modos, modal da aula abrindo dos dois lados, **0 erro de console**, e no mobile (375px) a grade rola **dentro dela** sem a página vazar lateralmente (480px de grade em 347px de container, body fixo em 375).
+
+### 🔤 Nome do professor invertido nas agendas (mesmo dia, pedido do Rafael)
+`shortenName` era `"L. Anjos"` (inicial + sobrenome) e virou **`"Louise A."`** (primeiro nome + inicial do último sobrenome) — o primeiro nome é o que identifica a pessoa no time. Vale na Agenda Semanal, na mensagem de conflito de horário e nas duas telas novas da Agenda Geral. Função única, nenhum lugar ficou no formato antigo.
+
+### ❌ Pedido descartado por não fazer sentido: navegar semanas na Agenda Semanal
+Rafael pediu setas de semana anterior/próxima na Agenda Semanal, como na Agenda Geral. **Não implementado, por decisão dele após eu explicar:** a Agenda Semanal é a **grade-modelo recorrente** (Seg/Ter/… sem data real) que *gera* as aulas — o conteúdo seria idêntico em qualquer semana. Quem varia por semana real é a Agenda Geral, que já tem a navegação. Se voltar o assunto, é isso.
+
+### ▶️ RETOMAR AQUI (próxima sessão)
+1. **Homologar A+B com o Rodrigo no staging** → depois produção (`git push origin main`, GitHub Pages — [[publicar-para-usuario-github-pages]]). Vai junto o `shortenName` invertido.
+2. Também aguardando OK do Rodrigo (sessão 47, já no staging): ajuda no app + atalho/pré-marcação de evento.
+3. Continua na fila: **vazamento de salário no fechamento** (prioridade #1, ver sessão 46 item 0), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes dos manuais.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 47 (12/08/2026) — 🎓 AJUDA NO APP + ATALHO/PRÉ-MARCAÇÃO DE EVENTO (staging)
 
 ### ❓ O que gerou a sessão
