@@ -1487,7 +1487,13 @@ async function renderAgendaGeralPage() {
 
 async function loadAgendaGeral() {
   AgendaGeralState.loading = true;
-  const { from, to } = getDateRangeForFilter(AgendaGeralState.filter);
+  if (AgendaGeralState.viewMode === 'day' && !AgendaGeralState.selectedDate) {
+    AgendaGeralState.selectedDate = new Date();
+    AgendaGeralState.selectedDate.setHours(0, 0, 0, 0);
+  }
+  const { from, to } = AgendaGeralState.viewMode === 'day'
+    ? getDayRange(AgendaGeralState.selectedDate)
+    : getDateRangeForFilter(AgendaGeralState.filter);
   const fromTs = firebase.firestore.Timestamp.fromDate(from);
   const toTs = firebase.firestore.Timestamp.fromDate(to);
 
@@ -1534,7 +1540,11 @@ function chunk(arr, size) {
 function renderAgendaGeralContent() {
   const page = document.getElementById('page-agenda-geral');
   const total = AgendaGeralState.classes.length;
-  const filterLabel = MINHA_AGENDA_FILTERS.find(f => f.id === AgendaGeralState.filter)?.label || '';
+  const mode = AgendaGeralState.viewMode;
+
+  const countLabel = mode === 'day'
+    ? ProfHelpers.formatDateBR(AgendaGeralState.selectedDate)
+    : (MINHA_AGENDA_FILTERS.find(f => f.id === AgendaGeralState.filter)?.label || '');
 
   const modOpts = ['<option value="">Todas modalidades</option>'].concat(
     Array.from(AgendaState.modalitiesMap.values())
@@ -1548,17 +1558,35 @@ function renderAgendaGeralContent() {
       .map(t => `<option value="${escapeHtml(t.id)}" ${t.id === AgendaGeralState.teacherId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`)
   ).join('');
 
+  const modeToggleHtml = AGENDA_GERAL_VIEW_MODES.map(m => `
+    <span class="chip ${m.id === mode ? 'chip-active' : ''}" onclick="setAgendaGeralViewMode('${m.id}')">${m.label}</span>
+  `).join('');
+
+  const periodChipsHtml = MINHA_AGENDA_FILTERS.map(f => `
+    <span class="chip ${f.id === AgendaGeralState.filter ? 'chip-active' : ''}"
+          onclick="setAgendaGeralFilter('${f.id}')">${f.label}</span>
+  `).join('');
+
+  const dayNavHtml = `
+    <div class="agenda-geral-daynav">
+      <button type="button" class="btn btn-outline btn-sm" onclick="shiftAgendaGeralDate(-1)" title="Dia anterior">◀</button>
+      <input type="date" class="input" value="${isoDateInputValue(AgendaGeralState.selectedDate)}" onchange="setAgendaGeralDate(this.value)">
+      <button type="button" class="btn btn-outline btn-sm" onclick="shiftAgendaGeralDate(1)" title="Dia seguinte">▶</button>
+    </div>
+  `;
+
   page.innerHTML = `
     <div class="page-toolbar">
       <div class="lhs">
         <h2>AGENDA GERAL</h2>
-        <div class="count">${total} aula${total === 1 ? '' : 's'} · ${filterLabel}</div>
+        <div class="count">${total} aula${total === 1 ? '' : 's'} · ${countLabel}</div>
       </div>
-      <div class="rhs minha-agenda-filters">
-        ${MINHA_AGENDA_FILTERS.map(f => `
-          <span class="chip ${f.id === AgendaGeralState.filter ? 'chip-active' : ''}"
-                onclick="setAgendaGeralFilter('${f.id}')">${f.label}</span>
-        `).join('')}
+      <div class="rhs agenda-geral-toolbar-controls">
+        <div class="minha-agenda-filters">${modeToggleHtml}</div>
+        ${mode === 'day'
+          ? dayNavHtml
+          : `<div class="minha-agenda-filters">${periodChipsHtml}</div>`
+        }
       </div>
     </div>
 
@@ -1581,8 +1609,10 @@ function renderAgendaGeralContent() {
     </div>
 
     ${total === 0
-      ? `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula nos filtros selecionados.</div>`
-      : renderAgendaGeralGrouped(AgendaGeralState.classes)
+      ? `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula ${mode === 'day' ? 'nesse dia' : 'nos filtros selecionados'}.</div>`
+      : (mode === 'day'
+          ? renderAgendaGeralDayGrid(AgendaGeralState.classes)
+          : renderAgendaGeralList(AgendaGeralState.classes))
     }
   `;
 }
@@ -1591,6 +1621,41 @@ function limparFiltrosAgendaGeral() {
   AgendaGeralState.teacherId = '';
   AgendaGeralState.modalityId = '';
   loadAgendaGeral();
+}
+
+function setAgendaGeralViewMode(mode) {
+  if (AgendaGeralState.viewMode === mode) return;
+  AgendaGeralState.viewMode = mode;
+  if (mode === 'day' && !AgendaGeralState.selectedDate) {
+    AgendaGeralState.selectedDate = new Date();
+    AgendaGeralState.selectedDate.setHours(0, 0, 0, 0);
+  }
+  loadAgendaGeral();
+}
+
+function setAgendaGeralDate(isoDate) {
+  // new Date("YYYY-MM-DD") é interpretado como UTC meia-noite pelo motor JS,
+  // que em fuso BR (UTC-3) vira o dia anterior às 21h — por isso monta com
+  // partes soltas em vez de passar a string direto pro construtor.
+  const [y, m, d] = isoDate.split('-').map(Number);
+  if (!y || !m || !d) return;
+  AgendaGeralState.selectedDate = new Date(y, m - 1, d);
+  loadAgendaGeral();
+}
+
+function shiftAgendaGeralDate(deltaDays) {
+  const d = new Date(AgendaGeralState.selectedDate);
+  d.setDate(d.getDate() + deltaDays);
+  AgendaGeralState.selectedDate = d;
+  loadAgendaGeral();
+}
+
+/** "YYYY-MM-DD" em horário local, pro value do <input type="date">. */
+function isoDateInputValue(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function setAgendaGeralFilter(filter) {
@@ -1621,7 +1686,10 @@ function setAgendaGeralTeacher(teacherId) {
   loadAgendaGeral();
 }
 
-function renderAgendaGeralGrouped(classes) {
+// ── Opção A — lista organizada (semana/mês) ─────────────────────────────
+// Dia como marco grande, aulas agrupadas por unidade dentro do dia, selo de
+// estado só quando foge do normal. Decisão do Rodrigo, 12/08/2026.
+function renderAgendaGeralList(classes) {
   const groups = new Map();
   classes.forEach(c => {
     const d = c.scheduledDate.toDate ? c.scheduledDate.toDate() : new Date(c.scheduledDate);
@@ -1629,37 +1697,86 @@ function renderAgendaGeralGrouped(classes) {
     if (!groups.has(key)) groups.set(key, { date: d, items: [] });
     groups.get(key).items.push(c);
   });
-  groups.forEach(g => sortByStartTime(g.items));
+
   return `
-    <div class="minha-agenda-list">
-      ${Array.from(groups.values()).map(g => `
-        <div class="minha-agenda-day">
-          <div class="minha-agenda-day-header">${ProfHelpers.formatDateBR(g.date)}</div>
-          <div class="minha-agenda-day-items">
-            ${g.items.map(renderAgendaGeralCard).join('')}
+    <div class="geral-list">
+      ${Array.from(groups.values()).map(g => {
+        const unitGroups = groupClassesByUnit(g.items, AgendaState.units);
+        const numUnidades = unitGroups.length;
+        return `
+          <div class="geral-day-head">
+            <span class="geral-day-num">${String(g.date.getDate()).padStart(2, '0')}</span>
+            <span class="geral-day-wd">${ProfHelpers.WEEKDAY_LABEL[g.date.getDay()]}</span>
+            <span class="geral-day-count">${g.items.length} aula${g.items.length === 1 ? '' : 's'} · ${numUnidades} unidade${numUnidades === 1 ? '' : 's'}</span>
           </div>
-        </div>
-      `).join('')}
+          ${unitGroups.map(ug => `
+            <div class="geral-unit-head">${escapeHtml(ug.unit.name || ug.unit.id)}</div>
+            ${ug.items.map(renderAgendaGeralListRow).join('')}
+          `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
 }
 
-function renderAgendaGeralCard(cls) {
-  const unit = AgendaState.units.find(u => u.id === cls.unitId);
+function renderAgendaGeralListRow(cls) {
   const teacher = AgendaState.teachersMap.get(cls.teacherId);
+  const modColor = colorForModality(cls.modalityId);
+  const nome = classDisplayName(cls) || '—';
+  const abnormal = isAbnormalStatus(cls.status);
   const sColor = ProfHelpers.CLASS_STATUS_COLOR[cls.status] || ProfHelpers.CLASS_STATUS_COLOR.prevista;
   const sLabel = ProfHelpers.CLASS_STATUS_LABEL[cls.status] || cls.status;
+
   return `
-    <div class="class-card geral-card" onclick="openClassModal('${cls.id}')"
-         style="border-left:3px solid ${classAccentColor(cls)};">
-      <div class="class-card-time">${cls.startTime}<span class="slot-time-sep">–</span>${cls.endTime}</div>
-      <div class="class-card-info">
-        <div class="class-card-modality">${escapeHtml(classDisplayName(cls) || '—')}</div>
-        <div class="class-card-unit">👤 ${escapeHtml(teacher ? teacher.name : '—')} · 🏢 ${escapeHtml(unit ? (unit.name || unit.id) : '—')}</div>
+    <div class="geral-row" onclick="openClassModal('${cls.id}')">
+      <span class="geral-row-time">${cls.startTime}<small>até ${cls.endTime}</small></span>
+      <span class="geral-row-who">
+        <span class="geral-row-teacher">${escapeHtml(teacher ? shortenName(teacher.name) : '—')}</span>
+        <span class="geral-row-mod" style="background:${modColor.bg};color:${modColor.text};">${escapeHtml(nome)}</span>
+      </span>
+      <span class="geral-row-status">
+        ${abnormal ? `<span class="class-status-badge" style="background:${sColor.bg};color:${sColor.text};border:1px solid ${sColor.border};">${sLabel}</span>` : ''}
+      </span>
+    </div>
+  `;
+}
+
+// ── Opção B — grade por horário × unidade (dia específico) ──────────────
+// Mesma linguagem visual da Agenda Semanal, mas por data real em vez de
+// semana-modelo. Decisão do Rodrigo, 12/08/2026.
+function renderAgendaGeralDayGrid(classes) {
+  const grid = buildDayGrid(classes, AgendaGeralState.unitIds, AgendaState.units);
+
+  if (grid.times.length === 0) {
+    return `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula nesse dia.</div>`;
+  }
+
+  return `
+    <div class="geral-daygrid-wrap">
+      <div class="geral-daygrid" style="grid-template-columns:76px repeat(${grid.units.length}, minmax(160px,1fr));">
+        <div class="geral-daygrid-head"></div>
+        ${grid.units.map(u => `<div class="geral-daygrid-head">${escapeHtml(u.name || u.id)}</div>`).join('')}
+        ${grid.rows.map(row => `
+          <div class="geral-daygrid-time">${row.time}</div>
+          ${grid.units.map(u => {
+            const items = row.cellsByUnit[u.id] || [];
+            if (items.length === 0) return `<div class="geral-daygrid-cell"><span class="geral-daygrid-empty">sem aula</span></div>`;
+            return `<div class="geral-daygrid-cell">${items.map(renderAgendaGeralDayGridCard).join('')}</div>`;
+          }).join('')}
+        `).join('')}
       </div>
-      <div class="class-card-status">
-        <span class="class-status-badge" style="background:${sColor.bg};color:${sColor.text};border:1px solid ${sColor.border};">${sLabel}</span>
-      </div>
+    </div>
+  `;
+}
+
+function renderAgendaGeralDayGridCard(cls) {
+  const teacher = AgendaState.teachersMap.get(cls.teacherId);
+  const modColor = colorForModality(cls.modalityId);
+  const nome = classDisplayName(cls) || '—';
+  return `
+    <div class="geral-daygrid-card" style="background:${modColor.bg};border-left:3px solid ${modColor.border};" onclick="openClassModal('${cls.id}')">
+      <div class="geral-daygrid-card-mod" style="color:${modColor.text};">${escapeHtml(nome)}</div>
+      <div class="geral-daygrid-card-who">${escapeHtml(teacher ? shortenName(teacher.name) : '—')}</div>
     </div>
   `;
 }
