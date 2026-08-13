@@ -34,6 +34,10 @@ const AgendaState = {
   modalitiesMap: new Map(),    // id → modality (pra mostrar nome em vez de id)
   teachersMap: new Map(),      // id → teacher
   showInactive: false,
+  // Filtros da grade ('' = todos). 181 slots numa tela só: sem isso, achar os
+  // horários de uma pessoa é varrer sete colunas no olho (Rafael, 12/08/2026).
+  filterTeacherId: '',
+  filterModalityId: '',
   loading: false,
 };
 
@@ -199,17 +203,59 @@ function renderAgendaContent() {
 
   // Marcado = mostra SÓ os inativos (é assim que se procura o que foi desativado).
   // Antes misturava ativos + inativos e não dava pra achar os poucos inativos no meio.
-  const visibleSlots = AgendaState.showInactive
+  const porStatus = AgendaState.showInactive
     ? AgendaState.slots.filter(s => s.isActive === false)
     : AgendaState.slots.filter(s => s.isActive !== false);
 
+  const visibleSlots = porStatus.filter(s =>
+    (!AgendaState.filterTeacherId  || s.teacherId  === AgendaState.filterTeacherId) &&
+    (!AgendaState.filterModalityId || s.modalityId === AgendaState.filterModalityId)
+  );
+
+  const filtrando = !!(AgendaState.filterTeacherId || AgendaState.filterModalityId);
+  // Grade vazia POR CAUSA do filtro parece tela quebrada — diz o que houve e
+  // oferece a saída, em vez de sete colunas de "Sem aulas".
+  const corpo = (filtrando && visibleSlots.length === 0)
+    ? `<div class="empty-state">
+         <div class="icon">🔍</div>
+         <h3>Nenhum slot com esses filtros</h3>
+         <p>Nesta unidade não há horário que combine com o que você filtrou.</p>
+         <button class="btn btn-outline" onclick="limparFiltrosAgenda()">Limpar filtros</button>
+       </div>`
+    : renderWeeklyGrid(visibleSlots);
+
   page.innerHTML = `
-    ${renderAgendaToolbar(visibleSlots.length)}
-    ${renderWeeklyGrid(visibleSlots)}
+    ${renderAgendaToolbar(visibleSlots.length, porStatus.length, filtrando)}
+    ${corpo}
   `;
 }
 
-function renderAgendaToolbar(visibleCount) {
+/** Quem/o quê aparece na grade desta unidade — só o que tem slot, não o cadastro inteiro. */
+function opcoesDaGrade() {
+  const profs = new Map(), mods = new Map();
+  AgendaState.slots.forEach(s => {
+    if (s.teacherId && !profs.has(s.teacherId)) {
+      const t = AgendaState.teachersMap.get(s.teacherId);
+      profs.set(s.teacherId, (t && t.name) || s.teacherId);
+    }
+    if (s.modalityId && !mods.has(s.modalityId)) {
+      const m = AgendaState.modalitiesMap.get(s.modalityId);
+      mods.set(s.modalityId, (m && m.name) || s.modalityId);
+    }
+  });
+  const ordenar = (map) => [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  return { professores: ordenar(profs), modalidades: ordenar(mods) };
+}
+
+function onAgendaFiltroProfessor(v) { AgendaState.filterTeacherId = v || ''; renderAgendaContent(); }
+function onAgendaFiltroModalidade(v) { AgendaState.filterModalityId = v || ''; renderAgendaContent(); }
+function limparFiltrosAgenda() {
+  AgendaState.filterTeacherId = '';
+  AgendaState.filterModalityId = '';
+  renderAgendaContent();
+}
+
+function renderAgendaToolbar(visibleCount, totalNoStatus, filtrando) {
   const opts = AgendaState.units.map(u => `
     <option value="${escapeHtml(u.id)}" ${u.id === AgendaState.unitId ? 'selected' : ''}>
       ${escapeHtml(u.name || u.id)}
@@ -217,17 +263,43 @@ function renderAgendaToolbar(visibleCount) {
   `).join('');
 
   const totalInactive = AgendaState.slots.filter(s => s.isActive === false).length;
+  const { professores, modalidades } = opcoesDaGrade();
+  // Se o filtro aponta pra alguém que não tem slot NESTA unidade (trocou de
+  // unidade com o filtro ligado), a opção entra assim mesmo — senão o select
+  // mostraria "Todos" com o filtro ligado, e a grade vazia viraria mistério.
+  const optsDe = (lista, sel, mapa) => {
+    const itens = lista.slice();
+    if (sel && !itens.some(([id]) => id === sel)) {
+      const nome = (mapa.get(sel) || {}).name || sel;
+      itens.unshift([sel, `${nome} (sem horário aqui)`]);
+    }
+    return `<option value="">Todos</option>` + itens.map(([id, nome]) =>
+      `<option value="${escapeHtml(id)}" ${id === sel ? 'selected' : ''}>${escapeHtml(nome)}</option>`).join('');
+  };
+
+  const rotulo = AgendaState.showInactive ? 'inativo' : 'ativo';
+  const contagem = filtrando
+    ? `${visibleCount} de ${totalNoStatus} slot${totalNoStatus === 1 ? '' : 's'} ${rotulo}${totalNoStatus === 1 ? '' : 's'}`
+    : `${visibleCount} slot${visibleCount === 1 ? '' : 's'} ${rotulo}${visibleCount === 1 ? '' : 's'}`;
 
   return `
     <div class="page-toolbar">
       <div class="lhs">
         <h2>AGENDA SEMANAL</h2>
-        <div class="count">${visibleCount} slot${visibleCount === 1 ? '' : 's'} ${AgendaState.showInactive ? 'inativo' : 'ativo'}${visibleCount === 1 ? '' : 's'}</div>
+        <div class="count">${contagem}${filtrando ? ` · <a href="#" onclick="limparFiltrosAgenda();return false;" style="color:var(--orange);">limpar filtros</a>` : ''}</div>
       </div>
       <div class="rhs agenda-toolbar-rhs">
         <label class="agenda-unit-select">
           <span>Unidade:</span>
           <select onchange="onUnitChange(this.value)">${opts}</select>
+        </label>
+        <label class="agenda-unit-select">
+          <span>Professor:</span>
+          <select onchange="onAgendaFiltroProfessor(this.value)">${optsDe(professores, AgendaState.filterTeacherId, AgendaState.teachersMap)}</select>
+        </label>
+        <label class="agenda-unit-select">
+          <span>Modalidade:</span>
+          <select onchange="onAgendaFiltroModalidade(this.value)">${optsDe(modalidades, AgendaState.filterModalityId, AgendaState.modalitiesMap)}</select>
         </label>
         <label class="agenda-toggle" title="Mostra apenas os slots desativados">
           <input type="checkbox" ${AgendaState.showInactive ? 'checked' : ''} onchange="toggleShowInactive(this.checked)">
@@ -1428,8 +1500,12 @@ function renderAgendaGeralContent() {
         `).join('')}
       </div>
       <div class="agenda-geral-selects">
-        <select onchange="setAgendaGeralModality(this.value)">${modOpts}</select>
-        <select onchange="setAgendaGeralTeacher(this.value)">${teacherOpts}</select>
+        <label class="agenda-unit-select"><span>Professor:</span>
+          <select onchange="setAgendaGeralTeacher(this.value)">${teacherOpts}</select></label>
+        <label class="agenda-unit-select"><span>Modalidade:</span>
+          <select onchange="setAgendaGeralModality(this.value)">${modOpts}</select></label>
+        ${(AgendaGeralState.teacherId || AgendaGeralState.modalityId)
+          ? `<a href="#" onclick="limparFiltrosAgendaGeral();return false;" style="font-size:12px;color:var(--orange);">limpar filtros</a>` : ''}
       </div>
     </div>
 
@@ -1438,6 +1514,12 @@ function renderAgendaGeralContent() {
       : renderAgendaGeralGrouped(AgendaGeralState.classes)
     }
   `;
+}
+
+function limparFiltrosAgendaGeral() {
+  AgendaGeralState.teacherId = '';
+  AgendaGeralState.modalityId = '';
+  loadAgendaGeral();
 }
 
 function setAgendaGeralFilter(filter) {
