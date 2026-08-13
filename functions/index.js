@@ -54,8 +54,8 @@ exports.healthCheck = onRequest({ invoker: 'public' }, (req, res) => {
 //      não cria duplicata)
 //   4. Verifica em batches quais classIds já existem; cria só os que faltam
 //
-// Performance: cresce com (slots × semanas). Pra 100 slots × 4 semanas:
-//   - ~400 classes potenciais por execução
+// Performance: cresce com (slots × semanas). Pra 100 slots × 8 semanas:
+//   - ~800 classes potenciais por execução
 //   - reads via .where(documentId, 'in', [...]) em batches de 30
 //   - writes via batched .set() em batches de 400 (limite Firestore: 500)
 // ─────────────────────────────────────────────────────────────────────
@@ -191,12 +191,12 @@ async function getFeriadosForYear(year) {
  * Núcleo da geração — reutilizado pela scheduled e pela callable.
  * Toda a iteração de datas e cálculo de weekday é feita em horário BR.
  * @param {object} opts
- * @param {number} opts.weeksAhead — quantas semanas à frente gerar (default 4)
+ * @param {number} opts.weeksAhead — quantas semanas à frente gerar (default 8)
  * @param {boolean} opts.dryRun — se true, não escreve nada e retorna preview
  * @param {string} opts.source — 'cf-scheduled' | 'cf-manual'
  * @returns {{created, skipped, dryRun, sample, slotsScanned, durationMs}}
  */
-async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'cf-manual' } = {}) {
+async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'cf-manual' } = {}) {
   const t0 = Date.now();
   const firestore = db();
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -403,8 +403,12 @@ async function generateClassesCore({ weeksAhead = 4, dryRun = false, source = 'c
 }
 
 /**
- * Scheduled — roda toda segunda às 02:00 BRT e gera as próximas 4 semanas.
+ * Scheduled — roda toda segunda às 02:00 BRT e gera as próximas 8 semanas.
  * Schedule cron: minuto 0, hora 2, dia qualquer, mês qualquer, dia-semana 1 (segunda).
+ *
+ * 8 semanas (e não 4) por decisão do Rodrigo em 13/08/2026: é o mesmo horizonte
+ * da janela de eleição da escala inteligente de sábados e feriados. Se mudar
+ * aqui, mudar lá também — os dois horizontes devem continuar batendo.
  */
 exports.generateClassesForUpcomingWeeks = onSchedule({
   schedule: '0 2 * * 1',
@@ -415,7 +419,7 @@ exports.generateClassesForUpcomingWeeks = onSchedule({
   logger.info('[generateClassesForUpcomingWeeks] Iniciando geração agendada');
   try {
     const result = await generateClassesCore({
-      weeksAhead: 4,
+      weeksAhead: 8,
       dryRun: false,
       source: 'cf-scheduled',
     });
@@ -429,7 +433,7 @@ exports.generateClassesForUpcomingWeeks = onSchedule({
 /**
  * Callable — admin pode chamar manualmente via console JS:
  *   const fn = firebase.functions().httpsCallable('generateClassesManual');
- *   const res = await fn({ weeksAhead: 4, dryRun: true });
+ *   const res = await fn({ weeksAhead: 8, dryRun: true });
  *   console.log(res.data);
  *
  * Validação: caller precisa ter profile 'admin' ou 'admin_gestao' em users/{uid}.
@@ -459,7 +463,7 @@ exports.generateClassesManual = onCall({
   const data = request.data || {};
   const weeksAhead = Number.isFinite(data.weeksAhead) && data.weeksAhead > 0 && data.weeksAhead <= 52
     ? Math.floor(data.weeksAhead)
-    : 4;
+    : 8;
   const dryRun = data.dryRun === true;
 
   logger.info('[generateClassesManual] Chamado por', request.auth.uid, { weeksAhead, dryRun });

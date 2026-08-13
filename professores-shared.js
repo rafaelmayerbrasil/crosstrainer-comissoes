@@ -1199,7 +1199,7 @@ const ScheduleSlotService = {
 // SPRINT 3a — CLASS SERVICE (Instâncias reais de aula geradas por CF)
 // ════════════════════════════════════════════════════════════════════════
 // Coleção: classes/{slotId}_{YYYYMMDD}
-// Geração: Cloud Function generateClassesForUpcomingWeeks (4 semanas rolling)
+// Geração: Cloud Function generateClassesForUpcomingWeeks (8 semanas rolling)
 // Status: prevista | realizada | cancelada | nao_realizada | substituida (Sprint 3b)
 // ────────────────────────────────────────────────────────────────────────
 
