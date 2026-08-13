@@ -51,7 +51,34 @@ Rodrigo respondeu à proposta: *"As duas. Grade quando olhar um dia, lista organ
 ### ❌ Pedido descartado por não fazer sentido: navegar semanas na Agenda Semanal
 Rafael pediu setas de semana anterior/próxima na Agenda Semanal, como na Agenda Geral. **Não implementado, por decisão dele após eu explicar:** a Agenda Semanal é a **grade-modelo recorrente** (Seg/Ter/… sem data real) que *gera* as aulas — o conteúdo seria idêntico em qualquer semana. Quem varia por semana real é a Agenda Geral, que já tem a navegação. Se voltar o assunto, é isso.
 
+### 🎨 Tema claro: chip selecionado e barras do celular estavam INVISÍVEIS (commit `aadf600`)
+Rafael mandou print: no claro os botões "Semana/Mês" e "Semana atual" mal apareciam e **os chips de Unidade sumiam por completo**.
+
+**Causa-raiz:** a variável `--accent` **nunca foi definida no projeto** (0 definições, 4 usos). Sem definição o navegador invalida a propriedade e cai no valor inicial → fundo **transparente**; como a regra também fixava `color:#fff`, sobrava texto branco. No escuro se lia por acaso; no claro sumia.
+
+**Mesma falha em outras 2 telas**, achadas pelo teste novo — não pelo olho:
+- **Pagamentos:** cabeçalho do card expandido, texto branco invisível no claro.
+- **Celular:** `.mobile-topbar` e `.bottom-nav` usavam `var(--surface1, #121216)` e `--surface1` **também não existe** → as barras ficavam **sempre escuras**, então no tema claro davam texto escuro em fundo escuro. É a tela que o professor mais usa.
+
+**Correção:** `--accent` definida nos 2 temas como o laranja **de leitura** (escuro `#E8920D`, claro `#8F5200` — bem mais escuro, porque o laranja da marca não lê sobre fundo claro). Chip ativo passou a usar fundo pálido + texto/borda no accent, igual ao `.chip-toggle.selected` do resto do app. Medido: **5,71:1 no claro e 7,43:1 no escuro** (mínimo recomendado 4,5:1).
+
+**`scripts/smoke-css-vars.js` (novo, 3/3):** quebra se alguma `var(--x)` for usada sem existir. Foi ele que achou o `--surface1`. **Vale como regra:** variável de cor órfã é bug silencioso — não gera erro de console e nenhum teste de JS pega.
+
+### 🗂️ Menu por frequência de uso + trava nas telas de configuração (commit `662e737`)
+Pedido do Rafael: *"deixar o que é mais usado na parte superior e ir descendo pro que não se deve ficar alterando toda hora"*.
+
+**Ordem nova:** `Agenda › Engajamento › Férias › Financeiro › PLR › Cadastros › Configurações`. Nasceu a seção **Configurações** com **Modalidades, Config. Pontos e PLR · Config**. Modalidades saiu de Cadastros, que fica só com Pessoas (essa sim é rotina, a cada entrada/saída).
+
+**Por que NÃO foi pra "Administração · Sistema":** aquela seção pula pro módulo Comissões (`Unidades`/`Auditoria` abrem no `index.html`) — misturar config do módulo Professores ali confundiria.
+
+**Trava de leitura (`professores-config-lock.js`, novo):** Config. Pontos e PLR · Config abrem **mostrando** os valores, sem editar; pra mudar, clica em "✏️ Editar configuração". **Não é controle de acesso** — quem chega lá já é admin (`engaj-config`/`plr-config` só existem no perfil `admin`) —, é proteção contra mudança acidental, que era a preocupação real do Rafael.
+- O componente trava **todo** `input/select/textarea` da página automaticamente (não um a um: senão configuração nova nasceria desprotegida por esquecimento) e esconde os botões marcados com `data-cfg-edit`.
+- Validado no staging: Config. Pontos **16/16** campos travados e **0** botão de alteração visível; PLR **11/11** e **0/4**; destrava e volta a travar ao sair sem salvar.
+- **Conferido de propósito:** Confirmar Presença, Pessoas e Modalidades seguem **sem** trava — travar tela do dia a dia seria o estrago grave.
+- `scripts/smoke-config-lock.js` (novo, 7 casos): inclui "nasce travada" e um caso que quebra se algum botão de salvar perder o `data-cfg-edit`. Cuidado: o teste é **por handler nomeado**, não por varredura do arquivo — `professores-engajamento.js` também tem a tela Confirmar Presença, que deu falso positivo na 1ª versão.
+
 ### ▶️ RETOMAR AQUI (próxima sessão)
+0. **PENDENTE DE PUBLICAÇÃO:** commits `aadf600` (tema claro) e `662e737` (menu + trava) estão **no staging, validados, mas NÃO em produção** — o Rafael pediu pra subir os dois juntos. `git push origin main` publica.
 1. **Homologar A+B com o Rodrigo no staging** → depois produção (`git push origin main`, GitHub Pages — [[publicar-para-usuario-github-pages]]). Vai junto o `shortenName` invertido.
 2. Também aguardando OK do Rodrigo (sessão 47, já no staging): ajuda no app + atalho/pré-marcação de evento.
 3. Continua na fila: **vazamento de salário no fechamento** (prioridade #1, ver sessão 46 item 0), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes dos manuais.
