@@ -24,6 +24,14 @@ service cloud.firestore {
       return (u.profiles != null && p in u.profiles) || u.role == p;
     }
 
+    // Tem cadastro no sistema? Estar autenticado NÃO basta: o cadastro livre do
+    // Firebase Auth está aberto e a apiKey é pública (vai no JS do site), então
+    // qualquer pessoa consegue uma sessão autenticada sem ser ninguém aqui.
+    // Descoberto em 13/08/2026 ao avaliar um alerta do GitGuardian.
+    function hasProfile() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function isAdmin()      { return hasP('admin'); }   // admin_gestao dropado (hub Pessoas D2)
     function isStrictAdmin(){ return hasP('admin'); }
     function isSuperv()     { return hasP('supervisao'); }
@@ -54,7 +62,9 @@ service cloud.firestore {
     }
 
     match /units/{id} {
-      allow read:  if isAuth();
+      // Contém a config de comissões (percentuais, metas, bônus). Antes bastava
+      // estar logado — e como qualquer um se cadastra sozinho, qualquer um lia.
+      allow read:  if isAuth() && hasProfile();
       allow write: if isAuth() && isAdmin();
     }
 
@@ -98,7 +108,10 @@ service cloud.firestore {
 
     match /audit_log/{id} {
       allow read:           if isAuth() && isAdmin();
-      allow create:         if isAuth();
+      // Qualquer pessoa do sistema registra ação no log (é o objetivo), mas
+      // quem não tem cadastro não escreve — senão dá pra poluir a auditoria
+      // com uma conta criada do lado de fora.
+      allow create:         if isAuth() && hasProfile();
       allow update, delete: if false;
     }
 
