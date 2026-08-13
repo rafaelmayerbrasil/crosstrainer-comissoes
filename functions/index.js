@@ -502,6 +502,11 @@ exports.generateClassesManual = onCall({
 exports.moveSlotClasses = onCall({
   memory: '256MiB',
   timeoutSeconds: 540,
+  // A função NASCE sem permissão de invocação e responde 401 da infraestrutura
+  // (antes de rodar uma linha do nosso código) — foi o que aconteceu no primeiro
+  // deploy em staging. Quem protege de verdade é a checagem de admin abaixo,
+  // igual às outras callables.
+  invoker: 'public',
 }, async (request) => {
   if (!request.auth || !request.auth.uid) {
     throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
