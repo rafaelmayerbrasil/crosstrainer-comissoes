@@ -102,11 +102,23 @@ Montado a pedido do Rafael, explicando a geração em linguagem não-técnica e 
 4. Criar botão **"Gerar agenda agora"**? (callable já existe, só falta UI — pequeno)
 5. **Troca de dia da semana na grade deveria mover as aulas futuras já criadas?** ← **a mais importante da lista**. Hoje a propagação cobre professor/modalidade/horário (com confirmação), mas **não** o dia da semana. Memória: [[agenda-edicao-nao-propaga]].
 
-### ▶️ RETOMAR AQUI (próxima sessão)
-0. ✅ **PUBLICADO EM PRODUÇÃO 13/08** (`ad1f7d6..46edcfa`): tema claro + menu por frequência + trava de configuração. Verificado no `github.io`: projeto `crosstrainer-comissoes`, menu na ordem nova, trava carregada, **0 erro de console**.
-1. **Homologar A+B com o Rodrigo no staging** → depois produção (`git push origin main`, GitHub Pages — [[publicar-para-usuario-github-pages]]). Vai junto o `shortenName` invertido.
-2. Também aguardando OK do Rodrigo (sessão 47, já no staging): ajuda no app + atalho/pré-marcação de evento.
-3. Continua na fila: **vazamento de salário no fechamento** (prioridade #1, ver sessão 46 item 0), endurecer fechamento, propagação de troca de dia da semana na grade, "?" nas telas restantes dos manuais.
+### ▶️▶️ PRÓXIMA SESSÃO É SOBRE **COMISSÕES** (definido pelo Rafael ao fechar a sessão 48)
+
+O Rafael encerrou dizendo: *"vou abrir outra sessão pra voltar para o ponto do ajuste das comissões"*. **Começar por aí, não pelo módulo Professores.**
+
+**As duas pendências conhecidas do Comissões** (perguntar ao Rafael qual atacar):
+- **(a) Audit BIANUAL legado** — 4 casos em CP/Abril identificados e **não migrados**. O fix do regex (word-boundary em `commission.js`) já está em produção desde o commit `6f0a15b`; falta varrer outros meses/unidades. Memória: [[fix-split-bianual-recalc]].
+- **(b) Renovação classificada como "Novo Contrato"** → paga o **dobro** (5% vs 2,5%) e ainda distorce a meta da unidade (infla "novos", esvazia "renovações"). A causa é a **fonte**: a vendedora registra errado na coluna "Tipo de Venda" do XLSX. Caminhos possíveis já mapeados; a sugestão forte é **detecção automática no upload** (cliente com contrato anterior na base vindo como "Novo" → sinalizar provável renovação), com a ressalva de distinguir **renovação de RETORNO** pelo gap de data. Memória: [[comissoes-renovacao-classificada-novo]] — leia antes de mexer, tem o mapa de linhas do `commission.js`.
+
+**📎 Arquivo não versionado esperando na pasta do projeto:** `carga nova comissoes/faturamento-recebido_...20260805_200042.xls` (24 KB, de 05/08). **Não foi analisado em nenhuma sessão.** Pode ser o arquivo que o Rodrigo devia mandar pro caso (b) — **confirmar com o Rafael logo no início** antes de assumir qualquer coisa.
+
+⚠️ `index.html` e `commission.js` são **código de produção em uso** — regra inviolável nº 1 do `CLAUDE.md`: nada de alteração sem autorização explícita, e sempre cirúrgica.
+
+### ▶️ Fila do módulo Professores (parada, não abandonada)
+0. ✅ **PUBLICADO EM PRODUÇÃO 13/08** (`ad1f7d6..e4b0794`): Agenda Geral em 2 modos + `shortenName` invertido + tema claro + menu por frequência + trava de configuração. Verificado no `github.io`: projeto `crosstrainer-comissoes`, **0 erro de console**.
+1. **Aguardando resposta da gestão** sobre as 5 perguntas da geração de agenda (ver bloco acima) — o Rafael já enviou o texto + o complemento com a correção da propagação.
+2. Aguardando OK do Rodrigo (sessão 47, já em produção): ajuda no app + atalho/pré-marcação de evento.
+3. Continua na fila: **vazamento de salário no fechamento** (prioridade #1, ver sessão 46 item 0), endurecer fechamento, "?" nas telas restantes dos manuais.
 
 ---
 

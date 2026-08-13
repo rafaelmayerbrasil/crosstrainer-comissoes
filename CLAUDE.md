@@ -61,6 +61,9 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 
 ## 🧠 Estado atual em uma frase
 
+> **▶️ PRÓXIMA SESSÃO = COMISSÕES** (definido pelo Rafael em 13/08/2026 ao fechar a sessão 48). Duas pendências: **(a)** audit BIANUAL legado (4 casos CP/Abril não migrados) e **(b)** renovação vindo como "Novo Contrato" da fonte, que paga o dobro. Há um arquivo **não analisado** esperando em `carga nova comissoes/faturamento-recebido_...20260805.xls` — confirmar com o Rafael se é o do caso (b). Detalhe: `CONTEXTO_SESSAO.md` → "▶️▶️ PRÓXIMA SESSÃO É SOBRE COMISSÕES". Memórias: [[comissoes-renovacao-classificada-novo]] · [[fix-split-bianual-recalc]].
+
+
 > **📌 ÚLTIMO DEPLOY (12/08, sessão 47 — commit `25549d8`, já em produção):** Rodrigo achou que reunião/treinamento/trilha/beach games não existiam — **existiam desde julho**, o problema era achabilidade (criar é em `Agenda → Escala Inteligente → aba Eventos`, pontuar é em `Engajamento → Confirmar Presença`). Entregue: atalho **"+ Criar evento na Escala"** na chamada, **pré-marcação de quem respondeu "Vou"**, e a **Ajuda dentro do app** (item ❓ no menu abrindo o manual do perfil na âncora da tela + botão "?" contextual em 4 telas) — `professores-ajuda.js` novo, `scripts/smoke-ajuda-evento.js` 6/6. Uma folha de presença por tipo+data+unidade é **regra de operação, não bug** (decisão do Rafael). Detalhe: `CONTEXTO_SESSAO.md` → sessão 47.
 
 
