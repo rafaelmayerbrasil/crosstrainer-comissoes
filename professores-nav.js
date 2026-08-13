@@ -21,7 +21,7 @@
   // section agora reflete o agrupamento por DOMÍNIO (decisão D3 do design).
   const PAGE_DEFINITIONS = [
     { id: 'home',           label: 'Início',            icon: '🏠', section: null },
-    { id: 'agenda',         label: 'Agenda',            icon: '📅', section: 'Agenda' },
+    { id: 'agenda',         label: 'Grade de Horários', icon: '📅', section: 'Agenda' },
     { id: 'agenda-geral',   label: 'Agenda Geral',      icon: '🌐', section: 'Agenda' },
     { id: 'escalas',        label: 'Escalas Especiais', icon: '🎯', section: 'Agenda' },
     { id: 'escala-smart',   label: 'Escala Inteligente',icon: '🗓️', section: 'Agenda' },

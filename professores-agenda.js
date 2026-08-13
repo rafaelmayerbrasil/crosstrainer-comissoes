@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════
-// CrossTainer — Módulo Professores · Tela de Agenda Semanal (Sprint 2)
+// CrossTainer — Módulo Professores · Tela de Grade de Horários (Sprint 2)
 //
 // Etapas implementadas:
 //   ✅ Etapa 1 — Sidebar + roteamento (registrado em professores.js)
@@ -92,7 +92,7 @@ async function renderAgendaPage() {
   page.innerHTML = `
     <div class="page-toolbar">
       <div class="lhs">
-        <h2>AGENDA SEMANAL</h2>
+        <h2>GRADE DE HORÁRIOS</h2>
         <div class="count">Carregando…</div>
       </div>
     </div>
@@ -126,7 +126,7 @@ async function renderAgendaPage() {
   if (AgendaState.units.length === 0) {
     page.innerHTML = `
       <div class="page-toolbar">
-        <div class="lhs"><h2>AGENDA SEMANAL</h2></div>
+        <div class="lhs"><h2>GRADE DE HORÁRIOS</h2></div>
       </div>
       <div class="empty-state">
         <div class="icon">🏢</div>
@@ -285,7 +285,7 @@ function renderAgendaToolbar(visibleCount, totalNoStatus, filtrando) {
   return `
     <div class="page-toolbar">
       <div class="lhs">
-        <h2>AGENDA SEMANAL</h2>
+        <h2>GRADE DE HORÁRIOS</h2>
         <div class="count">${contagem}${filtrando ? ` · <a href="#" onclick="limparFiltrosAgenda();return false;" style="color:var(--orange);">limpar filtros</a>` : ''}</div>
       </div>
       <div class="rhs agenda-toolbar-rhs">
@@ -1770,7 +1770,7 @@ function setAgendaGeralTeacher(teacherId) {
 
 // Tela vazia por causa do FILTRO não pode dizer "não tem aula" — quem filtrou
 // por um professor que não dá aula naquele dia acha que o sistema perdeu a
-// agenda dele. Mesmo padrão da Agenda Semanal.
+// agenda dele. Mesmo padrão da Grade de Horários.
 function renderAgendaGeralVazio(mode) {
   const filtrando = !!(AgendaGeralState.teacherId || AgendaGeralState.modalityId);
   const onde = mode === 'day' ? 'nesse dia' : 'no período selecionado';
@@ -1848,7 +1848,7 @@ function renderAgendaGeralListRow(cls) {
 }
 
 // ── Opção B — grade por horário × unidade (dia específico) ──────────────
-// Mesma linguagem visual da Agenda Semanal, mas por data real em vez de
+// Mesma linguagem visual da Grade de Horários, mas por data real em vez de
 // semana-modelo. Decisão do Rodrigo, 12/08/2026.
 function renderAgendaGeralDayGrid(classes) {
   const grid = buildDayGrid(classes, AgendaGeralState.unitIds, AgendaState.units);

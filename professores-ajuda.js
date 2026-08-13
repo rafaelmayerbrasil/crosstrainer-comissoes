@@ -62,10 +62,13 @@ const AJUDA_BLURBS = {
          + 'Depois de fechado, o mês não muda mais — confira antes de confirmar.',
   },
   'agenda': {
-    titulo: 'Agenda',
+    titulo: 'Grade de Horários',
     texto: 'Esta é a grade fixa da semana: qual professor dá qual aula, em que dia e horário. '
-         + 'As aulas do dia a dia são geradas automaticamente a partir daqui, toda semana. '
-         + 'Mudou a grade? A mudança vale pras aulas novas — as que já estão geradas você ajusta na Agenda Geral.',
+         + 'As aulas do dia a dia são geradas automaticamente a partir daqui — toda segunda, para as 8 semanas seguintes. '
+         + 'Com pressa? O botão "Gerar agenda agora" cria as aulas na hora. '
+         + 'Mudou um horário? O sistema pergunta se você quer aplicar às aulas futuras já criadas. '
+         + 'Trocou o dia da semana? As aulas futuras são movidas junto, também com confirmação. '
+         + 'Em qualquer caso, aula já substituída, cancelada ou de mês fechado nunca é alterada.',
   },
   'engaj-config': {
     titulo: 'Config. Pontos',

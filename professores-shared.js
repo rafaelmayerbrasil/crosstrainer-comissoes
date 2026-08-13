@@ -850,7 +850,7 @@ function validateSalary(s) {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// SPRINT 2 — SCHEDULE SERVICES (Agenda Semanal Recorrente)
+// SPRINT 2 — SCHEDULE SERVICES (Grade de Horários — grade recorrente)
 // ════════════════════════════════════════════════════════════════════════
 // Coleções:
 //   • schedule_templates — 1 template padrão por unidade (auto-criado)
