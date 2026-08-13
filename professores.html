@@ -2771,6 +2771,9 @@
           Deixe em branco se a aula aconteceu normalmente. O que for lançado aqui
           entra no cálculo das horas do mês.
         </div>
+        <!-- Explica por que atraso/saída/hora extra travam ao marcar falta. Sem
+             isso os campos só morriam e parecia defeito (Rafael, 13/08/2026). -->
+        <div class="hint" id="classFaltaHint" style="margin-bottom:10px;display:none;color:var(--orange);"></div>
         <div class="form-grid">
           <div class="form-group">
             <label>Falta</label>
@@ -2793,7 +2796,9 @@
             <input type="number" id="classHoraExtra" min="0" max="600" step="5" placeholder="0">
           </div>
           <div class="form-group form-full">
-            <div class="info-callout" id="classHorasPreview" style="margin:0;"></div>
+            <!-- Some quando não há o que dizer: caixa vazia com borda parecia
+                 campo quebrado (relatado pelo Rafael em 13/08/2026). -->
+            <div class="info-callout" id="classHorasPreview" style="margin:0;display:none;"></div>
           </div>
         </div>
       </div>

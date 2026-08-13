@@ -1367,6 +1367,14 @@ function onClassFaltaChange() {
     el.disabled = !!falta;
     if (falta) el.value = '';
   });
+  // Dizer POR QUE travou. Antes os três campos só ficavam mudos e parecia defeito.
+  const hint = document.getElementById('classFaltaHint');
+  if (hint) {
+    hint.style.display = falta ? '' : 'none';
+    hint.textContent = falta
+      ? 'Aula com falta não tem atraso, saída antecipada nem hora extra — por isso os três campos abaixo ficam bloqueados. Para liberá-los, mude Falta para "Não faltou".'
+      : '';
+  }
   atualizarPreviewHoras();
 }
 
@@ -1374,8 +1382,16 @@ function onClassFaltaChange() {
 function atualizarPreviewHoras() {
   const box = document.getElementById('classHorasPreview');
   if (!box) return;
-  const cls = MinhaAgendaState.classes.find(c => c.id === MinhaAgendaState.selectedClassId);
-  if (!cls) { box.textContent = ''; return; }
+  const esconde = () => { box.innerHTML = ''; box.style.display = 'none'; };
+  const mostra = html => { box.innerHTML = html; box.style.display = ''; };
+
+  // Procura nas DUAS listas: aberto pela Agenda Geral, a aula não está em
+  // MinhaAgendaState e a prévia ficava muda — sobrava uma caixa cinza vazia que
+  // parecia campo quebrado. As funções vizinhas (linhas ~1210 e ~1228) já faziam
+  // esse fallback; só esta tinha ficado de fora.
+  const cls = MinhaAgendaState.classes.find(c => c.id === MinhaAgendaState.selectedClassId)
+           || AgendaGeralState.classes.find(c => c.id === MinhaAgendaState.selectedClassId);
+  if (!cls) { esconde(); return; }
 
   const num = id => Number(document.getElementById(id).value) || 0;
   const simulada = {
@@ -1390,14 +1406,14 @@ function atualizarPreviewHoras() {
   const paga = ProfHelpers.classCountsForPay(cls);
 
   if (!paga) {
-    box.innerHTML = 'ℹ️ Esta aula <strong>não entra na conta de horas</strong> (Escola Interna).';
+    mostra('ℹ️ Esta aula <strong>não entra na conta de horas</strong> (Escola Interna).');
     return;
   }
   const dif = efetivos - base;
-  box.innerHTML = efetivos === base
+  mostra(efetivos === base
     ? `Vale <strong>${base} min</strong> — a duração cheia.`
     : `Vale <strong>${efetivos} min</strong> em vez de ${base} `
-      + `(<strong style="color:var(--${dif < 0 ? 'red' : 'green'})">${dif > 0 ? '+' : ''}${dif} min</strong>).`;
+      + `(<strong style="color:var(--${dif < 0 ? 'red' : 'green'})">${dif > 0 ? '+' : ''}${dif} min</strong>).`);
 }
 
 /** Professor avisa que a aula não aconteceu — a gestão confirma depois. */
