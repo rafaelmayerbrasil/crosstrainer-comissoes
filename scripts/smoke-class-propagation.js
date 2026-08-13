@@ -28,4 +28,34 @@ assert.strictEqual(r2.eligibleCount, 0, 'realizada não é elegível');
 assert.deepStrictEqual(CP.planClassUpdatesForSlot(novoSlot, [], hoje).updates, [], 'lista vazia → sem updates');
 console.log('✓ sem elegíveis → eligibleCount 0');
 
+// ════════════ predicado isUntouchedClass ════════════
+const HOJE = '2026-07-12';
+assert.strictEqual(CP.isUntouchedClass({ status: 'prevista', monthClosingId: null, dateISO: '2026-07-20' }, HOJE), true, 'prevista futura sem fechamento é intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'prevista', monthClosingId: null, dateISO: HOJE }, HOJE), true, 'hoje conta como intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'prevista', monthClosingId: 'u_2026-07', dateISO: '2026-07-20' }, HOJE), false, 'mês fechado não é intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'substituida', monthClosingId: null, dateISO: '2026-07-20' }, HOJE), false, 'substituída não é intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'cancelada', monthClosingId: null, dateISO: '2026-07-20' }, HOJE), false, 'cancelada não é intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'realizada', monthClosingId: null, dateISO: '2026-07-20' }, HOJE), false, 'realizada não é intocada');
+assert.strictEqual(CP.isUntouchedClass({ status: 'prevista', monthClosingId: null, dateISO: '2026-07-05' }, HOJE), false, 'passada não é intocada');
+console.log('✓ isUntouchedClass aceita só prevista + sem fechamento + de hoje em diante');
+
+// ════════════ as duas cópias não podem divergir ════════════
+// O deploy das Functions leva só functions/, então existe um gêmeo lá.
+// Comparar COMPORTAMENTO, não texto: os cabeçalhos diferem de propósito.
+const CPF = require('../functions/class-propagation.js');
+const casos = [
+  { status: 'prevista',    monthClosingId: null,        dateISO: '2026-07-20' },
+  { status: 'prevista',    monthClosingId: 'u_2026-07', dateISO: '2026-07-20' },
+  { status: 'substituida', monthClosingId: null,        dateISO: '2026-07-20' },
+  { status: 'cancelada',   monthClosingId: null,        dateISO: '2026-07-20' },
+  { status: 'realizada',   monthClosingId: null,        dateISO: '2026-07-20' },
+  { status: 'prevista',    monthClosingId: null,        dateISO: '2026-07-05' },
+  { status: 'prevista',    monthClosingId: null,        dateISO: HOJE },
+];
+casos.forEach(c => {
+  assert.strictEqual(CPF.isUntouchedClass(c, HOJE), CP.isUntouchedClass(c, HOJE),
+    `as duas cópias divergiram em isUntouchedClass(${JSON.stringify(c)})`);
+});
+console.log('✓ cópia da raiz e cópia de functions/ concordam');
+
 console.log('\n✅ smoke-class-propagation OK');

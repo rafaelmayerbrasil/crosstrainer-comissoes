@@ -1,7 +1,7 @@
 // class-propagation.js — lógica pura: quais aulas de um slot editado atualizar.
-// GEMEO: functions/class-propagation.js — o deploy das Functions so leva a pasta
-// functions/, entao existe uma copia la. smoke-class-propagation.js compara o
-// comportamento das duas e falha se divergirem.
+// GEMEO: class-propagation.js na raiz (usado pelo navegador). Esta copia existe
+// porque o deploy das Functions so leva a pasta functions/.
+// smoke-class-propagation.js compara o comportamento das duas e falha se divergirem.
 (function (root, factory) {
   const api = factory();
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
