@@ -1396,6 +1396,39 @@ const ClassService = {
   },
 
   /**
+   * Troca de dia da semana: apaga as aulas futuras intocadas do slot e regera
+   * no dia novo. Roda numa Cloud Function porque a rule de `classes` não permite
+   * delete de aula da grade pelo cliente (proteção do fechamento) — ver
+   * docs/superpowers/specs/2026-08-13-grade-de-horarios-design.md.
+   *
+   * dryRun: true devolve as contagens sem escrever nada — é o que monta a pergunta.
+   * Retorna { success, deleted, created, skipped }.
+   */
+  async moveSlotClasses(slotId, { dryRun = false } = {}) {
+    if (!slotId) return { success: false, error: 'slotId obrigatório' };
+    try {
+      const callable = firebase.functions().httpsCallable('moveSlotClasses');
+      const res = await callable({ slotId, dryRun });
+      return { success: true, ...(res.data || {}) };
+    } catch (err) {
+      console.error('[ClassService.moveSlotClasses]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Dispara a geração de aulas sob demanda (admin). Retorna { success, created }. */
+  async generateNow(weeksAhead = 8) {
+    try {
+      const callable = firebase.functions().httpsCallable('generateClassesManual');
+      const res = await callable({ weeksAhead });
+      return { success: true, ...(res.data || {}) };
+    } catch (err) {
+      console.error('[ClassService.generateNow]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
    * Altera status da aula. Só admin/gestao/supervisao (validado por Security Rule).
    * Sprint 3a aceita: prevista, realizada, cancelada, nao_realizada.
    * Status 'substituida' só via fluxo de Substituição (Sprint 3b).
