@@ -63,9 +63,36 @@ service cloud.firestore {
       match /itens/{i} {
         allow read, write: if isAuth() && hasComModule();
       }
+      // Snapshots do histórico de alterações do período (aba "Histórico" do
+      // Dashboard). Regra de subcoleção NÃO herda do pai — sem este bloco a
+      // aba morre com permission-denied.
+      match /historico/{h} {
+        allow read, write: if isAuth() && hasComModule();
+      }
     }
 
     match /comissoes_diferidas/{id} {
+      allow read, write: if isAuth() && hasComModule();
+    }
+
+    // ─── Pagamentos / recibos / créditos do módulo de COMISSÕES ───────
+    // ATENÇÃO: não confundir com `payment_records`, `receipts` e
+    // `creditos_professores`, que são do módulo de Professores.
+    // Estas três nasceram no ruleset antigo de produção (mantido pelo Console,
+    // nunca versionado) e ficaram de fora quando o deploy do módulo de
+    // Professores substituiu aquele ruleset em 17/07/2026 — foi o que derrubou
+    // as telas Pagamentos e Histórico.
+    match /pagamentos/{id} {
+      allow read, write: if isAuth() && hasComModule();
+    }
+
+    match /creditos/{id} {
+      // A vendedora lê os créditos dela no "Meu Painel" (query filtrada por nome).
+      allow read, write: if isAuth() && hasComModule();
+    }
+
+    // Contador sequencial do número do recibo (documento `reciboNum`).
+    match /contadores/{id} {
       allow read, write: if isAuth() && hasComModule();
     }
 
