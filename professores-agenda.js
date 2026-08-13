@@ -1567,7 +1567,11 @@ function renderAgendaGeralContent() {
           onclick="setAgendaGeralFilter('${f.id}')">${f.label}</span>
   `).join('');
 
-  const dayNavHtml = `
+  // Só monta (e só chama isoDateInputValue) quando o modo é 'day' — em modo
+  // 'period' selectedDate continua null, e isoDateInputValue(null) quebra
+  // (achado ao testar em staging: template literal avalia sempre, mesmo
+  // quando o ternário abaixo descarta o resultado).
+  const dayNavHtml = mode !== 'day' ? '' : `
     <div class="agenda-geral-daynav">
       <button type="button" class="btn btn-outline btn-sm" onclick="shiftAgendaGeralDate(-1)" title="Dia anterior">◀</button>
       <input type="date" class="input" value="${isoDateInputValue(AgendaGeralState.selectedDate)}" onchange="setAgendaGeralDate(this.value)">
@@ -1609,7 +1613,7 @@ function renderAgendaGeralContent() {
     </div>
 
     ${total === 0
-      ? `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula ${mode === 'day' ? 'nesse dia' : 'nos filtros selecionados'}.</div>`
+      ? renderAgendaGeralVazio(mode)
       : (mode === 'day'
           ? renderAgendaGeralDayGrid(AgendaGeralState.classes)
           : renderAgendaGeralList(AgendaGeralState.classes))
@@ -1686,6 +1690,30 @@ function setAgendaGeralTeacher(teacherId) {
   loadAgendaGeral();
 }
 
+// Tela vazia por causa do FILTRO não pode dizer "não tem aula" — quem filtrou
+// por um professor que não dá aula naquele dia acha que o sistema perdeu a
+// agenda dele. Mesmo padrão da Agenda Semanal.
+function renderAgendaGeralVazio(mode) {
+  const filtrando = !!(AgendaGeralState.teacherId || AgendaGeralState.modalityId);
+  const onde = mode === 'day' ? 'nesse dia' : 'no período selecionado';
+
+  if (!filtrando) {
+    return `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula ${onde}.</div>`;
+  }
+
+  const teacher = AgendaGeralState.teacherId ? AgendaState.teachersMap.get(AgendaGeralState.teacherId) : null;
+  const mod = AgendaGeralState.modalityId ? AgendaState.modalitiesMap.get(AgendaGeralState.modalityId) : null;
+  const alvo = [teacher && teacher.name, mod && mod.name].filter(Boolean).join(' · ');
+
+  return `
+    <div class="empty-state-small" style="padding:48px 24px;">
+      Nenhuma aula ${onde} para <strong>${escapeHtml(alvo)}</strong>.<br>
+      <a href="#" onclick="limparFiltrosAgendaGeral();return false;" style="color:var(--orange);">limpar filtros</a>
+      para ver todas as aulas.
+    </div>
+  `;
+}
+
 // ── Opção A — lista organizada (semana/mês) ─────────────────────────────
 // Dia como marco grande, aulas agrupadas por unidade dentro do dia, selo de
 // estado só quando foge do normal. Decisão do Rodrigo, 12/08/2026.
@@ -1748,7 +1776,7 @@ function renderAgendaGeralDayGrid(classes) {
   const grid = buildDayGrid(classes, AgendaGeralState.unitIds, AgendaState.units);
 
   if (grid.times.length === 0) {
-    return `<div class="empty-state-small" style="padding:48px 24px;">Nenhuma aula nesse dia.</div>`;
+    return renderAgendaGeralVazio('day');
   }
 
   return `
