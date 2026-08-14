@@ -3,6 +3,157 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 51 (14/08/2026) — 📅 ESCALA: CONFIRMAR O LOTE PASSOU A PUBLICAR NA AGENDA ✅ EM PRODUÇÃO
+
+### ❓ O que gerou a sessão
+Print do grupo "Sistema Escala Inteligente IA": professora relatou **"qnd vou em 'minha agenda' não tem sábado. qnd vou em 'escala' aparece sábado (15/08) - não escalado"**, e a gestão perguntou *"tem como um prof informar que num sábado será ele escalado?"*, *"podemos abrir para a primeira escala inteligente?"*, *"para os próximos 2 meses?"* e *"como atualizo os sábados?"*.
+
+**Diagnóstico:** a escala de 15/08 estava em **`rascunho`** — a janela de preferências nunca foi aberta. Em cascata: ninguém podia se candidatar, ninguém foi escalado, nenhuma aula foi criada. O sistema estava certo; **a tela é que contava a história errada**. Mas a investigação achou **dois defeitos reais**.
+
+### ✅ Corrigido e EM PRODUÇÃO (commit `e81f2ca`, `4325b3f..e81f2ca`)
+
+**1. A tela do professor mentia antes da eleição.** Em `renderProfSabadosFeriados`, escala não-`consolidada` caía no mesmo ramo da consolidada e mostrava **"Rascunho · Não escalado"** — que o professor lê como *"não fui escolhido"* quando a verdade é *"ainda nem começou"*, e ainda por cima com vocabulário interno nosso. Agora: antes da eleição → **"Ainda não liberado · A gestão ainda não abriu as candidaturas"**; depois de consolidada, quem não entrou → **"Não escalado desta vez"**. `ESCALA_STATUS_LABEL` continua nas 3 telas de **gestão** (l.206, 525, 858) — lá o vocabulário é o certo.
+
+**2. 🚨 O mais sério — "✅ Confirmar escala e avisar todos" NÃO publicava.** `confirmarEAvisar` fazia `closeElection` + `consolidate` e **mandava a notificação "Confira sua agenda"** — mas as aulas só nasciam se alguém abrisse **cada** sábado e clicasse "📅 Publicar na agenda". Ou seja: **o aviso apontava para uma tela vazia**. Era a causa raiz do relato da professora, e ia estourar em cheio no pedido dos 2 meses (8 sábados confirmados, 8 publicações manuais a esquecer).
+   - Agora publica por data dentro do mesmo laço, **conta as aulas criadas** e **só avisa das datas que deram certo** (avisar sobre data que falhou seria repetir o bug). Data que falhou vira toast de erro nomeando a data e pedindo publicação manual, em vez de ser engolida.
+   - Decisão do Rafael: **publicar junto ao confirmar** (a alternativa era manter separado com lembrete). O texto do modal de revisão foi corrigido — prometia menos do que agora faz.
+
+### 🧪 Validação
+- **`scripts/smoke-escala-confirma-publica.js` (novo, 6 casos).** Metade **comportamental** (roda o serviço real contra o firestore falso): prova que consolidar sozinho deixa a agenda vazia, que publicar cria a aula com `specialScaleType='sabado'`, e que **republicar não duplica** (a folha conta por aula). Metade **estrutural**: guarda a ligação na tela, que era justamente o que faltava — sem reimplementar a lógica.
+- Suíte completa **38/38** (só `smoke-9.js` fora, exige `--project`).
+- Staging + **produção verificada no `github.io`**: script `?v=20260814` servido, as 7 asserções de conteúdo passando, **0 erro de console**.
+- **Bump do `?v=`** feito (sem ele o navegador serve o arquivo velho — lição registrada em [[agenda-geral-proposta-rodrigo]]).
+
+### ⚠️ Risco adjacente MAPEADO, não corrigido (não introduzido por esta mudança)
+`publishToAgenda` chama `_deleteScaleClasses`, que **apaga e recria** as aulas da escala — poupando só as de mês fechado (`monthClosingId`). Logo: **republicar uma escala depois do sábado já ter acontecido perde `status` e as ocorrências** (falta/atraso/saída) daquelas aulas. Já era assim para o botão individual e para `trocarPessoaEscala`; pelo caminho normal não acontece, porque depois de confirmado o lote sai da lista de janelas abertas. O `autoConfirmarAulas` re-marca `realizada` sozinho, mas **ocorrência lançada à mão não volta**. Se for corrigir: fazer `publishToAgenda` preservar status/ocorrências em vez de recriar.
+
+### 📋 Respostas entregues à gestão (fluxo correto da escala)
+`Agenda → Escala Inteligente → aba Sábados` → seleciona as datas → **"📨 Abrir janela nas selecionadas"** (lote, 1 prazo só) → professor vê **Prefiro · Pode ser · Não posso** em `Escala — minhas datas` (+ atalho "Marcar 'Pode ser' em todas") → **"🧮 Revisar fechamento"** → **"✅ Confirmar escala e avisar todos"** (agora já publica). Trocar quem trabalha depois: entrar na escala e trocar a pessoa na vaga — **se já publicada, a agenda se atualiza sozinha** (`trocarPessoaEscala`). ⚠️ **Sábados e feriados são lotes separados** (o tipo vem da aba ativa).
+
+---
+
+## 🔖 ONDE PARAMOS — sessão 50 (13/08/2026) — 🐛 BUG EM PRODUÇÃO CORRIGIDO + EXPORT BOM DA PACTO + 5 RESPOSTAS DA AGENDA
+
+### ▶️▶️ RETOMAR AQUI — a frente viva é COMISSÕES / JULHO
+
+**Tudo o que era da Grade de Horários está ✅ EM PRODUÇÃO** (functions + `git push`, commit `4325b3f`). Nada pendente ali.
+
+**🔴 O trabalho urgente: FECHAR JULHO DAS COMISSÕES.** O Rodrigo confirmou que **julho nunca foi calculado nem pago**. Estado completo em `memory/migracao-relatorio-pacto-comissoes.md` — **leia essa memória antes de qualquer coisa**, ela tem as regras que ele confirmou, as decisões revertidas e as armadilhas dos dados.
+
+**⏳ Esperando o Rodrigo responder (mensagem enviada 13/08):** relatórios de vendas de julho da **Francini, Kali e Bárbara** (é o que destrava) · lista completa da Erica (veio cortada no item 10) · confirmar 3 clientes que não estão em arquivo nenhum · se existe campo de data da venda na Pacto · destino da metade do Rafa num split · se "mais de 10 ativações" é 10 ou 11.
+
+**🛠️ Dá para construir sem esperar:** o adaptador de entrada (corte por `Data Início` + junção dos dois exports + normalização pro `CommissionEngine`). Só a atribuição de vendedor depende das respostas.
+
+**Outras pendências, nenhuma bloqueante:**
+1. **Segurança:** (a) restringir a apiKey por domínio no Console do Google Cloud — depende do Rafael, ~3 min; (b) mover a criação de usuário para Cloud Function e só então desligar o cadastro livre do Auth — **frente própria**, mexe no cadastro de pessoas em uso.
+2. **Pergunta minha sem resposta:** hoje só o professor dono da aula vê os botões de substituição; a gestão não consegue pedir pela aula de outra pessoa. É proposital ou lacuna?
+3. `CLAUDE.md` e `CONTEXTO_SESSAO.md` têm alterações não commitadas (misturam registros meus com edições anteriores do Rafael).
+
+---
+
+## 💰 COMISSÕES — o que mudou em 13/08 (tarde)
+
+**O Rodrigo respondeu as 16 perguntas e mandou material novo:** o relatório de vendas de julho da Erica (cortado no item 10), as 11 divisões de comissão de julho, e o export de julho inteiro. Duas respostas dele **derrubaram decisões já tomadas** — está tudo detalhado na memória, mas o resumo:
+
+**1. "IMPORTAÇÃO não paga comissão" foi REVERTIDA.** Era decisão de 12/08, tomada achando que julho estava fechado. Como julho ainda vai ser calculado e as vendas de julho foram feitas no TecnoFit, elas entraram na Pacto **como `IMPORTAÇÃO`**. O corte certo é por **`Data Início`**, não pelo rótulo: no arquivo de julho são **115 linhas / R$ 30.397** de venda real contra 324 de contrato velho.
+
+**2. 🚨 O vendedor de julho se perdeu na migração.** Vendas que a Erica declarou como dela (Sharon, Rafaela, Helen, Marina) aparecem com `Consultor = RODRIGO ROJAIS`, que é não-comissionável. **Agosto é confiável** (venda nativa na Pacto); **julho não é** — tem que sair dos relatórios das vendedoras. Não adianta pedir outro relatório: o dado não existe mais.
+
+**3. Um mês não cabe num arquivo só.** Aline Ferreira: contrato começou 24/07 mas só aparece no export de **agosto**. Fechar julho exige juntar os dois arquivos e filtrar por data de início.
+
+**4. A data da venda não existe no export.** Testado contra as datas reais informadas pela Erica: em 3 de 7 casos **nem `Data Início` nem `Data Lançamento`** batem. Sem esse campo, a regra "venda no mês + pago até dia 15 do mês seguinte" não é automatizável.
+
+**Regra de ativação que ele fixou:** venda no mês **+** primeiro pagamento confirmado **+** início do contrato nos próximos 30 dias. Tudo paga 5% sobre caixa (bar, loja, avaliação física, taxa de matrícula, renegociação). Renovação automática de recorrente **não** paga — só a primeira venda, e nesta virada a conferência é manual. As regras de percentual **não mudaram**.
+
+**Boa notícia:** 5 regras dele **já estão implementadas** no motor (adiamento de 30 dias, mínimo de 10 ativações no rateio, Rafa não-comissionável, divisão manual, comissão sobre o valor quitado). Ver a tabela na memória.
+
+### 🚨 BUG EM PRODUÇÃO — CORRIGIDO E NO AR (commit `2b843e1`, push feito)
+O Rafael entrou nas Comissões e achou **Pagamentos** e a aba **Histórico** quebradas com `permission-denied`. Suspeitou (com razão) do módulo de Professores.
+
+**Causa-raiz:** o `firestore.rules` versionado **nasceu dentro do módulo de Professores** (commit `5f8e904`, 22/05). Antes disso as regras de produção viviam **só no Console do Firebase**. O deploy do módulo em 17/07 publicou o arquivo do repo e **substituiu o ruleset vivo** — quatro coleções de Comissões que só existiam lá ficaram sem regra (no Firestore, coleção sem regra = negada): `periodos/{id}/historico`, `pagamentos`, `contadores`, `creditos`. Confirmado por `git log -S`: `pagamentos` e `creditos` nunca estiveram nesse arquivo, em commit nenhum.
+
+**Armadilha para lembrar:** regra de subcoleção **NÃO herda** do pai — `periodos` e `periodos/{id}/itens` tinham regra, `historico` não.
+
+**Provado por reprodução:** com as regras anteriores, o staging deu os **mesmos 4 permission-denied**; com a correção, **6/6**. Guarda nova no repo: `scripts/validate-rules-comissoes.js` (REST autenticado — o Admin SDK ignora rules). Deployado em produção. **Propagação de rules leva ~10s** — vi a validação falhar logo após o deploy e passar na segunda rodada.
+
+**Falha silenciosa que ninguém tinha visto:** `creditos` é o aviso *"R$ X será abatido no seu próximo pagamento"* no painel da vendedora — sumia sem erro na tela desde 17/07. Conferir se alguma vendedora tinha crédito pendente no período.
+
+**Dívida deixada de propósito:** restaurei o acesso **idêntico** ao anterior (`hasComModule()`), então vendedora ainda lê `pagamentos`/`creditos` das colegas pela API (pelo app não — a tela é admin-only). Não apertei durante o incidente para não mudar comportamento. Tratar junto com o vazamento de salário do fechamento.
+
+### 💰 COMISSÕES/PACTO — export bom recebido, bloqueio principal caiu
+Arquivo `carga nova comissoes/faturamento-recebido_..._20260813_081650.xls` (386 linhas, 15/07–13/08). **É base de ajuste, não fechamento — o mês não acabou.**
+
+**Resolvido:** (a) **vendedor** — `Consultor` agora traz as vendedoras de verdade (ERICA 40, KALI 38, FRANCINI 23, BÁRBARA 12, split "ERICA, FRANCINI" 4); **RODRIGO ROJAIS caiu de 56 linhas para 1**. (b) **unidades** — `Empresa` preenchida em 100%, CP 189 / PP 197, e o sufixo `| CP.`/`| PP.` do plano **nunca conflita**; não precisa exportar duas vezes. (c) **produtos e avulsas vieram** (1 AULA, plano de crédito, avaliação física, loja, bar). (d) `Data Início`/`Término` em 100% dos planos. (e) periodicidade sai do nome do plano sem sobra.
+
+**Confirmado nos dados:** dos 17 planos RECORRENTE, **11 são venda nova** — filtrar por "RECORRENTE" no nome mataria as 11.
+
+**⚠️ ALARME FALSO QUE EU DEI E RETIREI:** cheguei a concluir que o ciclo 15→14 obrigaria a trocar "mês-calendário" por "janela de datas" no upload. **Não obriga.** O Rafael corrigiu: apuração é o mês inteiro, vale o que foi **pago**; e o motor já paga sobre `Valor Quitado/Recibo` (`commission.js:251`), com o período sendo o mês da **data do pagamento** (`commission.js:432` chama a coluna de "pgto"). Logo o export certo é **01/08–31/08** e a trava de múltiplos meses não atrapalha. **Não mexer nela.**
+
+**Ainda pendente:** `MENSA L` errado no cadastro da Pacto (5 vendas perdem bônus em silêncio) · valores como texto pt-BR (21 linhas onde `parseFloat` erra, a pior vira R$ 2,87) · taxa de matrícula em linha separada do plano (juntar pelo `Contrato`) · 34 linhas sem código de cliente · 3 planos sem consultor.
+
+**Proposta avaliada (aguardando decisão do Rafael):** carga única + visão geral consolidada. **Viável sem risco para o histórico**, desde que separe as camadas: consolidar a **carga** (sim) e a **visão** (sim, `vendorSummary`/`totals` já estão gravados no período), mas **NUNCA o cálculo** — bolo do P3, metas e regra de ouro são por unidade.
+
+### 📅 GRADE DE HORÁRIOS — 4 mudanças + 2 correções CONSTRUÍDAS (staging)
+Respostas do Rodrigo: 1. o fluxo faz sentido ✅ · 2. renomear **"Agenda Semanal" → "Grade de Horários"** · 3. **4 → 8 semanas** (motivo: é o horizonte da janela da escala inteligente de sábados/feriados — os dois passam a bater) · 4. botão **"Gerar agenda agora"** · 5. **trocar o dia move as aulas já geradas, perguntando antes**.
+
+Spec `docs/superpowers/specs/2026-08-13-grade-de-horarios-design.md` · plano `.../plans/2026-08-13-grade-de-horarios.md` (8 tarefas, 43 passos). **Tudo commitado, nada publicado.**
+
+**3 descobertas que mudaram o item 5:** (a) **a troca de dia era impossível pela tela** — `setSlotWeekday` saía fora em edição (`professores-agenda.js:520`), por isso a propagação de 12/07 nunca cobriu weekday; (b) **mover aula não é editar** — o `classId` embute a data, mudar por dentro faz a próxima geração duplicar; (c) **o cliente não pode apagar aula da grade** (rule protege o fechamento) → virou a CF **`moveSlotClasses`**, admin-only, que apaga as intocadas e deixa o `generateClassesCore` recriar (mantendo feriado/escala/férias de graça).
+
+**2 armadilhas que os testes pegaram:** a CF nova **nasce sem permissão de invocação** (401 da infraestrutura → precisa `invoker: 'public'`); e por causa disso **uma asserção minha passou pelo motivo errado** — aceitava qualquer status ≠ 200 enquanto todos tomavam 401. Assertiva de permissão tem que exigir o código **exato**.
+
+**2 correções extras** achadas pelo Rafael testando: a caixa cinza vazia no modal de aula era a prévia de horas, que só procurava em `MinhaAgendaState` e por isso nunca funcionou pela Agenda Geral (agora acha nas duas e some quando não há o que dizer); e os campos travados por falta agora **explicam** por quê. **Substituição retroativa fica como está** — o Rafael confirmou que precisa existir (professor que não registrou na hora), limitada até o fechamento, que é exatamente o que a regra já fazia.
+
+**Guardas:** `smoke-grade-horarios` (3/3) · `validate-move-slot-classes` (7/7, CF no ar) · `smoke-grade-chips` (14/14, tela sem navegador) · `smoke-aula-ocorrencias-ui` (14/14) · `smoke-class-propagation` (regra + gêmeos).
+
+### 🔐 SEGURANÇA — alerta do GitGuardian levou a um achado real (regra JÁ EM PRODUÇÃO)
+E-mail "Google API Key exposed on GitHub". **O alerta era falso positivo:** é a Web API Key do Firebase, pública por natureza e já visível no JS do site. **Não rotacionar** — não resolve e quebra tudo até republicar. Nenhuma conta de serviço vazou (histórico do git inteiro conferido).
+
+**Mas investigar achou porta real: o cadastro livre do Auth está ABERTO** nos dois projetos (sondado sem criar conta: `signUp` responde `WEAK_PASSWORD`, não `ADMIN_ONLY_OPERATION`). Com a apiKey pública, qualquer pessoa obtém sessão autenticada sem ser ninguém no sistema. E duas regras pediam só `isAuth()`: **`/units` read** (config de comissões) e **`/audit_log` create** (poluir auditoria). Ambas passaram a exigir `hasProfile()` — ✅ **em produção** (`e3f01aa`).
+
+**A porta em si continua aberta:** desligar o cadastro livre quebraria a criação de usuários, que passa pelo navegador (`index.html:3859`/`:4047`, `professores-pessoas.js:647`). Conserto definitivo = mover para CF e só então desligar. Detalhe: `memory/cadastro-livre-auth-aberto.md`.
+
+**Validação:** `scripts/validate-rules-sem-cadastro.js` (4/4). O simulador oficial de regras **recusou** — a service account do staging não tem a permissão IAM. Alternativa usada: remover temporariamente o doc `/users` de uma conta de teste (vira o "estranho") e restaurar no `finally`.
+
+---
+
+## 🔖 ONDE PARAMOS — sessão 49 (12/08/2026) — 💰 COMISSÕES: ACADEMIA TROCOU TECNOFIT → PACTO, RELATÓRIO MUDOU
+
+### ⏳▶️ RETOMAR AQUI: aguardando o export novo do Rodrigo (13/08/2026)
+O Rodrigo **tem acesso para gerar o relatório na Pacto** e vai mandar um export novo ao acordar em **13/08/2026**. **Avaliar esse arquivo primeiro**, e só depois voltar às perguntas em aberto. **Não implementar nada antes disso.**
+
+Memória completa: `memory/migracao-relatorio-pacto-comissoes.md`. **Nenhum código foi alterado** — `commission.js` e `index.html` intocados.
+
+### 🔍 O que foi analisado
+Arquivo `carga nova comissoes/faturamento-recebido_..._20260805_200042.xls` (extensão mente: por dentro é XLSX), comparado com o formato antigo (`vendas realizadas PP -0106 a 2206.xlsx`) e com o motor (`commission.js` + `handleFile` do `index.html`).
+
+**Não é o mesmo relatório com colunas trocadas — mudou de natureza.** O antigo é extrato de recebimentos (685 linhas, 44 tipos de item: planos, produtos de loja, Gympass, aulas avulsas, rescisão, permuta). O novo é lista de contratos: 106 linhas, e **83 delas (84% do valor, R$ 25.388,88 de R$ 30.394,88) são a palavra literal `IMPORTAÇÃO`** — a carga da base antiga do TecnoFit. Sobram **23 linhas de venda real** (R$ 5.006,00).
+
+### ✅ Decisões do Rodrigo (respondidas em 12/08)
+- Mês da comissão = **`Data Lançamento`**.
+- `Situação Contrato`: **Matrícula → novo · Rematrícula → retorno · Renovação → renovação**. Rematrícula continua na regra de ouro (novos+retorno ≥ 18).
+- Periodicidade e FLEX/LOCAL saem **do nome do plano** (`Duração = 1` não separa MENSAL de RECORRENTE).
+- **`IMPORTAÇÃO` não paga comissão** — só planos Pacto de agosto em diante.
+- **Sem validação em paralelo:** em agosto a equipe parou de usar o TecnoFit. Conferência será contra a lista de vendas das vendedoras (Rodrigo vai encaminhar).
+
+### 🚨 Armadilhas achadas nos dados (não repetir)
+1. **"recorrente no nome = renovação automática" está errado sozinho** — excluiria a venda nova de plano recorrente. Em agosto derrubaria 6 linhas, R$ 1.347 de caixa e **R$ 122,35 de R$ 352,30 de comissão (−35%)**, além de 3 ativações de 11. Regra certa: `plano contém RECORRENTE` **E** `Situação = Renovação` (é o que o motor antigo fazia via `Origem`). **Aguardando confirmação.**
+2. **Valores vêm como TEXTO pt-BR** (`"2.868,00"`) — `parseFloat` lê **2.868**, perdendo R$ 2.865, **sem erro nenhum**. 4 linhas erradas nesse arquivo.
+3. **Plano cadastrado na Pacto como `MENSA L`** (espaço no meio) → 3 vendas de agosto perdem R$ 15 de bônus em silêncio. Corrigir no cadastro da Pacto, não no código.
+4. **5 vendas reais lançadas em julho** → risco de pagar 2× se julho fechou pelo TecnoFit.
+5. Filtrar só por data não basta: **13 linhas IMPORTAÇÃO têm Data Lançamento em agosto**.
+
+### ❓ Em aberto (bloqueia a construção)
+- **QUEM É O VENDEDOR** — único bloqueio real. `Responsável` ×2 + `Consultor` divergem em **92 das 106 linhas**: `Responsável` = "PACTO - MÉTODO DE GESTÃO" em 85; `Consultor` = **RODRIGO ROJAIS em 56**, que é não-comissionável → zeraria 53% do faturamento. Rodrigo está tratando com a Pacto.
+- **Export veio incompleto:** o Rodrigo afirma que a tela "Faturamento Recebido" traz produtos de estoque e aulas avulsas, mas **o arquivo não tem nenhuma linha disso**.
+- **Não existe coluna "quitado"** no export, apesar da regra depender disso.
+- Regra do `PLANO DE CRÉDITO 4 A 7 AULAS`; exportar por mês-calendário cheio.
+
+### 🛠️ Caminho técnico proposto (não aprovado ainda)
+**Adaptador de entrada**, não reescrita: camada que reconhece o layout (antigo ou novo) e normaliza para o que o `CommissionEngine` já entende — preserva P1–P4, splits, metas e o histórico dos meses fechados, e permite rodar os dois formatos na transição. Travas atuais a tratar: `cleanRawData` descarta toda linha sem `Código` (`commission.js` ~497-499) → hoje o arquivo novo dá "Nenhum dado encontrado"; e o bloqueio de múltiplos meses (`index.html` ~4187) recusa o arquivo, que mistura julho e agosto.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 48 (12/08/2026) — 🔍 FILTROS NA AGENDA + AGENDA GERAL EM 2 MODOS (A+B aprovado e construído)
 
 ### ❓ O que gerou a sessão
