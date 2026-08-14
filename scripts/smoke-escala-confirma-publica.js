@@ -95,6 +95,33 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
     assert.ok(/falhas/.test(corpo),
       'confirmarEAvisar precisa rastrear falhas por data em vez de assumir sucesso');
     console.log('✓ falha por data é rastreada, não engolida');
+
+    // Vaga pulada (sem ninguém OU sem horário) some em silêncio no publish. O
+    // publicar individual já avisava; o lote não avisava — e é o lote que a
+    // gestão usa pra 2 meses de sábados de uma vez.
+    assert.ok(/vagasAbertas/.test(corpo),
+      'o lote precisa contar as vagas que ficaram sem aula — senão repete o silêncio '
+      + 'que gerou o "sábado não aparece na agenda"');
+    console.log('✓ vaga sem aula é reportada também no lote');
+  }
+
+  // ════════ 6. slot sem horário é pulado sem erro — a armadilha do rascunho velho ════════
+  // Rascunho criado ANTES de configurar os horários do tipo carrega slot sem
+  // startTime/endTime. publishToAgenda devolve success, mas não cria a aula:
+  // sem contar vagasAbertas, a gestão lê "0 aula(s)" como se estivesse tudo bem.
+  {
+    const db = makeFakeDb(); const d = deps(db);
+    const velho = (await SS.createScale({
+      date: '2026-08-22', tipo: 'sabado', name: 'Sábado sem horário',
+      slots: [{ id: 's1', unitId: 'u1', requiredModalityId: 'TOI', assignedPersonId: 'p1' }], // sem startTime/endTime
+    }, d)).data;
+    await SS.setStatus(velho.id, 'consolidada', d);
+
+    const pub = await SS.publishToAgenda(velho.id, d);
+    assert.ok(pub.success, 'publish NÃO falha — só pula o slot (por isso o silêncio)');
+    assert.strictEqual(pub.data.created, 0, 'nenhuma aula criada');
+    assert.strictEqual(pub.data.vagasAbertas.length, 1, 'o slot sem horário volta como vaga aberta');
+    console.log('✓ slot sem horário é pulado em silêncio — daí a contagem ser obrigatória');
   }
 
   // ════════ 5. o professor não pode ler "Não escalado" antes da eleição ════════

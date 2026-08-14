@@ -1202,15 +1202,20 @@ async function confirmarEAvisar(batchId) {
   // nasciam se alguém abrisse cada sábado e clicasse "📅 Publicar na agenda", um
   // por um. Com 2 meses de sábados isso é garantia de esquecer. (Rafael, 14/08.)
   // publishToAgenda é idempotente e não recria slot de mês já fechado.
-  let aulasCriadas = 0;
+  let aulasCriadas = 0, vagasSemAula = 0;
   const falhas = [];
   for (const s of byBatch.data) {
     await ScaleService.closeElection(s.id);
     const cons = await ScaleService.consolidate(s.id, ctx);
     if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)} (consolidar)`); continue; }
     const pub = await ScaleService.publishToAgenda(s.id);
-    if (pub.success) aulasCriadas += (pub.data && pub.data.created) || 0;
-    else falhas.push(`${escalaFmtBR(s.date)} (publicar)`);
+    if (pub.success) {
+      aulasCriadas += (pub.data && pub.data.created) || 0;
+      // Vaga sem ninguém OU sem horário é PULADA em silêncio pelo publish. Numa
+      // escala antiga (rascunho criado antes de configurar os horários do tipo)
+      // isso reproduz de novo o "sábado não aparece na agenda", por outro motivo.
+      vagasSemAula += ((pub.data && pub.data.vagasAbertas) || []).length;
+    } else falhas.push(`${escalaFmtBR(s.date)} (publicar)`);
   }
 
   // Só avisa o time do que REALMENTE está na agenda. Avisar sobre data que
@@ -1227,9 +1232,14 @@ async function confirmarEAvisar(batchId) {
     });
   }
 
+  const sobra = vagasSemAula
+    ? ` ⚠️ ${vagasSemAula} vaga(s) ficaram SEM aula (sem ninguém escalado ou sem horário configurado) — confira essas datas.`
+    : '';
   if (falhas.length) {
     toast(`Confirmado com ${aulasCriadas} aula(s) na agenda, mas FALHOU em: ${falhas.join(', ')}. `
-        + `Abra essas datas e publique na mão — quem depende delas não foi avisado.`, 'error', 12000);
+        + `Abra essas datas e publique na mão — quem depende delas não foi avisado.${sobra}`, 'error', 12000);
+  } else if (vagasSemAula) {
+    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e time avisado.${sobra}`, 'error', 10000);
   } else {
     toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e time avisado.`, 'success');
   }
