@@ -1169,7 +1169,7 @@ function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
     <div style="overflow:auto;max-height:50vh;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
     ${semCand}
     ${ferias}
-    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito e avisa todos no sistema. Quem está de férias aprovadas na data <b>não é escalado</b>.</p>
+    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito, <b>publica as aulas na agenda</b> e avisa todos no sistema. Quem está de férias aprovadas na data <b>não é escalado</b>.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>
       <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Confirmar escala e avisar todos</button>
@@ -1197,13 +1197,28 @@ async function confirmarEAvisar(batchId) {
     meritoById, opts: { minMes: 1 },
     vacations: await escalaCarregarFerias(),
   };
+  // Consolidar + PUBLICAR na mesma passada. Antes o lote só consolidava, e o
+  // aviso mandava "Confira sua agenda" apontando pra uma tela vazia: as aulas só
+  // nasciam se alguém abrisse cada sábado e clicasse "📅 Publicar na agenda", um
+  // por um. Com 2 meses de sábados isso é garantia de esquecer. (Rafael, 14/08.)
+  // publishToAgenda é idempotente e não recria slot de mês já fechado.
+  let aulasCriadas = 0;
+  const falhas = [];
   for (const s of byBatch.data) {
     await ScaleService.closeElection(s.id);
-    await ScaleService.consolidate(s.id, ctx);
+    const cons = await ScaleService.consolidate(s.id, ctx);
+    if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)} (consolidar)`); continue; }
+    const pub = await ScaleService.publishToAgenda(s.id);
+    if (pub.success) aulasCriadas += (pub.data && pub.data.created) || 0;
+    else falhas.push(`${escalaFmtBR(s.date)} (publicar)`);
   }
+
+  // Só avisa o time do que REALMENTE está na agenda. Avisar sobre data que
+  // falhou é repetir o problema que este bloco corrige.
+  const ok = byBatch.data.filter(s => !falhas.some(f => f.startsWith(escalaFmtBR(s.date))));
   const rec = await NotifyService.resolveActiveTeacherUserIds();
-  if (rec.success && rec.data.length) {
-    const datas = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map(s => escalaFmtBR(s.date)).join(', ');
+  if (ok.length && rec.success && rec.data.length) {
+    const datas = ok.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map(s => escalaFmtBR(s.date)).join(', ');
     await NotifyService.send({
       recipients: rec.data, type: 'scale_confirmed',
       title: 'Escala confirmada',
@@ -1211,7 +1226,13 @@ async function confirmarEAvisar(batchId) {
       link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
     });
   }
-  toast('Escala confirmada e time avisado.', 'success');
+
+  if (falhas.length) {
+    toast(`Confirmado com ${aulasCriadas} aula(s) na agenda, mas FALHOU em: ${falhas.join(', ')}. `
+        + `Abra essas datas e publique na mão — quem depende delas não foi avisado.`, 'error', 12000);
+  } else {
+    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e time avisado.`, 'success');
+  }
   closeEscalaModal();
   renderEscalaGestao();
 }
@@ -1302,11 +1323,23 @@ async function renderProfSabadosFeriados(pid, tab) {
         : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
       return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${prazo}`, right);
     }
+    // ANTES da eleição acontecer, "Não escalado" MENTE: o professor lê como "não
+    // fui escolhido" quando a verdade é "ainda nem começou". Pior, ao lado vinha
+    // a palavra "Rascunho", que é vocabulário nosso e não diz nada pra ele.
+    // Relato real no grupo (14/08/2026): "qnd vou em minha agenda não tem sábado,
+    // qnd vou em escala aparece sábado (15/08) - não escalado".
+    if (s.status !== 'consolidada') {
+      return profDateRow(
+        s,
+        `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Ainda não liberado`,
+        `<span style="font-size:12px;color:var(--text3);">A gestão ainda não abriu as candidaturas</span>`
+      );
+    }
     const escalado = ScaleService.isPersonAssigned(s, pid);
     right = escalado
       ? `<span style="font-size:12px;color:var(--green);font-weight:600;">✓ Você está escalado</span>`
-      : `<span style="font-size:12px;color:var(--text3);">Não escalado</span>`;
-    return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${ESCALA_STATUS_LABEL[s.status] || s.status}`, right);
+      : `<span style="font-size:12px;color:var(--text3);">Não escalado desta vez</span>`;
+    return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Escala definida`, right);
   }).join('');
 }
 
