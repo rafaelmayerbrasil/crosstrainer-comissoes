@@ -24,6 +24,17 @@ Print do grupo "Sistema Escala Inteligente IA": professora relatou **"qnd vou em
 - Staging + **produção verificada no `github.io`**: script `?v=20260814` servido, as 7 asserções de conteúdo passando, **0 erro de console**.
 - **Bump do `?v=`** feito (sem ele o navegador serve o arquivo velho — lição registrada em [[agenda-geral-proposta-rodrigo]]).
 
+### 🪤 Follow-up do mesmo dia (commit `2766157`) — "e o que já tava com rascunho?"
+Pergunta do Rafael que rendeu uma **segunda armadilha**, essa ainda ativa no dado real do 15/08:
+
+- **Resposta operacional:** rascunho **não precisa de nada especial** — `confirmarAbrirJanela` procura doc existente na data+tipo e **reaproveita** (só cria se não houver). Selecionar junto com os outros sábados e abrir em lote funciona, sem duplicar.
+- **MAS:** `escalaSlotsPadrao` aplica os horários da config **só no doc NOVO**. Rascunho criado **antes** de configurar os horários do tipo carrega slot **sem `startTime`/`endTime`** — e `publishToAgenda` **pula slot sem horário em silêncio**, devolvendo `success: true` com `created: 0`. Ou seja: a gestão faria tudo certo e o sábado **continuaria fora da agenda**, mesmo sintoma e outra causa.
+- **Lacuna na minha própria correção:** `publicarEscala` (individual) sempre reportou `vagasAbertas`; `confirmarEAvisar` (lote) **não reportava** — e o lote é justamente o caminho dos 2 meses. Agora conta e, se houver, o toast sai como **erro** nomeando o motivo (sem ninguém escalado **ou** sem horário).
+- **Smoke subiu de 6 → 8 casos**: um prova o silêncio (`success` + `created:0` + 1 `vagaAberta`), outro guarda a contagem no lote.
+- **Orientação passada à gestão:** antes de abrir, conferir se as vagas do 15/08 têm horário; ao confirmar, **ler a mensagem final**.
+
+> **Regra prática de suporte** (vale pra qualquer relato futuro de "aula de escala não aparece") — 3 causas nesta ordem: (1) escala em `rascunho`, janela nunca aberta; (2) consolidada mas **não publicada**; (3) publicada com **vaga sem horário**, pulada em silêncio.
+
 ### ⚠️ Risco adjacente MAPEADO, não corrigido (não introduzido por esta mudança)
 `publishToAgenda` chama `_deleteScaleClasses`, que **apaga e recria** as aulas da escala — poupando só as de mês fechado (`monthClosingId`). Logo: **republicar uma escala depois do sábado já ter acontecido perde `status` e as ocorrências** (falta/atraso/saída) daquelas aulas. Já era assim para o botão individual e para `trocarPessoaEscala`; pelo caminho normal não acontece, porque depois de confirmado o lote sai da lista de janelas abertas. O `autoConfirmarAulas` re-marca `realizada` sozinho, mas **ocorrência lançada à mão não volta**. Se for corrigir: fazer `publishToAgenda` preservar status/ocorrências em vez de recriar.
 
