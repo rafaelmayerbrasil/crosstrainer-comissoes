@@ -43,9 +43,36 @@ Pergunta do Rafael que rendeu uma **segunda armadilha**, essa ainda ativa no dad
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 50 (13/08/2026) — 🐛 BUG EM PRODUÇÃO CORRIGIDO + EXPORT BOM DA PACTO + 5 RESPOSTAS DA AGENDA
+## 🔖 ONDE PARAMOS — sessão 51 (14–15/08/2026) — ✅ JULHO DAS COMISSÕES CALCULADO: R$ 3.381,30
 
-### ▶️▶️ RETOMAR AQUI — a frente viva é COMISSÕES / JULHO
+### ▶️▶️ RETOMAR AQUI
+
+**Julho está calculado.** As planilhas corrigidas já foram subidas no sistema. **Falta aplicar as 8 divisões na tela** — o total não muda com elas, só a distribuição entre as vendedoras.
+
+| Vendedora | CP | PP | Total |
+|---|---:|---:|---:|
+| Kali Dutra | 3,45 | 1.081,61 | **1.085,06** |
+| Erica Faustino | 838,51 | 244,66 | **1.083,17** |
+| Francini das Chagas | 599,64 | 411,15 | **1.010,79** |
+| Luísa Gabriela | — | 102,70 | **102,70** |
+| Juliane Coelho | — | 99,58 | **99,58** |
+| | **1.441,60** | **1.939,70** | **R$ 3.381,30** |
+
+**⚠️ Antes de pagar:** confirmar com o Rodrigo se **"mais de 10 ativações"** para entrar no rateio do P3 é **10 ou 11**. Hoje a **Kali leva sozinha o P3 de R$ 258,31**; a **Francini tem 9 ativações** e fica de fora por uma. Pergunta parada desde 13/08 que virou dinheiro.
+
+**Como julho foi fechado:** os relatórios do TecnoFit (que têm o vendedor correto) cruzados com o export da Pacto (que tem o que foi pago de verdade). Gerei duas planilhas corrigidas — `carga nova comissoes/CORRIGIDO-julho-2026-{CP,PP}.xlsx` — com Josy R$ 234, Sueli R$ 199, Melissa reatribuída à Fran e **14 vendas que só existem na Pacto** (a última semana de julho foi vendida direto lá e não entrou no TecnoFit: +R$ 508,12 de comissão).
+
+**🧭 Rumo decidido:** resolver julho com os relatórios que existem e **depois avaliar a API da Pacto** — que é o que o Rodrigo quer, não depender de Excel. O **spec do adaptador de Excel foi PARADO sem commit** (`docs/superpowers/specs/2026-08-14-adaptador-pacto-comissoes-design.md` está no disco, fora do git): seria trabalho para jogar fora. A análise dentro dele vale integral para a API — é o mesmo relatório, muda o cano e não o dado.
+
+**Estado completo, com todas as armadilhas e as pendências do Rodrigo:** `memory/migracao-relatorio-pacto-comissoes.md`. **Ler antes de tocar em qualquer coisa de comissões.**
+
+**Nenhuma linha de `commission.js` ou `index.html` foi alterada** em toda a frente.
+
+---
+
+## 🔖 Sessão 50 (13/08/2026) — 🐛 BUG EM PRODUÇÃO CORRIGIDO + EXPORT BOM DA PACTO + 5 RESPOSTAS DA AGENDA
+
+### (contexto da sessão anterior — a frente viva era COMISSÕES / JULHO)
 
 **Tudo o que era da Grade de Horários está ✅ EM PRODUÇÃO** (functions + `git push`, commit `4325b3f`). Nada pendente ali.
 
