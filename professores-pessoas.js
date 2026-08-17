@@ -520,7 +520,7 @@ function openAccessModal(opts) {
     `${t ? `<strong>${escapeHtml(t.name)}</strong> · ` : ''}Perfis: ` +
     opts.profiles.map(pr => UserModel.PROFILE_LABELS[pr] || pr).join(', ');
   document.getElementById('accessNameWrap').style.display = t ? 'none' : '';
-  document.getElementById('accessName').value = '';
+  document.getElementById('accessName').value = t ? '' : (opts.presetName || '');
   document.getElementById('accessEmail').value = t ? (t.email || '') : '';
   document.getElementById('accessPass').value = '';
   document.getElementById('accessError').textContent = '';
@@ -557,10 +557,19 @@ function skipAccess() {
 }
 
 // "Criar acesso" a partir da ficha (banner / aba Acesso) — D8: estado recuperável
+// 17/08/2026: antes exigia `p.teacherId` e saía CALADO para quem não é professor —
+// vendedora criada pelo upload das comissões nunca conseguia ganhar login pelo hub.
+// Agora atende os dois casos e leva junto o uid da ficha-fantasma, que precisa ser
+// apagada depois (o login novo nasce com outro uid; sem isso a pessoa duplica).
 function pessoaCriarAcesso(key) {
   const p = PessoasState.people.find(x => x.key === key);
-  if (!p || !p.teacherId) return;
-  openAccessModal({ profiles: p.profiles, teacherId: p.teacherId });
+  if (!p) return;
+  openAccessModal({
+    profiles: p.profiles,
+    teacherId: p.teacherId || null,
+    placeholderUid: p.uid || null,
+    presetName: p.name || '',
+  });
 }
 
 // ── Desligar / Religar pessoa (via Cloud Function setPersonAccess) ───────
@@ -685,6 +694,20 @@ async function savePessoaAccess() {
     } catch (e) {
       console.warn('[criarPessoaComAcesso] não consegui gravar teachers.userId:', e.message);
       toast('Acesso criado, mas o vínculo para substituições falhou — avise o suporte.', 'info', 6000);
+    }
+  }
+
+  // ⑥ Apaga a ficha-fantasma, se havia. O upload das comissões cria um doc em
+  // /users sem e-mail (status 'pendente') para a vendedora que aparece na planilha.
+  // O login novo nasce com OUTRO uid, então sem apagar a antiga a pessoa passa a
+  // aparecer duas vezes no hub. A rule só deixa deletar 'pendente' — se o doc
+  // estiver em qualquer outro estado, não force: avise e siga.
+  if (ctx.placeholderUid && ctx.placeholderUid !== newUid) {
+    try {
+      await db.collection('users').doc(ctx.placeholderUid).delete();
+    } catch (e) {
+      console.warn('[criarPessoaComAcesso] ficha antiga não pôde ser apagada:', e.message);
+      toast('Acesso criado, mas a ficha antiga continuou — a pessoa aparece duas vezes. Avise o suporte.', 'info', 7000);
     }
   }
 

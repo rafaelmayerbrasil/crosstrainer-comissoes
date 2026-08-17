@@ -24,6 +24,16 @@
     return [teacher.type === 'estagiario' ? 'professor_estagiario' : 'professor'];
   }
 
+  // Ter doc em /users NÃO é ter login. O upload das comissões cria ficha-fantasma
+  // para vendedora que aparece na planilha (`autoRegisterVendors`, email:'' +
+  // status:'pendente') — a pessoa existe no sistema mas nunca teve conta no Auth.
+  // Como o Auth exige e-mail, e-mail vazio prova que não há login por trás.
+  // Sem esta checagem o hub mostrava "● Com acesso" para quem não consegue entrar,
+  // e escondia o botão de criar acesso (achado com a Kali em 17/08/2026).
+  function temLoginReal(user) {
+    return !!(user && String(user.email || '').trim());
+  }
+
   function buildPeople(users, teachers) {
     users = users || []; teachers = teachers || [];
     const teacherIds = new Set(teachers.map(t => t.id));
@@ -44,7 +54,7 @@
         name: t.name || (u && u.name) || '',
         email: t.email || (u && u.email) || '',
         profiles: u ? profilesOf(u) : implicitProfiles(t),
-        hasAccess: !!u,
+        hasAccess: temLoginReal(u),
         teacher: t,
         user: u,
       };
@@ -58,7 +68,7 @@
         name: u.name || '',
         email: u.email || '',
         profiles: profilesOf(u),
-        hasAccess: true,
+        hasAccess: temLoginReal(u),
         teacher: null,
         user: u,
       });
@@ -85,5 +95,5 @@
     });
   }
 
-  return { buildPeople, filterPeople, profilesOf, implicitProfiles };
+  return { buildPeople, filterPeople, profilesOf, implicitProfiles, temLoginReal };
 });
