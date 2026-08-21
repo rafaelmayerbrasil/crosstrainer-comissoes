@@ -137,6 +137,13 @@ r = SF.transicao({ status: 'pending', requestingTeacherId: 'theo' }, 'confirmar'
 assert.strictEqual(r.ok, false, 'ator sem teacherId não pode confirmar em nome de ninguém');
 console.log('✓ ator sem teacherId barrado na confirmação');
 
+// Mesmo buraco existia em recusar: sub sem substituteTeacherId faz quemConfirma
+// devolver undefined, e um ator sem isGestao nem teacherId também é undefined —
+// undefined === undefined não pode virar "pode recusar".
+r = SF.transicao({ status: 'pending', requestingTeacherId: 'theo' }, 'recusar', {});
+assert.strictEqual(r.ok, false, 'ator sem isGestao nem teacherId não pode recusar em nome de ninguém');
+console.log('✓ ator sem identidade barrado na recusa');
+
 /* ── 3d. atorEhParte distingue "não respondeu" de "era o interessado" */
 r = t('pending', 'homologar', { isGestao: true, teacherId: 'theo' });
 assert.strictEqual(r.atorEhParte, true,

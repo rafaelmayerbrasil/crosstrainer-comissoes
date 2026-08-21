@@ -155,7 +155,8 @@
     }
 
     if (acao === 'recusar') {
-      const podeRecusar = ator.isGestao || ator.teacherId === quemConfirma(sub);
+      const alvo = quemConfirma(sub);
+      const podeRecusar = ator.isGestao || (!!ator.teacherId && ator.teacherId === alvo);
       if (!podeRecusar) return { ok: false, erro: 'Só o outro professor ou a gestão pode recusar.' };
       return { ok: true, status: STATUS.REJECTED };
     }
