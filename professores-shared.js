@@ -2032,6 +2032,21 @@ const SubstitutionService = {
         }
       }
 
+      if (newStatus === SubstitutionFlow.STATUS.CANCELLED) {
+        // Avisa quem esperava confirmar: o pedido saiu da caixa dele.
+        const alvo = SubstitutionFlow.quemConfirma(before);
+        const avisar = alvo === before.substituteTeacherId
+          ? before.substituteUserId : before.requestingUserId;
+        if (avisar) {
+          await NotificationService.create({
+            recipientUserId: avisar,
+            type: 'substitution_cancelled',
+            body: 'Uma troca de professor que esperava sua confirmação foi cancelada.',
+            link: { type: 'substitution', id: subId },
+          });
+        }
+      }
+
       // Engajamento (5c): cobrir colega vale ponto de proatividade — só quando a
       // troca vale de verdade, ou seja, depois da gestão homologar.
       if (newStatus === SubstitutionFlow.STATUS.ACCEPTED && before.substituteTeacherId && typeof EngagementService === 'object') {
@@ -2049,43 +2064,9 @@ const SubstitutionService = {
     }
   },
 
+  /** Quem registrou desiste. A checagem de quem pode está no módulo. */
   async cancel(subId) {
-    if (!subId) return { success: false, error: 'subId obrigatório' };
-    try {
-      const ref = db.collection('substitutions').doc(subId);
-      const beforeDoc = await ref.get();
-      if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
-      const before = beforeDoc.data();
-      if (before.status !== 'pending') {
-        return { success: false, error: 'Só pedidos pendentes podem ser cancelados.' };
-      }
-      const uid = currentUserId();
-      const after = {
-        status: 'cancelled',
-        respondedAt: serverTs(),
-        updatedAt: serverTs(),
-        updatedBy: uid,
-      };
-      await ref.update(after);
-      await AuditService.log({
-        type: 'substitution_cancelled',
-        details: 'Pedido de substituição cancelado pelo titular',
-        entityType: 'substitution', entityId: subId,
-        before, after: { ...before, ...after },
-        module: 'agenda',
-      });
-      if (before.substituteUserId) {
-        await NotificationService.create({
-          recipientUserId: before.substituteUserId,
-          type: 'substitution_cancelled',
-          body: 'Um pedido de substituição direcionado a você foi cancelado.',
-          link: { type: 'substitution', id: subId },
-        });
-      }
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message, code: err.code };
-    }
+    return this._mover(subId, 'cancelar', '');
   },
 
   /** Lista pedidos PENDENTES direcionados a este user. */

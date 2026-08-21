@@ -237,6 +237,8 @@ assert.ok(!/_respond\(subId,\s*'accepted'/.test(shared),
   'aceitar não pode mais mandar direto pra accepted — falta a gestão');
 assert.ok(/registradoPor/.test(shared),
   'o pedido precisa gravar de que lado veio');
+assert.ok(!/Só pedidos pendentes podem ser cancelados/.test(shared),
+  'cancelar também passa pelo módulo — antes não checava QUEM estava cancelando');
 console.log('✓ professores-shared.js ligado no módulo');
 
 console.log('\n✅ smoke-troca-professor: módulo puro OK');
