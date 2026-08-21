@@ -94,6 +94,22 @@
       ]
     },
     {
+      "collectionGroup": "substitutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "requestedAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "substitutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requestingTeacherId", "order": "ASCENDING" },
+        { "fieldPath": "status",              "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "monthly_closings",
       "queryScope": "COLLECTION",
       "fields": [
