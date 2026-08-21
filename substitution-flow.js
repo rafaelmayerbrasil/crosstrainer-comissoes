@@ -139,7 +139,7 @@
         // Não bloqueia (a gestão é a palavra final), mas o registro tem que
         // distinguir isso de "o professor não respondeu".
         atorEhParte: !!ator.teacherId
-          && (ator.teacherId === quemConfirma(sub) || ator.teacherId === quemRegistrou(sub)),
+          && (ator.teacherId === sub.requestingTeacherId || ator.teacherId === sub.substituteTeacherId),
       };
     }
 
@@ -169,7 +169,7 @@
       return { ok: true, status: STATUS.CANCELLED };
     }
 
-    return { ok: false, erro: 'Ação desconhecida: ' + acao };
+    return { ok: false, erro: 'Ação desconhecida: ' + (acao || '(vazia)') };
   }
 
   /**

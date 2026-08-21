@@ -160,6 +160,15 @@ assert.strictEqual(r.atorEhParte, false,
 r = t('pending', 'homologar', { isGestao: true });
 assert.strictEqual(r.atorEhParte, false,
   'gestão sem teacherId (perfil administrativo puro) não é parte');
+
+// O caso mais conflituoso: a gestão registra a troca EM FAVOR de alguém (o
+// substituto ganha a aula e as horas) e essa mesma pessoa, sendo supervisora,
+// homologa. quemConfirma/quemRegistrou no caminho 'gestao' dão {titular, null}
+// — nenhum dos dois é o substituto — por isso atorEhParte tem que comparar
+// contra requestingTeacherId/substituteTeacherId direto, não contra essas funções.
+r = tGestao('pending', 'homologar', { isGestao: true, teacherId: 'camila' });
+assert.strictEqual(r.atorEhParte, true,
+  'registro pela gestão em favor da própria supervisora — ela é a beneficiária, é parte');
 console.log('✓ atorEhParte');
 
 /* ── 3e. Pedido duplicado ─────────────────────────────────────────── */
@@ -203,5 +212,15 @@ Object.keys(SF.STATUS).forEach((chave) => {
   assert.ok(SF.STATUS_LABEL[valor], 'status "' + valor + '" sem rótulo em STATUS_LABEL');
 });
 console.log('✓ todo STATUS tem STATUS_LABEL');
+
+/* ── 7. REGISTRADO_POR não é só string literal solta nos testes ─── */
+// O resto do arquivo compara com 'titular'/'substituto'/'gestao' escritos à
+// mão — sem isso, um typo na constante exportada passaria batido.
+assert.deepStrictEqual(
+  [SF.REGISTRADO_POR.TITULAR, SF.REGISTRADO_POR.SUBSTITUTO, SF.REGISTRADO_POR.GESTAO],
+  ['titular', 'substituto', 'gestao'],
+  'REGISTRADO_POR tem que bater com os valores usados no resto do arquivo'
+);
+console.log('✓ REGISTRADO_POR');
 
 console.log('\n✅ smoke-troca-professor: módulo puro OK');
