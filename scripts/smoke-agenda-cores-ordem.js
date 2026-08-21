@@ -29,6 +29,10 @@ function carregar(arquivo) {
   vm.runInContext(fs.readFileSync(path.join(raiz, arquivo), 'utf8'), sandbox, { filename: arquivo });
 }
 
+carregar('substitution-flow.js');
+// SubstitutionFlow entra pendurado em window (estilo UMD/browser); professores-shared.js
+// lê o identificador solto — precisa estar no escopo do contexto antes de carregar.
+sandbox.SubstitutionFlow = sandbox.window.SubstitutionFlow;
 carregar('professores-shared.js');
 // professores-agenda.js precisa dos globais que o shared expõe
 sandbox.ProfHelpers = sandbox.ProfHelpers || sandbox.window.ProfHelpers;

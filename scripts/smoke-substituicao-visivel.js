@@ -26,6 +26,10 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'substitution-flow.js'), 'utf8'), sandbox, { filename: 'substitution-flow.js' });
+// SubstitutionFlow entra pendurado em window (estilo UMD/browser); professores-shared.js
+// lê o identificador solto — precisa estar no escopo do contexto antes de carregar.
+sandbox.SubstitutionFlow = sandbox.window.SubstitutionFlow;
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'professores-shared.js'), 'utf8'), sandbox, { filename: 'professores-shared.js' });
 
 const papel = vm.runInContext('classSubstitutionRole', sandbox);

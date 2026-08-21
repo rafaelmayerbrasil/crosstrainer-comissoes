@@ -223,4 +223,20 @@ assert.deepStrictEqual(
 );
 console.log('✓ REGISTRADO_POR');
 
+/* ── 5. A cola do navegador está ligada no módulo ────────────────── */
+const fs = require('fs');
+const path = require('path');
+const raiz = path.join(__dirname, '..');
+const shared = fs.readFileSync(path.join(raiz, 'professores-shared.js'), 'utf8');
+
+assert.ok(/SubstitutionFlow/.test(shared),
+  'professores-shared.js precisa consultar o módulo em vez de decidir sozinho');
+assert.ok(/homologar\s*\(/.test(shared),
+  'SubstitutionService precisa do método homologar');
+assert.ok(!/_respond\(subId,\s*'accepted'/.test(shared),
+  'aceitar não pode mais mandar direto pra accepted — falta a gestão');
+assert.ok(/registradoPor/.test(shared),
+  'o pedido precisa gravar de que lado veio');
+console.log('✓ professores-shared.js ligado no módulo');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');

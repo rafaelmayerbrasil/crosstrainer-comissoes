@@ -1723,12 +1723,8 @@ const NOTIF_TYPE_META = {
   event_reminder:          { icon: '⏰', title: 'Lembrete de evento' },
 };
 
-const SUBSTITUTION_STATUS_LABEL = {
-  pending:   'Pendente',
-  accepted:  'Aceita',
-  rejected:  'Recusada',
-  cancelled: 'Cancelada',
-};
+// Rótulos vêm do módulo puro — a tela e o serviço têm que contar a mesma história.
+const SUBSTITUTION_STATUS_LABEL = SubstitutionFlow.STATUS_LABEL;
 
 const COVERAGE_STATUS_LABEL = {
   open:      'Aberta',
@@ -1852,10 +1848,13 @@ function sortSubstitutions(subs) {
 
 const SubstitutionService = {
   /**
-   * Cria pedido de substituição direta.
-   * @param {object} p - { classId, substituteTeacherId, substituteUserId, reason }
+   * Registra uma troca de professor.
+   * @param {object} p - { classId, substituteTeacherId, substituteUserId, reason,
+   *                       registradoPor }
+   *   registradoPor: 'titular' (o dono da aula passou), 'substituto' (quem deu a
+   *   aula está registrando) ou 'gestao'.
    */
-  async create({ classId, substituteTeacherId, substituteUserId, reason }) {
+  async create({ classId, substituteTeacherId, substituteUserId, reason, registradoPor = 'titular' }) {
     if (!classId) return { success: false, error: 'classId obrigatório' };
     if (!substituteTeacherId) return { success: false, error: 'Escolha um substituto' };
 
@@ -1863,7 +1862,18 @@ const SubstitutionService = {
       const classDoc = await db.collection('classes').doc(classId).get();
       if (!classDoc.exists) return { success: false, error: 'Aula não encontrada' };
       const cls = classDoc.data();
-      if (cls.monthClosingId) return { success: false, error: 'Aula em mês fechado.' };
+
+      // Uma pergunta só ao módulo, com tudo o que ele precisa pra decidir: mês
+      // fechado, aula que não aconteceu, quem é o ator, pedido duplicado (o Theo
+      // pediu a mesma troca duas vezes em 04/08 e o sistema aceitou as duas) e
+      // troca pra quem já é o professor da aula.
+      const doMesmo = await db.collection('substitutions').where('classId', '==', classId).get();
+      const ator = { teacherId: getCurrentProfessorId(), isGestao: isAdminGestao() || isSupervisao() };
+      const permitido = SubstitutionFlow.podeRegistrar(cls, ator, {
+        subsDaAula: doMesmo.docs.map(d => d.data()),
+        alvoTeacherId: substituteTeacherId,
+      });
+      if (!permitido.ok) return { success: false, error: permitido.motivo };
 
       const now = new Date();
       const aulaDate = cls.scheduledDate.toDate ? cls.scheduledDate.toDate() : new Date(cls.scheduledDate);
@@ -1878,29 +1888,47 @@ const SubstitutionService = {
         classStartTime: cls.startTime || null,
         classEndTime: cls.endTime || null,
         classModalityId: cls.modalityId || null,
+        // requesting é SEMPRE o dono da aula e substitute SEMPRE quem cobre,
+        // não importa quem registrou: a CF, o histórico e o originalTeacherId
+        // dependem disso.
         requestingTeacherId: cls.teacherId,
         requestingUserId: uid,
         substituteTeacherId,
         substituteUserId: substituteUserId || null,
+        registradoPor,
         reason: (reason || '').toString().slice(0, 500),
-        status: 'pending',
+        status: SubstitutionFlow.STATUS.PENDING,
         wasRetroactive,
         isOfficial: false,
         requestedAt: serverTs(),
         respondedAt: null,
         responseNote: null,
+        homologadoPor: null,
+        homologadoEm: null,
+        semConfirmacaoDoProfessor: false,
+        atorEhParte: false,
         createdBy: uid,
         updatedAt: serverTs(),
         updatedBy: uid,
       };
       await ref.set(data);
 
-      // Notifica substituto (se vinculado a um user)
-      if (substituteUserId) {
+      // Avisa o lado que precisa confirmar — que é o oposto de quem registrou.
+      const confirmaTeacherId = SubstitutionFlow.quemConfirma(data);
+      let confirmaUserId = confirmaTeacherId === substituteTeacherId ? (substituteUserId || null) : null;
+      if (!confirmaUserId && confirmaTeacherId) {
+        try {
+          const us = await db.collection('users').where('professorId', '==', confirmaTeacherId).limit(1).get();
+          if (!us.empty) confirmaUserId = us.docs[0].id;
+        } catch (e) { /* sem login vinculado: a gestão resolve pela tela */ }
+      }
+      if (confirmaUserId) {
         await NotificationService.create({
-          recipientUserId: substituteUserId,
+          recipientUserId: confirmaUserId,
           type: 'substitution_requested',
-          body: buildSubstitutionNotifBody(cls, 'Pedido de substituição'),
+          body: buildSubstitutionNotifBody(cls, registradoPor === 'substituto'
+            ? 'Um colega registrou que deu esta aula'
+            : 'Pedido de substituição'),
           link: { type: 'substitution', id: ref.id },
         });
       }
@@ -1920,67 +1948,103 @@ const SubstitutionService = {
     }
   },
 
+  /** O outro professor confirma: NÃO aplica ainda — manda pra gestão. */
+  async confirmar(subId, note = '') {
+    return this._mover(subId, 'confirmar', note);
+  },
+
+  /** Compatibilidade com chamadas antigas da tela. */
   async accept(subId, note = '') {
-    return this._respond(subId, 'accepted', note);
+    return this.confirmar(subId, note);
   },
 
   async reject(subId, note = '') {
-    return this._respond(subId, 'rejected', note);
+    return this._mover(subId, 'recusar', note);
   },
 
-  async _respond(subId, newStatus, note) {
+  /** A gestão homologa — é aqui que a aula troca de dono (via CF). */
+  async homologar(subId, note = '') {
+    return this._mover(subId, 'homologar', note);
+  },
+
+  async recusarGestao(subId, note = '') {
+    return this._mover(subId, 'recusar', note);
+  },
+
+  async _mover(subId, acao, note) {
     if (!subId) return { success: false, error: 'subId obrigatório' };
     try {
       const ref = db.collection('substitutions').doc(subId);
       const beforeDoc = await ref.get();
       if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
       const before = beforeDoc.data();
-      if (before.status !== 'pending') {
-        return { success: false, error: `Pedido já está como "${SUBSTITUTION_STATUS_LABEL[before.status]}".` };
+
+      const ator = { teacherId: getCurrentProfessorId(), isGestao: isAdminGestao() || isSupervisao() };
+      const t = SubstitutionFlow.transicao(before, acao, ator);
+      if (!t.ok) return { success: false, error: t.erro };
+
+      // A aula pode ter entrado em mês fechado depois do pedido.
+      const clsDoc = await db.collection('classes').doc(before.classId).get();
+      if (clsDoc.exists && clsDoc.data().monthClosingId) {
+        return { success: false, error: 'O mês desta aula já foi fechado.' };
       }
+
       const uid = currentUserId();
+      const newStatus = t.status;
       const after = {
         status: newStatus,
         respondedAt: serverTs(),
         responseNote: (note || '').toString().slice(0, 500) || null,
-        isOfficial: newStatus === 'accepted',
+        isOfficial: newStatus === SubstitutionFlow.STATUS.ACCEPTED,
         updatedAt: serverTs(),
         updatedBy: uid,
       };
+      if (acao === 'homologar') {
+        after.homologadoPor = uid;
+        after.homologadoEm = serverTs();
+        after.semConfirmacaoDoProfessor = !!t.semConfirmacaoDoProfessor;
+        // Supervisor que também dá aula pode homologar troca da qual ele é parte.
+        // Não bloqueia, mas fica distinguível de "o professor não respondeu".
+        after.atorEhParte = !!t.atorEhParte;
+      }
       await ref.update(after);
+
       await AuditService.log({
         type: `substitution_${newStatus}`,
-        details: `Substituição ${SUBSTITUTION_STATUS_LABEL[newStatus]}`,
+        details: `Troca de professor: ${SUBSTITUTION_STATUS_LABEL[newStatus]}`
+          + (t.semConfirmacaoDoProfessor ? ' (homologada sem a confirmação do professor)' : '')
+          + (t.atorEhParte ? ' (quem homologou é parte da troca)' : ''),
         entityType: 'substitution', entityId: subId,
         before, after: { ...before, ...after },
         module: 'agenda',
       });
-      // Notif pro titular sobre aceite/recusa criada pela CF processSubstitutionAcceptance
-      // (no caso de reject, criamos direto aqui — CF só dispara em accept pra fazer trabalho na class)
-      if (newStatus === 'rejected') {
-        await NotificationService.create({
-          recipientUserId: before.requestingUserId,
-          type: 'substitution_rejected',
-          body: 'Seu pedido de substituição foi recusado.' + (note ? ' Motivo: ' + note : ''),
-          link: { type: 'substitution', id: subId },
-        });
+
+      if (newStatus === SubstitutionFlow.STATUS.REJECTED) {
+        const avisar = SubstitutionFlow.quemRegistrou(before) === before.substituteTeacherId
+          ? before.substituteUserId : before.requestingUserId;
+        if (avisar) {
+          await NotificationService.create({
+            recipientUserId: avisar,
+            type: 'substitution_rejected',
+            body: 'Sua troca de professor foi recusada.' + (note ? ' Motivo: ' + note : ''),
+            link: { type: 'substitution', id: subId },
+          });
+        }
       }
-      // Engajamento (5c): aceitar cobrir colega = ponto de proatividade pro substituto.
-      // Não-bloqueante e idempotente (awardSubstitution usa id estável por substituição).
-      if (newStatus === 'accepted' && before.substituteTeacherId && typeof EngagementService === 'object') {
+
+      // Engajamento (5c): cobrir colega vale ponto de proatividade — só quando a
+      // troca vale de verdade, ou seja, depois da gestão homologar.
+      if (newStatus === SubstitutionFlow.STATUS.ACCEPTED && before.substituteTeacherId && typeof EngagementService === 'object') {
         try {
           let dateISO = new Date().toISOString().slice(0, 10);
-          try {
-            const cd = await db.collection('classes').doc(before.classId).get();
-            const sd = cd.exists ? cd.data().scheduledDate : null;
-            if (sd) { const d = sd.toDate ? sd.toDate() : new Date(sd); dateISO = d.toISOString().slice(0, 10); }
-          } catch (e) { /* sem a aula, usa hoje */ }
+          const sd = clsDoc.exists ? clsDoc.data().scheduledDate : null;
+          if (sd) { const d = sd.toDate ? sd.toDate() : new Date(sd); dateISO = d.toISOString().slice(0, 10); }
           await EngagementService.awardSubstitution(subId, before.substituteTeacherId, dateISO);
         } catch (e) { console.error('[proatividade/substituicao]', e); }
       }
-      return { success: true };
+      return { success: true, semConfirmacaoDoProfessor: !!t.semConfirmacaoDoProfessor };
     } catch (err) {
-      console.error('[SubstitutionService._respond]', err);
+      console.error('[SubstitutionService._mover]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
@@ -2091,6 +2155,58 @@ const SubstitutionService = {
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
     } catch (err) {
       console.error('[SubstitutionService.listAllPending]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Trocas esperando a homologação da gestão. */
+  async listAguardandoGestao() {
+    try {
+      const snap = await db.collection('substitutions')
+        .where('status', '==', SubstitutionFlow.STATUS.AGUARDANDO_GESTAO)
+        .orderBy('requestedAt', 'desc')
+        .get();
+      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
+    } catch (err) {
+      console.error('[SubstitutionService.listAguardandoGestao]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * Pedidos esperando ESTE professor confirmar. Duas queries porque ele pode ser
+   * o lado que cobre (registro do titular) ou o dono da aula (registro de quem
+   * cobriu) — e o Firestore não faz OU. Busca por teacherId, não userId: quem
+   * não tem login vinculado sumia da lista. [[fix-substituicao-orfa]]
+   */
+  async listPendingForUser(teacherId) {
+    if (!teacherId) return { success: true, data: [] };
+    try {
+      const [comoSub, comoTitular] = await Promise.all([
+        db.collection('substitutions').where('substituteTeacherId', '==', teacherId)
+          .where('status', '==', SubstitutionFlow.STATUS.PENDING).get(),
+        db.collection('substitutions').where('requestingTeacherId', '==', teacherId)
+          .where('status', '==', SubstitutionFlow.STATUS.PENDING).get(),
+      ]);
+      const todos = comoSub.docs.concat(comoTitular.docs).map(d => ({ id: d.id, ...d.data() }));
+      const meus = todos.filter(s => SubstitutionFlow.quemConfirma(s) === teacherId);
+      return { success: true, data: sortSubstitutions(meus) };
+    } catch (err) {
+      console.error('[SubstitutionService.listPendingForUser]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /** Trocas abertas de um período — usado pelo fechamento. */
+  async listAbertasNoPeriodo(from, to) {
+    try {
+      const snap = await db.collection('substitutions')
+        .where('classDate', '>=', from).where('classDate', '<=', to).get();
+      const abertas = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => SubstitutionFlow.STATUS_ABERTO.indexOf(s.status) !== -1);
+      return { success: true, data: abertas };
+    } catch (err) {
+      console.error('[SubstitutionService.listAbertasNoPeriodo]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
