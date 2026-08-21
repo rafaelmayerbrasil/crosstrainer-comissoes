@@ -24,6 +24,10 @@
     CANCELLED:         'cancelled',
   };
 
+  // Quem clicou em registrar. Vocabulário fechado aqui pra tela e serviço não
+  // inventarem valores diferentes.
+  const REGISTRADO_POR = { TITULAR: 'titular', SUBSTITUTO: 'substituto', GESTAO: 'gestao' };
+
   // Rótulos escritos para quem lê, não para quem programou. "Aceita" dizia que
   // acabou quando ainda faltava a gestão.
   const STATUS_LABEL = {
@@ -43,9 +47,10 @@
    * Quem pode registrar uma troca nesta aula.
    * @param {object} cls - { teacherId, status, monthClosingId }
    * @param {object} ator - { teacherId, isGestao }
+   * @param {object} [opcoes] - { subsDaAula, alvoTeacherId } — checagens extras, opcionais.
    * @returns {{ok: boolean, motivo: string}}
    */
-  function podeRegistrar(cls, ator) {
+  function podeRegistrar(cls, ator, opcoes) {
     ator = ator || {};
     if (!cls) return { ok: false, motivo: 'Aula não encontrada.' };
     if (cls.monthClosingId) {
@@ -54,10 +59,20 @@
     if (STATUS_AULA_SEM_TROCA.indexOf(cls.status) !== -1) {
       return { ok: false, motivo: 'Esta aula não aconteceu, então não há troca de professor a registrar.' };
     }
-    if (ator.isGestao) return { ok: true, motivo: '' };
-    if (!ator.teacherId) {
+    if (!ator.isGestao && !ator.teacherId) {
       return { ok: false, motivo: 'Sua conta não está ligada a um cadastro de professor — fale com a gestão.' };
     }
+
+    const op = opcoes || {};
+    // Quem já tem a lista de pedidos da aula evita oferecer um botão que o
+    // serviço vai recusar. Quem não tem passa direto — o serviço ainda barra.
+    if (op.subsDaAula && jaTemPedidoAberto(op.subsDaAula)) {
+      return { ok: false, motivo: 'Já existe um pedido em aberto para esta aula. Veja em Substituições.' };
+    }
+    if (op.alvoTeacherId && op.alvoTeacherId === cls.teacherId) {
+      return { ok: false, motivo: 'Esta aula já está no nome dessa pessoa.' };
+    }
+
     return { ok: true, motivo: '' };
   }
 
@@ -66,30 +81,50 @@
     return (sub && sub.registradoPor) || 'titular';
   }
 
-  /** teacherId de quem precisa confirmar — é sempre o lado que NÃO registrou. */
+  /**
+   * teacherId de quem precisa confirmar — é sempre o lado que NÃO registrou.
+   * Quando é a gestão que registra, quem confirma é sempre o titular: é ele
+   * quem perde a aula (e as horas), então é ele quem verifica a afirmação.
+   */
   function quemConfirma(sub) {
     if (!sub) return null;
-    return registradoPor(sub) === 'substituto' ? sub.requestingTeacherId : sub.substituteTeacherId;
+    const por = registradoPor(sub);
+    if (por === REGISTRADO_POR.SUBSTITUTO) return sub.requestingTeacherId;
+    if (por === REGISTRADO_POR.GESTAO) return sub.requestingTeacherId;
+    return sub.substituteTeacherId;
   }
 
-  /** teacherId de quem registrou (e portanto pode cancelar). */
+  /**
+   * teacherId de quem registrou (e portanto pode cancelar).
+   * Quando é a gestão, não há professor a cancelar — só ela pode recusar.
+   */
   function quemRegistrou(sub) {
     if (!sub) return null;
-    return registradoPor(sub) === 'substituto' ? sub.substituteTeacherId : sub.requestingTeacherId;
+    const por = registradoPor(sub);
+    if (por === REGISTRADO_POR.SUBSTITUTO) return sub.substituteTeacherId;
+    if (por === REGISTRADO_POR.GESTAO) return null;
+    return sub.requestingTeacherId;
   }
 
   /**
    * Calcula o próximo estado.
    * @param {object} sub - { status, requestingTeacherId, substituteTeacherId, registradoPor }
+   *   `requestingTeacherId` é SEMPRE o titular da aula e `substituteTeacherId`
+   *   SEMPRE quem realmente deu, independentemente de quem registrou — a CF e
+   *   o `originalTeacherId` dependem disso. `registradoPor` é só quem clicou.
    * @param {'confirmar'|'homologar'|'recusar'|'cancelar'} acao
    * @param {object} ator - { teacherId, isGestao }
-   * @returns {{ok: boolean, status?: string, semConfirmacaoDoProfessor?: boolean, erro?: string}}
+   *   `isGestao` é `ProfNav.isManagement(profiles)` (`professores-nav.js`,
+   *   admin + supervisão). Quem chamar tem que usar essa mesma definição.
+   * @returns {{ok: boolean, status?: string, semConfirmacaoDoProfessor?: boolean, atorEhParte?: boolean, erro?: string}}
+   *   `semConfirmacaoDoProfessor` e `atorEhParte` são gravados com esses nomes
+   *   no documento de `substitutions`.
    */
   function transicao(sub, acao, ator) {
     ator = ator || {};
     if (!sub) return { ok: false, erro: 'Pedido não encontrado.' };
     if (STATUS_ABERTO.indexOf(sub.status) === -1) {
-      return { ok: false, erro: 'Este pedido já está como "' + (STATUS_LABEL[sub.status] || sub.status) + '".' };
+      return { ok: false, erro: 'Este pedido já está como "' + (STATUS_LABEL[sub.status] || 'resolvido') + '".' };
     }
 
     if (acao === 'homologar') {
@@ -100,6 +135,11 @@
         // A gestão pode homologar antes do professor responder — é a saída para
         // férias, folga, desligamento e para quem simplesmente não abre o app.
         semConfirmacaoDoProfessor: sub.status === STATUS.PENDING,
+        // Supervisor que também dá aula pode homologar troca da qual ele é parte.
+        // Não bloqueia (a gestão é a palavra final), mas o registro tem que
+        // distinguir isso de "o professor não respondeu".
+        atorEhParte: !!ator.teacherId
+          && (ator.teacherId === quemConfirma(sub) || ator.teacherId === quemRegistrou(sub)),
       };
     }
 
@@ -107,7 +147,8 @@
       if (sub.status !== STATUS.PENDING) {
         return { ok: false, erro: 'Este pedido já foi confirmado e está com a gestão.' };
       }
-      if (ator.teacherId !== quemConfirma(sub)) {
+      const alvo = quemConfirma(sub);
+      if (!alvo || ator.teacherId !== alvo) {
         return { ok: false, erro: 'Quem tem que confirmar esta troca é o outro professor.' };
       }
       return { ok: true, status: STATUS.AGUARDANDO_GESTAO };
@@ -120,7 +161,8 @@
     }
 
     if (acao === 'cancelar') {
-      if (ator.teacherId !== quemRegistrou(sub)) {
+      const autor = quemRegistrou(sub);
+      if (!autor || ator.teacherId !== autor) {
         return { ok: false, erro: 'Só quem registrou pode cancelar. Para discordar, recuse.' };
       }
       return { ok: true, status: STATUS.CANCELLED };
@@ -138,24 +180,24 @@
   function pendenciasDoFechamento(subs) {
     const lista = subs || [];
     return {
-      travam: lista.filter(s => s.status === STATUS.AGUARDANDO_GESTAO),
-      avisam: lista.filter(s => s.status === STATUS.PENDING),
+      travam: lista.filter(s => s && s.status === STATUS.AGUARDANDO_GESTAO),
+      avisam: lista.filter(s => s && s.status === STATUS.PENDING),
     };
   }
 
   /** Já existe pedido em aberto para esta aula? Barra a duplicata. */
   function jaTemPedidoAberto(subsDaAula) {
-    return (subsDaAula || []).some(s => STATUS_ABERTO.indexOf(s.status) !== -1);
+    return (subsDaAula || []).some(s => s && STATUS_ABERTO.indexOf(s.status) !== -1);
   }
 
   /** Texto do porquê o botão de troca não aparece. */
-  function motivoSemBotao(cls, ator) {
-    const r = podeRegistrar(cls, ator);
+  function motivoSemBotao(cls, ator, opcoes) {
+    const r = podeRegistrar(cls, ator, opcoes);
     return r.ok ? '' : r.motivo;
   }
 
   return {
-    STATUS, STATUS_LABEL, STATUS_ABERTO,
+    STATUS, STATUS_LABEL, STATUS_ABERTO, REGISTRADO_POR,
     podeRegistrar, registradoPor, quemConfirma, quemRegistrou,
     transicao, pendenciasDoFechamento, motivoSemBotao, jaTemPedidoAberto,
   };
