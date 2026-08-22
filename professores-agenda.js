@@ -1957,6 +1957,12 @@ function injectClassModalActions(cls) {
 
     if (ehGestao) {
       botoes.push(['⇄ Trocar professor', () => openSubstitutionModal(cls.id, 'gestao')]);
+      // Supervisor que também dá aula continua precisando pedir cobertura pra
+      // aula PRÓPRIA — "Trocar professor" é a ferramenta de gestão, não serve
+      // pra ele avisar que vai faltar (achado em revisão, 22/08/2026).
+      if (souTitular) {
+        botoes.push(['🆘 Pedir cobertura aberta', () => openCoverageModal(cls.id)]);
+      }
     } else if (souTitular) {
       botoes.push(['🔄 Pedir substituição', () => openSubstitutionModal(cls.id, 'titular')]);
       botoes.push(['🆘 Pedir cobertura aberta', () => openCoverageModal(cls.id)]);
@@ -2083,20 +2089,39 @@ async function saveSubstitution() {
     registradoPor: SubstitutionFormState.lado,
   });
 
-  btn.disabled = false;
-  btn.textContent = SubstitutionFormState.lado === 'gestao' ? 'Trocar e confirmar' : 'Enviar para confirmação';
+  if (!res.success) {
+    btn.disabled = false;
+    btn.textContent = SubstitutionFormState.lado === 'gestao' ? 'Trocar e confirmar' : 'Enviar para confirmação';
+    errEl.textContent = res.error;
+    return;
+  }
 
-  if (!res.success) { errEl.textContent = res.error; return; }
-
-  // A gestão registrando já cumpriu o degrau dela: homologa na sequência.
+  // A gestão registrando já cumpriu o degrau dela: homologa na sequência. O
+  // botão continua desabilitado até esse segundo passo terminar — reabilitar
+  // antes deixava um segundo clique disparar outro `create` e esbarrar na
+  // trava de pedido duplicado.
   if (SubstitutionFormState.lado === 'gestao' && res.data && res.data.id) {
     const hom = await SubstitutionService.homologar(res.data.id, reason);
-    if (!hom.success) { errEl.textContent = hom.error; return; }
+    btn.disabled = false;
+    btn.textContent = 'Trocar e confirmar';
+    if (!hom.success) {
+      // O registro (create) já foi salvo — só a homologação falhou. Dizer
+      // apenas o erro da homologação faz o usuário achar que nada foi salvo,
+      // e tentar de novo esbarra em "já existe um pedido em aberto", que
+      // parece um bug diferente.
+      errEl.textContent = 'A troca foi registrada, mas a confirmação automática falhou ('
+        + hom.error + '). Confirme pela Caixa de entrada.';
+      return;
+    }
     toast('Professor trocado. Os dois foram avisados.', 'success');
-  } else if (!res.data || !res.data.substituteUserId) {
-    toast('Registrado. O outro professor ainda não tem login vinculado — a gestão confirma pela tela.', 'info', 6000);
   } else {
-    toast('Registrado. Agora o outro professor confirma, e depois a gestão.', 'success', 5000);
+    btn.disabled = false;
+    btn.textContent = 'Enviar para confirmação';
+    if (!res.data || !res.data.substituteUserId) {
+      toast('Registrado. O outro professor ainda não tem login vinculado — a gestão confirma pela tela.', 'info', 6000);
+    } else {
+      toast('Registrado. Agora o outro professor confirma, e depois a gestão.', 'success', 5000);
+    }
   }
   closeSubstitutionModal();
 }
@@ -2189,9 +2214,10 @@ async function loadInboxData() {
   const uid = AppState.currentUser.uid;
   const myProfId = getCurrentProfessorId();
 
-  // Pedidos direcionados a mim. Gestão vê TODOS os pendentes — senão um pedido
-  // entre dois professores fica sem ninguém pra resolver (a home contava, mas
-  // não havia tela onde ele aparecesse).
+  // Pedidos direcionados a mim. Gestão vê a fila de homologação — quem já
+  // está confirmado pelo outro professor e só falta o OK dela. Pedido ainda
+  // esperando resposta de um professor não trava nada aqui; quem avisa disso
+  // é a lista de pendências do fechamento (SubstitutionFlow.pendenciasDoFechamento).
   InboxState.isMgmtView = isAdminGestao() || isSupervisao();
   const subsRes = InboxState.isMgmtView
     ? await SubstitutionService.listAguardandoGestao()
@@ -2260,14 +2286,24 @@ function renderInboxSubItem(s) {
   const dono = AgendaState.teachersMap.get(s.requestingTeacherId);
   const cobriu = AgendaState.teachersMap.get(s.substituteTeacherId);
   const retro = s.wasRetroactive ? '<span class="badge-retro">retroativo</span>' : '';
+  // Quem está vendo o card pode ser qualquer um dos dois lados — o titular que
+  // vai perder a aula, ou quem está sendo apontado como tendo coberto. Contar
+  // a história a partir de "dono" sempre deixava o titular lendo "aula de
+  // [ele mesmo]" quando era o OUTRO lado que tinha registrado o pedido.
+  const souOSubstituto = s.substituteTeacherId === getCurrentProfessorId();
   const titulo = InboxState.isMgmtView
     ? `⏳ ${escapeHtml(cobriu ? cobriu.name : '—')} deu a aula de ${escapeHtml(dono ? dono.name : '—')}`
-    : `🔄 Troca de professor · aula de ${escapeHtml(dono ? dono.name : '—')}`;
+    : souOSubstituto
+      ? `🔄 Troca de professor · aula de ${escapeHtml(dono ? dono.name : '—')}`
+      : `✋ ${escapeHtml(cobriu ? cobriu.name : '—')} diz que deu esta sua aula`;
   const acoes = InboxState.isMgmtView
     ? `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Recusar</button>
        <button class="btn btn-primary btn-sm" onclick="handleSubHomologar('${s.id}')">Confirmar troca</button>`
-    : `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Não fui eu</button>
-       <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Confirmar</button>`;
+    : souOSubstituto
+      ? `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Não fui eu</button>
+         <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Confirmar</button>`
+      : `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Não foi ele(a)</button>
+         <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Confirmar</button>`;
   return `
     <div class="inbox-item">
       <div class="inbox-item-header">

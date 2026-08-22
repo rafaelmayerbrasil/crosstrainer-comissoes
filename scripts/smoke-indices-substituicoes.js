@@ -34,7 +34,7 @@ const indicesSubstitutions = indexes.indexes.filter(i => i.collectionGroup === '
  * Firestore cria sozinho — não precisa (e não pode) entrar aqui.
  */
 const consultas = [
-  { nome: 'listAllPending / listAguardandoGestao',    campos: ['status', 'requestedAt'] },
+  { nome: 'listAguardandoGestao',                     campos: ['status', 'requestedAt'] },
   { nome: 'listPendingForTeacher (lado substituto)',  campos: ['substituteTeacherId', 'status'] },
   { nome: 'listPendingForTeacher (lado titular)',     campos: ['requestingTeacherId', 'status'] },
   { nome: 'listPendingForSubstitute',                 campos: ['substituteUserId', 'status', 'requestedAt'] },
@@ -62,7 +62,7 @@ console.log('✓ toda consulta conhecida de SubstitutionService tem índice comp
 // nesse conjunto de queries sem esbarrar neste teste e ser obrigado a olhar
 // pra `consultas` — falha alto e cedo em vez de silenciosamente.
 const shared = fs.readFileSync(path.join(raiz, 'professores-shared.js'), 'utf8');
-const OCORRENCIAS_CONHECIDAS = 12;
+const OCORRENCIAS_CONHECIDAS = 11;
 const ocorrencias = (shared.match(/\.collection\('substitutions'\)/g) || []).length;
 assert.strictEqual(ocorrencias, OCORRENCIAS_CONHECIDAS,
   `professores-shared.js tem ${ocorrencias} usos de .collection('substitutions'), esperava ${OCORRENCIAS_CONHECIDAS}. `

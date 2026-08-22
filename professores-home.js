@@ -120,9 +120,14 @@ async function _renderHomeProfessor() {
 
   let pendingSubs = 0;
   try {
-    const uid = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser.uid : null;
-    if (uid && typeof SubstitutionService !== 'undefined') {
-      const sr = await SubstitutionService.listPendingForSubstitute(uid);
+    // listPendingForSubstitute(uid) contava só quem é "substituto" no pedido —
+    // sub e super-contava depois da troca virar bilateral: quem registrou
+    // "Fui eu que dei essa aula" aparecia aqui como se ainda devesse resposta
+    // (listPendingForTeacher já esconde, corretamente, quem registrou), e o
+    // titular que REALMENTE precisa confirmar não contava nada. O chip tem
+    // que apontar pra mesma consulta que decide o que aparece na caixa.
+    if (pid && typeof SubstitutionService !== 'undefined') {
+      const sr = await SubstitutionService.listPendingForTeacher(pid);
       pendingSubs = (sr && sr.success) ? sr.data.length : 0;
     }
   } catch (e) { console.warn('[home subs]', e && e.message); }

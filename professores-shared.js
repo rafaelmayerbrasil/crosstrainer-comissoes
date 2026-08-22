@@ -2166,25 +2166,14 @@ const SubstitutionService = {
   },
 
   /**
-   * TODOS os pedidos pendentes — visão de gestão.
-   * A home do admin já contava os pendentes, mas não existia tela onde ele
-   * pudesse VER e resolver: a caixa só listava os pedidos em que o próprio
-   * usuário era o substituto. Um pedido entre dois professores ficava invisível.
+   * Trocas esperando a homologação da gestão — é isso que a caixa de entrada
+   * da gestão mostra. Pedido ainda esperando resposta de um professor (status
+   * PENDING) não entra aqui; quem sinaliza isso é o fechamento
+   * (SubstitutionFlow.pendenciasDoFechamento). `listAllPending`, que listava
+   * TODOS os PENDING, foi removida em 21/08/2026 por não ter mais chamador —
+   * a caixa de entrada não é mais "todo pedido pendente", é "o que depende de
+   * mim ou da gestão agora".
    */
-  async listAllPending() {
-    try {
-      const snap = await db.collection('substitutions')
-        .where('status', '==', SubstitutionFlow.STATUS.PENDING)
-        .orderBy('requestedAt', 'desc')
-        .get();
-      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
-    } catch (err) {
-      console.error('[SubstitutionService.listAllPending]', err);
-      return { success: false, error: err.message, code: err.code };
-    }
-  },
-
-  /** Trocas esperando a homologação da gestão. */
   async listAguardandoGestao() {
     try {
       const snap = await db.collection('substitutions')
