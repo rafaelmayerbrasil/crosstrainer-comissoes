@@ -1705,6 +1705,7 @@ const DiasSemExpedienteService = {
 // ─── Constantes de tipos de notificação ─────────────────────────────────
 const NOTIF_TYPE_META = {
   substitution_requested:  { icon: '🔄', title: 'Pedido de substituição' },
+  substitution_aguardando_gestao: { icon: '⏳', title: 'Troca esperando você' },
   substitution_accepted:   { icon: '✅', title: 'Substituição aceita' },
   substitution_rejected:   { icon: '❌', title: 'Substituição recusada' },
   substitution_cancelled:  { icon: '🚫', title: 'Substituição cancelada' },

@@ -251,4 +251,12 @@ assert.ok(/request\.resource\.data\.status\s*!=\s*'accepted'/.test(blocoSub),
   'professor não pode escrever accepted — senão homologa a si mesmo pelo console e move a hora paga');
 console.log('✓ rules de substitutions apertadas');
 
+/* ── 7. A gestão é avisada pelo servidor ─────────────────────────── */
+const cf = fs.readFileSync(path.join(raiz, 'functions/index.js'), 'utf8');
+assert.ok(/aguardando_gestao/.test(cf),
+  'a CF precisa reagir ao estado que espera a gestão');
+assert.ok(/listAdminUserIds\(\)[\s\S]{0,900}substitution_aguardando_gestao/.test(cf),
+  'o aviso pra gestão tem que sair do servidor: o professor não pode varrer /users (foi o que quebrou o pedido de férias)');
+console.log('✓ CF avisa a gestão');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');

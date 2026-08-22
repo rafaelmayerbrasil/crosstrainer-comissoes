@@ -604,7 +604,8 @@ exports.moveSlotClasses = onCall({
 // ═══════════════════════════════════════════════════════════════════════
 
 const NOTIF_TYPE_TITLES = {
-  substitution_requested: 'Pedido de substituição',
+  substitution_requested:       'Pedido de substituição',
+  substitution_aguardando_gestao: 'Troca esperando você',
   substitution_accepted:  'Substituição aceita',
   substitution_rejected:  'Substituição recusada',
   substitution_cancelled: 'Substituição cancelada',
@@ -651,9 +652,33 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
   const after = event.data.after.data();
   if (!before || !after) return;
   if (before.status === after.status) return;
-  if (after.status !== 'accepted') return;
 
   const subId = event.params.subId;
+
+  // Degrau novo (21/08/2026): os dois professores concordaram, falta a gestão.
+  // O aviso sai daqui porque o navegador do professor não pode varrer /users —
+  // foi exatamente isso que engoliu os pedidos de férias em agosto.
+  if (after.status === 'aguardando_gestao') {
+    try {
+      const admins = await listAdminUserIds();
+      for (const userId of admins) {
+        await createNotification({
+          recipientUserId: userId,
+          type: 'substitution_aguardando_gestao',
+          body: 'Uma troca de professor foi confirmada pelos dois e espera você. Confirme em Substituições.',
+          link: { type: 'substitution', id: subId },
+        });
+      }
+      logger.info('[processSubstitutionAcceptance] Gestão avisada', admins.length, subId);
+    } catch (err) {
+      // Não relança: o pedido está gravado e vale. Falhar aqui só perde o aviso.
+      logger.error('[processSubstitutionAcceptance] FALHA ao avisar gestão', subId, err);
+    }
+    return;
+  }
+
+  if (after.status !== 'accepted') return;
+
   logger.info('[processSubstitutionAcceptance] Processing accepted sub', subId);
 
   try {
@@ -669,17 +694,20 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
         status: 'substituida',
         adjustedBy: after.updatedBy || null,
         adjustedAt: admin.firestore.FieldValue.serverTimestamp(),
-        adjustmentNote: `Substituição aceita (sub:${subId})`,
+        adjustmentNote: after.semConfirmacaoDoProfessor
+          ? `Troca confirmada pela gestão sem a resposta do professor (sub:${subId})`
+          : `Troca confirmada pela gestão (sub:${subId})`,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
 
-    // Notifica titular
-    if (after.requestingUserId) {
+    // Avisa os dois lados: quem registrou e quem confirmou.
+    const avisados = [after.requestingUserId, after.substituteUserId].filter(Boolean);
+    for (const userId of new Set(avisados)) {
       await createNotification({
-        recipientUserId: after.requestingUserId,
+        recipientUserId: userId,
         type: 'substitution_accepted',
-        body: 'Seu pedido de substituição foi aceito.',
+        body: 'A troca de professor foi confirmada pela gestão. A aula já está no nome certo.',
         link: { type: 'class', id: after.classId },
       });
     }
