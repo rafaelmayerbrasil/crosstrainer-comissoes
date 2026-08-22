@@ -437,7 +437,7 @@ function updateFechamentoSubtitle(classCount, totalValue) {
 }
 
 // ─── Modal de confirmação ──────────────────────────────────────────────
-function showCloseConfirmModal() {
+async function showCloseConfirmModal() {
   const modal = document.getElementById('closeMonthConfirmModal');
   if (!modal) return;
 
@@ -445,7 +445,56 @@ function showCloseConfirmModal() {
   const data = FechamentoState.previewData;
   const classCount = data ? data.totals.classesRealizadas : 0;
 
+  // Abre o modal já em modo de carregamento — as duas buscas abaixo (trocas
+  // abertas + nomes dos professores) levam um instante, e clicar e não ver
+  // nada acontecer parece bug.
   document.getElementById('closeMonthConfirmBody').innerHTML = `
+    <div class="loading"><div class="spinner"></div> Verificando trocas de professor pendentes...</div>
+  `;
+  document.getElementById('closeMonthConfirmError').textContent = '';
+  const btnLoading = document.getElementById('closeMonthConfirmBtn');
+  if (btnLoading) {
+    btnLoading.disabled = true;
+    btnLoading.textContent = 'Confirmar fechamento';
+  }
+  modal.classList.add('open');
+
+  // Troca pendente vira pagamento errado que ninguém desfaz: fechar é
+  // irreversível. O que espera a GESTÃO trava — é ação dela. O que espera um
+  // professor responder só avisa, senão a folha fica refém de quem não abre o app.
+  const y = FechamentoState.selectedYear;
+  const m = FechamentoState.selectedMonth;
+  const de = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0));
+  const ate = new Date(Date.UTC(y, m, 0, 26, 59, 59));
+  const abertasRes = await SubstitutionService.listAbertasNoPeriodo(de, ate);
+  const p = SubstitutionFlow.pendenciasDoFechamento(abertasRes.success ? abertasRes.data : []);
+
+  // A tela de fechamento nunca carregou AgendaState — busca os nomes aqui.
+  const profsRes = await TeacherService.list();
+  const nomes = new Map((profsRes.success ? profsRes.data : []).map(t => [t.id, t.name]));
+  const nomeProf = id => nomes.get(id) || '—';
+
+  const linhaTroca = s => `<li>${escapeHtml(nomeProf(s.substituteTeacherId))} deu a aula de ${
+    escapeHtml(nomeProf(s.requestingTeacherId))}${s.classDate && s.classDate.toDate
+      ? ' em ' + s.classDate.toDate().toLocaleDateString('pt-BR') : ''}</li>`;
+
+  const bloqueio = p.travam.length > 0 ? `
+    <div class="alert-overdue-card">
+      <div class="alert-overdue-title">⛔ ${p.travam.length} troca(s) esperando a gestão confirmar</div>
+      <div class="alert-overdue-note">Confirme ou recuse em <strong>Substituições</strong> antes de fechar — depois de fechado o mês, a aula não muda mais de nome.</div>
+      <ul class="alert-overdue-list" style="margin-top:8px;">${p.travam.map(linhaTroca).join('')}</ul>
+    </div>` : '';
+
+  const alerta = p.avisam.length > 0 ? `
+    <div class="alert-warning-card">
+      <strong>⚠️ ${p.avisam.length} troca(s) esperando um professor confirmar</strong>
+      <div style="margin-top:4px;">Se fechar assim, essas aulas ficam no nome de quem está hoje.</div>
+      <ul style="margin-top:8px;">${p.avisam.map(linhaTroca).join('')}</ul>
+    </div>` : '';
+
+  document.getElementById('closeMonthConfirmBody').innerHTML = `
+    ${bloqueio}
+    ${alerta}
     <div class="info-callout" style="margin-bottom:12px;">
       <p><strong>⚠️ Atenção</strong></p>
       <p>Você está prestes a <strong>fechar ${monthName}/${FechamentoState.selectedYear}</strong>.</p>
@@ -460,11 +509,9 @@ function showCloseConfirmModal() {
   document.getElementById('closeMonthConfirmError').textContent = '';
   const btn = document.getElementById('closeMonthConfirmBtn');
   if (btn) {
-    btn.disabled = false;
-    btn.textContent = 'Confirmar fechamento';
+    btn.disabled = p.travam.length > 0;
+    btn.textContent = p.travam.length > 0 ? 'Resolva as trocas primeiro' : 'Confirmar fechamento';
   }
-
-  modal.classList.add('open');
 }
 
 function closeConfirmModal() {

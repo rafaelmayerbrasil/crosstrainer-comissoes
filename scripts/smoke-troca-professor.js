@@ -287,4 +287,12 @@ assert.ok(/subsHomologar/.test(tela),
   'a gestão homologa na tela onde ela já vê tudo');
 console.log('✓ tela de Substituições');
 
+/* ── 10. O fechamento olha as trocas em aberto ───────────────────── */
+const fech = fs.readFileSync(path.join(raiz, 'professores-fechamento.js'), 'utf8');
+assert.ok(/pendenciasDoFechamento/.test(fech),
+  'antes de fechar, o mês precisa olhar as trocas em aberto — depois não tem conserto');
+assert.ok(/listAbertasNoPeriodo/.test(fech),
+  'e buscá-las pelo período do fechamento');
+console.log('✓ fechamento protegido');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');
