@@ -295,4 +295,15 @@ assert.ok(/listAbertasNoPeriodo/.test(fech),
   'e buscá-las pelo período do fechamento');
 console.log('✓ fechamento protegido');
 
+/* ── 11. Se a checagem falhar, o fechamento falha FECHADO ─────────── */
+assert.ok(/Não consegui verificar as trocas/.test(fech),
+  'se a busca de trocas falhar, a tela tem que dizer isso — não fechar mês em silêncio');
+const trechoFalhaChecagem = fech.match(/if \(!abertasRes\.success\) \{[\s\S]{0,900}?\n  \}/);
+assert.ok(trechoFalhaChecagem,
+  'o bloco de falha da checagem de trocas precisa existir logo após o await');
+assert.ok(/Não consegui verificar as trocas/.test(trechoFalhaChecagem[0])
+  && /disabled\s*=\s*true/.test(trechoFalhaChecagem[0]),
+  'a falha na checagem tem que desabilitar o botão de confirmar — senão fecha às cegas (falha aberta)');
+console.log('✓ falha na checagem trava o fechamento (falha fechada, não aberta)');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');

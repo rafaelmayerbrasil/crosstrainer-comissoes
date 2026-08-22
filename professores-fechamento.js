@@ -466,17 +466,56 @@ async function showCloseConfirmModal() {
   const m = FechamentoState.selectedMonth;
   const de = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0));
   const ate = new Date(Date.UTC(y, m, 0, 26, 59, 59));
-  const abertasRes = await SubstitutionService.listAbertasNoPeriodo(de, ate);
-  const p = SubstitutionFlow.pendenciasDoFechamento(abertasRes.success ? abertasRes.data : []);
+
+  let abertasRes, profsRes;
+  try {
+    abertasRes = await SubstitutionService.listAbertasNoPeriodo(de, ate);
+  } catch (err) {
+    abertasRes = { success: false, error: (err && err.message) || 'erro desconhecido' };
+  }
+
+  // A checagem de trocas é a única coisa que pode travar o fechamento — se ela
+  // não rodou, não há como saber se está tudo limpo. Falhar aberto aqui
+  // (deixar fechar) já escondeu um pedido de substituição em produção antes;
+  // fechar mês é irreversível e mexe em dinheiro, então falha fechado.
+  if (!abertasRes.success) {
+    document.getElementById('closeMonthConfirmBody').innerHTML = `
+      <div class="alert-overdue-card">
+        <div class="alert-overdue-title">⛔ Não consegui verificar as trocas de professor</div>
+        <div class="alert-overdue-note">
+          O fechamento é irreversível, então não vou deixar fechar sem essa checagem.
+          Tente de novo em instantes. Se persistir, avise o suporte.
+        </div>
+        <div class="alert-overdue-note" style="margin-top:6px;">Detalhe: ${escapeHtml(abertasRes.error || 'erro desconhecido')}</div>
+      </div>
+    `;
+    const b = document.getElementById('closeMonthConfirmBtn');
+    if (b) { b.disabled = true; b.textContent = 'Não foi possível verificar'; }
+    return;
+  }
+
+  const p = SubstitutionFlow.pendenciasDoFechamento(abertasRes.data);
 
   // A tela de fechamento nunca carregou AgendaState — busca os nomes aqui.
-  const profsRes = await TeacherService.list();
+  // Isto não trava o fechamento: a lista de trocas já é o que importa, os
+  // nomes são só para ler a lista. Se falhar, avisa em vez de mostrar
+  // travessões sem explicação.
+  try {
+    profsRes = await TeacherService.list();
+  } catch (err) {
+    profsRes = { success: false, error: (err && err.message) || 'erro desconhecido' };
+  }
   const nomes = new Map((profsRes.success ? profsRes.data : []).map(t => [t.id, t.name]));
   const nomeProf = id => nomes.get(id) || '—';
 
   const linhaTroca = s => `<li>${escapeHtml(nomeProf(s.substituteTeacherId))} deu a aula de ${
     escapeHtml(nomeProf(s.requestingTeacherId))}${s.classDate && s.classDate.toDate
       ? ' em ' + s.classDate.toDate().toLocaleDateString('pt-BR') : ''}</li>`;
+
+  const nomesIndisponiveis = !profsRes.success ? `
+    <p style="font-size:12px;color:var(--text3);margin-bottom:8px;">
+      ⚠️ Não consegui carregar os nomes dos professores — os travessões abaixo são por isso, não porque falta informação.
+    </p>` : '';
 
   const bloqueio = p.travam.length > 0 ? `
     <div class="alert-overdue-card">
@@ -493,6 +532,7 @@ async function showCloseConfirmModal() {
     </div>` : '';
 
   document.getElementById('closeMonthConfirmBody').innerHTML = `
+    ${nomesIndisponiveis}
     ${bloqueio}
     ${alerta}
     <div class="info-callout" style="margin-bottom:12px;">
@@ -506,7 +546,6 @@ async function showCloseConfirmModal() {
     <p style="font-size:13px;color:var(--text2);">Confirma o fechamento deste período?</p>
   `;
 
-  document.getElementById('closeMonthConfirmError').textContent = '';
   const btn = document.getElementById('closeMonthConfirmBtn');
   if (btn) {
     btn.disabled = p.travam.length > 0;
