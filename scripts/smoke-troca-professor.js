@@ -241,4 +241,14 @@ assert.ok(!/Só pedidos pendentes podem ser cancelados/.test(shared),
   'cancelar também passa pelo módulo — antes não checava QUEM estava cancelando');
 console.log('✓ professores-shared.js ligado no módulo');
 
+/* ── 6. Professor não homologa a própria troca ───────────────────── */
+const rules = fs.readFileSync(path.join(raiz, 'firestore.rules'), 'utf8');
+const blocoSub = rules.slice(rules.indexOf('match /substitutions/'),
+                            rules.indexOf('match /coverage_applications/'));
+assert.ok(/aguardando_gestao/.test(blocoSub),
+  'a regra precisa conhecer o estado intermediário');
+assert.ok(/request\.resource\.data\.status\s*!=\s*'accepted'/.test(blocoSub),
+  'professor não pode escrever accepted — senão homologa a si mesmo pelo console e move a hora paga');
+console.log('✓ rules de substitutions apertadas');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');

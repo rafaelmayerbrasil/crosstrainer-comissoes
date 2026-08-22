@@ -172,11 +172,22 @@ service cloud.firestore {
 
     match /substitutions/{id} {
       allow read:   if isAuth() && hasProfModule();
-      allow create: if isAuth() && hasProfModule();
+      // Pedido nasce sempre em 'pending'. Sem isso, dava pra criar um já
+      // 'accepted' e forjar um registro de troca confirmada.
+      allow create: if isAuth() && hasProfModule()
+                    && request.resource.data.status == 'pending';
+      // A troca só vale quando a gestão homologa (status 'accepted'), porque é
+      // esse status que a CF processSubstitutionAcceptance usa pra mover a aula
+      // — e com ela a hora paga. Antes, qualquer um dos dois professores
+      // envolvidos escrevia 'accepted' direto pelo console do navegador.
       allow update: if isAuth() && (
                       isAdmin() || isSuperv() ||
-                      resource.data.requestingUserId == request.auth.uid ||
-                      resource.data.substituteUserId == request.auth.uid
+                      (
+                        (resource.data.requestingUserId == request.auth.uid ||
+                         resource.data.substituteUserId == request.auth.uid) &&
+                        request.resource.data.status != 'accepted' &&
+                        resource.data.status in ['pending', 'aguardando_gestao']
+                      )
                     );
       allow delete: if false;
     }
