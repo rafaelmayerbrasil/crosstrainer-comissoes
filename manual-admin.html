@@ -181,9 +181,24 @@
     <p>A academia abre em quase todo feriado — e feriado <strong>paga em dobro</strong>. As exceções (25/12 e 01/01, por padrão) ficam numa <strong>lista que você edita na tela</strong>, não no código. Marcou o dia: as aulas dele são canceladas e o registro automático passa a pular a data. Serve também pra fechamento inesperado.</p>
   </div>
   <div class="card">
-    <h3>🔄 Substituições</h3>
-    <p>Professores pedem substituição direta (escolhem o colega) ou abrem <strong>cobertura</strong> (qualquer um se candidata e você confirma). A aula conta nas horas de <strong>quem deu a aula</strong>.</p>
-    <p>A tela <strong>Substituições</strong> (menu, seção Agenda) mostra <strong>todas as substituições da academia</strong>, com filtro por professor (dos dois lados) e por período da aula. É o histórico completo, não só o que está pendente — serve pra conferir o mês antes de fechar.</p>
+    <h3 id="substituicoes">🔄 Substituições — e a sua palavra final</h3>
+    <p><strong>Nenhuma troca de professor vale sem você.</strong> O caminho é sempre o mesmo, em três passos:</p>
+    <ol>
+      <li><strong>Alguém registra</strong> — o titular ("passei minha aula pra Fulano") ou quem deu a aula ("essa aula quem deu fui eu").</li>
+      <li><strong>O outro professor confirma</strong> — o que não estava do lado de quem registrou.</li>
+      <li><strong>Você confirma</strong> — e só aqui a aula muda de nome e o pagamento acompanha.</li>
+    </ol>
+    <p>Você recebe um aviso quando uma troca chega no seu passo, e ela aparece na <strong>caixa de entrada</strong> (o sino) e na tela <strong>Substituições</strong>, com o botão <strong>Confirmar troca</strong>.</p>
+
+    <h3>⚡ Trocar direto, sem esperar ninguém</h3>
+    <p>Abrindo qualquer aula você tem <strong>⇄ Trocar professor</strong>: escolhe quem realmente deu e pronto, vale na hora. Nesse caso a lista mostra <strong>todos os professores ativos</strong>, não só os habilitados na modalidade — porque aqui você está registrando um fato que já aconteceu, não montando escala.</p>
+
+    <h3>🚪 Quando o professor não responde</h3>
+    <p>Férias, folga, desligado ou simplesmente não abre o app: você pode <strong>confirmar sozinha</strong>, sem a resposta dele. Fica registrado que a decisão foi sua sem a confirmação do professor — e essa marca aparece na tela de Substituições.</p>
+
+    <h3>📋 A tela Substituições</h3>
+    <p>Menu, seção Agenda. Mostra <strong>todas as trocas da academia</strong>, com filtro por professor (dos dois lados) e por período da aula. É o histórico completo, não só o pendente. Cada linha diz em que pé está — <em>Aguardando o colega confirmar</em>, <em>Aguardando a gestão</em>, <em>Confirmada</em>, <em>Recusada</em> — e <strong>quem registrou</strong>.</p>
+    <div class="warn">⚠️ A aula conta nas horas de <strong>quem deu a aula</strong>. Troca não confirmada = professor errado recebendo. Por isso o fechamento do mês <strong>trava</strong> se houver troca esperando você — veja a seção de Fechamento.</div>
     <p>Pode ser registrada <strong>depois</strong> da aula ter acontecido; trava quando o mês fecha.</p>
   </div>
 
@@ -238,9 +253,18 @@
   <div class="card">
     <ol>
       <li>Em <strong>Fechamento</strong>, escolha unidade + mês e gere a <strong>prévia</strong>: aulas realizadas, horas (com pesos de escala) e valor por professor — hora-aula pros efetivos/eventuais, bolsa proporcional pros estagiários, férias aprovadas do mês incluídas.</li>
-      <li>Confira os números. Ajustes (aula errada, substituição não registrada) se corrigem <strong>antes</strong> de fechar, pela Agenda Geral.</li>
+      <li>Confira os números. Ajustes (aula errada, troca de professor não registrada) se corrigem <strong>antes</strong> de fechar, pela Agenda Geral.</li>
       <li><strong>Fechar o mês</strong> congela tudo e libera os pagamentos/recibos.</li>
     </ol>
+  </div>
+  <div class="card">
+    <h3>🛑 A tela avisa antes de você errar</h3>
+    <p>Ao clicar em fechar, o sistema procura <strong>trocas de professor em aberto</strong> naquele mês e reage conforme quem está devendo resposta:</p>
+    <ul>
+      <li><strong>Esperando você confirmar</strong> → o botão <strong>trava</strong> e diz <em>"Resolva as trocas primeiro"</em>, listando quem deu a aula de quem, e em que data. É ação sua, e passar reto significa pagar o professor errado sem conserto.</li>
+      <li><strong>Esperando um professor confirmar</strong> → só <strong>avisa</strong> e deixa fechar. Se não fosse assim, a folha inteira ficaria refém de quem não abre o app.</li>
+      <li><strong>Se a verificação não conseguir rodar</strong> → o botão trava também. Fechar sem checar é pior do que não fechar.</li>
+    </ul>
   </div>
   <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha mês.</div>
   <div class="tip">💡 Professor sem cadastro salarial aparece como <strong>"Sem cadastro"</strong> na prévia e nos relatórios — em vez de R$ 0,00 enganoso. Complete o salário na ficha e gere a prévia de novo.</div>

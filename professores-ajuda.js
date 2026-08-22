@@ -19,7 +19,9 @@ const AJUDA_MAP = {
   'agenda':          { admin: 'agenda',       prof: 'agenda' },
   'agenda-geral':    { admin: 'agenda',       prof: 'agenda' },
   'minha-agenda':    { admin: 'agenda',       prof: 'agenda' },
-  'substituicoes':   { admin: 'agenda',       prof: 'substituicao' },
+  // A gestão tem seção própria desde 22/08 — cair no topo de "Agenda" fazia
+  // procurar a troca de professor no meio de uma seção longa.
+  'substituicoes':   { admin: 'substituicoes', prof: 'substituicao' },
   'escala-smart':    { admin: 'escala',       prof: 'escala' },
   'escalas':         { admin: 'escala',       prof: 'escala' },
   'pessoas':         { admin: 'pessoas',      prof: null },
