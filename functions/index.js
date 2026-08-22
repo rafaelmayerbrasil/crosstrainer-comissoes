@@ -606,7 +606,10 @@ exports.moveSlotClasses = onCall({
 const NOTIF_TYPE_TITLES = {
   substitution_requested:       'Pedido de substituição',
   substitution_aguardando_gestao: 'Troca esperando você',
-  substitution_accepted:  'Substituição aceita',
+  // "Aceita" era o vocabulário de quando o aceite do colega já valia. Agora quem
+  // dá a palavra final é a gestão, e a tela toda fala "confirmada" — o título
+  // tinha ficado para trás (22/08/2026).
+  substitution_accepted:  'Troca confirmada',
   substitution_rejected:  'Substituição recusada',
   substitution_cancelled: 'Substituição cancelada',
   coverage_available:     'Cobertura disponível',

@@ -3,6 +3,40 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 53 (21–22/08/2026) — ⇄ TROCA DE PROFESSOR DA AULA ✅ EM PRODUÇÃO
+
+### ❓ O que gerou a sessão
+Print da **Camila** no grupo: ela deu uma aula do **Theo**, abriu no app e só viu *"Para alterar o status, fale com a gestão."* Rodrigo: *"o usuário tem que conseguir alterar quem deu a aula até o fechamento da folha"*.
+
+**Diagnóstico:** a trava "até o início da aula" **não existia** — o único bloqueio sempre foi mês fechado, que já era a regra que o Rodrigo queria. O buraco era outro: **o botão de troca só nascia para o titular**, e a gestão não tinha botão nenhum. Se o titular não pedisse, ninguém resolvia. Isso era **mais estreito do que a spec aprovada em 07/08**, que já dizia "os dois lados podem registrar".
+
+### 🤝 Fluxo definido pelo grupo (Rafael Rojais)
+**Quem deu a aula registra → o dono da aula confirma → a gestão confirma → só aí a aula troca de nome e o pagamento acompanha.** Se o professor não responde, a gestão confirma sozinha e fica registrado. Vale até a folha fechar; **o fechamento é até o dia 3** do mês seguinte (combinado de operação, não automatizado).
+
+### ✅ EM PRODUÇÃO (22/08, `c79e03c..d455d9e`)
+Regras, índices, Cloud Function e frontend. GitHub Pages servindo `?v=20260821`, 0 erro de console. Motor puro novo: **`substitution-flow.js`**.
+
+### 🔦 Dois bugs que JÁ estavam em produção, achados no caminho
+1. **A caixa de entrada da gestão nunca funcionou.** `listAllPending` falhava por **falta de índice composto**; o erro virava `success:false` e a tela dizia *"Nenhum pedido de substituição pendente na academia"*. Ajuda a explicar por que agosto tem **1 única** troca registrada em 1.644 aulas — e ela é duplicada (o Theo pediu 2×, achando que não funcionou). [[caixa-gestao-substituicoes-quebrada]]
+2. **`listAdminUserIds` não incluía `supervisao`** (estava parada no `admin_gestao`, dropado em 11/06). Quem é só supervisão nunca era avisado de nada — **inclusive pedido de férias**. Corrigido de forma aditiva.
+
+### 🛡️ Um segundo furo de segurança, pior que o original
+A regra limitava o *status* mas não *quais campos* o professor podia alterar: dava pra **reescrever `substituteTeacherId` apontando pra si**, deixar o status quieto, e esperar a gestão homologar uma troca que passou a creditar outra pessoa — **sem nunca escrever `accepted`**. Fechado com `hasOnly`, e `create` passou a exigir nascer em `pending`.
+
+### 🧪 Validação
+- **41/41** smokes · **13/13** REST contra as regras reais do staging (inclui a prova de que `isOfficial` reenviado igual não conta como alteração)
+- **`scripts/e2e-troca-professor-staging.js`** (novo): roda a CF **de verdade**, acompanhando o dado — o degrau segura, a homologação move, `originalTeacherId` sobrevive, os dois são avisados
+- **E2E pela tela real** (22/08, com token temporário de admin, sem senha): Bruna reivindica a aula do Marcos → Marcos confirma (**aula não muda**) → dono homologa em Substituições (**aula vira da Bruna**). A trava do fechamento testada com troca pendente: botão vira *"Resolva as trocas primeiro"*. Fixtures limpas, staging devolvido ao estado original.
+
+### 🗑️ Julho apagado (decisão do Rafael)
+As **74 aulas de 31/07** estavam presas em `prevista` (o robô só confirma a partir de 01/08 e o fechamento só conta `realizada`/`substituida`). Marcar como "cancelada" seria registrar mentira; marcar como "realizada" deixaria a armadilha de alguém fechar julho e pagar de novo o que já foi pago por fora. **Apagadas**, com backup em `backups/julho-2026-aulas-apagadas-production.json` (pasta permanente, não o worktree). Nada apontava pra elas.
+
+### ⚠️ O que NÃO foi feito
+- **Nenhuma homologação humana no navegador** — o E2E foi todo automatizado/dirigido por mim. Se aparecer defeito, é de tela.
+- A tabela **"O que ficou diferente do plano"** no fim de `docs/superpowers/plans/2026-08-21-troca-professor-aula.md` lista os 14 desvios, vários deles defeitos do próprio plano (o mais grave: `requestingUserId` gravava quem clicou, não o titular — o titular tomaria "permissão negada" ao confirmar).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 51 (14/08/2026) — 📅 ESCALA: CONFIRMAR O LOTE PASSOU A PUBLICAR NA AGENDA ✅ EM PRODUÇÃO
 
 ### ❓ O que gerou a sessão

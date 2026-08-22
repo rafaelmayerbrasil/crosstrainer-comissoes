@@ -1706,9 +1706,11 @@ const DiasSemExpedienteService = {
 const NOTIF_TYPE_META = {
   substitution_requested:  { icon: '🔄', title: 'Pedido de substituição' },
   substitution_aguardando_gestao: { icon: '⏳', title: 'Troca esperando você' },
-  substitution_accepted:   { icon: '✅', title: 'Substituição aceita' },
-  substitution_rejected:   { icon: '❌', title: 'Substituição recusada' },
-  substitution_cancelled:  { icon: '🚫', title: 'Substituição cancelada' },
+  // "Aceita" é vocabulário de antes do degrau da gestão — a tela toda fala
+  // "confirmada" desde 22/08/2026.
+  substitution_accepted:   { icon: '✅', title: 'Troca confirmada' },
+  substitution_rejected:   { icon: '❌', title: 'Troca recusada' },
+  substitution_cancelled:  { icon: '🚫', title: 'Troca cancelada' },
   coverage_available:      { icon: '🆘', title: 'Cobertura disponível' },
   coverage_taken:          { icon: '👍', title: 'Cobertura aceita' },
   coverage_cancelled:      { icon: '🚫', title: 'Cobertura cancelada' },
