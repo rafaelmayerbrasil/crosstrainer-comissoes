@@ -259,4 +259,10 @@ assert.ok(/listAdminUserIds\(\)[\s\S]{0,900}substitution_aguardando_gestao/.test
   'o aviso pra gestão tem que sair do servidor: o professor não pode varrer /users (foi o que quebrou o pedido de férias)');
 console.log('✓ CF avisa a gestão');
 
+const listaAdmins = cf.match(/async function listAdminUserIds[\s\S]{0,600}?\n}/);
+assert.ok(listaAdmins, 'listAdminUserIds precisa existir');
+assert.ok(/'supervisao'/.test(listaAdmins[0]),
+  'supervisão homologa troca e aprova férias — tem que estar na lista de quem é avisado');
+console.log('✓ supervisão está na lista de quem a gestão avisa');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');

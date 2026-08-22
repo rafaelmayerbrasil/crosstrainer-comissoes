@@ -619,8 +619,12 @@ const NOTIF_TYPE_TITLES = {
 
 /** Admins/gestão que devem receber avisos de férias. Só CF chama (lê /users). */
 async function listAdminUserIds() {
+  // 'supervisao' entrou em 21/08/2026: quem é só supervisão homologa troca de
+  // professor e aprova férias, mas nunca era avisado — a lista ficou parada no
+  // 'admin_gestao', que foi dropado em 11/06/2026. Mantido aqui só pra não
+  // deixar cair aviso de doc antigo que ainda tenha o perfil velho.
   const snap = await db().collection('users')
-    .where('profiles', 'array-contains-any', ['admin', 'admin_gestao'])
+    .where('profiles', 'array-contains-any', ['admin', 'admin_gestao', 'supervisao'])
     .get();
   return [...new Set(snap.docs.map(d => d.id))];
 }
