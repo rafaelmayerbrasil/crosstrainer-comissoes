@@ -122,6 +122,17 @@ const check = (label, cond, got) => {
   //       (o segundo furo: homologa sem nunca escrever 'accepted')
   // docG: professor confirma mexendo em status + responseNote juntos (caminho
   //       legítimo — prova que o allow-list não quebrou o SubstitutionService)
+  // docH: DECISIVO — mimetiza o after{} exato que _mover manda no 'confirmar'
+  //       (status, isOfficial, updatedAt, updatedBy, respondedAt), reenviando
+  //       isOfficial com o MESMO valor que o doc já tem (false). Prova que
+  //       affectedKeys() é por valor, não por presença no payload — é a razão
+  //       de isOfficial poder ficar fora do hasOnly da regra. Se isto der 403,
+  //       affectedKeys() não é por valor como a doc do Firebase diz, e a regra
+  //       precisa acrescentar 'isOfficial' no hasOnly.
+  // docI: gêmeo negativo — mesmo isOfficial no PATCH, mas mudando de valor
+  //       (true). Sem isto, docH sozinho não distingue "reenviar sem mudar
+  //       passa" de "o campo não é vigiado": se docI também desse 200, o
+  //       campo estaria livre pra qualquer valor, não só o que já tinha.
   const docA = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
   const docB = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
   const docC = await db.collection('substitutions').add(base('aguardando_gestao', prof.uid, FAKE_SUB));
@@ -129,8 +140,10 @@ const check = (label, cond, got) => {
   const docE = await db.collection('substitutions').add(base('pending', FAKE_A, FAKE_B));
   const docF = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
   const docG = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
+  const docH = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
+  const docI = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
 
-  const criadosPeloTeste = [docA.id, docB.id, docC.id, docD.id, docE.id, docF.id, docG.id];
+  const criadosPeloTeste = [docA.id, docB.id, docC.id, docD.id, docE.id, docF.id, docG.id, docH.id, docI.id];
 
   try {
     let s;
@@ -161,6 +174,30 @@ const check = (label, cond, got) => {
     }, prof.token);
     check('professor confirma mexendo em status + responseNote juntos (allow — o allow-list não quebrou o caminho legítimo)',
       s === 200, s);
+
+    // DECISIVO: reenvia isOfficial:false (valor que o doc já tem) junto do
+    // resto do after{} que _mover.confirmar realmente escreve. Se isto virar
+    // 403 algum dia, é porque affectedKeys() deixou de ser por valor — e a
+    // regra precisa passar a listar 'isOfficial' no hasOnly.
+    s = await patchFields(docH.id, ['status', 'isOfficial', 'updatedAt', 'updatedBy', 'respondedAt'], {
+      status: { stringValue: 'aguardando_gestao' },
+      isOfficial: { booleanValue: false },
+      updatedAt: { timestampValue: new Date().toISOString() },
+      updatedBy: { stringValue: prof.uid },
+      respondedAt: { timestampValue: new Date().toISOString() },
+    }, prof.token);
+    check('professor reenvia isOfficial:false (igual ao doc) junto do after{} real do confirmar (allow — reenviado sem mudar não conta como alteração)',
+      s === 200, s);
+
+    // Gêmeo negativo do teste acima: mesmos campos, mas isOfficial MUDA de
+    // valor (true). Sem este, o teste decisivo sozinho não provaria que o
+    // campo é vigiado — só que reenviar o valor igual passa.
+    s = await patchFields(docI.id, ['status', 'isOfficial'], {
+      status: { stringValue: 'aguardando_gestao' },
+      isOfficial: { booleanValue: true },
+    }, prof.token);
+    check('professor NÃO muda isOfficial pra true (deny — aqui sim o campo está sendo alterado de verdade)',
+      s === 403, s);
 
     const novoId = '__rt_troca_create_accepted';
     s = await createViaRest(novoId, {
