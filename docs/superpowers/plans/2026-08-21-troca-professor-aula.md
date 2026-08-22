@@ -1496,6 +1496,22 @@ Abrir `rafaelmayerbrasil.github.io/crosstrainer-comissoes/professores.html`, con
 
 ## Apêndice: as 74 aulas de julho
 
+> **✅ RESOLVIDO EM 22/08/2026 — e a decisão mudou no caminho.** As 74 aulas foram **apagadas**, não
+> marcadas como realizadas. Marcar como "cancelada" registraria uma mentira (as aulas aconteceram);
+> marcar como "realizada" deixaria a armadilha de alguém fechar julho e pagar de novo o que já foi
+> pago por fora. Apagar diz "o sistema não tem registro desse dia", que é a verdade — ele ainda não
+> estava rodando.
+>
+> Antes de apagar foi verificado que nada apontava pra elas: nenhum aviso de professor, ocorrência,
+> substituição, notificação ou entrada de auditoria. E o robô de geração só cria pra frente, então
+> não voltam sozinhas.
+>
+> Script: `scripts/apagar-aulas-julho.js` (ensaio por padrão, backup obrigatório antes de apagar).
+> Backup das 74: `backups/julho-2026-aulas-apagadas-production.json` — **na pasta permanente do
+> projeto, não no worktree**, que é temporário. `backups/` é ignorado pelo git de propósito.
+>
+> O passo-a-passo abaixo ficou obsoleto; está mantido como registro do que foi cogitado.
+
 Independente do resto — pode rodar a qualquer momento. Decisão do Rafael em 21/08/2026: em julho a academia rodava normal e o sistema é que entrou depois (carga inicial em 29/07), então as aulas de 29, 30 e 31 de julho são **aulas dadas**. Hoje estão em `prevista`, porque o robô de confirmação só age a partir de `AUTO_CONFIRM_DESDE = '2026-08-01'` e o fechamento só conta `realizada`/`substituida`.
 
 - [ ] **Step 1: Escrever o script com ensaio obrigatório**
