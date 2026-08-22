@@ -1581,6 +1581,11 @@ node scripts/marcar-julho-realizada.js --project production
 
 Esperado: `74 em "prevista"` e o resumo por dia — nada gravado.
 
+**Ensaio rodado em 22/08/2026.** Resultado real: as 74 aulas estão **todas em 31/07**, não
+espalhadas por 29–31 como o plano supunha. Nenhuma está congelada em fechamento. Por professor:
+Theo 11 · Bruno Othero 8 · Eduarda 7 · Thaynara 6 · Leonardo 6 · Heloísa 5 · Camila 5 ·
+Bruno Claudino 5 · Louise 5 · João Vitor 4 · Alan 4 · Helena 4 · Thiago 4.
+
 - [ ] **Step 4: Executar em produção depois do OK do Rafael**
 
 ```bash
@@ -1595,3 +1600,32 @@ Esperado: `✅ 74 aulas de julho marcadas como realizadas.`
 git add scripts/marcar-julho-realizada.js
 git commit -m "chore(dados): script pra confirmar as aulas de julho anteriores ao sistema"
 ```
+
+---
+
+## O que ficou diferente do plano
+
+Registrado em 22/08/2026, depois da execução. O plano acima é o que foi pedido; isto é o que mudou
+no caminho, quase sempre porque uma revisão achou um problema que o plano não previa.
+
+| Onde | Plano | O que foi feito, e por quê |
+|---|---|---|
+| `substitution-flow.js` | 3 valores de `registradoPor` implícitos | Constante `REGISTRADO_POR` exportada, e o caso `'gestao'` **modelado**: `quemConfirma` → titular, `quemRegistrou` → `null`. Sem isso o titular podia cancelar um pedido que a gestão lançou |
+| `substitution-flow.js` | comparações diretas de `teacherId` | Guardas de identidade nas 3 ramificações: `undefined === undefined` passava, e isso **apagava a marca de "a gestão confirmou sozinha"** |
+| `substitution-flow.js` | — | `atorEhParte`: supervisor que também dá aula pode homologar troca em que ele é parte. Não bloqueia (a gestão é a palavra final), mas fica distinguível de "o professor não respondeu" |
+| `substitution-flow.js` | duplicata checada no serviço | `podeRegistrar(cls, ator, opcoes)` com `subsDaAula` e `alvoTeacherId` opcionais — uma pergunta só, em vez de a regra viver em dois lugares |
+| `professores-shared.js` | `requestingUserId: uid` | **Defeito grave do plano.** Gravava quem clicou, não o titular. Como a regra do Firestore só deixa `requestingUserId`/`substituteUserId` escreverem, o titular tomava "permissão negada" ao confirmar — no caminho principal da funcionalidade. Agora resolve pelos cadastros, via `userIdDoProfessor` lendo `/teachers` (varrer `/users` é negado pro professor — foi o que quebrou férias em agosto) |
+| `professores-shared.js` | `update` direto | `_mover` inteiro dentro de `runTransaction`. Fora dela, um `cancelar` que chegasse depois de um `homologar` deixava a aula com o substituto e o pedido lendo `cancelled` — invisível pro fechamento, e a folha pagava errado |
+| `professores-shared.js` | — | `cancel` passou a delegar ao módulo: antes checava só o status, **nunca quem estava cancelando** |
+| `professores-shared.js` | — | `listPendingForUser` virou `listPendingForTeacher`; `listAllPending` e `listPendingForSubstitute` **apagados** (ficaram sem chamador) |
+| `firestore.indexes.json` | não previsto | Dois índices que faltavam. `listAllPending`, **que já estava em produção**, falhava por falta de índice — e o erro virava "nenhum pedido pendente". Guarda nova: `scripts/smoke-indices-substituicoes.js` |
+| `firestore.rules` | só barrar `accepted` | Também `hasOnly` nos campos: sem isso o professor reescrevia `substituteTeacherId` pra si, deixava o status em `pending`, e a gestão homologava uma troca que passou a creditar outra pessoa — **sem nunca escrever `accepted`**. E `create` exige nascer em `pending` |
+| `functions/index.js` | avisar a gestão | Também: `listAdminUserIds` **não incluía `supervisao`** (estava parada no `admin_gestao`, dropado em junho). Quem é só supervisão homologa troca e aprova férias, e nunca era avisado — de nada. Corrigido de forma aditiva |
+| `professores-agenda.js` | — | Bug pré-existente: dois blocos escreviam no mesmo `#classModalReadOnlyHint`, e o aviso do professor era **sempre** sobrescrito |
+| `professores-agenda.js` | — | A caixa de entrada contava a troca do lado errado: o titular via "aula de [ele mesmo]" e um botão "Não fui eu", sem nunca ler quem estava reivindicando |
+| `professores-home.js` | fora do escopo | O contador da home ficou discordando da caixa que ele abre — repontado pra `listPendingForTeacher` |
+| `professores-fechamento.js` | trava se `travam` | Também **falha fechada**: se a verificação não rodar, não deixa fechar. Do outro jeito repetiria o bug da caixa da gestão — erro virando estado vazio tranquilizador, num passo irreversível |
+
+**Validado contra o staging real:** `scripts/validate-troca-professor-rules.js`, 13/13 — incluindo a
+prova de que `isOfficial` reenviado igual não conta como alteração (o argumento que até então só
+tinha respaldo de documentação).
