@@ -37,7 +37,6 @@ const consultas = [
   { nome: 'listAguardandoGestao',                     campos: ['status', 'requestedAt'] },
   { nome: 'listPendingForTeacher (lado substituto)',  campos: ['substituteTeacherId', 'status'] },
   { nome: 'listPendingForTeacher (lado titular)',     campos: ['requestingTeacherId', 'status'] },
-  { nome: 'listPendingForSubstitute',                 campos: ['substituteUserId', 'status', 'requestedAt'] },
 ];
 
 function temIndice(campos) {
@@ -62,7 +61,7 @@ console.log('✓ toda consulta conhecida de SubstitutionService tem índice comp
 // nesse conjunto de queries sem esbarrar neste teste e ser obrigado a olhar
 // pra `consultas` — falha alto e cedo em vez de silenciosamente.
 const shared = fs.readFileSync(path.join(raiz, 'professores-shared.js'), 'utf8');
-const OCORRENCIAS_CONHECIDAS = 11;
+const OCORRENCIAS_CONHECIDAS = 10;
 const ocorrencias = (shared.match(/\.collection\('substitutions'\)/g) || []).length;
 assert.strictEqual(ocorrencias, OCORRENCIAS_CONHECIDAS,
   `professores-shared.js tem ${ocorrencias} usos de .collection('substitutions'), esperava ${OCORRENCIAS_CONHECIDAS}. `

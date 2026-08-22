@@ -2113,22 +2113,6 @@ const SubstitutionService = {
     return this._mover(subId, 'cancelar', '');
   },
 
-  /** Lista pedidos PENDENTES direcionados a este user. */
-  async listPendingForSubstitute(userId) {
-    if (!userId) return { success: false, error: 'userId obrigatório' };
-    try {
-      const snap = await db.collection('substitutions')
-        .where('substituteUserId', '==', userId)
-        .where('status', '==', SubstitutionFlow.STATUS.PENDING)
-        .orderBy('requestedAt', 'desc')
-        .get();
-      return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
-    } catch (err) {
-      console.error('[SubstitutionService.listPendingForSubstitute]', err);
-      return { success: false, error: err.message, code: err.code };
-    }
-  },
-
   /**
    * Histórico de substituições de um professor (bloco 3) — as que ele PEDIU e as
    * que ele COBRIU, em qualquer status.

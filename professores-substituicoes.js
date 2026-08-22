@@ -49,10 +49,11 @@ function subsModalidade(sub) {
 }
 
 const SUBS_STATUS_STYLE = {
-  pending:   { label: 'Aguardando resposta', cor: 'var(--orange)' },
-  accepted:  { label: 'Aceita',              cor: 'var(--green)' },
-  rejected:  { label: 'Recusada',            cor: 'var(--red)' },
-  cancelled: { label: 'Cancelada',           cor: 'var(--text3)' },
+  pending:           { label: 'Aguardando o colega confirmar', cor: 'var(--orange)' },
+  aguardando_gestao: { label: 'Aguardando a gestão',           cor: 'var(--orange)' },
+  accepted:          { label: 'Confirmada',                    cor: 'var(--green)' },
+  rejected:          { label: 'Recusada',                      cor: 'var(--red)' },
+  cancelled:         { label: 'Cancelada',                     cor: 'var(--text3)' },
 };
 
 // ────────────────────────────────────────────────────────────────────────
@@ -156,6 +157,16 @@ function renderSubCard(sub, lado) {
       ? `de <b>${subsEsc(subsNomeProf(sub.requestingTeacherId))}</b>`
       : `${subsEsc(subsNomeProf(sub.requestingTeacherId))} → <b>${subsEsc(subsNomeProf(sub.substituteTeacherId))}</b>`;
 
+  // Com registradoPor, quem lançou o pedido nem sempre é o titular — e a
+  // diferença importa pra quem lê. Pedido antigo sem o campo continua lendo
+  // como sempre leu (do titular): SubstitutionFlow.registradoPor cobre isso.
+  const por = SubstitutionFlow.registradoPor(sub);
+  const registradoLabel = por === 'gestao'
+    ? 'lançada pela gestão'
+    : por === 'substituto'
+      ? 'registrada por quem cobriu'
+      : 'registrada por quem passou a aula';
+
   return `
     <div class="class-card" style="border-left:3px solid ${st.cor};cursor:default;">
       <div class="class-card-time" style="min-width:110px;">${subsEsc(subsDataAula(sub))}</div>
@@ -164,14 +175,38 @@ function renderSubCard(sub, lado) {
         <div class="class-card-unit">
           ${sub.reason ? `"${subsEsc(sub.reason)}"` : 'sem motivo informado'}
           ${sub.wasRetroactive ? ' · <span title="pedida depois da aula ter acontecido">⏱ retroativa</span>' : ''}
+          · ${registradoLabel}
         </div>
         ${sub.responseNote ? `<div class="class-card-unit">resposta: "${subsEsc(sub.responseNote)}"</div>` : ''}
       </div>
       <div class="class-card-status">
         <span class="class-status-badge" style="color:${st.cor};border:1px solid ${st.cor};">${st.label}</span>
+        ${subsEhGestao() && sub.status === 'aguardando_gestao' ? `
+        <div class="inbox-item-actions" style="margin-top:8px;">
+          <button class="btn btn-outline btn-sm" onclick="subsRecusar('${sub.id}')">Recusar</button>
+          <button class="btn btn-primary btn-sm" onclick="subsHomologar('${sub.id}')">Confirmar troca</button>
+        </div>` : ''}
+        ${sub.semConfirmacaoDoProfessor ? '<div class="info-field-hint">Confirmada pela gestão sem a resposta do professor.</div>' : ''}
+        ${sub.atorEhParte ? '<div class="info-field-hint">Quem confirmou é uma das partes da troca.</div>' : ''}
       </div>
     </div>
   `;
+}
+
+async function subsHomologar(subId) {
+  if (!confirm('Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.')) return;
+  const res = await SubstitutionService.homologar(subId, '');
+  if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
+  toast('Troca confirmada.', 'success');
+  await renderSubstituicoesPage();
+}
+
+async function subsRecusar(subId) {
+  const motivo = prompt('Motivo da recusa (opcional):') || '';
+  const res = await SubstitutionService.recusarGestao(subId, motivo);
+  if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
+  toast('Troca recusada.', 'info');
+  await renderSubstituicoesPage();
 }
 
 // ─── Visão de gestão ─────────────────────────────────────────────────────
@@ -259,5 +294,7 @@ window.renderSubstituicoesPage = renderSubstituicoesPage;
 window.setSubsAba = setSubsAba;
 window.aplicarFiltroSubs = aplicarFiltroSubs;
 window.limparFiltroSubs = limparFiltroSubs;
+window.subsHomologar = subsHomologar;
+window.subsRecusar = subsRecusar;
 
 console.log('[CrossTainer Professores] professores-substituicoes.js carregado · bloco 3');

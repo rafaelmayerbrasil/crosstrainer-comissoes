@@ -279,4 +279,12 @@ assert.ok(/listAguardandoGestao/.test(agenda),
   'a caixa da gestão mostra a fila de homologação');
 console.log('✓ modal da aula');
 
+/* ── 9. A tela de Substituições mostra o degrau da gestão ────────── */
+const tela = fs.readFileSync(path.join(raiz, 'professores-substituicoes.js'), 'utf8');
+assert.ok(/aguardando_gestao/.test(tela),
+  'o estado novo precisa aparecer na tela, senão some do histórico');
+assert.ok(/subsHomologar/.test(tela),
+  'a gestão homologa na tela onde ela já vê tudo');
+console.log('✓ tela de Substituições');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');
