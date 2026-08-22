@@ -1980,6 +1980,16 @@ function injectClassModalActions(cls) {
 // ─── Modal de Substituição Direta ────────────────────────────────────────
 const SubstitutionFormState = { classId: null, lado: 'titular' };
 
+// Troca só o texto do rótulo, preservando o marcador de obrigatório que vive
+// num <span class="req"> dentro do <label> (professores.html:2863) — trocar o
+// textContent inteiro apagava o "*" depois da primeira abertura do modal.
+function setLabelTexto(el, texto) {
+  if (!el) return;
+  const marcador = el.querySelector('.req');
+  el.textContent = texto + ' ';
+  if (marcador) el.appendChild(marcador);
+}
+
 /**
  * @param {string} classId
  * @param {'titular'|'substituto'|'gestao'} lado - quem está registrando
@@ -2014,11 +2024,11 @@ function openSubstitutionModal(classId, lado = 'titular') {
 
   if (lado === 'substituto') {
     // Quem registra JÁ é o professor da aula — não há o que escolher.
-    if (label) label.textContent = 'Quem deu a aula';
+    if (label) setLabelTexto(label, 'Quem deu a aula');
     sel.innerHTML = `<option value="${escapeHtml(meuProfId)}" selected>Você (no lugar de ${escapeHtml(titular ? titular.name : '—')})</option>`;
     sel.disabled = true;
   } else {
-    if (label) label.textContent = lado === 'gestao' ? 'Quem deu a aula de verdade' : 'Quem vai cobrir';
+    if (label) setLabelTexto(label, lado === 'gestao' ? 'Quem deu a aula de verdade' : 'Quem vai cobrir');
     sel.disabled = false;
     // Modalidade filtra quem PODE assumir uma aula futura. Para registrar um fato
     // já acontecido, a gestão vê todo mundo — senão a correção fica impossível
