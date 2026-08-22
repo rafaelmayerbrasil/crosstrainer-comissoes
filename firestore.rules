@@ -186,7 +186,15 @@ service cloud.firestore {
                         (resource.data.requestingUserId == request.auth.uid ||
                          resource.data.substituteUserId == request.auth.uid) &&
                         request.resource.data.status != 'accepted' &&
-                        resource.data.status in ['pending', 'aguardando_gestao']
+                        resource.data.status in ['pending', 'aguardando_gestao'] &&
+                        // Professor só mexe no desfecho e na nota. Sem isto, quem
+                        // é parte do pedido reescrevia substituteTeacherId pra si
+                        // mesmo, deixava o status em 'pending', e a gestão
+                        // homologava uma troca que passou a creditar outra pessoa
+                        // — sem nunca escrever 'accepted'.
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status', 'respondedAt', 'responseNote',
+                                    'updatedAt', 'updatedBy'])
                       )
                     );
       allow delete: if false;

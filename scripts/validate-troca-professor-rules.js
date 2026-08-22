@@ -6,6 +6,20 @@
 // gestão nunca ter visto o pedido. Agora só admin/supervisão escrevem
 // 'accepted', e o create só nasce em 'pending'.
 //
+// + um segundo furo achado em revisão adversarial no mesmo dia: a regra
+// restringia o STATUS que o professor podia escrever, mas não OS CAMPOS. Um
+// professor que é parte do pedido podia reescrever `substituteTeacherId`/
+// `substituteUserId` pra si mesmo, deixar `status: 'pending'` intocado (toda
+// condição continuava batendo) e esperar — a gestão homologava um pedido de
+// cara normal e a CF movia a aula pra quem reescreveu o campo, sem nunca
+// passar por 'accepted' forjado. Mesma lógica valia pra `classId` (repontar
+// pra outra aula) e pros campos de auditoria da homologação
+// (`homologadoPor`/`semConfirmacaoDoProfessor`/`atorEhParte`). Fechado com
+// `diff().affectedKeys().hasOnly([...])` restringindo o professor a
+// status/respondedAt/responseNote/updatedAt/updatedBy — exatamente o que
+// `SubstitutionService._mover` escreve nos três caminhos que um professor
+// aciona (confirmar/recusar/cancelar).
+//
 // Via REST (não Admin SDK, que ignora as regras). Contas de demo do staging.
 // Modelado em scripts/validate-substituicao-rules.js.
 //
@@ -46,6 +60,14 @@ async function patchStatus(id, status, token) {
 async function createViaRest(id, fields, token) {
   const r = await fetch(`${BASE}/substitutions?documentId=${id}`, {
     method: 'POST', headers: H(token), body: JSON.stringify({ fields }) });
+  return r.status;
+}
+// PATCH genérico com updateMask cobrindo vários campos de uma vez — pra testar
+// o allow-list (hasOnly) do bloco de update, não só o status isolado.
+async function patchFields(id, fieldPaths, fields, token) {
+  const mask = fieldPaths.map((p) => `updateMask.fieldPaths=${p}`).join('&');
+  const url = `${BASE}/substitutions/${id}?${mask}`;
+  const r = await fetch(url, { method: 'PATCH', headers: H(token), body: JSON.stringify({ fields }) });
   return r.status;
 }
 async function del(id, token) {
@@ -96,13 +118,19 @@ const check = (label, cond, got) => {
   // docC: já confirmado, professor tenta homologar (aguardando_gestao → accepted)
   // docD: já confirmado, ADMIN homologa (aguardando_gestao → accepted)
   // docE: professor não é nenhuma das duas partes do pedido
+  // docF: professor reescreve substituteTeacherId pra si mesmo, status intocado
+  //       (o segundo furo: homologa sem nunca escrever 'accepted')
+  // docG: professor confirma mexendo em status + responseNote juntos (caminho
+  //       legítimo — prova que o allow-list não quebrou o SubstitutionService)
   const docA = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
   const docB = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
   const docC = await db.collection('substitutions').add(base('aguardando_gestao', prof.uid, FAKE_SUB));
   const docD = await db.collection('substitutions').add(base('aguardando_gestao', prof.uid, FAKE_SUB));
   const docE = await db.collection('substitutions').add(base('pending', FAKE_A, FAKE_B));
+  const docF = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
+  const docG = await db.collection('substitutions').add(base('pending', prof.uid, FAKE_SUB));
 
-  const criadosPeloTeste = [docA.id, docB.id, docC.id, docD.id, docE.id];
+  const criadosPeloTeste = [docA.id, docB.id, docC.id, docD.id, docE.id, docF.id, docG.id];
 
   try {
     let s;
@@ -121,6 +149,18 @@ const check = (label, cond, got) => {
 
     s = await patchStatus(docE.id, 'aguardando_gestao', prof.token);
     check('professor que não é parte do pedido não mexe nele (deny)', s === 403, s);
+
+    s = await patchFields(docF.id, ['substituteTeacherId'],
+      { substituteTeacherId: { stringValue: prof.uid } }, prof.token);
+    check('professor NÃO reescreve substituteTeacherId pra si (deny — o 2º furo, homologa sem nunca escrever accepted)',
+      s === 403, s);
+
+    s = await patchFields(docG.id, ['status', 'responseNote'], {
+      status: { stringValue: 'aguardando_gestao' },
+      responseNote: { stringValue: 'nota de teste' },
+    }, prof.token);
+    check('professor confirma mexendo em status + responseNote juntos (allow — o allow-list não quebrou o caminho legítimo)',
+      s === 200, s);
 
     const novoId = '__rt_troca_create_accepted';
     s = await createViaRest(novoId, {
