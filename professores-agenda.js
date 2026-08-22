@@ -1316,8 +1316,13 @@ async function openClassModal(classId) {
     if (saveBtn) saveBtn.style.display = 'none';
   }
 
-  // Professor: só o aviso de "não aconteceu", na aula dele e fora de mês fechado
+  // Professor: só o aviso de "não aconteceu", na aula dele e fora de mês fechado.
+  // "avisoJaEscrito" marca que o bloco abaixo (noteHint) já foi preenchido por
+  // aqui — antes os dois blocos escreviam no MESMO elemento e o segundo sempre
+  // apagava o aviso "você já avisou" com "fale com a gestão", mesmo quando o
+  // professor tinha acabado de avisar (achado ao mexer nesta tela em 21/08/2026).
   const profBlock = document.getElementById('classProfBlock');
+  let avisoJaEscrito = false;
   if (profBlock) {
     const minhaAula = !canEdit && getCurrentProfessorId()
       && (cls.originalTeacherId === getCurrentProfessorId() || cls.teacherId === getCurrentProfessorId());
@@ -1330,6 +1335,7 @@ async function openClassModal(classId) {
           ? 'Você já informou o que aconteceu nesta aula. A gestão vai confirmar.'
           : 'Você já avisou que esta aula não aconteceu. A gestão vai confirmar.';
         hint.style.display = '';
+        avisoJaEscrito = true;
       }
     }
     ['classProfNota', 'classProfAtraso', 'classProfSaida', 'classProfExtra'].forEach(id => {
@@ -1338,9 +1344,22 @@ async function openClassModal(classId) {
   }
 
   const noteHint = document.getElementById('classModalReadOnlyHint');
-  if (noteHint) {
+  if (noteHint && !avisoJaEscrito) {
+    // "Para alterar o status, fale com a gestão" era tudo o que a Camila via numa
+    // aula que ela própria tinha dado. Agora, quando não há botão, a tela diz o
+    // motivo real; quando há, ela não diz nada e o botão fala por si.
+    const motivo = SubstitutionFlow.motivoSemBotao(cls, {
+      teacherId: getCurrentProfessorId(),
+      isGestao: canEdit,
+    });
     if (canEdit && isLocked) {
-      noteHint.textContent = 'Esta aula está em mês fechado. Status não pode ser alterado.';
+      noteHint.textContent = 'Esta aula está em mês fechado. Nada mais pode ser alterado.';
+      noteHint.style.display = '';
+    } else if (motivo) {
+      noteHint.textContent = motivo;
+      noteHint.style.display = '';
+    } else if (!canEdit && !classModalSouTitular(cls)) {
+      noteHint.textContent = 'Esta aula está no nome de outro professor. Se quem deu foi você, use o botão abaixo — o titular e a gestão confirmam depois.';
       noteHint.style.display = '';
     } else if (!canEdit) {
       noteHint.textContent = 'Para alterar o status, fale com a gestão.';
@@ -1907,14 +1926,20 @@ function renderAgendaGeralDayGridCard(cls) {
 // SPRINT 3b — SUBSTITUIÇÕES + COBERTURA (modais + handlers)
 // ════════════════════════════════════════════════════════════════════════
 
-// Estende openClassModal pra adicionar botões de substituição/cobertura
-// quando o user logado é o teacher titular da aula e o status permite
+// Quem pode registrar troca nesta aula. A regra mora no módulo puro — a tela só
+// pergunta. Antes exigia ser o titular, e por isso a Camila, que deu a aula do
+// Theo, não tinha botão nenhum (21/08/2026).
 function classModalCanRequestSub(cls) {
-  if (!cls || cls.monthClosingId) return false;
-  if (cls.status === 'cancelada' || cls.status === 'substituida') return false;
+  return SubstitutionFlow.podeRegistrar(cls, {
+    teacherId: getCurrentProfessorId(),
+    isGestao: isAdminGestao() || isSupervisao(),
+  }).ok;
+}
+
+/** É a aula do próprio professor logado? Decide qual botão mostrar. */
+function classModalSouTitular(cls) {
   const myProfId = getCurrentProfessorId();
-  if (!myProfId) return false;
-  return cls.teacherId === myProfId;
+  return !!myProfId && cls.teacherId === myProfId;
 }
 
 // Wraper pra estender o footer do classModal com botões da Sprint 3b
@@ -1926,68 +1951,94 @@ function injectClassModalActions(cls) {
   footer.querySelectorAll('[data-sprint-3b]').forEach(el => el.remove());
 
   if (classModalCanRequestSub(cls)) {
-    const btnSub = document.createElement('button');
-    btnSub.className = 'btn btn-outline';
-    btnSub.setAttribute('data-sprint-3b', 'true');
-    btnSub.textContent = '🔄 Pedir substituição';
-    btnSub.onclick = () => openSubstitutionModal(cls.id);
-    const btnCov = document.createElement('button');
-    btnCov.className = 'btn btn-outline';
-    btnCov.setAttribute('data-sprint-3b', 'true');
-    btnCov.textContent = '🆘 Pedir cobertura aberta';
-    btnCov.onclick = () => openCoverageModal(cls.id);
+    const ehGestao = isAdminGestao() || isSupervisao();
+    const souTitular = classModalSouTitular(cls);
+    const botoes = [];
+
+    if (ehGestao) {
+      botoes.push(['⇄ Trocar professor', () => openSubstitutionModal(cls.id, 'gestao')]);
+    } else if (souTitular) {
+      botoes.push(['🔄 Pedir substituição', () => openSubstitutionModal(cls.id, 'titular')]);
+      botoes.push(['🆘 Pedir cobertura aberta', () => openCoverageModal(cls.id)]);
+    } else {
+      botoes.push(['✋ Fui eu que dei essa aula', () => openSubstitutionModal(cls.id, 'substituto')]);
+    }
 
     // Insere antes do botão Salvar (ou Fechar se não tem Salvar)
     const saveBtn = document.getElementById('classSaveBtn');
-    if (saveBtn) {
-      footer.insertBefore(btnSub, saveBtn);
-      footer.insertBefore(btnCov, saveBtn);
-    } else {
-      footer.appendChild(btnSub);
-      footer.appendChild(btnCov);
-    }
+    botoes.forEach(([texto, acao]) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-outline';
+      b.setAttribute('data-sprint-3b', 'true');
+      b.textContent = texto;
+      b.onclick = acao;
+      if (saveBtn) footer.insertBefore(b, saveBtn); else footer.appendChild(b);
+    });
   }
 }
 
 // ─── Modal de Substituição Direta ────────────────────────────────────────
-const SubstitutionFormState = { classId: null };
+const SubstitutionFormState = { classId: null, lado: 'titular' };
 
-function openSubstitutionModal(classId) {
+/**
+ * @param {string} classId
+ * @param {'titular'|'substituto'|'gestao'} lado - quem está registrando
+ */
+function openSubstitutionModal(classId, lado = 'titular') {
   // Fecha class modal pra evitar empilhamento confuso
   closeClassModal();
 
   const cls = findClassAnywhere(classId);
   if (!cls) { toast('Aula não encontrada.', 'error'); return; }
   SubstitutionFormState.classId = classId;
+  SubstitutionFormState.lado = lado;
 
   const aulaDate = cls.scheduledDate.toDate ? cls.scheduledDate.toDate() : new Date(cls.scheduledDate);
   const isPast = aulaDate < new Date();
-
-  // Filtra professores aptos à modalidade, excluindo o próprio titular
-  const eligible = Array.from(AgendaState.teachersMap.values())
-    .filter(t => t.isActive !== false)
-    .filter(t => t.id !== cls.teacherId)
-    .filter(t => Array.isArray(t.modalityIds) && t.modalityIds.includes(cls.modalityId));
+  const titular = AgendaState.teachersMap.get(cls.teacherId);
+  const meuProfId = getCurrentProfessorId();
 
   const modal = document.getElementById('substitutionModal');
   if (!modal) return;
-  document.getElementById('substitutionModalTitle').textContent =
-    `Pedir substituição — ${ProfHelpers.formatDateBR(cls.scheduledDate)}`;
+  const titulo = lado === 'substituto'
+    ? `Fui eu que dei esta aula — ${ProfHelpers.formatDateBR(cls.scheduledDate)}`
+    : lado === 'gestao'
+      ? `Trocar professor — ${ProfHelpers.formatDateBR(cls.scheduledDate)}`
+      : `Pedir substituição — ${ProfHelpers.formatDateBR(cls.scheduledDate)}`;
+  document.getElementById('substitutionModalTitle').textContent = titulo;
   document.getElementById('substitutionModalError').textContent = '';
-
   document.getElementById('substitutionRetroactiveBox').style.display = isPast ? '' : 'none';
 
-  // Popula select de substituto
   const sel = document.getElementById('substituteSelect');
-  if (eligible.length === 0) {
-    sel.innerHTML = '<option value="" disabled selected>Nenhum professor habilitado nesta modalidade</option>';
-  } else {
-    sel.innerHTML = ['<option value="">— escolha —</option>'].concat(
-      eligible.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(t.type || '')}</option>`)
-    ).join('');
-  }
-  document.getElementById('substitutionReason').value = '';
+  const label = document.getElementById('substituteSelectLabel');
 
+  if (lado === 'substituto') {
+    // Quem registra JÁ é o professor da aula — não há o que escolher.
+    if (label) label.textContent = 'Quem deu a aula';
+    sel.innerHTML = `<option value="${escapeHtml(meuProfId)}" selected>Você (no lugar de ${escapeHtml(titular ? titular.name : '—')})</option>`;
+    sel.disabled = true;
+  } else {
+    if (label) label.textContent = lado === 'gestao' ? 'Quem deu a aula de verdade' : 'Quem vai cobrir';
+    sel.disabled = false;
+    // Modalidade filtra quem PODE assumir uma aula futura. Para registrar um fato
+    // já acontecido, a gestão vê todo mundo — senão a correção fica impossível
+    // quando quem cobriu não tinha a modalidade no cadastro.
+    const todos = Array.from(AgendaState.teachersMap.values())
+      .filter(t => t.isActive !== false)
+      .filter(t => t.id !== cls.teacherId);
+    const eligible = lado === 'gestao'
+      ? todos
+      : todos.filter(t => Array.isArray(t.modalityIds) && t.modalityIds.includes(cls.modalityId));
+    sel.innerHTML = eligible.length === 0
+      ? '<option value="" disabled selected>Nenhum professor habilitado nesta modalidade</option>'
+      : ['<option value="">— escolha —</option>'].concat(
+          eligible.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)} · ${escapeHtml(t.type || '')}</option>`)
+        ).join('');
+  }
+
+  document.getElementById('substitutionReason').value = '';
+  const btn = document.getElementById('substitutionSaveBtn');
+  if (btn) btn.textContent = lado === 'gestao' ? 'Trocar e confirmar' : 'Enviar para confirmação';
   modal.classList.add('open');
 }
 
@@ -2009,32 +2060,33 @@ async function saveSubstitution() {
 
   if (!substituteTeacherId) { errEl.textContent = 'Escolha um substituto.'; return; }
 
-  // Tentar descobrir o userId do substituto via teacher.userId (se vinculado)
-  // Caso não tenha, salva null — notif não chega mas substituição funciona com aceite admin
+  // Dica barata a partir do que já está em memória — o serviço trata como sugestão
+  // e resolve sozinho via /teachers quando ausente ou desatualizada.
   const substTeacher = AgendaState.teachersMap.get(substituteTeacherId);
-  let substituteUserId = substTeacher && substTeacher.userId ? substTeacher.userId : null;
-
-  // Fallback: tenta achar user com professorId == substituteTeacherId
-  if (!substituteUserId) {
-    try {
-      const us = await db.collection('users').where('professorId', '==', substituteTeacherId).limit(1).get();
-      if (!us.empty) substituteUserId = us.docs[0].id;
-    } catch (e) { /* ignore */ }
-  }
+  const substituteUserId = substTeacher && substTeacher.userId ? substTeacher.userId : null;
 
   const btn = document.getElementById('substitutionSaveBtn');
   btn.disabled = true; btn.textContent = 'Enviando…';
 
-  const res = await SubstitutionService.create({ classId, substituteTeacherId, substituteUserId, reason });
+  const res = await SubstitutionService.create({
+    classId, substituteTeacherId, substituteUserId, reason,
+    registradoPor: SubstitutionFormState.lado,
+  });
 
-  btn.disabled = false; btn.textContent = 'Enviar pedido';
+  btn.disabled = false;
+  btn.textContent = SubstitutionFormState.lado === 'gestao' ? 'Trocar e confirmar' : 'Enviar para confirmação';
 
   if (!res.success) { errEl.textContent = res.error; return; }
 
-  if (!substituteUserId) {
-    toast('Pedido criado, mas o substituto ainda não tem usuário vinculado — admin precisa avisar.', 'info', 6000);
+  // A gestão registrando já cumpriu o degrau dela: homologa na sequência.
+  if (SubstitutionFormState.lado === 'gestao' && res.data && res.data.id) {
+    const hom = await SubstitutionService.homologar(res.data.id, reason);
+    if (!hom.success) { errEl.textContent = hom.error; return; }
+    toast('Professor trocado. Os dois foram avisados.', 'success');
+  } else if (!res.data || !res.data.substituteUserId) {
+    toast('Registrado. O outro professor ainda não tem login vinculado — a gestão confirma pela tela.', 'info', 6000);
   } else {
-    toast('Pedido de substituição enviado.', 'success');
+    toast('Registrado. Agora o outro professor confirma, e depois a gestão.', 'success', 5000);
   }
   closeSubstitutionModal();
 }
@@ -2132,8 +2184,8 @@ async function loadInboxData() {
   // não havia tela onde ele aparecesse).
   InboxState.isMgmtView = isAdminGestao() || isSupervisao();
   const subsRes = InboxState.isMgmtView
-    ? await SubstitutionService.listAllPending()
-    : await SubstitutionService.listPendingForSubstitute(uid);
+    ? await SubstitutionService.listAguardandoGestao()
+    : await SubstitutionService.listPendingForTeacher(myProfId);
   InboxState.subs = subsRes.success ? subsRes.data : [];
 
   // Coberturas abertas aptas à minha modalidade
@@ -2168,7 +2220,7 @@ function renderInboxList() {
     if (InboxState.subs.length === 0) {
       list.innerHTML = `<div class="empty-state-small" style="padding:24px;">${
         InboxState.isMgmtView
-          ? 'Nenhum pedido de substituição pendente na academia.'
+          ? 'Nenhuma troca esperando homologação da gestão.'
           : 'Nenhum pedido pendente para você.'
       }</div>`;
       return;
@@ -2195,30 +2247,26 @@ function formatReqWhen(item) {
 }
 
 function renderInboxSubItem(s) {
-  const requester = AgendaState.teachersMap.get(s.requestingTeacherId);
-  const requesterName = requester ? requester.name : s.requestingTeacherId;
+  const dono = AgendaState.teachersMap.get(s.requestingTeacherId);
+  const cobriu = AgendaState.teachersMap.get(s.substituteTeacherId);
   const retro = s.wasRetroactive ? '<span class="badge-retro">retroativo</span>' : '';
-  // Na visão de gestão o pedido pode ser entre outras duas pessoas — mostrar
-  // para quem foi pedido, senão o admin não sabe quem tem que responder.
-  const subst = AgendaState.teachersMap.get(s.substituteTeacherId);
-  const paraQuem = InboxState.isMgmtView
-    ? `<div class="inbox-item-body">Pedido para: <strong>${escapeHtml(subst ? subst.name : '—')}</strong>${
-        s.substituteUserId ? '' : ' <span class="badge-retro">sem login vinculado</span>'
-      }</div>`
-    : '';
+  const titulo = InboxState.isMgmtView
+    ? `⏳ ${escapeHtml(cobriu ? cobriu.name : '—')} deu a aula de ${escapeHtml(dono ? dono.name : '—')}`
+    : `🔄 Troca de professor · aula de ${escapeHtml(dono ? dono.name : '—')}`;
+  const acoes = InboxState.isMgmtView
+    ? `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Recusar</button>
+       <button class="btn btn-primary btn-sm" onclick="handleSubHomologar('${s.id}')">Confirmar troca</button>`
+    : `<button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Não fui eu</button>
+       <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Confirmar</button>`;
   return `
     <div class="inbox-item">
       <div class="inbox-item-header">
-        <span class="inbox-item-title">🔄 ${escapeHtml(requesterName)} pediu substituição</span>
+        <span class="inbox-item-title">${titulo}</span>
         ${retro}
       </div>
-      ${paraQuem}
       <div class="inbox-item-body">${escapeHtml(s.reason || '(sem motivo informado)')}</div>
       <div class="inbox-item-meta">${formatReqWhen(s)}</div>
-      <div class="inbox-item-actions">
-        <button class="btn btn-outline btn-sm" onclick="handleSubReject('${s.id}')">Recusar</button>
-        <button class="btn btn-primary btn-sm" onclick="handleSubAccept('${s.id}')">Aceitar</button>
-      </div>
+      <div class="inbox-item-actions">${acoes}</div>
     </div>
   `;
 }
@@ -2247,10 +2295,19 @@ function renderInboxCovItem(c) {
 }
 
 async function handleSubAccept(subId) {
-  const note = prompt('Observação opcional para o titular (deixe vazio se nenhuma):') || '';
-  const res = await SubstitutionService.accept(subId, note);
+  const note = prompt('Quer deixar alguma observação? (opcional)') || '';
+  const res = await SubstitutionService.confirmar(subId, note);
   if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
-  toast('Substituição aceita.', 'success');
+  toast('Confirmado. Agora falta a gestão dar o OK.', 'success', 5000);
+  await loadInboxData();
+  await refreshNotifBell();
+}
+
+async function handleSubHomologar(subId) {
+  if (!confirm('Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.')) return;
+  const res = await SubstitutionService.homologar(subId, '');
+  if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
+  toast('Troca confirmada. A aula já está no nome certo.', 'success');
   await loadInboxData();
   await refreshNotifBell();
 }
@@ -2259,7 +2316,7 @@ async function handleSubReject(subId) {
   const note = prompt('Motivo da recusa (opcional):') || '';
   const res = await SubstitutionService.reject(subId, note);
   if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
-  toast('Substituição recusada.', 'info');
+  toast('Recusado.', 'info');
   await loadInboxData();
   await refreshNotifBell();
 }

@@ -265,4 +265,18 @@ assert.ok(/'supervisao'/.test(listaAdmins[0]),
   'supervisão homologa troca e aprova férias — tem que estar na lista de quem é avisado');
 console.log('✓ supervisão está na lista de quem a gestão avisa');
 
+/* ── 8. A tela oferece o caminho e explica quando não oferece ────── */
+const agenda = fs.readFileSync(path.join(raiz, 'professores-agenda.js'), 'utf8');
+assert.ok(/Fui eu que dei essa aula/.test(agenda),
+  'quem cobriu precisa de um botão pra registrar');
+assert.ok(/Trocar professor/.test(agenda),
+  'a gestão precisa trocar direto — era o buraco do print da Camila');
+assert.ok(/SubstitutionFlow\.motivoSemBotao/.test(agenda),
+  'sem botão, a tela tem que dizer por quê, não só "fale com a gestão"');
+assert.ok(!/cls\.status === 'substituida'\) return false/.test(agenda),
+  'aula já trocada tem que aceitar nova troca');
+assert.ok(/listAguardandoGestao/.test(agenda),
+  'a caixa da gestão mostra a fila de homologação');
+console.log('✓ modal da aula');
+
 console.log('\n✅ smoke-troca-professor: módulo puro OK');
