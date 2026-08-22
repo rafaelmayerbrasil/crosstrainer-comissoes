@@ -34,10 +34,10 @@ const indicesSubstitutions = indexes.indexes.filter(i => i.collectionGroup === '
  * Firestore cria sozinho — não precisa (e não pode) entrar aqui.
  */
 const consultas = [
-  { nome: 'listAllPending / listAguardandoGestao', campos: ['status', 'requestedAt'] },
-  { nome: 'listPendingForUser (lado substituto)',  campos: ['substituteTeacherId', 'status'] },
-  { nome: 'listPendingForUser (lado titular)',     campos: ['requestingTeacherId', 'status'] },
-  { nome: 'listPendingForSubstitute',              campos: ['substituteUserId', 'status', 'requestedAt'] },
+  { nome: 'listAllPending / listAguardandoGestao',    campos: ['status', 'requestedAt'] },
+  { nome: 'listPendingForTeacher (lado substituto)',  campos: ['substituteTeacherId', 'status'] },
+  { nome: 'listPendingForTeacher (lado titular)',     campos: ['requestingTeacherId', 'status'] },
+  { nome: 'listPendingForSubstitute',                 campos: ['substituteUserId', 'status', 'requestedAt'] },
 ];
 
 function temIndice(campos) {
@@ -53,5 +53,21 @@ consultas.forEach(({ nome, campos }) => {
     `falta índice composto em "substitutions" para [${campos.join(', ')}] — precisa pra ${nome}`);
 });
 console.log('✓ toda consulta conhecida de SubstitutionService tem índice composto');
+
+// Tripwire: `consultas` acima é mantida à mão, e nada obriga quem adiciona uma
+// query nova sobre `substitutions` a lembrar de também adicioná-la aqui — o
+// próprio bug que este arquivo existe pra pegar. Contar as ocorrências de
+// `.collection('substitutions')` em professores-shared.js e travar o número
+// não prova que toda query nova tem índice, mas garante que ninguém mexe
+// nesse conjunto de queries sem esbarrar neste teste e ser obrigado a olhar
+// pra `consultas` — falha alto e cedo em vez de silenciosamente.
+const shared = fs.readFileSync(path.join(raiz, 'professores-shared.js'), 'utf8');
+const OCORRENCIAS_CONHECIDAS = 12;
+const ocorrencias = (shared.match(/\.collection\('substitutions'\)/g) || []).length;
+assert.strictEqual(ocorrencias, OCORRENCIAS_CONHECIDAS,
+  `professores-shared.js tem ${ocorrencias} usos de .collection('substitutions'), esperava ${OCORRENCIAS_CONHECIDAS}. `
+  + `Se você adicionou (ou removeu) uma consulta, atualize OCORRENCIAS_CONHECIDAS aqui E, se for uma `
+  + `query nova com where()/orderBy(), adicione-a à lista \`consultas\` acima e confira o índice em firestore.indexes.json.`);
+console.log('✓ nenhuma consulta nova sobre substitutions passou batido da lista `consultas`');
 
 console.log('\n✅ smoke-indices-substituicoes: firestore.indexes.json cobre as consultas de substituição');

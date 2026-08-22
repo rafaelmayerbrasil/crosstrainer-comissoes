@@ -1830,8 +1830,34 @@ const NotificationService = {
 // ─── SubstitutionService ────────────────────────────────────────────────
 
 /**
- * Ordena substituições: pendentes primeiro (são as que precisam de ação), o
- * resto por data da aula, mais recente antes.
+ * userId de um professor. Lê /teachers, e não /users, de propósito: a regra de
+ * /users só deixa cada um ler o próprio doc, então varrer /users como professor
+ * dá permissão negada — e o catch transforma isso num "sem login vinculado"
+ * mentiroso. Foi exatamente assim que os pedidos de férias sumiram em agosto.
+ * [[bug-ferias-permissao-agenda-geral]]
+ */
+async function userIdDoProfessor(teacherId) {
+  if (!teacherId) return null;
+  try {
+    const d = await db.collection('teachers').doc(teacherId).get();
+    return d.exists ? (d.data().userId || null) : null;
+  } catch (e) {
+    console.error('[userIdDoProfessor]', e);
+    return null;
+  }
+}
+
+/** userId de um dos dois lados do pedido, usando o que o próprio doc já sabe. */
+function userIdNoPedido(sub, teacherId) {
+  if (!teacherId) return null;
+  if (teacherId === sub.requestingTeacherId) return sub.requestingUserId || null;
+  if (teacherId === sub.substituteTeacherId) return sub.substituteUserId || null;
+  return null;
+}
+
+/**
+ * Ordena substituições: as que ainda precisam de ação (pending/aguardando_gestao)
+ * primeiro, o resto por data da aula, mais recente antes.
  */
 function sortSubstitutions(subs) {
   const ms = (v) => {
@@ -1839,8 +1865,8 @@ function sortSubstitutions(subs) {
     return v.toDate ? v.toDate().getTime() : new Date(v).getTime();
   };
   return (subs || []).slice().sort((a, b) => {
-    const pa = a.status === 'pending' ? 0 : 1;
-    const pb = b.status === 'pending' ? 0 : 1;
+    const pa = SubstitutionFlow.STATUS_ABERTO.indexOf(a.status) !== -1 ? 0 : 1;
+    const pb = SubstitutionFlow.STATUS_ABERTO.indexOf(b.status) !== -1 ? 0 : 1;
     if (pa !== pb) return pa - pb;
     return (ms(b.classDate) || ms(b.requestedAt)) - (ms(a.classDate) || ms(a.requestedAt));
   });
@@ -1890,11 +1916,16 @@ const SubstitutionService = {
         classModalityId: cls.modalityId || null,
         // requesting é SEMPRE o dono da aula e substitute SEMPRE quem cobre,
         // não importa quem registrou: a CF, o histórico e o originalTeacherId
-        // dependem disso.
+        // dependem disso. Os userIds também são sempre os donos reais das
+        // aulas, não de quem clicou (`createdBy` já guarda isso): gravar
+        // `requestingUserId: uid` fazia o titular levar PERMISSION_DENIED
+        // tentando confirmar um pedido registrado contra a própria aula, já
+        // que firestore.rules só libera update pra requestingUserId/
+        // substituteUserId.
         requestingTeacherId: cls.teacherId,
-        requestingUserId: uid,
+        requestingUserId: await userIdDoProfessor(cls.teacherId),
         substituteTeacherId,
-        substituteUserId: substituteUserId || null,
+        substituteUserId: substituteUserId || await userIdDoProfessor(substituteTeacherId),
         registradoPor,
         reason: (reason || '').toString().slice(0, 500),
         status: SubstitutionFlow.STATUS.PENDING,
@@ -1913,15 +1944,8 @@ const SubstitutionService = {
       };
       await ref.set(data);
 
-      // Avisa o lado que precisa confirmar — que é o oposto de quem registrou.
-      const confirmaTeacherId = SubstitutionFlow.quemConfirma(data);
-      let confirmaUserId = confirmaTeacherId === substituteTeacherId ? (substituteUserId || null) : null;
-      if (!confirmaUserId && confirmaTeacherId) {
-        try {
-          const us = await db.collection('users').where('professorId', '==', confirmaTeacherId).limit(1).get();
-          if (!us.empty) confirmaUserId = us.docs[0].id;
-        } catch (e) { /* sem login vinculado: a gestão resolve pela tela */ }
-      }
+      // Avisa o lado que precisa confirmar — o oposto de quem registrou.
+      const confirmaUserId = userIdNoPedido(data, SubstitutionFlow.quemConfirma(data));
       if (confirmaUserId) {
         await NotificationService.create({
           recipientUserId: confirmaUserId,
@@ -1953,7 +1977,7 @@ const SubstitutionService = {
     return this._mover(subId, 'confirmar', note);
   },
 
-  /** Compatibilidade com chamadas antigas da tela. */
+  /** @deprecated Use confirmar — nome antigo mantido só por compatibilidade com chamadas velhas da tela. */
   async accept(subId, note = '') {
     return this.confirmar(subId, note);
   },
@@ -1975,39 +1999,66 @@ const SubstitutionService = {
     if (!subId) return { success: false, error: 'subId obrigatório' };
     try {
       const ref = db.collection('substitutions').doc(subId);
-      const beforeDoc = await ref.get();
-      if (!beforeDoc.exists) return { success: false, error: 'Pedido não encontrado' };
-      const before = beforeDoc.data();
-
       const ator = { teacherId: getCurrentProfessorId(), isGestao: isAdminGestao() || isSupervisao() };
-      const t = SubstitutionFlow.transicao(before, acao, ator);
-      if (!t.ok) return { success: false, error: t.erro };
-
-      // A aula pode ter entrado em mês fechado depois do pedido.
-      const clsDoc = await db.collection('classes').doc(before.classId).get();
-      if (clsDoc.exists && clsDoc.data().monthClosingId) {
-        return { success: false, error: 'O mês desta aula já foi fechado.' };
-      }
-
       const uid = currentUserId();
-      const newStatus = t.status;
-      const after = {
-        status: newStatus,
-        respondedAt: serverTs(),
-        responseNote: (note || '').toString().slice(0, 500) || null,
-        isOfficial: newStatus === SubstitutionFlow.STATUS.ACCEPTED,
-        updatedAt: serverTs(),
-        updatedBy: uid,
-      };
-      if (acao === 'homologar') {
-        after.homologadoPor = uid;
-        after.homologadoEm = serverTs();
-        after.semConfirmacaoDoProfessor = !!t.semConfirmacaoDoProfessor;
-        // Supervisor que também dá aula pode homologar troca da qual ele é parte.
-        // Não bloqueia, mas fica distinguível de "o professor não respondeu".
-        after.atorEhParte = !!t.atorEhParte;
-      }
-      await ref.update(after);
+
+      // Ler o pedido, ler a aula (o mês pode ter fechado depois do pedido),
+      // decidir o próximo estado e escrever — tudo dentro da mesma transação.
+      // Fora dela, duas corridas quebravam o sistema: um `confirmar` que
+      // chegasse logo depois de um `homologar` lia o status velho e mandava o
+      // pedido de volta pra 'aguardando_gestao' DEPOIS da CF já ter movido a
+      // aula (o guard dela é before.status===after.status, não desfaz nada);
+      // e um `cancelar` na mesma corrida deixava a aula com o substituto
+      // enquanto o pedido lia 'cancelled' — invisível pra
+      // listAbertasNoPeriodo, e a folha pagava o professor errado sem nada
+      // avisando.
+      const resultado = await db.runTransaction(async (txn) => {
+        const beforeDoc = await txn.get(ref);
+        if (!beforeDoc.exists) throw new Error('Pedido não encontrado');
+        const before = beforeDoc.data();
+
+        const t = SubstitutionFlow.transicao(before, acao, ator);
+        if (!t.ok) throw new Error(t.erro);
+
+        const clsRef = db.collection('classes').doc(before.classId);
+        const clsDoc = await txn.get(clsRef);
+        if (clsDoc.exists && clsDoc.data().monthClosingId) {
+          throw new Error('O mês desta aula já foi fechado.');
+        }
+
+        const newStatus = t.status;
+        // A gestão homologa sempre pro ACCEPTED — nenhuma outra ação chega
+        // nesse status, então ele é um proxy seguro pra "isto é homologação"
+        // sem re-decidir a partir da string `acao`.
+        const ehHomologacao = newStatus === SubstitutionFlow.STATUS.ACCEPTED;
+        const after = {
+          status: newStatus,
+          isOfficial: ehHomologacao,
+          updatedAt: serverTs(),
+          updatedBy: uid,
+        };
+        // responseNote só entra quando alguém realmente escreveu algo — senão
+        // a gestão homologando sem nota apaga o que o professor tinha escrito
+        // ao confirmar. respondedAt só entra fora da homologação — esse passo
+        // já tem homologadoEm pra marcar quando aconteceu.
+        const notaLimpa = (note || '').toString().slice(0, 500);
+        if (notaLimpa) after.responseNote = notaLimpa;
+        if (!ehHomologacao) after.respondedAt = serverTs();
+        if (ehHomologacao) {
+          after.homologadoPor = uid;
+          after.homologadoEm = serverTs();
+          after.semConfirmacaoDoProfessor = !!t.semConfirmacaoDoProfessor;
+          // Supervisor que também dá aula pode homologar troca da qual ele é
+          // parte. Não bloqueia, mas fica distinguível de "o professor não
+          // respondeu".
+          after.atorEhParte = !!t.atorEhParte;
+        }
+        txn.update(ref, after);
+
+        return { before, after, newStatus, t, clsData: clsDoc.exists ? clsDoc.data() : null };
+      });
+
+      const { before, after, newStatus, t, clsData } = resultado;
 
       await AuditService.log({
         type: `substitution_${newStatus}`,
@@ -2019,29 +2070,21 @@ const SubstitutionService = {
         module: 'agenda',
       });
 
-      if (newStatus === SubstitutionFlow.STATUS.REJECTED) {
-        const avisar = SubstitutionFlow.quemRegistrou(before) === before.substituteTeacherId
-          ? before.substituteUserId : before.requestingUserId;
-        if (avisar) {
+      if (newStatus === SubstitutionFlow.STATUS.REJECTED
+       || newStatus === SubstitutionFlow.STATUS.CANCELLED) {
+        // Avisa os dois lados menos quem acabou de agir. Adivinhar "o outro" a
+        // partir de quem registrou errava justamente quando quem registrou foi
+        // a gestão, que não é nenhum dos dois.
+        const recusada = newStatus === SubstitutionFlow.STATUS.REJECTED;
+        const alvos = [before.requestingUserId, before.substituteUserId]
+          .filter(u => u && u !== uid);
+        for (const destino of new Set(alvos)) {
           await NotificationService.create({
-            recipientUserId: avisar,
-            type: 'substitution_rejected',
-            body: 'Sua troca de professor foi recusada.' + (note ? ' Motivo: ' + note : ''),
-            link: { type: 'substitution', id: subId },
-          });
-        }
-      }
-
-      if (newStatus === SubstitutionFlow.STATUS.CANCELLED) {
-        // Avisa quem esperava confirmar: o pedido saiu da caixa dele.
-        const alvo = SubstitutionFlow.quemConfirma(before);
-        const avisar = alvo === before.substituteTeacherId
-          ? before.substituteUserId : before.requestingUserId;
-        if (avisar) {
-          await NotificationService.create({
-            recipientUserId: avisar,
-            type: 'substitution_cancelled',
-            body: 'Uma troca de professor que esperava sua confirmação foi cancelada.',
+            recipientUserId: destino,
+            type: recusada ? 'substitution_rejected' : 'substitution_cancelled',
+            body: recusada
+              ? 'Uma troca de professor foi recusada.' + (note ? ' Motivo: ' + note : '')
+              : 'Uma troca de professor foi cancelada por quem registrou.',
             link: { type: 'substitution', id: subId },
           });
         }
@@ -2052,7 +2095,7 @@ const SubstitutionService = {
       if (newStatus === SubstitutionFlow.STATUS.ACCEPTED && before.substituteTeacherId && typeof EngagementService === 'object') {
         try {
           let dateISO = new Date().toISOString().slice(0, 10);
-          const sd = clsDoc.exists ? clsDoc.data().scheduledDate : null;
+          const sd = clsData ? clsData.scheduledDate : null;
           if (sd) { const d = sd.toDate ? sd.toDate() : new Date(sd); dateISO = d.toISOString().slice(0, 10); }
           await EngagementService.awardSubstitution(subId, before.substituteTeacherId, dateISO);
         } catch (e) { console.error('[proatividade/substituicao]', e); }
@@ -2075,7 +2118,7 @@ const SubstitutionService = {
     try {
       const snap = await db.collection('substitutions')
         .where('substituteUserId', '==', userId)
-        .where('status', '==', 'pending')
+        .where('status', '==', SubstitutionFlow.STATUS.PENDING)
         .orderBy('requestedAt', 'desc')
         .get();
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
@@ -2130,7 +2173,7 @@ const SubstitutionService = {
   async listAllPending() {
     try {
       const snap = await db.collection('substitutions')
-        .where('status', '==', 'pending')
+        .where('status', '==', SubstitutionFlow.STATUS.PENDING)
         .orderBy('requestedAt', 'desc')
         .get();
       return { success: true, data: snap.docs.map(d => ({ id: d.id, ...d.data() })) };
@@ -2160,8 +2203,8 @@ const SubstitutionService = {
    * cobriu) — e o Firestore não faz OU. Busca por teacherId, não userId: quem
    * não tem login vinculado sumia da lista. [[fix-substituicao-orfa]]
    */
-  async listPendingForUser(teacherId) {
-    if (!teacherId) return { success: true, data: [] };
+  async listPendingForTeacher(teacherId) {
+    if (!teacherId) return { success: false, error: 'teacherId obrigatório' };
     try {
       const [comoSub, comoTitular] = await Promise.all([
         db.collection('substitutions').where('substituteTeacherId', '==', teacherId)
@@ -2173,7 +2216,7 @@ const SubstitutionService = {
       const meus = todos.filter(s => SubstitutionFlow.quemConfirma(s) === teacherId);
       return { success: true, data: sortSubstitutions(meus) };
     } catch (err) {
-      console.error('[SubstitutionService.listPendingForUser]', err);
+      console.error('[SubstitutionService.listPendingForTeacher]', err);
       return { success: false, error: err.message, code: err.code };
     }
   },
