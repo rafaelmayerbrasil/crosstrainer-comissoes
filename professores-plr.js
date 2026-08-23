@@ -193,6 +193,20 @@ async function salvarAvaliacaoPlr() {
   else plrToast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
+/**
+ * Rateio de PLR é ato de dono. Calcular e fechar ciclo leem `monthly_closings`
+ * pra somar as horas do período, e desde 22/08/2026 essa coleção é só do Admin
+ * (é dado salarial — regra inviolável nº 6). Sem esta trava, o botão aparecia
+ * pra supervisão e falhava com permissão negada, que é a pior das duas telas:
+ * a que promete e não cumpre.
+ */
+function plrEhAdmin() {
+  // canSeeSalary() existe pra exatamente esta pergunta ("salário é só admin").
+  // Usar ela, e não isAdminGestao(), deixa o motivo do bloqueio explícito no
+  // código: o que trava aqui é acesso a dado salarial, não hierarquia de menu.
+  return typeof canSeeSalary === 'function' && canSeeSalary();
+}
+
 /* ═══════════════ 3) RESULTADO ═══════════════ */
 async function renderPlrResultadoPage() {
   const c = document.getElementById('page-plr-resultado');
@@ -209,9 +223,9 @@ async function renderPlrResultadoPage() {
   c.innerHTML = `<div class="page-hdr"><h1>🏅 PLR — Resultado</h1><p>Pool, nota e rateio por colaborador.</p></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
       <div class="form-group" style="margin:0;"><label>Ciclo</label><select id="plrResCiclo" class="input" onchange="plrSelCiclo(this.value)">${cycleOpts || '<option>—</option>'}</select></div>
-      <button class="btn-secondary" onclick="plrNovoCiclo()">+ Novo ciclo</button>
-      ${cycle ? `<button class="btn-primary" onclick="calcularPlr()">🧮 Calcular rateio</button>` : ''}
-      ${cycle && cycle.status !== 'fechado' ? `<button class="btn-secondary" onclick="fecharCicloPlr()">🔒 Fechar ciclo</button>` : ''}
+      ${plrEhAdmin() ? `<button class="btn-secondary" onclick="plrNovoCiclo()">+ Novo ciclo</button>` : ''}
+      ${plrEhAdmin() && cycle ? `<button class="btn-primary" onclick="calcularPlr()">🧮 Calcular rateio</button>` : ''}
+      ${plrEhAdmin() && cycle && cycle.status !== 'fechado' ? `<button class="btn-secondary" onclick="fecharCicloPlr()">🔒 Fechar ciclo</button>` : ''}
     </div>
     <div id="plrNovoCicloBox" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;max-width:560px;">
       <h3 style="margin:0 0 10px;font-size:15px;">Novo ciclo</h3>

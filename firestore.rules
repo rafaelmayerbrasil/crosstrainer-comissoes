@@ -207,7 +207,18 @@ service cloud.firestore {
     }
 
     match /monthly_closings/{id} {
-      allow read:   if isAuth() && hasProfModule();
+      // ⛔ SÓ ADMIN LÊ. O documento traz, por colega, hourlyRate/valorHoras/
+      // valorTotal e o banco de horas — é dado salarial, e a regra inviolável
+      // nº 6 do projeto diz que isso é só do Admin. Era `hasProfModule()`, que
+      // inclui `professor`: qualquer professor logado descobria o pagamento de
+      // todos os colegas pela própria conexão do app, sem precisar de tela
+      // (achado em 11/08/2026, fechado em 22/08).
+      //
+      // O Firestore não filtra campos dentro de um doc — ou lê tudo, ou nada.
+      // Por isso não dá pra "esconder só o salário": o professor passa a ver o
+      // mês dele pelo RECIBO, que já é por professor. Supervisão fica de fora
+      // de propósito: ela não tem nenhuma tela que leia fechamento.
+      allow read:   if isAuth() && isAdmin();
       allow create: if isAuth() && isStrictAdmin();
       // ⛔ Não pode alterar mês fechado
       allow update: if isAuth() && isAdmin() && resource.data.status != 'fechado';
