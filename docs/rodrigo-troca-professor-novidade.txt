@@ -1,0 +1,77 @@
+TROCA DE PROFESSOR DA AULA — textos prontos para mandar no grupo
+Escrito em 22/08/2026. No ar em produção desde 22/08 (commits c79e03c..f7691d5).
+Formatação em asterisco simples = negrito do WhatsApp.
+
+===============================================================================
+MENSAGEM 1 — para o grupo da gestão (Rodrigo, Rafael Rojais, Benny)
+===============================================================================
+
+Subiu no sistema hoje a *troca de professor da aula*, do jeito que combinamos aqui.
+
+*Como funciona agora*
+
+Quem deu a aula registra → o dono da aula confirma → a gestão confirma. Só depois dos três passos a aula muda de nome e o pagamento acompanha. Vale até a folha do mês fechar.
+
+Resolvendo o caso da Camila: quando um professor dá a aula de um colega, ele abre a aula na Agenda Geral e toca em *"✋ Fui eu que dei essa aula"*. Antes esse botão não existia — só o titular da aula podia pedir troca, e a gestão não tinha botão nenhum. Funciona com aula que já passou.
+
+*Pra gestão*
+
+- Vocês recebem aviso quando uma troca chega no passo de vocês, e ela aparece na caixa de entrada e na tela Substituições, com o botão "Confirmar troca".
+- Dá pra trocar direto, sem esperar ninguém: abrindo a aula tem *"⇄ Trocar professor"*.
+- Se o professor não responder (férias, folga, sumiu), a gestão confirma sozinha e fica registrado que foi assim — a folha não trava por causa disso.
+- *Na hora de fechar o mês*, se tiver troca esperando a gestão, o sistema não deixa fechar e mostra quais são. Depois de fechado não tem conserto, então essa trava é de propósito.
+
+*Duas correções que foram junto*
+
+1. A tela onde a gestão vê os pedidos pendentes *nunca funcionou* — dava erro por dentro e mostrava "nenhum pedido pendente", que parecia boa notícia. Por isso agosto tem só uma troca registrada em mais de 1.600 aulas. Corrigido.
+2. Quem tem perfil só de *supervisão* não estava recebendo aviso de nada — nem de troca, nem de pedido de férias. Corrigido também.
+
+*Os manuais foram atualizados* (professor e gestão), e o botão "?" dentro das telas agora abre direto na parte certa.
+
+===============================================================================
+MENSAGEM 2 — para repassar aos professores
+===============================================================================
+
+Novidade no app: agora dá pra corrigir *quem deu a aula*.
+
+Deu a aula de um colega? Abra a aula na Agenda Geral e toque em *"✋ Fui eu que dei essa aula"*. Vale também pra aula que já passou.
+
+O colega dono da aula recebe o aviso e confirma, depois a gestão confirma — e aí a aula passa pro seu nome, com as horas indo junto pro seu pagamento.
+
+Se um colega disser que deu uma aula sua, você recebe o aviso no sininho com dois botões: *Confirmar* ou *Não foi ele(a)*.
+
+⚠️ Importante: só dá pra corrigir *até a folha do mês fechar*. Depois disso ninguém mais altera. Então registre no mesmo dia, ou pelo menos antes do fim do mês.
+
+===============================================================================
+TESTES BÁSICOS EM PRODUÇÃO — pendentes, uns 5 minutos
+===============================================================================
+
+1. CAIXA DE ENTRADA DA GESTÃO (o bug antigo)
+   Entrar como dono → clicar no sininho. Com nada pendente, deve dizer isso
+   SEM erro. Se abrir normal, o conserto do índice pegou.
+
+2. TROCAR DIRETO
+   Agenda Geral → abrir uma aula já dada → "⇄ Trocar professor" → escolher
+   outra pessoa. A aula deve mostrar o nome novo e a linha "⇄ No lugar de
+   [nome antigo]". DESFAZER pelo mesmo botão depois.
+
+3. O CAMINHO DO PROFESSOR — pedir para a CAMILA
+   (quem reportou o problema confirma a correção; precisa de conta de professor)
+   Ela abre, na Agenda Geral, uma aula de um colega que ela deu → deve aparecer
+   "✋ Fui eu que dei essa aula". Se ela registrar, a gestão recebe o aviso e
+   fecha o ciclo confirmando.
+
+NÃO TESTAR AGORA: a trava do fechamento. Funciona (foi testada no staging), mas
+para vê-la seria preciso abrir a tela de fechar o mês, e um clique errado ali é
+irreversível. Ela se mostra sozinha no dia 3: se houver troca esperando a
+gestão, o botão fica bloqueado dizendo "Resolva as trocas primeiro".
+
+===============================================================================
+O QUE NÃO FOI FEITO
+===============================================================================
+
+Ninguém além do Claude clicou nessa funcionalidade. O fluxo inteiro foi testado
+na tela real, mas com o navegador dirigido por código. Regras, motor e Cloud
+Function estão provados contra os sistemas reais (41/41 smokes, 13/13 REST,
+E2E rodando a CF de verdade). Se aparecer defeito, a aposta é em texto ou
+posição de botão, não em cálculo nem permissão.

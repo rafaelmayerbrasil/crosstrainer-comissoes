@@ -31,6 +31,12 @@ A regra limitava o *status* mas não *quais campos* o professor podia alterar: d
 ### 🗑️ Julho apagado (decisão do Rafael)
 As **74 aulas de 31/07** estavam presas em `prevista` (o robô só confirma a partir de 01/08 e o fechamento só conta `realizada`/`substituida`). Marcar como "cancelada" seria registrar mentira; marcar como "realizada" deixaria a armadilha de alguém fechar julho e pagar de novo o que já foi pago por fora. **Apagadas**, com backup em `backups/julho-2026-aulas-apagadas-production.json` (pasta permanente, não o worktree). Nada apontava pra elas.
 
+### ▶️ RETOMAR AQUI (pendências, nenhuma bloqueia)
+1. **Mandar os textos no grupo** — prontos em **`docs/rodrigo-troca-professor-novidade.txt`** (uma mensagem pra gestão, outra pra repassar aos professores). O Rafael vai mandar em 23/08.
+2. **3 testes básicos em produção**, no mesmo arquivo: sininho da gestão · trocar direto e desfazer · **a Camila** conferindo o "✋ Fui eu que dei essa aula" (quem reportou confirma a correção).
+3. **Chave de produção: revogada e apagada** em 22/08 — havia **2 cópias** no disco (worktree + pasta principal), as duas removidas. Pra olhar produção de novo, pedir chave nova ao Rafael.
+4. **`CLAUDE.md` e `CONTEXTO_SESSAO.md` foram publicados daqui** enquanto a sessão de Comissões tinha os dois modificados sem commit — pode dar conflito quando ela for juntar. Manter os dois blocos.
+
 ### ⚠️ O que NÃO foi feito
 - **Nenhuma homologação humana no navegador** — o E2E foi todo automatizado/dirigido por mim. Se aparecer defeito, é de tela.
 - A tabela **"O que ficou diferente do plano"** no fim de `docs/superpowers/plans/2026-08-21-troca-professor-aula.md` lista os 14 desvios, vários deles defeitos do próprio plano (o mais grave: `requestingUserId` gravava quem clicou, não o titular — o titular tomaria "permissão negada" ao confirmar).
