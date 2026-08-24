@@ -276,9 +276,14 @@ function renderPessoaTabIdentidade(p) {
       <div class="info-grid">
         <div><div class="info-field-label">Nome completo</div><div class="info-field-value">${escapeHtml(t.name)}</div></div>
         <div><div class="info-field-label">CPF</div><div class="info-field-value mono">${escapeHtml(t.cpf || '—')}</div></div>
-        <div><div class="info-field-label">E-mail</div><div class="info-field-value">${escapeHtml(t.email || '—')}</div></div>
+        <div><div class="info-field-label">${p.uid ? 'E-mail de acesso' : 'E-mail de contato'}</div><div class="info-field-value">${escapeHtml(p.email || '—')}</div></div>
         <div><div class="info-field-label">Telefone</div><div class="info-field-value">${escapeHtml(t.phone || '—')}</div></div>
       </div>
+      ${p.emailDivergente ? `
+      <div class="info-callout" style="margin-top:12px;">
+        <p><strong>⚠️ O e-mail de contato desta ficha é outro:</strong> ${escapeHtml(p.emailContato)}</p>
+        <p style="margin-top:4px;">A senha só pode ser redefinida pelo <strong>e-mail de acesso</strong> acima. Se a pessoa tentar pelo de contato, o sistema responde "enviamos" e não manda nada — o Firebase não avisa quando o endereço não é cadastrado.</p>
+      </div>` : ''}
       ${canEdit ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="pessoasEditTeacher('${t.id}')">Editar dados</button></div>` : ''}`;
   }
   const u = p.user || {};

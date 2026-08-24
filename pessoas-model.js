@@ -47,12 +47,28 @@
 
     const people = teachers.map(t => {
       const u = userByTeacher.get(t.id) || null;
+      // O e-mail que a tela mostra é o de ACESSO quando existe login, e só cai
+      // pro da ficha quando a pessoa ainda não tem acesso (cadastrada pela
+      // planilha, login vem depois).
+      //
+      // Era o contrário — `t.email` vinha primeiro — e isso travou a Eduarda
+      // fora do sistema em 22/08/2026: a ficha dela diz um endereço, o login é
+      // outro, e ela pedia "esqueci minha senha" pelo da ficha. O Firebase não
+      // avisa quando o e-mail não existe (de propósito, pra ninguém descobrir
+      // quem está cadastrado): responde "enviamos" e não manda nada. A gestão
+      // olhava o Hub, via o endereço errado e repassava. Eram 4 professores
+      // nessa situação.
+      const emailAcesso = (u && u.email) ? u.email : '';
+      const emailContato = t.email || '';
       return {
         key: 'T:' + t.id,
         teacherId: t.id,
         uid: u ? u.id : null,
         name: t.name || (u && u.name) || '',
-        email: t.email || (u && u.email) || '',
+        email: emailAcesso || emailContato,
+        emailContato,
+        emailDivergente: !!(emailAcesso && emailContato
+          && emailAcesso.trim().toLowerCase() !== emailContato.trim().toLowerCase()),
         profiles: u ? profilesOf(u) : implicitProfiles(t),
         hasAccess: temLoginReal(u),
         teacher: t,
@@ -67,6 +83,8 @@
         uid: u.id,
         name: u.name || '',
         email: u.email || '',
+        emailContato: '',        // pessoa sem ficha de professor: só existe o de acesso
+        emailDivergente: false,
         profiles: profilesOf(u),
         hasAccess: temLoginReal(u),
         teacher: null,
@@ -84,7 +102,10 @@
     return (people || []).filter(p => {
       if (q) {
         const inName = (p.name || '').toLowerCase().includes(q);
-        const inEmail = (p.email || '').toLowerCase().includes(q);
+        // Procura pelos DOIS endereços: quem está buscando pode ter em mãos o
+        // de contato (que é o que costuma circular) ou o de acesso.
+        const inEmail = (p.email || '').toLowerCase().includes(q)
+                     || (p.emailContato || '').toLowerCase().includes(q);
         if (!inName && !inEmail) return false;
       }
       if (prof !== 'all') {

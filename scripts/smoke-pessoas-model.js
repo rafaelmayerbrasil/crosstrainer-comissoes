@@ -49,4 +49,42 @@ assert.strictEqual(PM.filterPeople(people, {}).length, 4, 'sem filtro = todos');
 const broken = PM.buildPeople([{ id: 'u9', name: 'Zé Quebrado', profiles: ['professor'], professorId: 'tX' }], teachers);
 assert.ok(broken.find(p => p.key === 'U:u9'), 'vínculo quebrado vira user-only, não desaparece');
 
+// 8) E-MAIL: a tela tem que mostrar o que serve pra ENTRAR
+//
+// Caso real (22/08/2026): a Eduarda não conseguia redefinir a senha "de jeito
+// nenhum". O e-mail da ficha dela é eduarda.s.velez@gmail.com, mas o login é
+// mariaeduarddasantoss@gmail.com. O Hub mostrava o da ficha (`t.email` vinha
+// primeiro), o Benny passou esse endereço pra ela, e o Firebase — que de
+// propósito não avisa quando o e-mail não existe — respondia "enviamos" e não
+// mandava nada. Quatro professores estavam nessa situação.
+const comDivergencia = PM.buildPeople(
+  [{ id: 'uE', name: 'Eduarda', profiles: ['professor_estagiario'], professorId: 'tE', email: 'login@gmail.com' }],
+  [{ id: 'tE', name: 'Eduarda', email: 'contato@gmail.com', isActive: true }]
+);
+const eduarda = comDivergencia.find(p => p.teacherId === 'tE');
+assert.strictEqual(eduarda.email, 'login@gmail.com',
+  'com login, a pessoa é identificada pelo e-mail de ACESSO — é ele que redefine senha');
+assert.strictEqual(eduarda.emailContato, 'contato@gmail.com', 'o de contato continua disponível');
+assert.strictEqual(eduarda.emailDivergente, true, 'e a divergência fica marcada, pra tela poder avisar');
+
+// Sem login ainda (cadastrado pela planilha, acesso vem depois): vale o da ficha
+const semLogin = PM.buildPeople([], [{ id: 'tS', name: 'Só ficha', email: 'ficha@gmail.com', isActive: true }]);
+assert.strictEqual(semLogin[0].email, 'ficha@gmail.com',
+  'sem login, o e-mail da ficha é o único que existe — é por ele que a pessoa é convidada');
+assert.strictEqual(semLogin[0].emailDivergente, false, 'sem login não há o que divergir');
+
+// Iguais: nada a avisar
+const iguais = PM.buildPeople(
+  [{ id: 'uI', name: 'Igual', profiles: ['professor'], professorId: 'tI', email: 'mesmo@gmail.com' }],
+  [{ id: 'tI', name: 'Igual', email: 'MESMO@gmail.com', isActive: true }]
+);
+assert.strictEqual(iguais[0].emailDivergente, false, 'diferença só de maiúscula não é divergência');
+
+// A busca tem que achar pelos DOIS endereços — quem procura pode ter qualquer um
+assert.strictEqual(PM.filterPeople(comDivergencia, { search: 'contato@gmail.com' }).length, 1,
+  'busca acha pelo e-mail de contato');
+assert.strictEqual(PM.filterPeople(comDivergencia, { search: 'login@gmail.com' }).length, 1,
+  'e pelo de acesso');
+console.log('✓ e-mail: a tela mostra o que serve pra entrar');
+
 console.log('✓ smoke-pessoas-model: todos os casos passaram');
