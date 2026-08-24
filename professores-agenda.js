@@ -814,9 +814,28 @@ async function saveSlot() {
     SlotFormState.lastWeekday = SlotFormState.weekdays.slice().sort((a, b) => a - b)[0];
   }
 
+  // Captura ANTES de fechar o modal — closeSlotModal() zera o editingId.
+  const ehNovo = !SlotFormState.editingId;
+
   toast(toastMsg, 'success');
   closeSlotModal();
   await loadAgendaForUnit(AgendaState.unitId);
+
+  // Grade não é agenda: a vaga entra na grade na hora, mas as AULAS dela só
+  // nascem quando o gerador roda (segunda de madrugada, ou no botão "Gerar
+  // agenda agora"). Quem acabou de cadastrar vai olhar a Agenda Geral, não ver
+  // nada e concluir que não salvou — foi o que aconteceu com o Rodrigo em
+  // 24/08/2026: ele criou as terças e quintas da Thaynara às 17:52 e a última
+  // geração tinha sido às 11:46. O botão estava ao lado, e ele não sabia.
+  if (ehNovo && typeof gerarAgendaAgora === 'function') {
+    const querAgora = confirm(
+      'Vaga criada na grade.\n\n' +
+      'As aulas dela ainda NÃO existem na Agenda — elas são criadas pelo gerador, ' +
+      'que roda sozinho nas segundas de madrugada.\n\n' +
+      'Quer gerar agora, pra já aparecer na Agenda Geral?'
+    );
+    if (querAgora) await gerarAgendaAgora();
+  }
 }
 
 // ────────────────────────────────────────────────────────────────────────
