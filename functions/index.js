@@ -195,6 +195,28 @@ async function getFeriadosForYear(year) {
   }
 }
 
+// ─── Escalas especiais: leitura única (22/08/2026) ─────────────────────
+//
+// A consulta era `.where('isActive','==',true)` e exigia `s.unitIds` — o
+// formato das "Escalas Especiais" da Sprint 5a. A Escala Inteligente, feita
+// depois, grava OUTRO formato: `status: 'consolidada'` e a unidade dentro de
+// cada vaga (`slots[].unitId`). Nenhum documento novo tem `isActive` nem
+// `unitIds`, então a consulta voltava ZERO: pro gerador, escala nenhuma nunca
+// existiu. Resultado em produção — 184 aulas da grade em cima de dias que são
+// da escala, incluindo 78 aulas de segunda-feira normal em cada feriado
+// nacional (259h que entrariam no fechamento).
+//
+// Lê os dois formatos porque a coleção tem histórico dos dois.
+
+const escalaDia = require('./escala-dia.js');
+const escalaEhDonaDoDia = escalaDia.ehDonaDoDia;
+
+/** Mapa 'YYYY-MM-DD_unitId' → escala normalizada. Regras em escala-dia.js. */
+async function carregarEscalasPorDiaUnidade(firestore) {
+  const snap = await firestore.collection('special_scales').get();
+  return escalaDia.montarMapa(snap.docs.map(d => ({ id: d.id, data: d.data() })));
+}
+
 /**
  * Núcleo da geração — reutilizado pela scheduled e pela callable.
  * Toda a iteração de datas e cálculo de weekday é feita em horário BR.
@@ -233,19 +255,8 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
     list.forEach(f => feriadosByDate.set(f.date, f));
   }
 
-  // 1c) Busca special_scales ativas da janela
-  const scalesSnap = await firestore.collection('special_scales')
-    .where('isActive', '==', true).get();
-  const scalesByDate = new Map();  // 'YYYY-MM-DD_unitId' → escala
-  scalesSnap.docs.forEach(d => {
-    const s = d.data();
-    if (!s.date || !s.unitIds || !Array.isArray(s.unitIds)) return;
-    const dObj = s.date.toDate ? s.date.toDate() : new Date(s.date);
-    const ymd = ymdISOFromDateBR(dObj);
-    s.unitIds.forEach(uid => {
-      scalesByDate.set(`${ymd}_${uid}`, { id: d.id, ...s });
-    });
-  });
+  // 1c) Busca special_scales que valem (lê os dois formatos — ver o helper)
+  const scalesByDate = await carregarEscalasPorDiaUnidade(firestore);
 
   // 1d) Busca férias/recessos aprovados (Sprint 6a)
   const vacSnap = await firestore.collection('vacation_requests')
@@ -272,6 +283,7 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
 
   let vacationSkippedCount = 0;
   let pastTodaySkippedCount = 0;
+  let escalaSkippedCount = 0;   // dia que pertence a uma escala (sábado/feriado)
 
   // Referência de "agora" em BR, pra não criar aula de hoje que já terminou.
   const agoraBR = new Date();
@@ -310,6 +322,16 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
         const classId = `${slot.id}_${ymdFromDateBR(cursor)}`;
         const feriado = feriadosByDate.get(ymdStr);
         const scale = scalesByDate.get(`${ymdStr}_${slot.unitId}`);
+
+        // Sábado, feriado e domingo especial pertencem à ESCALA: quem trabalha
+        // é quem ela escalou, e a grade normal não vale nesse dia. Antes a
+        // escala só servia de etiqueta e a grade era gerada do mesmo jeito —
+        // por isso 07/09 (feriado) tinha 78 aulas de segunda-feira comum
+        // agendadas, e cada sábado tinha 2 professores por modalidade.
+        if (escalaEhDonaDoDia(scale)) {
+          escalaSkippedCount++;
+          continue;
+        }
 
         const extras = {
           isHoliday: !!feriado || (scale && scale.scaleTypeId === 'feriado'),
@@ -361,6 +383,7 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
       wouldCreate: toCreate.length,
       vacationSkipped: vacationSkippedCount,
       pastTodaySkipped: pastTodaySkippedCount,
+    escalaSkipped: escalaSkippedCount,
       dryRun: true,
       sample,
       slotsScanned: slots.length,
@@ -423,6 +446,7 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
     skipped: existingIds.size,
     vacationSkipped: vacationSkippedCount,
     pastTodaySkipped: pastTodaySkippedCount,
+    escalaSkipped: escalaSkippedCount,
     dryRun: false,
     sample,
     slotsScanned: slots.length,
@@ -1620,19 +1644,8 @@ exports.regenerateClassesWithHolidays = onCall({
       list.forEach(f => feriadosByDate.set(f.date, f));
     }
 
-    // 2) Busca special_scales ativas
-    const scalesSnap = await firestore.collection('special_scales')
-      .where('isActive', '==', true).get();
-    const scalesByDate = new Map();
-    scalesSnap.docs.forEach(d => {
-      const s = d.data();
-      if (!s.date || !s.unitIds || !Array.isArray(s.unitIds)) return;
-      const dObj = s.date.toDate ? s.date.toDate() : new Date(s.date);
-      const ymd = ymdISOFromDateBR(dObj);
-      s.unitIds.forEach(uid => {
-        scalesByDate.set(`${ymd}_${uid}`, { id: d.id, ...s });
-      });
-    });
+    // 2) Busca special_scales que valem (mesmo leitor da geração)
+    const scalesByDate = await carregarEscalasPorDiaUnidade(firestore);
 
     // 3) Query classes no escopo
     let q = firestore.collection('classes');
