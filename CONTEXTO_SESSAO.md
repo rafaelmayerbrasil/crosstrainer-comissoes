@@ -54,6 +54,28 @@ Armadilha: publicar a escala do dia 29 **não** apagaria as 4 — `publishToAgen
 - **Staging homologado por mim no navegador**, com a conta `dono.teste@`: home sem o chip errado, painel de equilíbrio abrindo com nomes e lápis, **inversão TOI↔Hiit clicada de verdade** contra o Firestore real (Lucas ↔ Nome de teste, `reason:'manual'`, revertida depois), campo "não recebe por aula" na ficha, os 6 arquivos servidos em `?v=20260825`, **0 erro de console**.
 - `smoke-scale-service.js` precisou de ajuste: ele trava a forma exata do candidato com `deepStrictEqual` e o campo novo `trabalhouSabadoVizinho` quebrou — mesma coisa que aconteceu com a cota em 24/08.
 
+### 🧪🧪 HOMOLOGAÇÃO COMPLETA NO STAGING — e ela achou um bug meu (`80e878f`)
+
+O Rafael perguntou se dava pra subir e os dois testarem em produção; ofereceu como alternativa eu testar em homologação. **Fiz a rodada completa — e valeu a pena.**
+
+**🐛 O bug:** `consolidarEscala` lia `published` de `EscalaSmartState`, que envelhece. Com o estado velho **o aviso não aparecia e a agenda NÃO era republicada** — ou seja, o conserto do commit `91b6142` não consertava nada na condição real de uso. `escalaGarantirFeriadoNaData` tinha o mesmo defeito, e pior: com estado velho nem encontraria a escala, deixando o sábado-feriado pagar simples. **Agora os dois leem do banco.** Reprovado e reprovado no staging com o estado zerado de propósito.
+
+**O que foi provado, rodando o app de verdade contra o Firestore do staging:**
+
+| Ajuste | Prova |
+|---|---|
+| 1 · Home | Criei 1 troca `pending` + 1 `aguardando_gestao` pelo Admin SDK. A home mostrou **"1 troca a homologar"** em "Precisam de você" e **"🔄 2 trocas aguardando o colega confirmar"** como linha informativa. Cliquei o chip: a caixa abriu com o pedido e os botões. É o caminho exato do relato do Rodrigo. |
+| 2 · Inverter | Cliquei o ⇄ numa escala real: Lucas ↔ Nome de teste trocaram, `reason` virou `manual`. Revertido. |
+| 3 · Equilíbrio | Os 3 blocos abrem com nomes e dias. O ✏️ perguntou, gravou 3→7 e avisou. Restaurado. |
+| 4 · Reconsolidar | Com o estado em memória **zerado de propósito**: aviso apareceu e escala e agenda bateram depois. (Foi aqui que o bug apareceu.) |
+| 5 · Não recebe | Marquei Pedro Lima: sumiu do fechamento de 6/2026. Desmarquei: voltou. |
+| 6 · Feriado no sábado | Criei 20/11/2027 (sábado + Consciência Negra) pela tela: nasceu com `feriadoNaData`, publicou 3 aulas com `isHoliday: true`, e `calculateTeacherHours` deu **24h para 12h de aula** — dobro confirmado. |
+| 7 · Sábados seguidos | 06/03 e 13/03 de 2027. No **TOI** (6 habilitados): sem a regra sairia Bruna, que trabalhou no sábado anterior; **com a regra saiu Marcos**. No **Hiit** o staging só tem **2 pessoas habilitadas** e as duas trabalharam — o teto macio escalou assim mesmo, que é a decisão do Rafael. Em produção Hiit tem 17 pessoas. |
+
+**Limpeza completa:** 3 escalas, as aulas, as 2 trocas de teste e os créditos de contador (−3, −2, −2) desfeitos. `special_scales` com nome HOMOLOG restantes: **0**.
+
+⚠️ Achado de operação: **`deleteScale` é bloqueado pelas rules até para admin.** Não atrapalhou (despublicar funciona), mas é uma limitação a lembrar.
+
 ### 🪤 Armadilha que me mordeu
 
 Editei 5 arquivos com `python3 io.open(..., "w")` — que no Windows converte **todo o arquivo pra CRLF**. O código ficou certo, mas `smoke-escala-confirma-publica.js` quebrou (procura `\n}\n` por regex) e o diff ficaria com o arquivo inteiro. Normalizei de volta pra LF. **Não usar python em modo texto pra editar arquivo do projeto** — ou passar `newline='\n'`.
