@@ -202,6 +202,47 @@
     } catch (err) { console.error('[ScaleService.reassignSlot]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * Inverte as pessoas de duas vagas da MESMA escala, numa gravação só.
+   *
+   * Pelos dois selects não dá: `reassignSlot` recusa pôr alguém que já está em
+   * outra vaga do dia — regra certa, que impede a mesma pessoa em duas aulas ao
+   * mesmo tempo, mas que torna a troca A↔B impossível passo a passo.
+   * (Rafael, 25/08/2026: "Podemos trocar quem da TOI e quem da Hiit"; Rodrigo:
+   * "dar a possibilidade de inverter com um click os profs do TOI e Hiit".)
+   *
+   * Não mexe no contador de justiça: as duas pessoas continuam trabalhando o
+   * mesmo dia, só que na outra modalidade.
+   */
+  async function swapSlots(scaleId, slotAId, slotBId, deps) {
+    try {
+      if (!slotAId || !slotBId || slotAId === slotBId) {
+        return { success: false, error: 'Escolha duas vagas diferentes.' };
+      }
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      const slots = scale.slots || [];
+      const a = slots.find(s => s.id === slotAId);
+      const b = slots.find(s => s.id === slotBId);
+      if (!a || !b) return { success: false, error: 'Vaga não encontrada.' };
+      if (!a.assignedPersonId && !b.assignedPersonId) {
+        return { success: false, error: 'As duas vagas estão abertas — não há o que inverter.' };
+      }
+
+      const novos = slots.map(s => {
+        if (s.id === slotAId) return Object.assign({}, s, { assignedPersonId: b.assignedPersonId || null, reason: b.assignedPersonId ? 'manual' : null, explain: [] });
+        if (s.id === slotBId) return Object.assign({}, s, { assignedPersonId: a.assignedPersonId || null, reason: a.assignedPersonId ? 'manual' : null, explain: [] });
+        return s;
+      });
+
+      await rdb(deps).collection('special_scales').doc(scaleId)
+        .set({ slots: novos, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+
+      return { success: true, data: { published: !!scale.published, from: a.assignedPersonId || null, to: b.assignedPersonId || null } };
+    } catch (err) { console.error('[ScaleService.swapSlots]', err); return { success: false, error: err.message }; }
+  }
+
   // ── Config da escala (horários-padrão das vagas, configurável pela gestão) ──
   const DEFAULT_HORARIOS = {
     sabado:           { startTime: '08:00', endTime: '12:00' },
@@ -812,5 +853,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

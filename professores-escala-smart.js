@@ -786,6 +786,30 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
   renderEscalaGestao();
 }
 
+/**
+ * Inverte as duas vagas de uma unidade (TOI <-> Hiit) num clique só.
+ *
+ * Pelos dois selects é impossível: o serviço recusa pôr alguém que já está em
+ * outra vaga do mesmo dia, então o primeiro passo da troca já morre.
+ * (Rodrigo, 25/08/2026: "dar a possibilidade de inverter com um click os profs
+ * do TOI e Hiit".)
+ */
+async function inverterVagasEscala(scaleId, slotAId, slotBId) {
+  const res = await ScaleService.swapSlots(scaleId, slotAId, slotBId);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+
+  let msg = 'Vagas invertidas.';
+  // Escala publicada tem aula na agenda: sem republicar, a aula continuaria
+  // no nome antigo e só a tela da escala saberia da troca.
+  if (res.data.published) {
+    const pub = await ScaleService.publishToAgenda(scaleId);
+    msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
+  }
+  toast(msg, 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
+}
+
 async function atribuirLider(scaleId, slotId, personId) {
   const res = await ScaleService.assignSlot(scaleId, slotId, personId || null);
   if (res.success) { toast('Líder atualizado.', 'success'); await escalaLoadBase(); renderEscalaGestao(); }
@@ -840,7 +864,18 @@ function renderEscalaDetail(scale) {
         ${filled ? whyTableHtml(slot) : ''}
       </div>`;
     }).join('');
-    unitsHtml += `<div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:500;margin-bottom:6px;">${unitName(uid)}</div>
+    // Com exatamente 2 vagas na unidade (o caso TOI + Hiit), oferece a inversão
+    // direta. Com 3+ não dá pra adivinhar quais duas, então o botão some.
+    const par = byUnit[uid];
+    const btnInverter = (par.length === 2 && (par[0].assignedPersonId || par[1].assignedPersonId))
+      ? `<button class="btn-secondary" style="font-size:12px;padding:4px 10px;"
+                 onclick="inverterVagasEscala('${scale.id}','${par[0].id}','${par[1].id}')"
+                 title="Troca as duas pessoas de modalidade">⇄ Inverter</button>`
+      : '';
+    unitsHtml += `<div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:500;">${unitName(uid)}</span>${btnInverter}
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">${cards}</div></div>`;
   });
 
@@ -1744,6 +1779,7 @@ window.openNovaEscolaInterna = openNovaEscolaInterna;
 window.criarEscolaInterna = criarEscolaInterna;
 window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
+window.inverterVagasEscala = inverterVagasEscala;
 window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');
