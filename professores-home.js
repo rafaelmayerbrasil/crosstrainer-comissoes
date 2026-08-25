@@ -66,14 +66,22 @@ async function _renderHomeAdmin() {
 
   const ferias = await _homeSafeCount(() =>
     db.collection('vacation_requests').where('status', '==', 'pendente').get());
-  const subs = await _homeSafeCount(() =>
+
+  // Só o que espera a GESTÃO entra em "Precisam de você". Troca em 'pending'
+  // está esperando o COLEGA confirmar — cobrar a gestão por ela manda o dono
+  // pra uma caixa que, corretamente, diz que não há nada pra ele.
+  // (Rodrigo, 25/08: "clicando nas substituições pendentes, não acontece nada".
+  // Na base: 5 'pending', 0 'aguardando_gestao'.)
+  const subsGestao = await _homeSafeCount(() =>
+    db.collection('substitutions').where('status', '==', 'aguardando_gestao').get());
+  const subsColega = await _homeSafeCount(() =>
     db.collection('substitutions').where('status', '==', 'pending').get());
 
   const chips = [];
   if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'pedido de férias a aprovar' : 'pedidos de férias a aprovar', "navigateTo('ferias')"));
   // Abre a caixa de pedidos (com a visão de gestão), não a lista de aulas:
   // a Agenda Geral não mostra pedidos, então o aviso levava a lugar nenhum.
-  if (subs) chips.push(_homeChip(subs, subs === 1 ? 'substituição pendente' : 'substituições pendentes', "openInboxModal()"));
+  if (subsGestao) chips.push(_homeChip(subsGestao, subsGestao === 1 ? 'troca a homologar' : 'trocas a homologar', "openInboxModal()"));
 
   const pend = chips.length
     ? `<div class="home-card home-pend">
@@ -82,7 +90,15 @@ async function _renderHomeAdmin() {
        </div>`
     : `<div class="home-card home-ok">✅ Tudo em dia — nenhuma pendência no momento.</div>`;
 
-  body.innerHTML = pend + _homeAtalhos([
+  // Informativo, sem cobrar ninguém: está andando entre os professores.
+  const andando = subsColega
+    ? `<div class="home-card" style="font-size:13px;color:var(--text2);">
+         🔄 ${subsColega} troca${subsColega === 1 ? '' : 's'} aguardando o colega confirmar —
+         <button class="home-link" onclick="navigateTo('substituicoes')">ver na tela Substituições</button>
+       </div>`
+    : '';
+
+  body.innerHTML = pend + andando + _homeAtalhos([
     ['📅', 'Agenda', 'agenda'],
     ['💰', 'Fechamento', 'fechamento'],
     ['📈', 'Relatórios', 'relatorios'],
