@@ -3,6 +3,70 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 55 (25/08/2026) — 🗓️ OS 7 AJUSTES DO GRUPO, NO STAGING
+
+### ▶️▶️ RETOMAR AQUI
+
+**Tudo construído e homologado por mim no staging. Falta o aceite do Rafael e do Rodrigo, e aí produção.**
+
+Branch: `ajustes-escala-25-08` (7 commits, `6fbc16a..231034e`). Plano: `docs/superpowers/plans/2026-08-25-ajustes-escala-grupo.md`. Texto pro grupo: `docs/rodrigo-ajustes-25-08-validar.txt`.
+
+Publicar pro usuário é **`git push origin main`** (GitHub Pages), não `firebase deploy --only hosting`.
+
+### ❓ O que gerou a sessão
+
+Conversa no grupo "Sistema Escala Inteligente IA" na manhã de 25/08 — Rafael Rojais e Rodrigo levantaram 7 pontos. **Conferi os 7 na base de PRODUÇÃO** (leitura via REST com a credencial do Firebase CLI) antes de escrever qualquer linha. Cinco confirmados, dois mudaram de leitura, e apareceu um oitavo que ninguém tinha visto.
+
+### 🚨 O oitavo — sábado 29/08 com aula fantasma (RESOLVIDO no mesmo dia)
+
+A tela da Escala dizia "Sem escala · clique pra criar", mas **a agenda já tinha 4 aulas**: Karin (PP), Eduarda (CP), Camila (CP) e Louise (PP) — vindas da **grade fixa antiga**, as mesmas 4 em **todos** os sábados de agosto (08, 15, 22, 29). Agosto inteiro o rodízio não valeu: as escalas de 08 e 15 ficaram em rascunho e as de 22 e 29 nunca existiram. De 05/09 a 31/10 está tudo certo (conferido uma a uma contra a agenda).
+
+Armadilha: publicar a escala do dia 29 **não** apagaria as 4 — `publishToAgenda` só remove aula da própria escala. O sábado ficaria com 8 aulas e 8 professores.
+
+**Rafael autorizou e eu apaguei as 4** (status `prevista`, sem mês fechado, sem substituição). Backup completo em `scratchpad/backup-aulas-29-08.json`. Os slots de sábado da grade **já estavam desativados**, então não regeneram.
+
+### ✅ Os 7 ajustes (todos com smoke, todos no staging)
+
+| # | Commit | O quê |
+|---|---|---|
+| 1 | `623c9ea` | **Home contava a fila errada.** `status=='pending'` é "esperando o colega", não a gestão. Produção tinha 5 `pending` e **0** `aguardando_gestao` — a caixa estava certa ao dizer que não havia nada; o aviso é que cobrava o dono. Agora só `aguardando_gestao` entra em "Precisam de você"; as outras viram linha informativa. |
+| 2 | `ab6399e` | **Inverter TOI ↔ Hiit num clique.** Eu tinha respondido ao Rafael "a princípio sim" — não dava: `reassignSlot` recusa quem já está em outra vaga do dia, então a troca A↔B morria no 1º passo. `swapSlots` inverte numa gravação só, sem mexer no contador. |
+| 3 | `f3704e1` | **Equilíbrio do ciclo com nomes** — e os nomes revelaram o resto: os 3 "abaixo do mínimo" eram **Yasmin (TOI Mobility), Patrícia (Yoga) e Louiz Lume (TOI Combate)**, que não dão TOI nem Hiit e nunca seriam escalados. Alerta permanente sem solução. Agora quem não participa sai da conta. **+ correção manual do contador** (pedido do Rafael: "o que passou eles têm como ajustar manualmente?" — não tinham), com registro no audit log. |
+| 4 | `91b6142` | **Reconsolidar/Despublicar explicados** — e um defeito junto: trocar pelo select republicava a agenda, **reconsolidar não**. Escala com o nome novo, agenda com o antigo, em silêncio. As 11 publicadas em produção batiam; fechado antes de doer. |
+| 5 | `de8e3c1` | **Ficha que dá aula sem receber.** Rafael Rojais é sócio, dá aula, não recebe; Will recebe e **a gestão cadastra**. Nenhum dos dois tinha ficha em `teachers` — por isso não apareciam na escala. `type:'eventual'` não serve (é pago) e ficha sem salário vira linha de pendência mensal. Marca `naoRemunerado` resolve: escala e agenda normais, fechamento nem lista. |
+| 6 | `e8ae983` | **Sábado que é feriado paga em dobro.** Nascia com `isHoliday = (tipo === 'feriado')`, então sábado montado pela aba Sábados saía com peso 1. **Nenhum feriado nacional de 2026 cai em sábado** (conferido) — 2027 tem 20/11 e 25/12. A aba Sábados agora carrega os feriados e marca a data; escala antiga é etiquetada ao publicar. |
+| 7 | `231034e` | **Mesma pessoa não pega dois sábados seguidos.** O sábado-feriado é montado pela aba Feriados, escala separada, e escapava do rodízio. Teto **macio**: quem pegou o vizinho vai pro fim da fila, mas é escalado se não sobrar mais ninguém. Só entre sábados. A prévia em lote acumula o que acabou de montar — sem isso a regra só pegaria sábado de rodada anterior. |
+
+### 🧭 Decisões travadas com a gestão
+
+| Assunto | Decisão | Quem |
+|---|---|---|
+| Sábado 29/08 | Apagar as 4 aulas da grade antiga (feito, com backup) | Rafael |
+| Rafael Rojais | Dá aula, entra na escala, **não recebe** — é sócio | Rafael |
+| Will Souza | Recebe normalmente; **a gestão cadastra**, não eu | Rafael |
+| Dias seguidos | Só entre **sábados** (sábado-feriado logo após sábado normal) | Rafael |
+| Vaga sem gente | Escala mesmo assim — nunca deixar vaga aberta | Rafael |
+| Contador | Só vale pra frente; agosto não se reprocessa, mas a gestão passa a poder corrigir | Rafael |
+
+### 🧪 Validação
+
+- **Suíte completa 44/44** (só `smoke-9.js` fora, exige `--project`). `smoke-ajustes-escala-2508.js` novo, 12 verificações.
+- **Staging homologado por mim no navegador**, com a conta `dono.teste@`: home sem o chip errado, painel de equilíbrio abrindo com nomes e lápis, **inversão TOI↔Hiit clicada de verdade** contra o Firestore real (Lucas ↔ Nome de teste, `reason:'manual'`, revertida depois), campo "não recebe por aula" na ficha, os 6 arquivos servidos em `?v=20260825`, **0 erro de console**.
+- `smoke-scale-service.js` precisou de ajuste: ele trava a forma exata do candidato com `deepStrictEqual` e o campo novo `trabalhouSabadoVizinho` quebrou — mesma coisa que aconteceu com a cota em 24/08.
+
+### 🪤 Armadilha que me mordeu
+
+Editei 5 arquivos com `python3 io.open(..., "w")` — que no Windows converte **todo o arquivo pra CRLF**. O código ficou certo, mas `smoke-escala-confirma-publica.js` quebrou (procura `\n}\n` por regex) e o diff ficaria com o arquivo inteiro. Normalizei de volta pra LF. **Não usar python em modo texto pra editar arquivo do projeto** — ou passar `newline='\n'`.
+
+### ⏭️ Próximo passo
+
+1. Rafael e Rodrigo homologam no staging.
+2. `git push origin main` (só depois do OK).
+3. Criar a ficha do **Rafael Rojais** pela tela Pessoas com a marca "não recebe por aula" (TOI + Hiit, CP + PP, vinculada ao usuário que já existe). A do **Will** é com a gestão.
+4. Nada de rules pra deployar — `fairness_counter` já permitia escrita de admin/supervisão.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 54 (24–25/08/2026) — 🗓️ ESCALA CONSERTADA + 📧 E-MAIL NO AR
 
 ### ❓ O que gerou a sessão
