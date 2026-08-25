@@ -3,15 +3,23 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 55 (25/08/2026) — 🗓️ OS 7 AJUSTES DO GRUPO, NO STAGING
+## 🔖 ONDE PARAMOS — sessão 55 (25/08/2026) — ✅ OS 7 AJUSTES DO GRUPO, NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
-**Tudo construído e homologado por mim no staging. Falta o aceite do Rafael e do Rodrigo, e aí produção.**
+**Tudo no ar** — `git push origin main` feito em 25/08 (`3ea5804..5f6d1b9`). Verificado no `github.io`: os 6 arquivos em `?v=20260825`, `projectId: crosstrainer-comissoes`, todas as funções novas presentes, **0 erro de console**.
 
-Branch: `ajustes-escala-25-08` (7 commits, `6fbc16a..231034e`). Plano: `docs/superpowers/plans/2026-08-25-ajustes-escala-grupo.md`. Texto pro grupo: `docs/rodrigo-ajustes-25-08-validar.txt`.
+Branch: `ajustes-escala-25-08` (12 commits). Plano: `docs/superpowers/plans/2026-08-25-ajustes-escala-grupo.md`. Texto pro grupo: `docs/rodrigo-ajustes-25-08-validar.txt`.
 
-Publicar pro usuário é **`git push origin main`** (GitHub Pages), não `firebase deploy --only hosting`.
+**Três pendências abertas:**
+
+1. **Criar a ficha do Rafael Rojais** pela tela Pessoas, com a marca **"não recebe por aula"**, TOI + Hiit, CP + PP, vinculada ao usuário `rafaelrojais@hotmail.com` que já existe. **Não fazer por script** — marcar isso mexe em quem entra na folha, é decisão na tela. A ficha do **Will** (`souzawillianr@hotmail.com`) a gestão cadastra, com tipo e valor da hora-aula.
+2. **A gestão precisa montar a escala do sábado 29/08** — a data está limpa desde que as 4 aulas da grade antiga foram apagadas.
+3. **Nenhum humano clicou nas telas novas.** A validação é minha, automatizada + navegador dirigido por código, mas contra o Firestore real do staging.
+
+⚠️ **Regra de operação nova:** reconsolidar **só sábado que ainda não aconteceu**. Republicar apaga e recria as aulas da escala, então aula já marcada como "realizada" volta pra "prevista". Não é novo (vale desde 12/08 pra troca pelo seletor), mas agora está atrás de um botão mais usado.
+
+Publicar pro usuário é **`git push origin main`** (GitHub Pages), não `firebase deploy --only hosting`. Nesta entrega **não houve deploy de rules nem de functions** — `fairness_counter` já permitia escrita de admin/supervisão.
 
 ### ❓ O que gerou a sessão
 
@@ -80,12 +88,19 @@ O Rafael perguntou se dava pra subir e os dois testarem em produção; ofereceu 
 
 Editei 5 arquivos com `python3 io.open(..., "w")` — que no Windows converte **todo o arquivo pra CRLF**. O código ficou certo, mas `smoke-escala-confirma-publica.js` quebrou (procura `\n}\n` por regex) e o diff ficaria com o arquivo inteiro. Normalizei de volta pra LF. **Não usar python em modo texto pra editar arquivo do projeto** — ou passar `newline='\n'`.
 
+### 🚀 Subida em produção (25/08, `3ea5804..5f6d1b9`)
+
+O Rafael propôs subir e testarem em produção, **e ofereceu a alternativa de eu homologar**. Aceitei a alternativa — foi ela que achou o bug do `80e878f`. Depois disso ele autorizou a subida.
+
+Verificado no `github.io` depois do push: 6 arquivos em `?v=20260825`, `projectId: crosstrainer-comissoes`, `swapSlots`/`personsOnAdjacentSaturday`/`inverterVagasEscala`/`ajustarContadorJustica` presentes, campo `teacherNaoRemunerado` no formulário, `consolidarEscala` lendo do banco, **0 erro de console**.
+
+Não houve deploy de rules nem de functions — nada nesses arquivos mudou.
+
 ### ⏭️ Próximo passo
 
-1. Rafael e Rodrigo homologam no staging.
-2. `git push origin main` (só depois do OK).
-3. Criar a ficha do **Rafael Rojais** pela tela Pessoas com a marca "não recebe por aula" (TOI + Hiit, CP + PP, vinculada ao usuário que já existe). A do **Will** é com a gestão.
-4. Nada de rules pra deployar — `fairness_counter` já permitia escrita de admin/supervisão.
+1. Criar a ficha do **Rafael Rojais** pela tela Pessoas com a marca "não recebe por aula" (TOI + Hiit, CP + PP, vinculada ao usuário que já existe). A do **Will** é com a gestão. **Pela tela, não por script.**
+2. A gestão monta a escala do **sábado 29/08** (a data está limpa).
+3. Ouvir o retorno do grupo — ninguém além de mim clicou nas telas novas.
 
 ---
 
