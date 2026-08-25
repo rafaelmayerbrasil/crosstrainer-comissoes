@@ -124,26 +124,86 @@ async function escalaLoadBase() {
   EscalaSmartState.fairnessMap = fmap;
 }
 
+function escalaEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+/**
+ * Quem disputa vaga de sábado: precisa dar TOI ou Hiit.
+ *
+ * Sem esse filtro o painel acusava 3 pessoas "abaixo do mínimo" que nunca
+ * seriam escaladas — Yasmin (TOI Mobility), Patrícia (Yoga) e Louiz Lume (TOI
+ * Combate). Alerta que não tem como resolver vira ruído e some da vista.
+ * (Rodrigo, 25/08/2026, ao pedir os nomes: foram os nomes que revelaram isso.)
+ */
+function participaDoRodizio(t) {
+  const mods = t.modalityIds || [];
+  const toi  = (EscalaSmartState.modToi  || {}).id;
+  const hiit = (EscalaSmartState.modHiit || {}).id;
+  if (!toi && !hiit) return true;   // sem modalidade mapeada, não filtra ninguém
+  return mods.indexOf(toi) !== -1 || mods.indexOf(hiit) !== -1;
+}
+
 function renderEquilibrioPainel() {
   const fm = EscalaSmartState.fairnessMap || new Map();
   if (fm.size === 0) return '';
-  const dias = Array.from(fm.values()).map(f => f.diasTrabalhados || 0);
+
+  const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const dentro = ativos.filter(participaDoRodizio);
+  const fora   = ativos.filter(t => !participaDoRodizio(t));
+  if (!dentro.length) return '';
+
+  const dadosDe = (t) => fm.get(t.id) || { diasTrabalhados: 0, divida: 0 };
+  const dias = dentro.map(t => dadosDe(t).diasTrabalhados || 0);
   const avg = dias.reduce((a, b) => a + b, 0) / dias.length;
-  let abaixo = 0, media = 0, acima = 0;
-  fm.forEach(f => {
+
+  const grupos = { abaixo: [], media: [], acima: [] };
+  dentro.forEach(t => {
+    const f = dadosDe(t);
     const d = f.diasTrabalhados || 0;
-    if (d < 1 || (f.divida || 0) > 0) abaixo++;
-    else if (d > Math.ceil(avg)) acima++;
-    else media++;
+    const g = (d < 1 || (f.divida || 0) > 0) ? 'abaixo' : (d > Math.ceil(avg) ? 'acima' : 'media');
+    grupos[g].push({ t, d, divida: f.divida || 0 });
   });
-  const chip = (bg, color, icon, txt) => `<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;border-radius:8px;background:${bg};color:${color};">${icon} ${txt}</span>`;
+  // Dentro de cada grupo, quem tem menos dias primeiro — é a ordem em que a
+  // gestão pensa ("quem está mais atrasado?").
+  Object.keys(grupos).forEach(k => grupos[k].sort((a, b) => a.d - b.d));
+
+  const linha = (x) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px;">
+      <span>${escalaEsc(x.t.name)}</span>
+      <span style="display:flex;align-items:center;gap:6px;color:var(--text2);white-space:nowrap;">
+        ${x.d} dia${x.d === 1 ? '' : 's'}${x.divida ? ` · deve ${x.divida}` : ''}
+        <button class="btn-secondary" style="font-size:11px;padding:2px 8px;"
+                onclick="ajustarContadorJustica('${x.t.id}')" title="Corrigir na mão">✏️</button>
+      </span>
+    </div>`;
+
+  const bloco = (chave, bg, color, icon, rotulo) => {
+    const itens = grupos[chave];
+    return `<details style="flex:1;min-width:190px;">
+      <summary style="list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;border-radius:8px;background:${bg};color:${color};">
+        ${icon} ${itens.length} ${rotulo}
+      </summary>
+      <div style="padding:6px 4px 0;">${itens.length ? itens.map(linha).join('') : '<span style="font-size:12px;color:var(--text3);">ninguém</span>'}</div>
+    </details>`;
+  };
+
+  const foraHtml = fora.length
+    ? `<div style="font-size:11px;color:var(--text3);margin-top:8px;">
+         ${fora.length} pessoa${fora.length === 1 ? '' : 's'} fora do rodízio de sábado (não dá TOI nem Hiit):
+         ${fora.map(t => escalaEsc(t.name)).join(' · ')}
+       </div>`
+    : '';
+
   return `<div style="margin-bottom:14px;">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Equilíbrio do ciclo</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      ${chip('#2a1414', 'var(--red)', '↓', `${abaixo} abaixo do mínimo`)}
-      ${chip('#10241a', 'var(--green)', '=', `${media} na média`)}
-      ${chip('#2a2410', '#caa23a', '↑', `${acima} acima`)}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
+      ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'abaixo do mínimo')}
+      ${bloco('media',  '#10241a', 'var(--green)', '=', 'na média')}
+      ${bloco('acima',  '#2a2410', '#caa23a',      '↑', 'acima')}
     </div>
+    ${foraHtml}
   </div>`;
 }
 
@@ -806,6 +866,43 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
     msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
   }
   toast(msg, 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
+}
+
+/**
+ * Corrige o contador de justiça de uma pessoa.
+ *
+ * Rafael, 25/08/2026: "de agora só altera pra frente, o que passou eles têm
+ * como ajustar manualmente?" — não tinham. Não existia tela nenhuma pra mexer
+ * no contador; o único jeito indireto era trocar alguém numa escala, o que
+ * move de 1 em 1. Agosto inteiro os sábados foram das mesmas 4 pessoas (a
+ * escala nunca chegou a valer), e sem essa alavanca a dívida ficaria travada.
+ */
+async function ajustarContadorJustica(personId) {
+  const atual = (EscalaSmartState.fairnessMap || new Map()).get(personId) || { diasTrabalhados: 0, divida: 0 };
+  const nome = escalaPersonName(personId);
+  const resp = prompt(`Quantos dias de escala ${nome} já trabalhou neste ciclo?`, String(atual.diasTrabalhados || 0));
+  if (resp === null) return;
+  const n = Number(String(resp).replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
+
+  const novo = Math.round(n);
+  const res = await ScaleService.saveFairness(personId, { diasTrabalhados: novo, divida: atual.divida || 0 });
+  if (!res || res.success === false) { toast('Erro ao salvar: ' + ((res && res.error) || 'falha'), 'error'); return; }
+
+  // Mexer no insumo central do motor sem deixar rastro seria pedir pra alguém
+  // depois não entender por que o rodízio decidiu o que decidiu.
+  if (typeof AuditService === 'object') {
+    await AuditService.log({
+      type: 'fairness_adjusted',
+      details: `Contador de escala de "${nome}" ajustado de ${atual.diasTrabalhados || 0} para ${novo}`,
+      entityType: 'fairness_counter', entityId: personId,
+      before: atual, after: { diasTrabalhados: novo, divida: atual.divida || 0 },
+      module: 'agenda',
+    });
+  }
+  toast(`Contador de ${nome} ajustado para ${novo}.`, 'success');
   await escalaLoadBase();
   renderEscalaGestao();
 }
@@ -1780,6 +1877,7 @@ window.criarEscolaInterna = criarEscolaInterna;
 window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
 window.inverterVagasEscala = inverterVagasEscala;
+window.ajustarContadorJustica = ajustarContadorJustica;
 window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

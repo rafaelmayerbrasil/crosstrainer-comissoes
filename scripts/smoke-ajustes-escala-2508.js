@@ -89,5 +89,45 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('tela ligada ao swapSlots');
   }
 
+  // ═══ 3. Equilíbrio do ciclo com nomes e sem falso alarme ══════════
+  // Rodrigo, 25/08 9h05: "em 'equilíbrio do ciclo' mostrar quem são as pessoas".
+  // Em produção os 3 'abaixo do mínimo' eram Yasmin (TOI Mobility), Patrícia
+  // (Yoga) e Louiz Lume (TOI Combate) — nenhum dá TOI nem Hiit, que é o que a
+  // vaga de sábado exige. O alerta vermelho cobrava algo sem solução.
+  //
+  // E Rafael, 25/08: "o que passou eles tem como ajustar manualmente?" — não
+  // tinham. Agosto inteiro os sábados foram das mesmas 4 pessoas e a dívida
+  // ficaria travada esperando alguém mexer no banco.
+  {
+    const ui = ler('professores-escala-smart.js');
+    const painel = ui.slice(ui.indexOf('function renderEquilibrioPainel'), ui.indexOf('function whyTableHtml'));
+
+    assert.ok(/participaDoRodizio/.test(ui),
+      'o painel precisa separar quem participa do rodízio de sábado');
+    assert.ok(/<details/.test(painel),
+      'os chips precisam abrir a lista de nomes');
+    assert.ok(/window\.ajustarContadorJustica\s*=/.test(ui),
+      'precisa de um jeito de corrigir o contador na mão');
+    assert.ok(/ScaleService\.saveFairness\(/.test(ui),
+      'a correção precisa gravar de verdade');
+    passou('equilíbrio mostra nomes, separa quem não participa e permite corrigir');
+  }
+
+  // Quem não dá TOI nem Hiit fica fora da conta do rodízio — comportamental.
+  {
+    const ui = ler('professores-escala-smart.js');
+    const fn = ui.slice(ui.indexOf('function participaDoRodizio'), ui.indexOf('function renderEquilibrioPainel'));
+    // Reconstitui a função pura num escopo controlado, com o estado que a tela usa.
+    const EscalaSmartState = { modToi: { id: 'mTOI' }, modHiit: { id: 'mHIIT' } };
+    // eslint-disable-next-line no-new-func
+    const participa = new Function('EscalaSmartState', fn + '; return participaDoRodizio;')(EscalaSmartState);
+
+    assert.strictEqual(participa({ modalityIds: ['mTOI'] }), true, 'quem dá TOI participa');
+    assert.strictEqual(participa({ modalityIds: ['mHIIT'] }), true, 'quem dá Hiit participa');
+    assert.strictEqual(participa({ modalityIds: ['mYOGA'] }), false, 'Patrícia (Yoga) não participa');
+    assert.strictEqual(participa({ modalityIds: [] }), false, 'sem modalidade não participa');
+    passou('participaDoRodizio tira do alerta quem nunca seria escalado');
+  }
+
   console.log(`\n${ok} verificação(ões) passando.`);
 })().catch(e => { console.error('\n✗ FALHOU: ' + e.message); process.exit(1); });
