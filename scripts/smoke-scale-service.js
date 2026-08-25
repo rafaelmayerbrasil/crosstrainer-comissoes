@@ -60,7 +60,19 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
     fairnessById: { ana: { diasTrabalhados: 2, divida: 1 } },
     prefById: { ana: 'quer' },
   });
-  assert.deepStrictEqual(cands[0], { id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 40, diasTrabalhados: 2, divida: 1, pref: 'quer' });
+  // cotaDesejada/jaNoLote entraram em 24/08/2026 (quantos dias a pessoa quer na
+  // janela). Sem cota declarada = null = sem teto.
+  assert.deepStrictEqual(cands[0], { id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 40, diasTrabalhados: 2, divida: 1, pref: 'quer', cotaDesejada: null, jaNoLote: 0 });
+
+  // Com cota declarada e dias já pegos no lote
+  const candsCota = SS.buildCandidates({
+    teachers: [{ id: 'bia', modalityIds: ['TOI'], primaryUnitId: 'pp' }],
+    cotaById: { bia: 2 }, jaNoLoteById: { bia: 1 },
+  });
+  assert.strictEqual(candsCota[0].cotaDesejada, 2, 'a cota chega no motor');
+  assert.strictEqual(candsCota[0].jaNoLote, 1, 'e quantos já pegou na janela');
+  const candsZero = SS.buildCandidates({ teachers: [{ id: 'cau' }], cotaById: { cau: 0 } });
+  assert.strictEqual(candsZero[0].cotaDesejada, 0, 'cota zero é uma resposta válida, não "não respondeu"');
 
   // ── consolidate (orquestra + persiste) ── (pessoa nova 'zeca', fairness zero)
   const slotsToi = [{ id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null }];

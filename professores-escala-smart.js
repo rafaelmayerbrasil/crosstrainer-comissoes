@@ -1192,11 +1192,21 @@ async function gerarPreviaLote(batchId) {
   const scales = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : -1));
 
   const ctx = await escalaMontarCtx();
+  // Cota da janela: quantos dias cada um disse que quer. O motor precisa saber
+  // também quantos a pessoa JÁ pegou neste lote — por isso o contador vai sendo
+  // atualizado a cada data, na ordem.
+  const cotas = await ScaleService.listWindowQuotas(batchId);
+  ctx.cotaById = cotas.success ? cotas.data : {};
+  ctx.jaNoLoteById = {};
+
   const falhas = [];
   for (const s of scales) {
     await ScaleService.closeElection(s.id);
     const cons = await ScaleService.consolidate(s.id, ctx);
-    if (!cons.success) falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`);
+    if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`); continue; }
+    (cons.data.assignments || []).forEach(a => {
+      if (a.personId) ctx.jaNoLoteById[a.personId] = (ctx.jaNoLoteById[a.personId] || 0) + 1;
+    });
   }
   await carregarEscalas();
   renderPreviaLote(batchId, falhas);
@@ -1435,6 +1445,14 @@ async function renderEscalaPrefs() {
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
   if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
 
+  // Quantos dias ele já disse que quer nesta janela (pra o select vir marcado).
+  EscalaSmartState._minhaCota = undefined;
+  const batchAberto = (EscalaSmartState.scales.find(s => s.status === 'janela_aberta' && s.windowBatchId) || {}).windowBatchId;
+  if (batchAberto && pid) {
+    const q = await ScaleService.listWindowQuotas(batchAberto);
+    if (q.success && Object.prototype.hasOwnProperty.call(q.data, pid)) EscalaSmartState._minhaCota = q.data[pid];
+  }
+
   const tab = EscalaSmartState.tab;
   const tabsHtml = `<div class="escala-tabs">` +
     ESCALA_TABS.map(t =>
@@ -1460,8 +1478,26 @@ async function renderProfSabadosFeriados(pid, tab) {
 
   // atalho "Pode ser em todas" quando há janela aberta na aba (reusa marcarPodeSerTodas, que já existe/exportado)
   const temAberta = escalas.some(s => s.status === 'janela_aberta');
+  // "Quantos desses dias você quer trabalhar?" — pedido do Rodrigo em
+  // 24/08/2026: "tem gente que precisa de mais, e tem gente que de menos".
+  // Fica junto do atalho porque é a mesma pergunta, no mesmo momento: a pessoa
+  // diz em quais dias pode E quantos deles quer.
+  const abertasAqui = escalas.filter(s => s.status === 'janela_aberta');
+  const batchAqui = (abertasAqui.find(s => s.windowBatchId) || {}).windowBatchId || null;
+  const cotaAtual = EscalaSmartState._minhaCota;
+  const opcoesCota = ['<option value="">Sem preferência</option>']
+    .concat(Array.from({ length: abertasAqui.length + 1 }, (_, n) =>
+      `<option value="${n}" ${String(cotaAtual) === String(n) ? 'selected' : ''}>${n === 0 ? 'Nenhum' : n === 1 ? '1 dia' : `${n} dias`}</option>`))
+    .join('');
+  const cotaHtml = (temAberta && batchAqui)
+    ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Quantos desses ${abertasAqui.length} dias você quer trabalhar?</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Serve pra dividir melhor: quem quer mais pega mais, quem quer menos não fica sobrecarregado. Não é promessa — se faltar gente, você ainda pode ser escalado.</div>
+        <select class="input" style="max-width:220px;" onchange="salvarMinhaCota('${batchAqui}', this.value)">${opcoesCota}</select>
+      </div>` : '';
+
   const atalho = temAberta
-    ? `<div style="padding:0 0 12px;"><button onclick="marcarPodeSerTodas()" style="font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;background:rgba(94,168,255,0.15);color:#5EA8FF;border:1px solid #5EA8FF;">✓ Marcar "Pode ser" em todas as janelas abertas</button></div>`
+    ? `${cotaHtml}<div style="padding:0 0 12px;"><button onclick="marcarPodeSerTodas()" style="font-size:13px;padding:8px 14px;border-radius:8px;cursor:pointer;background:rgba(94,168,255,0.15);color:#5EA8FF;border:1px solid #5EA8FF;">✓ Marcar "Pode ser" em todas as janelas abertas</button></div>`
     : '';
 
   // preferências atuais do professor nas janelas abertas
@@ -1651,6 +1687,19 @@ async function marcarPodeSerTodas() {
   renderEscalaPrefs();
 }
 
+/** Professor diz quantos dias da janela quer trabalhar. Vazio = sem preferência. */
+async function salvarMinhaCota(batchId, valor) {
+  const pid = escalaProfId();
+  if (!pid) { toast('Seu perfil não está vinculado a um professor.', 'error'); return; }
+  const n = valor === '' ? null : Number(valor);
+  const res = await ScaleService.setWindowQuota(batchId, pid, n);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+  EscalaSmartState._minhaCota = n;
+  toast(n === null ? 'Sem preferência de quantidade.'
+      : n === 0 ? 'Anotado: você prefere não pegar nenhum desses dias.'
+      : `Anotado: você quer ${n} dia(s) nesta janela.`, 'success', 5000);
+}
+
 async function marcarPref(scaleId, pref) {
   const pid = escalaProfId();
   if (!pid) { toast('Seu perfil não está vinculado a um professor.', 'error'); return; }
@@ -1686,6 +1735,8 @@ window.despublicarEscala = despublicarEscala;
 window.marcarPref = marcarPref;
 window.responderEvento = responderEvento;
 window.marcarPodeSerTodas = marcarPodeSerTodas;
+window.salvarMinhaCota = salvarMinhaCota;
+window.gerarPreviaLote = gerarPreviaLote;
 window.marcarDiaFdA = marcarDiaFdA;
 window.toggleTurnoFdA = toggleTurnoFdA;
 window.renderTabEscolaInterna = renderTabEscolaInterna;

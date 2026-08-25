@@ -555,13 +555,43 @@
     const merito = ctx.meritoById || {};
     const fair = ctx.fairnessById || {};
     const pref = ctx.prefById || {};
+    const cota = ctx.cotaById || {};        // quantos dias a pessoa quer NESTA janela
+    const jaNoLote = ctx.jaNoLoteById || {};  // quantos já pegou nela
     return (ctx.teachers || []).map(t => ({
       id: t.id, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId || null,
       merito: merito[t.id] || 0,
       diasTrabalhados: (fair[t.id] && fair[t.id].diasTrabalhados) || 0,
       divida: (fair[t.id] && fair[t.id].divida) || 0,
       pref: pref[t.id] || null,
+      cotaDesejada: (cota[t.id] === 0 || cota[t.id] > 0) ? cota[t.id] : null,
+      jaNoLote: jaNoLote[t.id] || 0,
     }));
+  }
+
+  // ── Cota da janela: quantos dias a pessoa QUER trabalhar no lote ──────
+  // Pedido do Rodrigo em 24/08/2026: "tem gente que precisa de mais, e tem
+  // gente que de menos". Guardada por LOTE (janela), não por data — a pergunta
+  // é "quantos desses dias você quer", e não "você pode neste dia".
+
+  async function setWindowQuota(batchId, personId, desejado, deps) {
+    if (!batchId || !personId) return { success: false, error: 'batchId e personId obrigatórios' };
+    try {
+      const n = (desejado === null || desejado === undefined || desejado === '') ? null : Math.max(0, Number(desejado) || 0);
+      await rdb(deps).collection('scale_window_quotas').doc(`${batchId}_${personId}`)
+        .set({ batchId, personId, desejado: n, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true };
+    } catch (err) { console.error('[ScaleService.setWindowQuota]', err); return { success: false, error: err.message }; }
+  }
+
+  /** @returns {{success:boolean, data:Object<string,number|null>}} personId → desejado */
+  async function listWindowQuotas(batchId, deps) {
+    if (!batchId) return { success: true, data: {} };
+    try {
+      const snap = await rdb(deps).collection('scale_window_quotas').where('batchId', '==', batchId).get();
+      const out = {};
+      snap.docs.forEach(d => { const q = d.data(); if (q.personId) out[q.personId] = q.desejado; });
+      return { success: true, data: out };
+    } catch (err) { console.error('[ScaleService.listWindowQuotas]', err); return { success: false, error: err.message, data: {} }; }
   }
 
   async function consolidate(scaleId, ctx, deps) {
@@ -583,7 +613,10 @@
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
       const fairnessById = {};
       for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
-      const candidates = buildCandidates({ teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById });
+      const candidates = buildCandidates({
+        teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
+        cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
+      });
       const result = rSE(deps).consolidate(scale.slots || [], candidates, ctx.opts || {});
       const bySlot = {}, byReason = {}, byExplain = {};
       result.assignments.forEach(a => { bySlot[a.slotId] = a.personId; byReason[a.slotId] = a.reason; byExplain[a.slotId] = a.explain || []; });
@@ -779,5 +812,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

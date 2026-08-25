@@ -112,6 +112,52 @@ console.log('✓ smoke-scale-engine: piso de justiça OK');
 }
 console.log('✓ smoke-scale-engine: rodízio vale acima do piso, mérito só desempata');
 
+/* ── COTA: quantos dias a pessoa QUER na janela (24/08/2026) ───────────
+ * Rodrigo: "perguntar para os candidatos a trabalhar aos sábados — quantas
+ * vezes gostaria de trabalhar nessa janela; tem gente que precisa de mais, e
+ * tem gente que de menos, mas fazer essa escala inteligentemente".
+ *
+ * A cota é TETO MACIO: quem já bateu o que pediu vai pro fim da fila, mas ainda
+ * pode ser escalado se não sobrar mais ninguém — melhor alguém acima da cota do
+ * que o sábado sem professor.
+ */
+{
+  const p = (over) => Object.assign(
+    { modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 0, diasTrabalhados: 0, divida: 0, pref: null,
+      cotaDesejada: null, jaNoLote: 0 }, over);
+  const slot = [{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }];
+
+  // Quem já bateu a própria cota cede a vez, mesmo tendo trabalhado menos no geral
+  let r = SE.consolidate(slot, [
+    p({ id: 'quer1', cotaDesejada: 1, jaNoLote: 1, diasTrabalhados: 0 }),
+    p({ id: 'quer4', cotaDesejada: 4, jaNoLote: 1, diasTrabalhados: 5 }),
+  ], { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'quer4',
+    'quem pediu 4 e só tem 1 ainda quer trabalhar; quem pediu 1 e já tem 1 cede');
+  assert.strictEqual(r.assignments[0].reason, 'cota', 'e o motivo registrado é a cota');
+
+  // Sem cota declarada = sem teto: entra no rodízio normal
+  r = SE.consolidate(slot, [
+    p({ id: 'semcota', diasTrabalhados: 1 }),
+    p({ id: 'comcota', cotaDesejada: 3, jaNoLote: 0, diasTrabalhados: 5 }),
+  ], { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'semcota',
+    'ninguém acima da cota → decide o rodízio normal');
+
+  // Cota zero = "não quero nenhum": vai pro fim, mas não é excluído
+  r = SE.consolidate(slot, [p({ id: 'zero', cotaDesejada: 0, jaNoLote: 0 })], { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'zero',
+    'se não sobra mais ninguém, escala assim mesmo — melhor que sábado sem professor');
+
+  // Todo mundo dentro da cota → o rodízio decide, como antes
+  r = SE.consolidate(slot, [
+    p({ id: 'a', cotaDesejada: 3, jaNoLote: 1, diasTrabalhados: 4 }),
+    p({ id: 'b', cotaDesejada: 3, jaNoLote: 1, diasTrabalhados: 2 }),
+  ], { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'b', 'dentro da cota, vale quem trabalhou menos');
+}
+console.log('✓ smoke-scale-engine: cota de dias por pessoa (teto macio)');
+
 // ── Preferência e unidade alternada (desempate, mesmo mérito/piso) ──
 const b3 = (over) => Object.assign({ modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 20, diasTrabalhados: 5, divida: 0, pref: null }, over);
 // Mesmo mérito; gabi quer, hugo neutro → gabi

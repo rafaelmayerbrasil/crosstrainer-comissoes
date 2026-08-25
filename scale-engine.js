@@ -11,7 +11,19 @@
       id: c.id, modalityIds: c.modalityIds || [], primaryUnitId: c.primaryUnitId || null,
       merito: c.merito || 0, diasTrabalhados: c.diasTrabalhados || 0, divida: c.divida || 0,
       pref: c.pref || null,
+      // Quantos dias a pessoa DISSE que quer nesta janela, e quantos já pegou
+      // nela. null = não respondeu = sem teto (entra no rodízio normal).
+      cotaDesejada: (c.cotaDesejada === 0 || c.cotaDesejada > 0) ? c.cotaDesejada : null,
+      jaNoLote: c.jaNoLote || 0,
     };
+  }
+
+  /**
+   * Já bateu o que pediu? Teto MACIO: manda pro fim da fila, não exclui —
+   * melhor escalar alguém acima da cota do que deixar o sábado sem professor.
+   */
+  function acimaDaCota(c) {
+    return c.cotaDesejada !== null && c.jaNoLote >= c.cotaDesejada;
   }
 
   function isPiso(c, minMes) { return c.divida > 0 || c.diasTrabalhados < minMes; }
@@ -31,6 +43,11 @@
     const prefRank = (p) => (p.pref === 'prefiro' || p.pref === 'quer') ? 0 : (p.pref === 'nao_quer' ? 2 : 1);
     const altRank = (p) => (p.primaryUnitId && p.primaryUnitId !== slot.unitId) ? 0 : 1;
     return function (a, b) {
+      // Quem já bateu a própria cota cede a vez a quem ainda quer trabalhar.
+      // Vem antes do rodízio de propósito: de nada adianta "é a vez dele" se
+      // ele avisou que só podia dois sábados e já fez os dois.
+      const ca = acimaDaCota(a) ? 1 : 0, cb = acimaDaCota(b) ? 1 : 0;
+      if (ca !== cb) return ca - cb;
       if (b.divida !== a.divida) return b.divida - a.divida;               // quem deve dia, paga primeiro
       if (a.diasTrabalhados !== b.diasTrabalhados)                         // quem trabalhou menos vem antes
         return a.diasTrabalhados - b.diasTrabalhados;
@@ -49,6 +66,7 @@
    */
   function motivoDaEscolha(escolhido, segundo, minMes) {
     if (!segundo) return isPiso(escolhido, minMes) ? 'justica' : 'merito';
+    if (acimaDaCota(escolhido) !== acimaDaCota(segundo)) return 'cota';
     if (escolhido.divida !== segundo.divida) return 'justica';
     if (escolhido.diasTrabalhados !== segundo.diasTrabalhados) return 'justica';
     return 'merito';
