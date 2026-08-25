@@ -26,6 +26,7 @@ const logger = require('firebase-functions/logger');
 const remindersUtil = require('./reminders-util.js');
 const internBank = require('./intern-hour-bank.js');
 const classPropagation = require('./class-propagation.js');
+const emailConfig = require('./email-config.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -762,6 +763,74 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
  * pessoa clicava de novo, e a gestão não recebia aviso nenhum (12/08/2026 —
  * Benny travado, Leonardo com 5 pedidos idênticos). Aqui roda com Admin SDK.
  */
+/**
+ * onNotificationCreated — o aviso do sino também vira e-mail, quando for o caso.
+ *
+ * Liga num lugar só: todo aviso do sistema passa por `notifications`, então não
+ * precisa mexer em nenhuma tela nem em nenhum outro gatilho. As regras de QUAIS
+ * tipos viram e-mail e COMO fica o texto vivem em email-config.js (puro,
+ * testado em scripts/smoke-email.js).
+ *
+ * Quem envia de fato é a extensão do Firebase lendo a coleção `mail`. Aqui só
+ * se escreve o pedido.
+ *
+ * Nasce DESLIGADO: sem `meta/email_config` com `ativo: true`, não sai nada.
+ * E com `modoTeste`, tudo é desviado pra um endereço só — e-mail alcança gente
+ * de verdade e não tem desfazer.
+ */
+exports.onNotificationCreated = onDocumentCreated({
+  document: 'notifications/{notifId}',
+  region: 'us-central1',
+}, async (event) => {
+  const notif = event.data && event.data.data();
+  if (!notif) return;
+
+  try {
+    const firestore = db();
+    const cfgDoc = await firestore.collection('meta').doc('email_config').get();
+    const cfg = cfgDoc.exists ? cfgDoc.data() : null;
+
+    if (!emailConfig.deveEnviar(notif, cfg)) return;
+    if (!notif.recipientUserId) return;
+
+    // E-mail de quem vai receber: o de LOGIN, que é o que a pessoa usa e
+    // reconhece. O da ficha pode ser outro — 4 professores estavam assim em
+    // 24/08/2026, e um deles nem existia como caixa. [[ficha-nao-e-login]]
+    let email = null, nome = null;
+    try {
+      const u = await admin.auth().getUser(notif.recipientUserId);
+      email = u.email || null;
+      nome = u.displayName || null;
+    } catch (e) { /* sem conta de auth: cai no /users abaixo */ }
+
+    const uDoc = await firestore.collection('users').doc(notif.recipientUserId).get();
+    if (uDoc.exists) {
+      const u = uDoc.data();
+      email = email || u.email || null;
+      nome = nome || u.name || null;
+    }
+
+    const msg = emailConfig.montarEmail(notif, { nome, email }, cfg);
+    if (!msg) {
+      logger.info('[onNotificationCreated] sem e-mail utilizável', notif.recipientUserId, notif.type);
+      return;
+    }
+
+    await firestore.collection('mail').add({
+      to: [msg.para],
+      message: { subject: msg.subject, text: msg.text, html: msg.html },
+      // rastro pra conferir depois qual aviso gerou qual e-mail
+      _origem: { notifId: event.params.notifId, type: notif.type, recipientUserId: notif.recipientUserId },
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    logger.info('[onNotificationCreated] e-mail enfileirado', notif.type, '→', msg.para);
+  } catch (err) {
+    // Nunca relança: o aviso do sino já está gravado e vale por si. Falhar aqui
+    // só perde o e-mail — não pode derrubar a notificação.
+    logger.error('[onNotificationCreated] FALHA ao enfileirar e-mail', err);
+  }
+});
+
 exports.onVacationRequested = onDocumentCreated({
   document: 'vacation_requests/{reqId}',
   region: 'us-central1',
