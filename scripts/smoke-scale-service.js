@@ -107,7 +107,15 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   const pubFe = await SS.publishToAgenda(fe.data.id, d);
   assert.strictEqual(pubFe.data.created, 6, 'fim de ano publicou 6 aulas (1 por turno preenchido)');
   const feCls = await db.collection('classes').where('specialScaleId', '==', fe.data.id).get();
-  const feDays = new Set(feCls.docs.map(c => c.data().scheduledDate));
+  // scheduledDate é DATA (não a string crua): extrai o dia pra comparar.
+  // Este teste checava a string literal e, com isso, cristalizava o defeito —
+  // publicar fora do navegador gravava 'YYYY-MM-DD' e a aula sumia da busca
+  // por período. Ver o bloco no fim do arquivo.
+  const diaDe = (v) => {
+    const dt = v instanceof Date ? v : new Date(v);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
+  const feDays = new Set(feCls.docs.map(c => diaDe(c.data().scheduledDate)));
   assert.ok(feDays.has('2026-12-21') && feDays.has('2026-12-23'), 'aulas em dias diferentes (scheduledDate por slot.day)');
   await SS.unpublishFromAgenda(fe.data.id, d);
 
@@ -175,4 +183,37 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(clsSnap.docs.length, 0, 'despublicou: 0 aulas');
 
   console.log('✓ smoke-scale-service: publicar/despublicar OK');
+
+  /* ── A data da aula publicada tem que ser DATA, não texto ──────────────
+   * `publishToAgenda` gravava Timestamp no navegador e a string crua em
+   * qualquer outro lugar (`typeof firebase !== 'undefined' ? ... : slotDay`).
+   * String não entra em `where scheduledDate >= X <= Y`, que é como a Agenda e
+   * o fechamento acham aula. Rodando o serviço fora do navegador em 24/08/2026,
+   * as 44 aulas de escala nasceram invisíveis: a busca por período devolvia
+   * zero, e ninguém veria o sábado nem receberia por ele.
+   */
+  {
+    const db2 = makeFakeDb();
+    const d2 = { db: db2, ts: () => 'TS', uid: () => 'tester', SE };
+    const esc = await SS.createScale({
+      date: '2026-12-05', tipo: 'sabado', name: 'Sábado teste',
+      slots: [{ id: 'u1_TOI', unitId: 'u1', requiredModalityId: 'TOI',
+                assignedPersonId: 'p1', startTime: '08:00', endTime: '12:00' }],
+    }, d2);
+    await SS.publishToAgenda(esc.data.id, d2);
+    const aulas = (await db2.collection('classes').get()).docs.map(x => x.data());
+    assert.strictEqual(aulas.length, 1, 'publicou a aula');
+    // O firestore falso serializa o documento, então um Date volta como texto
+    // ISO. Dá pra distinguir o que importa: instante ('...T03:00:00.000Z') é
+    // Date gravado; 'YYYY-MM-DD' cru é a string que sumia da busca por período.
+    const sd = aulas[0].scheduledDate;
+    assert.notStrictEqual(String(sd), '2026-12-05',
+      'scheduledDate não pode ser a string crua da data — assim a aula some da busca por período');
+    const asDate = sd instanceof Date ? sd : new Date(sd);
+    assert.ok(!isNaN(asDate.getTime()), 'e tem que ser um instante válido');
+    assert.strictEqual(asDate.getFullYear(), 2026, 'ano certo');
+    assert.strictEqual(asDate.getMonth(), 11, 'dezembro');
+    assert.strictEqual(asDate.getDate(), 5, 'dia 5 — sem escorregar de fuso');
+    console.log('✓ smoke-scale-service: aula publicada nasce com data de verdade');
+  }
 })();

@@ -735,9 +735,13 @@
         if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); continue; }
         // fim de ano: cada slot tem seu próprio dia; sábado/feriado usa a data da escala.
         const slotDay = s.day || scale.date;
-        const dateVal = (typeof firebase !== 'undefined' && firebase.firestore)
-          ? firebase.firestore.Timestamp.fromDate(new Date(slotDay + 'T00:00:00'))
-          : slotDay;
+        // SEMPRE Date. Antes era Timestamp no navegador e a STRING crua em
+        // qualquer outro lugar — e string não entra em busca por intervalo de
+        // data, que é como a Agenda e o fechamento acham aula. Rodando este
+        // mesmo serviço fora do navegador (24/08/2026), as 44 aulas de escala
+        // nasceram invisíveis: `where scheduledDate >= X <= Y` devolvia zero.
+        // Os dois SDKs convertem Date em Timestamp sozinhos.
+        const dateVal = new Date(slotDay + 'T00:00:00');
         await rdb(deps).collection('classes').doc().set({
           unitId: s.unitId, teacherId: s.assignedPersonId, originalTeacherId: s.assignedPersonId,
           modalityId: s.requiredModalityId || null, startTime: s.startTime, endTime: s.endTime,
