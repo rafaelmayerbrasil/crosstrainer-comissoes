@@ -1169,11 +1169,120 @@ function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
     <div style="overflow:auto;max-height:50vh;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead>${head}</thead><tbody>${body}</tbody></table></div>
     ${semCand}
     ${ferias}
-    <p style="font-size:12px;color:var(--text2);">Ao confirmar, o sistema consolida as vagas abertas por justiça+mérito, <b>publica as aulas na agenda</b> e avisa todos no sistema. Quem está de férias aprovadas na data <b>não é escalado</b>.</p>
+    <p style="font-size:12px;color:var(--text2);">O próximo passo <b>monta a escala e mostra pra você conferir</b> — ninguém é avisado e nada vai pra agenda ainda. Quem está de férias aprovadas na data <b>não é escalado</b>.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>
-      <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Confirmar escala e avisar todos</button>
+      <button class="btn-primary" onclick="gerarPreviaLote('${batchId}')">🧮 Montar escala e ver prévia</button>
     </div>`;
+}
+
+/**
+ * PRÉVIA (Rodrigo, 24/08/2026): "antes de consolidar e publicar, o sistema deve
+ * mostrar um resumo antes... e habilitar a possibilidade de fazer ajustes".
+ *
+ * Antes o botão fechava a janela, consolidava, publicava na agenda e avisava o
+ * time — tudo num clique. A gestão só descobria quem tinha sido escalado depois
+ * de o time já ter sido avisado. Agora monta e mostra; publicar é o passo
+ * seguinte, e no meio dá pra trocar quem quiser.
+ */
+async function gerarPreviaLote(batchId) {
+  toast('Montando a escala…', 'info');
+  const byBatch = await ScaleService.listScalesByBatch(batchId);
+  if (!byBatch.success || !byBatch.data.length) { toast('Lote não encontrado.', 'error'); return; }
+  const scales = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const ctx = await escalaMontarCtx();
+  const falhas = [];
+  for (const s of scales) {
+    await ScaleService.closeElection(s.id);
+    const cons = await ScaleService.consolidate(s.id, ctx);
+    if (!cons.success) falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`);
+  }
+  await carregarEscalas();
+  renderPreviaLote(batchId, falhas);
+}
+
+/** Desenha o resumo do que foi montado, no formato que o Rodrigo pediu. */
+function renderPreviaLote(batchId, falhas) {
+  const modal = document.getElementById('escalaModal');
+  const scales = EscalaSmartState.scales
+    .filter(s => s.windowBatchId === batchId)
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const nomeUnidade = (uid) => {
+    const u = EscalaSmartState.units.find(x => x.id === uid) || {};
+    return (u.name || uid || '').replace(/CrossTainer\s*/i, '') || uid;
+  };
+  const nomeMod = (mid) => mid === (EscalaSmartState.modToi || {}).id ? 'TOI'
+    : mid === (EscalaSmartState.modHiit || {}).id ? 'Hiit' : '';
+  const motivo = (r) => r === 'justica' ? 'rodízio' : r === 'manual' ? 'ajuste da gestão' : r === 'merito' ? 'mérito' : '—';
+
+  const linhas = scales.map(s => {
+    const porUnidade = {};
+    (s.slots || []).forEach(sl => {
+      const u = nomeUnidade(sl.unitId);
+      const quem = sl.assignedPersonId
+        ? `${escalaPersonName(sl.assignedPersonId)} <span style="color:var(--text3);">(${nomeMod(sl.requiredModalityId)} · ${motivo(sl.reason)})</span>`
+        : '<span style="color:#caa23a;">vaga aberta</span>';
+      (porUnidade[u] = porUnidade[u] || []).push(quem);
+    });
+    const corpo = Object.entries(porUnidade)
+      .map(([u, p]) => `<div style="margin-left:12px;"><b>${u}:</b> ${p.join(' · ')}</div>`).join('');
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);">
+      <div style="font-weight:600;font-size:13px;">${escalaFmtBR(s.date)}</div>${corpo}</div>`;
+  }).join('');
+
+  // Quantas vezes cada um ficou, e quem não entrou — as duas perguntas do Rodrigo
+  const cont = {};
+  scales.forEach(s => (s.slots || []).forEach(sl => {
+    if (sl.assignedPersonId) cont[sl.assignedPersonId] = (cont[sl.assignedPersonId] || 0) + 1;
+  }));
+  const distrib = Object.entries(cont).sort((a, b) => b[1] - a[1])
+    .map(([id, n]) => `${escalaPersonName(id)}: ${n}`).join(' · ');
+  const fora = Array.from(EscalaSmartState.teacherMap.values())
+    .filter(t => t.isActive !== false && !cont[t.id]);
+
+  const vagasAbertas = scales.reduce((n, s) => n + (s.slots || []).filter(x => !x.assignedPersonId).length, 0);
+
+  modal.innerHTML = `
+    <h2>Prévia da escala</h2>
+    <p style="font-size:12px;color:var(--text2);">Nada foi publicado e ninguém foi avisado ainda. Confira, ajuste se precisar, e só então publique.</p>
+    ${falhas && falhas.length ? `<div style="background:#3a1a1a;border:1px solid var(--red);border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">Falhou em: ${falhas.join(' · ')}</div>` : ''}
+    ${vagasAbertas ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">⚠️ ${vagasAbertas} vaga(s) sem ninguém — ninguém habilitado estava disponível. Preencha na mão antes de publicar, senão o dia fica sem professor.</div>` : ''}
+    <div style="overflow:auto;max-height:42vh;font-size:13px;margin:10px 0;">${linhas}</div>
+    <div style="background:var(--surface2);border-radius:8px;padding:10px;font-size:12px;margin-bottom:8px;">
+      <div style="font-weight:600;margin-bottom:4px;">Quantas vezes cada um</div>${distrib || '—'}
+    </div>
+    ${fora.length ? `<div style="background:#1a2a3a;border:1px solid var(--blue);border-radius:8px;padding:10px;font-size:12px;">
+      <div style="font-weight:600;color:var(--blue);margin-bottom:4px;">Fica para a próxima escala (${fora.length})</div>
+      ${fora.map(t => t.name).join(' · ')}
+      <div style="color:var(--text2);margin-top:4px;">Na próxima janela essas pessoas vêm na frente — o rodízio conta quem trabalhou menos.</div>
+    </div>` : ''}
+    <p style="font-size:12px;color:var(--text2);margin-top:10px;">Para trocar alguém: feche esta janela, abra a data na lista e use o seletor da vaga. A troca conta no rodízio das próximas.</p>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Fechar sem publicar</button>
+      <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Publicar na agenda e avisar</button>
+    </div>`;
+}
+
+/** ctx do motor: professores ativos + mérito do ciclo + férias. */
+async function escalaMontarCtx() {
+  const teachers = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const cyclesRes = await EngagementService.listCycles();
+  const cycles = (cyclesRes.success && cyclesRes.data.length) ? cyclesRes.data
+    : [{ id: '_all', inicio: '1900-01-01', fim: escalaTodayISO() }];
+  const cycle = (typeof EngagementService.currentCycle === 'function'
+    ? EngagementService.currentCycle(cycles, escalaTodayISO()) : null) || cycles[0];
+  const meritoById = {};
+  for (const t of teachers) {
+    const hire = (t.hireDate && t.hireDate.toDate) ? t.hireDate.toDate().toISOString().slice(0, 10) : null;
+    const sb = await EngagementService.scoreboard(t.id, hire, cycle);
+    meritoById[t.id] = sb.success ? sb.data.total : 0;
+  }
+  return {
+    teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
+    meritoById, opts: { minMes: 1 }, vacations: await escalaCarregarFerias(),
+  };
 }
 
 async function confirmarEAvisar(batchId) {
@@ -1205,9 +1314,14 @@ async function confirmarEAvisar(batchId) {
   let aulasCriadas = 0, vagasSemAula = 0;
   const falhas = [];
   for (const s of byBatch.data) {
-    await ScaleService.closeElection(s.id);
-    const cons = await ScaleService.consolidate(s.id, ctx);
-    if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)} (consolidar)`); continue; }
+    // Já veio montada da prévia? Então NÃO consolida de novo: reconsolidar
+    // recalcularia tudo e apagaria as trocas que a gestão fez ao revisar —
+    // justamente o que a prévia existe pra permitir.
+    if (s.status !== 'consolidada') {
+      await ScaleService.closeElection(s.id);
+      const cons = await ScaleService.consolidate(s.id, ctx);
+      if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)} (consolidar)`); continue; }
+    }
     const pub = await ScaleService.publishToAgenda(s.id);
     if (pub.success) {
       aulasCriadas += (pub.data && pub.data.created) || 0;
@@ -1222,14 +1336,56 @@ async function confirmarEAvisar(batchId) {
   // falhou é repetir o problema que este bloco corrige.
   const ok = byBatch.data.filter(s => !falhas.some(f => f.startsWith(escalaFmtBR(s.date))));
   const rec = await NotifyService.resolveActiveTeacherUserIds();
-  if (ok.length && rec.success && rec.data.length) {
-    const datas = ok.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map(s => escalaFmtBR(s.date)).join(', ');
+
+  // Aviso PERSONALIZADO pra quem foi escalado (Rodrigo, 24/08/2026: "eles devem
+  // ser notificados"). Antes ia um recado igual pra academia inteira — "a escala
+  // foi definida, confira sua agenda" — e quem foi escalado não era avisado
+  // disso: tinha que abrir a agenda e procurar. Quem NÃO foi escalado recebia o
+  // mesmo texto e ia procurar à toa.
+  const meusDias = new Map();   // teacherId → ['sáb 05/09 · CP 08:00–12:00 (TOI)', ...]
+  ok.forEach(s => {
+    (s.slots || []).forEach(sl => {
+      if (!sl.assignedPersonId) return;
+      const uni = (EscalaSmartState.units.find(u => u.id === sl.unitId) || {});
+      const uNome = (uni.name || sl.unitId || '').replace(/CrossTainer\s*/i, '') || sl.unitId;
+      const mod = sl.requiredModalityName
+        || (sl.requiredModalityId === (EscalaSmartState.modToi || {}).id ? 'TOI'
+          : sl.requiredModalityId === (EscalaSmartState.modHiit || {}).id ? 'Hiit/Marombinha' : '');
+      const hora = sl.startTime ? ` ${sl.startTime}–${sl.endTime || ''}` : '';
+      const linha = `${escalaFmtBR(s.date)} · ${uNome}${hora}${mod ? ` (${mod})` : ''}`;
+      if (!meusDias.has(sl.assignedPersonId)) meusDias.set(sl.assignedPersonId, []);
+      meusDias.get(sl.assignedPersonId).push(linha);
+    });
+  });
+
+  let avisados = 0;
+  for (const [teacherId, linhas] of meusDias) {
+    const t = EscalaSmartState.teacherMap.get(teacherId);
+    if (!t || !t.userId) continue;   // sem login vinculado: a gestão avisa por fora
     await NotifyService.send({
-      recipients: rec.data, type: 'scale_confirmed',
-      title: 'Escala confirmada',
-      body: `A escala dos dias ${datas} foi definida. Confira sua agenda.`,
+      recipients: [t.userId], type: 'scale_confirmed',
+      title: linhas.length === 1 ? 'Você está escalado' : `Você está escalado em ${linhas.length} dias`,
+      body: linhas.join(' · ') + '. Já está na sua agenda.',
       link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
     });
+    avisados++;
+  }
+
+  // Quem não entrou nesta janela também precisa saber — é o que evita a pergunta
+  // "fui escalado?" e prepara o terreno pra próxima, onde eles vêm na frente.
+  if (ok.length && rec.success && rec.data.length) {
+    const escaladosUids = new Set(Array.from(meusDias.keys())
+      .map(id => (EscalaSmartState.teacherMap.get(id) || {}).userId).filter(Boolean));
+    const foraUids = rec.data.filter(uid => !escaladosUids.has(uid));
+    const datas = ok.slice().sort((a, b) => (a.date > b.date ? 1 : -1)).map(s => escalaFmtBR(s.date)).join(', ');
+    if (foraUids.length) {
+      await NotifyService.send({
+        recipients: foraUids, type: 'scale_confirmed',
+        title: 'Escala definida',
+        body: `A escala de ${datas} foi definida e você não entrou nesta janela. Na próxima você vem na frente.`,
+        link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
+      });
+    }
   }
 
   const sobra = vagasSemAula
@@ -1239,9 +1395,9 @@ async function confirmarEAvisar(batchId) {
     toast(`Confirmado com ${aulasCriadas} aula(s) na agenda, mas FALHOU em: ${falhas.join(', ')}. `
         + `Abra essas datas e publique na mão — quem depende delas não foi avisado.${sobra}`, 'error', 12000);
   } else if (vagasSemAula) {
-    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e time avisado.${sobra}`, 'error', 10000);
+    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s).${sobra}`, 'error', 10000);
   } else {
-    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e time avisado.`, 'success');
+    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s) com o dia e a unidade.`, 'success', 6000);
   }
   closeEscalaModal();
   renderEscalaGestao();
