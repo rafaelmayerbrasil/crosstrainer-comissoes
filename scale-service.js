@@ -278,6 +278,9 @@
       const doc = {
         date: scale.date, name: scale.name || '', tipo: scale.tipo,
         eventKind: scale.eventKind || null,
+        // Nome do feriado quando a data é feriado E a escala foi montada pela
+        // aba Sábados. É o que faz a aula nascer em dobro nesse caso.
+        feriadoNaData: scale.feriadoNaData || null,
         status: 'rascunho', slots: scale.slots || [], externalId: '',
         createdAt: rts(deps), createdBy: ruid(deps),
       };
@@ -295,7 +298,7 @@
    * NÃO republica sozinho: se a escala estiver publicada, quem chama precisa
    * refazer unpublish→publish, senão as aulas já geradas ficam no horário velho.
    */
-  async function updateScale(scaleId, { date, startTime, endTime }, deps) {
+  async function updateScale(scaleId, { date, startTime, endTime, feriadoNaData }, deps) {
     try {
       const database = rdb(deps);
       const ref = database.collection('special_scales').doc(scaleId);
@@ -311,6 +314,9 @@
           patch.name = before.name.replace(/\d{2}\/\d{2}\/\d{4}/, `${d}/${m}/${y}`);
         }
       }
+      // Etiqueta de feriado numa escala de sábado antiga, que nasceu antes da
+      // correção de 25/08 e por isso publicaria a aula com peso de sábado.
+      if (feriadoNaData !== undefined) patch.feriadoNaData = feriadoNaData || null;
       if (startTime || endTime) {
         patch.slots = (before.slots || []).map(s => Object.assign({}, s, {
           startTime: startTime || s.startTime,
@@ -820,7 +826,14 @@
           unitId: s.unitId, teacherId: s.assignedPersonId, originalTeacherId: s.assignedPersonId,
           modalityId: s.requiredModalityId || null, startTime: s.startTime, endTime: s.endTime,
           durationMinutes: _slotMinutes(s), status: 'prevista',
-          isHoliday: scale.tipo === 'feriado', holidayName: null, holidayType: null,
+          // Feriado manda, venha a escala pela aba Sábados ou pela aba Feriados.
+          // Antes só `tipo === 'feriado'` pagava em dobro — sábado que também
+          // era feriado nascia com peso 1 (Rafael, 25/08/2026: "quando um
+          // feriado cai em um sabado ele nao entra como feriado"; Rodrigo
+          // confirmou: "é pago em dobro como feriado normal").
+          isHoliday: scale.tipo === 'feriado' || !!scale.feriadoNaData,
+          holidayName: scale.tipo === 'feriado' ? (scale.name || null) : (scale.feriadoNaData || null),
+          holidayType: null,
           cancellationReason: null, cancellationNote: null,
           adjustedBy: null, adjustedAt: null, adjustmentNote: null,
           scheduledDate: dateVal, generatedBy: 'escala-smart',

@@ -130,6 +130,13 @@ function escalaEsc(s) {
   ));
 }
 
+/** Mapa data → nome do feriado, do ano carregado. Vazio se a API não respondeu. */
+function escalaFeriadoPorData(year) {
+  const y = year || EscalaSmartState.year;
+  const lista = EscalaSmartState.feriadosByYear[y] || [];
+  return new Map(lista.map(f => [f.date, f.name]));
+}
+
 /**
  * Quem disputa vaga de sábado: precisa dar TOI ou Hiit.
  *
@@ -280,7 +287,11 @@ async function renderEscalaGestao() {
     <div class="loading"><div class="spinner"></div> Carregando escalas…</div>`;
 
   await escalaLoadBase();
-  if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
+  // A aba Sábados também precisa dos feriados: sábado que é feriado paga em
+  // dobro, e a gestão tem que ver isso ANTES de montar a escala.
+  if (EscalaSmartState.tab === 'feriado' || EscalaSmartState.tab === 'sabado') {
+    await escalaLoadFeriados(EscalaSmartState.year);
+  }
 
   // Se o evento selecionado está aberto, carrega os RSVP dele p/ o painel de staff/consolidado.
   EscalaSmartState.eventoRsvp = null;
@@ -518,14 +529,27 @@ function renderTabSabados(scales) {
   rows = ScaleService.filterByTimeframe(rows, escalaTodayISO(), EscalaSmartState.timeframe);
   const com = rows.filter(r => r.docs.length).length;
   const header = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${rows.length} sábados · ${com} com escala</div>`;
+
+  // Sábado que também é feriado paga em dobro — a gestão precisa saber disso
+  // olhando a lista, não descobrindo no fechamento (Rafael, 25/08).
+  const feriadoPorData = escalaFeriadoPorData();
+  const seloFeriado = (date) => {
+    const nome = feriadoPorData.get(date);
+    return nome
+      ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#2a2410;color:#caa23a;margin-left:6px;"
+               title="Feriado — as aulas deste dia pagam em dobro">🎌 ${escalaEsc(nome)} · paga em dobro</span>`
+      : '';
+  };
+
   const body = rows.map(r => {
     const inner = r.docs.length
       ? r.docs.map(escalaCardDoc).join('')
       : `<div onclick="criarEscalaData('sabado','${r.date}')" style="cursor:pointer;flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:14px;color:var(--text2);">Sábado ${escalaFmtBR(r.date)}</div>
+          <div style="font-size:14px;color:var(--text2);">Sábado ${escalaFmtBR(r.date)}${seloFeriado(r.date)}</div>
           <span style="font-size:12px;color:var(--text3);">Sem escala · clique pra criar</span>
         </div>`;
-    return `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(r.date)}<div style="flex:1;">${inner}</div></div>`;
+    const selo = r.docs.length ? seloFeriado(r.date) : '';
+    return `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(r.date)}<div style="flex:1;">${inner}${selo ? `<div style="margin:-2px 0 0 12px;">${selo}</div>` : ''}</div></div>`;
   }).join('');
   return header + body;
 }
@@ -1100,6 +1124,12 @@ async function criarEscalaData(tipo, date, name, eventKind) {
   const tipoLabel = (ESCALA_TIPOS.find(t => t.id === tipo) || {}).label || tipo;
   const payload = { date, tipo, name: name || `${tipoLabel} ${escalaFmtBR(date)}`, slots: tipo === 'evento' ? [] : escalaSlotsPadrao(tipo) };
   if (eventKind) payload.eventKind = eventKind;
+  // Sábado que também é feriado guarda o nome do feriado — é o que faz a aula
+  // nascer em dobro depois (Rafael, 25/08).
+  if (tipo === 'sabado') {
+    const nomeFeriado = escalaFeriadoPorData(Number(String(date).slice(0, 4))).get(date);
+    if (nomeFeriado) payload.feriadoNaData = nomeFeriado;
+  }
   const res = await ScaleService.createScale(payload);
   if (res.success) { toast('Escala criada!', 'success'); closeEscalaModal(); EscalaSmartState.selectedId = res.data.id; renderEscalaGestao(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
@@ -1176,7 +1206,15 @@ async function confirmarAbrirJanela() {
     for (const date of datas) {
       let doc = EscalaSmartState.scales.find(s => s.date === date && s.tipo === tipo);
       if (!doc) {
-        const res = await ScaleService.createScale({ date, tipo, name: `${tipo === 'feriado' ? 'Feriado' : 'Sábado'} ${escalaFmtBR(date)}`, slots: escalaSlotsPadrao(tipo) });
+        const nomeFeriado = tipo === 'sabado'
+          ? escalaFeriadoPorData(Number(String(date).slice(0, 4))).get(date)
+          : null;
+        const res = await ScaleService.createScale({
+          date, tipo,
+          name: `${tipo === 'feriado' ? 'Feriado' : 'Sábado'} ${escalaFmtBR(date)}`,
+          feriadoNaData: nomeFeriado || null,
+          slots: escalaSlotsPadrao(tipo),
+        });
         if (!res.success) { toast('Erro ao criar ' + date, 'error'); continue; }
         doc = res.data;
       }
@@ -1567,9 +1605,32 @@ async function confirmarEAvisar(batchId) {
   renderEscalaGestao();
 }
 
+/**
+ * Garante que a escala de sábado saiba se a data é feriado, antes de publicar.
+ *
+ * Escalas criadas antes de 25/08/2026 não têm o campo; publicar sem ele faria
+ * a aula nascer com peso de sábado num dia que paga em dobro. Só grava quando
+ * a data realmente é feriado e o campo ainda não existe — não desfaz escolha
+ * de ninguém.
+ */
+async function escalaGarantirFeriadoNaData(scaleId) {
+  const scale = EscalaSmartState.scales.find(s => s.id === scaleId);
+  if (!scale || scale.tipo !== 'sabado' || scale.feriadoNaData) return;
+  const ano = Number(String(scale.date).slice(0, 4));
+  if (!EscalaSmartState.feriadosByYear[ano]) await escalaLoadFeriados(ano);
+  const nome = escalaFeriadoPorData(ano).get(scale.date);
+  if (!nome) return;
+  const res = await ScaleService.updateScale(scaleId, { feriadoNaData: nome });
+  if (res && res.success !== false) scale.feriadoNaData = nome;
+}
+
 async function publicarEscala(id) {
   if (!confirm('Publicar a escala como aulas na agenda?')) return;
   toast('Publicando…', 'info');
+  // Escala de sábado criada ANTES da correção de 25/08 não guarda o feriado da
+  // data. Sem isto ela seguiria publicando aula com peso de sábado num dia que
+  // paga em dobro — e o erro só apareceria no fechamento.
+  await escalaGarantirFeriadoNaData(id);
   const res = await ScaleService.publishToAgenda(id);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
   let msg = `${res.data.created} aula(s) publicada(s).`;
@@ -1603,7 +1664,11 @@ async function renderEscalaPrefs() {
   const [scalesRes, teachersRes] = await Promise.all([ScaleService.listScales(), TeacherService.list()]);
   EscalaSmartState.scales = scalesRes.success ? scalesRes.data : [];
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
-  if (EscalaSmartState.tab === 'feriado') await escalaLoadFeriados(EscalaSmartState.year);
+  // A aba Sábados também precisa dos feriados: sábado que é feriado paga em
+  // dobro, e a gestão tem que ver isso ANTES de montar a escala.
+  if (EscalaSmartState.tab === 'feriado' || EscalaSmartState.tab === 'sabado') {
+    await escalaLoadFeriados(EscalaSmartState.year);
+  }
 
   // Quantos dias ele já disse que quer nesta janela (pra o select vir marcado).
   EscalaSmartState._minhaCota = undefined;

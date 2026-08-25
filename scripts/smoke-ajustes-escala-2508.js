@@ -177,5 +177,74 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('marca "não recebe por aula" existe na ficha, no form e no fechamento');
   }
 
+  // ═══ 6. Sábado que é feriado paga em dobro ════════════════════════
+  // Rafael, 25/08 9h13: "quando um feriado cai em um sabado ele nao entra como
+  // feriado". Rodrigo confirmou a regra: "é pago em dobro como feriado normal".
+  //
+  // A aula nascia com isHoliday = (tipo === 'feriado'), então sábado montado
+  // pela aba Sábados que também era feriado saía com peso 1. Nenhum feriado
+  // nacional de 2026 cai em sábado (conferido), mas 2027 tem 20/11 e 25/12 —
+  // e feriado municipal criado no "+ Data especial" já morde hoje.
+  {
+    const makeFakeDb = require('./_fake-firestore.js');
+    const SS = require('../scale-service.js');
+    const SE = require('../scale-engine.js');
+    const db = makeFakeDb();
+    const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+
+    const sab = (await SS.createScale({
+      date: '2027-11-20', tipo: 'sabado', name: 'Sábado 20/11',
+      feriadoNaData: 'Consciência Negra',
+      slots: [{ id: 's1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana',
+                startTime: '08:00', endTime: '12:00' }],
+    }, d)).data;
+
+    const pub = await SS.publishToAgenda(sab.id, d);
+    assert.strictEqual(pub.success, true, 'publicou');
+
+    const aulas = await db.collection('classes').where('specialScaleId', '==', sab.id).get();
+    assert.strictEqual(aulas.docs.length, 1, 'criou a aula');
+    assert.strictEqual(aulas.docs[0].data().isHoliday, true,
+      'sábado que é feriado tem que pagar em dobro');
+    assert.strictEqual(aulas.docs[0].data().holidayName, 'Consciência Negra',
+      'guarda o nome do feriado');
+
+    // Sábado comum segue com peso de sábado — a correção não pode vazar.
+    const comum = (await SS.createScale({
+      date: '2027-11-27', tipo: 'sabado', name: 'Sábado 27/11',
+      slots: [{ id: 's1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana',
+                startTime: '08:00', endTime: '12:00' }],
+    }, d)).data;
+    await SS.publishToAgenda(comum.id, d);
+    const a2 = await db.collection('classes').where('specialScaleId', '==', comum.id).get();
+    assert.strictEqual(a2.docs[0].data().isHoliday, false, 'sábado comum não é feriado');
+
+    passou('sábado que é feriado nasce em dobro; sábado comum não');
+  }
+
+  // Escala de sábado criada ANTES desta correção não tem o campo. Publicar sem
+  // etiquetar de novo pagaria errado e ninguém veria até o fechamento.
+  {
+    const makeFakeDb = require('./_fake-firestore.js');
+    const SS = require('../scale-service.js');
+    const db = makeFakeDb();
+    const d = { db, ts: () => 'TS', uid: () => 'tester' };
+
+    const antiga = (await SS.createScale({
+      date: '2027-11-20', tipo: 'sabado', name: 'Sábado 20/11',
+      slots: [{ id: 's1', unitId: 'cp', assignedPersonId: 'ana', startTime: '08:00', endTime: '12:00' }],
+    }, d)).data;
+
+    const up = await SS.updateScale(antiga.id, { feriadoNaData: 'Consciência Negra' }, d);
+    assert.strictEqual(up.success, true, 'updateScale aceita etiquetar o feriado');
+    const depois = (await SS.getScale(antiga.id, d)).data;
+    assert.strictEqual(depois.feriadoNaData, 'Consciência Negra', 'a etiqueta ficou gravada');
+
+    const ui = ler('professores-escala-smart.js');
+    assert.ok(/escalaGarantirFeriadoNaData\(/.test(ui), 'a tela etiqueta antes de publicar');
+    assert.ok(/feriadoNaData/.test(ui), 'a criação passa o feriado da data');
+    passou('escala de sábado antiga é etiquetada antes de publicar');
+  }
+
   console.log(`\n${ok} verificação(ões) passando.`);
 })().catch(e => { console.error('\n✗ FALHOU: ' + e.message); process.exit(1); });
