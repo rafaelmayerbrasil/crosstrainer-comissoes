@@ -1295,6 +1295,9 @@ async function consolidarEscala(id) {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 },
     vacations: await escalaCarregarFerias(),
+    // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
+    // em dois sábados seguidos (Rafael, 25/08).
+    scalesDoAno: EscalaSmartState.scales || [],
   };
   const res = jaFeita.tipo === 'fim_de_ano'
     ? await ScaleService.consolidateByDay(id, ctx)
@@ -1391,11 +1394,29 @@ async function gerarPreviaLote(batchId) {
   ctx.cotaById = cotas.success ? cotas.data : {};
   ctx.jaNoLoteById = {};
 
+  // A regra dos sábados seguidos precisa enxergar o que ACABOU de ser montado
+  // neste mesmo lote: numa janela de 2 meses os sábados vizinhos são
+  // consolidados nesta mesma volta, e o estado em memória ainda não os conhece.
+  // Sem isto a regra só pegaria sábado montado numa rodada anterior — que é
+  // justamente o caso mais raro.
+  const montadas = (EscalaSmartState.scales || []).slice();
+  const registrar = (scale, assignments) => {
+    const slots = (scale.slots || []).map(sl => {
+      const at = (assignments || []).find(x => x.slotId === sl.id);
+      return at ? Object.assign({}, sl, { assignedPersonId: at.personId || null }) : sl;
+    });
+    const i = montadas.findIndex(x => x.id === scale.id);
+    const novo = Object.assign({}, scale, { slots });
+    if (i >= 0) montadas[i] = novo; else montadas.push(novo);
+  };
+
   const falhas = [];
   for (const s of scales) {
     await ScaleService.closeElection(s.id);
+    ctx.scalesDoAno = montadas;
     const cons = await ScaleService.consolidate(s.id, ctx);
     if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`); continue; }
+    registrar(s, cons.data.assignments);
     (cons.data.assignments || []).forEach(a => {
       if (a.personId) ctx.jaNoLoteById[a.personId] = (ctx.jaNoLoteById[a.personId] || 0) + 1;
     });
@@ -1484,6 +1505,9 @@ async function escalaMontarCtx() {
   return {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 }, vacations: await escalaCarregarFerias(),
+    // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
+    // em dois sábados seguidos (Rafael, 25/08).
+    scalesDoAno: EscalaSmartState.scales || [],
   };
 }
 
@@ -1507,6 +1531,9 @@ async function confirmarEAvisar(batchId) {
     teachers: teachers.map(t => ({ id: t.id, name: t.name, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId })),
     meritoById, opts: { minMes: 1 },
     vacations: await escalaCarregarFerias(),
+    // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
+    // em dois sábados seguidos (Rafael, 25/08).
+    scalesDoAno: EscalaSmartState.scales || [],
   };
   // Consolidar + PUBLICAR na mesma passada. Antes o lote só consolidava, e o
   // aviso mandava "Confira sua agenda" apontando pra uma tela vazia: as aulas só

@@ -62,7 +62,10 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   });
   // cotaDesejada/jaNoLote entraram em 24/08/2026 (quantos dias a pessoa quer na
   // janela). Sem cota declarada = null = sem teto.
-  assert.deepStrictEqual(cands[0], { id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 40, diasTrabalhados: 2, divida: 1, pref: 'quer', cotaDesejada: null, jaNoLote: 0 });
+  // trabalhouSabadoVizinho entrou em 25/08/2026: quem pegou o sábado anterior
+  // ou seguinte cede a vez (Rafael — "não trabalhar em um sábado de feriado na
+  // sequência de um sábado normal"). Sem vizinho informado = false.
+  assert.deepStrictEqual(cands[0], { id: 'ana', modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 40, diasTrabalhados: 2, divida: 1, pref: 'quer', cotaDesejada: null, jaNoLote: 0, trabalhouSabadoVizinho: false });
 
   // Com cota declarada e dias já pegos no lote
   const candsCota = SS.buildCandidates({

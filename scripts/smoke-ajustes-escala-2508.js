@@ -246,5 +246,101 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('escala de sábado antiga é etiquetada antes de publicar');
   }
 
+  // ═══ 7. Dois sábados seguidos, não ════════════════════════════════
+  // Rafael, 25/08 17h04: "Para o professor não trabalhar em um sábado de
+  // feriado na sequência de um sábado normal".
+  //
+  // O sábado que é feriado é montado pela aba Feriados — escala separada,
+  // consolidada em outro momento — e por isso escapava do rodízio dos sábados.
+  // Vale SÓ entre sábados: Escola Interna e evento ficam de fora ("só pra
+  // sábado mesmo", Rafael).
+  {
+    const SE = require('../scale-engine.js');
+    const slots = [{ id: 's1', unitId: 'cp', requiredModalityId: 'TOI' }];
+
+    // Ana tem mais mérito e menos dias — ganharia. Mas trabalhou no sábado
+    // vizinho; Bia não.
+    const r = SE.consolidate(slots, [
+      { id: 'ana', modalityIds: ['TOI'], merito: 100, diasTrabalhados: 1, trabalhouSabadoVizinho: true },
+      { id: 'bia', modalityIds: ['TOI'], merito: 0,   diasTrabalhados: 2, trabalhouSabadoVizinho: false },
+    ], { minMes: 1 });
+    assert.strictEqual(r.assignments[0].personId, 'bia',
+      'quem trabalhou no sábado vizinho cede a vez');
+
+    // Teto MACIO: sobrando só a Ana, ela é escalada mesmo assim. Vaga aberta
+    // vira aula que não existe (decisão do Rafael, 25/08).
+    const r2 = SE.consolidate(slots, [
+      { id: 'ana', modalityIds: ['TOI'], merito: 100, diasTrabalhados: 1, trabalhouSabadoVizinho: true },
+    ], { minMes: 1 });
+    assert.strictEqual(r2.assignments[0].personId, 'ana',
+      'sobrando só uma pessoa habilitada, escala assim mesmo');
+
+    passou('sábados seguidos: cede a vez, mas não deixa a vaga aberta');
+  }
+
+  // O serviço precisa descobrir sozinho quem são os vizinhos.
+  {
+    const makeFakeDb = require('./_fake-firestore.js');
+    const SS = require('../scale-service.js');
+    const SE = require('../scale-engine.js');
+    const db = makeFakeDb();
+    const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+
+    // 14/11/2026 é sábado; 21/11/2026 é o sábado seguinte.
+    const anterior = (await SS.createScale({
+      date: '2026-11-14', tipo: 'sabado', name: 'Sábado 14/11',
+      slots: [{ id: 's1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana',
+                startTime: '08:00', endTime: '12:00' }],
+    }, d)).data;
+
+    const seguinte = (await SS.createScale({
+      date: '2026-11-21', tipo: 'sabado', name: 'Sábado 21/11',
+      slots: [{ id: 's1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null,
+                startTime: '08:00', endTime: '12:00' }],
+    }, d)).data;
+
+    const ctx = {
+      teachers: [
+        { id: 'ana', name: 'Ana', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+        { id: 'bia', name: 'Bia', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+      ],
+      meritoById: { ana: 100, bia: 0 },   // Ana ganharia no mérito
+      opts: { minMes: 1 },
+      scalesDoAno: [anterior, seguinte],
+    };
+
+    await SS.consolidate(seguinte.id, ctx, d);
+    const fim = (await SS.getScale(seguinte.id, d)).data;
+    assert.strictEqual(fim.slots[0].assignedPersonId, 'bia',
+      'Ana trabalhou no sábado anterior, então o seguinte foi pra Bia');
+
+    // A função pura, direto: sábado-feriado do lado conta como sábado.
+    const vizinhos = SS.personsOnAdjacentSaturday(
+      [{ date: '2026-11-14', tipo: 'feriado', slots: [{ assignedPersonId: 'ana' }] }],
+      '2026-11-21');
+    assert.ok(vizinhos.has('ana'), 'sábado que é feriado conta como sábado vizinho');
+
+    // Escola Interna e evento ficam de fora — "só pra sábado mesmo".
+    const fora = SS.personsOnAdjacentSaturday(
+      [{ date: '2026-11-14', tipo: 'escola_interna', slots: [{ assignedPersonId: 'ana' }] }],
+      '2026-11-21');
+    assert.strictEqual(fora.size, 0, 'Escola Interna não entra na regra');
+
+    passou('serviço enxerga o sábado vizinho e não repete a pessoa');
+  }
+
+  // A prévia em lote monta vários sábados numa volta só. Se ela não for
+  // acumulando o que acabou de montar, a regra só pegaria sábado de rodada
+  // anterior — que é o caso mais raro.
+  {
+    const ui = ler('professores-escala-smart.js');
+    const fn = ui.slice(ui.indexOf('async function gerarPreviaLote'), ui.indexOf('function renderPreviaLote'));
+    assert.ok(/ctx\.scalesDoAno = montadas/.test(fn),
+      'a prévia em lote atualiza o que já montou antes da próxima data');
+    assert.ok(/registrar\(s, cons\.data\.assignments\)/.test(fn),
+      'cada data consolidada entra na lista que a próxima consulta');
+    passou('prévia em lote acumula os sábados que acabou de montar');
+  }
+
   console.log(`\n${ok} verificação(ões) passando.`);
 })().catch(e => { console.error('\n✗ FALHOU: ' + e.message); process.exit(1); });

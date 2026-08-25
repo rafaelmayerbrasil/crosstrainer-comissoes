@@ -598,12 +598,44 @@
     return out;
   }
 
+  /**
+   * PURO: quem já está escalado no sábado imediatamente anterior ou seguinte.
+   *
+   * "Sábado vizinho" é a data ±7 dias — e sábado que é feriado CONTA, porque é
+   * exatamente o caso que originou a regra: o sábado-feriado é montado pela aba
+   * Feriados, escala separada, consolidada noutro momento, e por isso escapava
+   * do rodízio dos sábados (Rafael, 25/08/2026: "Para o professor não trabalhar
+   * em um sábado de feriado na sequência de um sábado normal").
+   *
+   * Escola Interna e evento ficam de fora — "só pra sábado mesmo".
+   * @returns {Set<string>} teacherIds
+   */
+  function personsOnAdjacentSaturday(scales, dateISO) {
+    const out = new Set();
+    if (!dateISO) return out;
+    const d = new Date(dateISO + 'T12:00:00');
+    if (isNaN(d) || d.getDay() !== 6) return out;   // a regra parte de um sábado
+    const desloca = (dias) => {
+      const x = new Date(d); x.setDate(d.getDate() + dias);
+      return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
+    };
+    const vizinhas = new Set([desloca(-7), desloca(7)]);
+    (scales || []).forEach(s => {
+      if (!s || !vizinhas.has(s.date)) return;
+      if (s.tipo !== 'sabado' && s.tipo !== 'feriado') return;
+      (s.slots || []).forEach(sl => { if (sl.assignedPersonId) out.add(sl.assignedPersonId); });
+    });
+    return out;
+  }
+
   function buildCandidates(ctx) {
     const merito = ctx.meritoById || {};
     const fair = ctx.fairnessById || {};
     const pref = ctx.prefById || {};
     const cota = ctx.cotaById || {};        // quantos dias a pessoa quer NESTA janela
     const jaNoLote = ctx.jaNoLoteById || {};  // quantos já pegou nela
+    const vizinho = ctx.vizinhoById;        // Set de quem pegou o sábado ao lado
+    const ehVizinho = (id) => !!(vizinho && typeof vizinho.has === 'function' && vizinho.has(id));
     return (ctx.teachers || []).map(t => ({
       id: t.id, modalityIds: t.modalityIds || [], primaryUnitId: t.primaryUnitId || null,
       merito: merito[t.id] || 0,
@@ -612,6 +644,7 @@
       pref: pref[t.id] || null,
       cotaDesejada: (cota[t.id] === 0 || cota[t.id] > 0) ? cota[t.id] : null,
       jaNoLote: jaNoLote[t.id] || 0,
+      trabalhouSabadoVizinho: ehVizinho(t.id),
     }));
   }
 
@@ -660,9 +693,14 @@
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
       const fairnessById = {};
       for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
+      // Quem pegou o sábado vizinho vai pro fim da fila. Só entre sábados —
+      // Escola Interna e evento ficam de fora ("só pra sábado mesmo", Rafael
+      // 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
+      const vizinhoById = personsOnAdjacentSaturday(ctx.scalesDoAno || [], scale.date);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
         cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
+        vizinhoById,
       });
       const result = rSE(deps).consolidate(scale.slots || [], candidates, ctx.opts || {});
       const bySlot = {}, byReason = {}, byExplain = {};
@@ -866,5 +904,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnAdjacentSaturday, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
