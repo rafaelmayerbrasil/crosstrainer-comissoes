@@ -1227,6 +1227,19 @@ async function escalaCarregarFerias() {
 }
 
 async function consolidarEscala(id) {
+  // Reconsolidar refaz a escala do zero — e apaga escolha manual que a gestão
+  // tenha feito. O botão não contava nada disso (Rodrigo, 25/08: "explicar
+  // melhor o comportamento qdo clicar em Reconsolidar e Despublicar").
+  const jaFeita = EscalaSmartState.scales.find(s => s.id === id) || {};
+  if (jaFeita.status === 'consolidada') {
+    const temManual = (jaFeita.slots || []).some(s => s.reason === 'manual');
+    const aviso = 'Reconsolidar refaz a escolha do zero, pelo rodízio e pelo mérito de hoje.\n\n'
+      + (temManual ? '⚠️ Os ajustes feitos na mão nesta data serão APAGADOS.\n\n' : '')
+      + (jaFeita.published ? 'A agenda será republicada com os nomes novos.\n\n' : '')
+      + 'O contador de justiça não é recontado — quem já pegou este dia segue com ele.\n\nContinuar?';
+    if (!confirm(aviso)) return;
+  }
+
   toast('Consolidando…', 'info');
   // monta ctx: professores ativos + mérito (placar do ciclo atual) + opts
   const teachers = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
@@ -1245,12 +1258,21 @@ async function consolidarEscala(id) {
     meritoById, opts: { minMes: 1 },
     vacations: await escalaCarregarFerias(),
   };
-  const scale = EscalaSmartState.scales.find(s => s.id === id) || {};
-  const res = scale.tipo === 'fim_de_ano'
+  const res = jaFeita.tipo === 'fim_de_ano'
     ? await ScaleService.consolidateByDay(id, ctx)
     : await ScaleService.consolidate(id, ctx);
-  if (res.success) { toast('Escala consolidada!', 'success'); renderEscalaGestao(); }
-  else toast('Erro: ' + (res.error || 'falha'), 'error');
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
+
+  let msg = 'Escala consolidada!';
+  // Trocar alguém pelo select já republicava; reconsolidar não. A tela ficaria
+  // com o nome novo e a agenda com o antigo, sem ninguém saber.
+  if (jaFeita.published) {
+    const pub = await ScaleService.publishToAgenda(id);
+    msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
+  }
+  toast(msg, 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
 }
 
 // ─── Revisão de fechamento (lote) ──────────────────────────────────
@@ -1557,7 +1579,13 @@ async function publicarEscala(id) {
 }
 
 async function despublicarEscala(id) {
-  if (!confirm('Remover as aulas publicadas desta escala da agenda?')) return;
+  // O botão só perguntava "remover as aulas?" — não dizia que quem já recebeu
+  // o aviso continua achando que trabalha (Rodrigo, 25/08).
+  if (!confirm('Despublicar remove da agenda as aulas desta escala.\n\n'
+             + '⚠️ Quem já recebeu o aviso NÃO é desavisado — continua achando que trabalha. '
+             + 'Se for o caso, fale com as pessoas.\n\n'
+             + 'A escala em si continua montada; dá pra publicar de novo depois. '
+             + 'Aula de mês já fechado não é removida.\n\nContinuar?')) return;
   const res = await ScaleService.unpublishFromAgenda(id);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
   toast('Escala despublicada.', 'success');

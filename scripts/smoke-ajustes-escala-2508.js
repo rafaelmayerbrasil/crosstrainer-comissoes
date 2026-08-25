@@ -129,5 +129,25 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('participaDoRodizio tira do alerta quem nunca seria escalado');
   }
 
+  // ═══ 4. Reconsolidar/Despublicar explicados e sem divergir ════════
+  // Rodrigo, 25/08 9h10: "Explicar melhor o comportamento qdo clicar em
+  // Reconsolidar e Despublicar".
+  //
+  // Junto veio um defeito que ninguém tinha visto: trocar alguém pelo select
+  // republica a agenda; RECONSOLIDAR não republicava. A escala mostraria o nome
+  // novo e a agenda seguiria com o antigo, em silêncio. Conferido em produção
+  // em 25/08: as 11 escalas publicadas batiam — dá pra fechar antes de doer.
+  {
+    const ui = ler('professores-escala-smart.js');
+    const fn = ui.slice(ui.indexOf('async function consolidarEscala'), ui.indexOf('// ─── Revisão de fechamento'));
+    assert.ok(/confirm\(/.test(fn), 'Reconsolidar precisa explicar antes de refazer');
+    assert.ok(/ajustes feitos na mão/i.test(fn), 'o texto precisa avisar que perde o ajuste manual');
+    assert.ok(/publishToAgenda/.test(fn), 'reconsolidar escala publicada precisa republicar a agenda');
+
+    const desp = ui.slice(ui.indexOf('async function despublicarEscala'), ui.indexOf('/* ─── COLABORADOR'));
+    assert.ok(/avisad|notificad/i.test(desp), 'Despublicar precisa avisar que quem foi notificado não é desavisado');
+    passou('Reconsolidar e Despublicar explicam o que fazem; reconsolidar republica');
+  }
+
   console.log(`\n${ok} verificação(ões) passando.`);
 })().catch(e => { console.error('\n✗ FALHOU: ' + e.message); process.exit(1); });
