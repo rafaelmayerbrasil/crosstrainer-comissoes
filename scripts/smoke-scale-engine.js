@@ -57,6 +57,61 @@ assert.strictEqual(rDiv.fairnessDelta.fab.dividaResolvida, 1, 'dívida resolvida
 
 console.log('✓ smoke-scale-engine: piso de justiça OK');
 
+/* ── RODÍZIO ACIMA DO PISO (24/08/2026) ────────────────────────────────
+ * Produção mostrou o defeito: as 44 vagas das 11 primeiras escalas foram
+ * decididas por MÉRITO — o motor registrou "justiça" zero vezes. Bruno
+ * Claudino e Karin pegaram os 11 sábados; onze pessoas ficaram com 1 dia.
+ *
+ * Causa: o rodízio só valia ABAIXO do piso (`diasTrabalhados < minMes`, com
+ * minMes = 1). Todo mundo já tinha 1 dia, ninguém ficava no piso, e o motor
+ * caía direto no mérito — um número fixo. Fora do piso, `diasTrabalhados` não
+ * era nem consultado, então quem tinha mais mérito ganhava para sempre.
+ *
+ * Decisão do Rafael em 24/08/2026: "rodízio com mérito como desempate".
+ */
+{
+  const p = (over) => Object.assign(
+    { modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 0, diasTrabalhados: 0, divida: 0, pref: null }, over);
+  const slot = [{ id: 's', unitId: 'cp', requiredModalityId: 'TOI' }];
+
+  // O caso real: os dois acima do piso, um trabalhou muito mais
+  let r = SE.consolidate(slot,
+    [p({ id: 'bruno', merito: 90, diasTrabalhados: 9 }), p({ id: 'alan', merito: 5, diasTrabalhados: 1 })],
+    { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'alan',
+    'quem trabalhou menos vem primeiro, mesmo com mérito menor — é rodízio, não ranking');
+  assert.strictEqual(r.assignments[0].reason, 'justica',
+    'e o motivo registrado é justiça, não mérito');
+
+  // Empate de dias → aí sim o mérito decide (é o desempate)
+  r = SE.consolidate(slot,
+    [p({ id: 'bruno', merito: 90, diasTrabalhados: 4 }), p({ id: 'alan', merito: 5, diasTrabalhados: 4 })],
+    { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'bruno', 'dias iguais → mérito desempata');
+  assert.strictEqual(r.assignments[0].reason, 'merito', 'e o motivo é mérito');
+
+  // Dívida continua na frente de tudo: quem deve dia paga primeiro
+  r = SE.consolidate(slot,
+    [p({ id: 'bruno', merito: 90, diasTrabalhados: 0, divida: 0 }), p({ id: 'alan', merito: 5, diasTrabalhados: 8, divida: 2 })],
+    { minMes: 1 });
+  assert.strictEqual(r.assignments[0].personId, 'alan', 'dívida vem antes do rodízio');
+
+  // O que estava quebrado em produção: datas seguidas não podem cair sempre na
+  // mesma pessoa havendo gente disponível que trabalhou menos.
+  const pessoas = ['a', 'b', 'c', 'd'].map(id => p({ id, merito: id === 'a' ? 100 : 1 }));
+  const dias = {};
+  for (let i = 0; i < 8; i++) {
+    const cands = pessoas.map(x => Object.assign({}, x, { diasTrabalhados: dias[x.id] || 0 }));
+    const escolhido = SE.consolidate(slot, cands, { minMes: 1 }).assignments[0].personId;
+    dias[escolhido] = (dias[escolhido] || 0) + 1;
+  }
+  assert.strictEqual(Object.keys(dias).length, 4, 'todo mundo entra no rodízio, não só o de maior mérito');
+  const vezes = Object.values(dias);
+  assert.ok(Math.max(...vezes) - Math.min(...vezes) <= 1,
+    `8 datas entre 4 pessoas tem que ficar equilibrado, veio ${JSON.stringify(dias)}`);
+}
+console.log('✓ smoke-scale-engine: rodízio vale acima do piso, mérito só desempata');
+
 // ── Preferência e unidade alternada (desempate, mesmo mérito/piso) ──
 const b3 = (over) => Object.assign({ modalityIds: ['TOI'], primaryUnitId: 'cp', merito: 20, diasTrabalhados: 5, divida: 0, pref: null }, over);
 // Mesmo mérito; gabi quer, hugo neutro → gabi

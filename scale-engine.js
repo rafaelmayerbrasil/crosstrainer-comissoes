@@ -16,21 +16,42 @@
 
   function isPiso(c, minMes) { return c.divida > 0 || c.diasTrabalhados < minMes; }
 
+  /**
+   * Ordem de escolha — RODÍZIO primeiro, mérito só desempata.
+   * (Rafael, 24/08/2026: "rodízio com mérito como desempate".)
+   *
+   * Era o contrário na prática: `diasTrabalhados` só entrava quando os dois
+   * estavam ABAIXO do piso (`diasTrabalhados < minMes`, minMes=1). Como todo
+   * mundo já tinha 1 dia, ninguém ficava no piso e o critério nem era
+   * consultado — decidia o mérito, que é fixo. Em produção isso deu Bruno
+   * Claudino e Karin nos 11 sábados seguidos, com onze pessoas em 1 dia, e o
+   * motor registrando "merito" nas 44 vagas e "justica" em nenhuma.
+   */
   function makeComparator(slot, minMes) {
     const prefRank = (p) => (p.pref === 'prefiro' || p.pref === 'quer') ? 0 : (p.pref === 'nao_quer' ? 2 : 1);
     const altRank = (p) => (p.primaryUnitId && p.primaryUnitId !== slot.unitId) ? 0 : 1;
     return function (a, b) {
-      const pa = isPiso(a, minMes) ? 0 : 1, pb = isPiso(b, minMes) ? 0 : 1;
-      if (pa !== pb) return pa - pb;                       // piso primeiro
-      if (pa === 0) {                                      // ambos no piso
-        if (b.divida !== a.divida) return b.divida - a.divida;             // mais dívida primeiro
-        if (a.diasTrabalhados !== b.diasTrabalhados) return a.diasTrabalhados - b.diasTrabalhados; // menos dias
-      }
-      if (b.merito !== a.merito) return b.merito - a.merito;               // mais mérito
-      if (prefRank(a) !== prefRank(b)) return prefRank(a) - prefRank(b);   // preferência
+      if (b.divida !== a.divida) return b.divida - a.divida;               // quem deve dia, paga primeiro
+      if (a.diasTrabalhados !== b.diasTrabalhados)                         // quem trabalhou menos vem antes
+        return a.diasTrabalhados - b.diasTrabalhados;
+      if (b.merito !== a.merito) return b.merito - a.merito;               // desempate: mérito
+      if (prefRank(a) !== prefRank(b)) return prefRank(a) - prefRank(b);   // depois, preferência
       if (altRank(a) !== altRank(b)) return altRank(a) - altRank(b);       // unidade alternada
       return String(a.id).localeCompare(String(b.id));                    // estável
     };
+  }
+
+  /**
+   * Por que esta pessoa foi escolhida — comparando com quem ficou em segundo.
+   * Antes o motivo saía de `isPiso`, que com todo mundo acima do piso dizia
+   * "merito" sempre. Agora responde a pergunta que a gestão faz de verdade:
+   * entrou porque trabalhou menos, porque devia, ou porque desempatou no mérito?
+   */
+  function motivoDaEscolha(escolhido, segundo, minMes) {
+    if (!segundo) return isPiso(escolhido, minMes) ? 'justica' : 'merito';
+    if (escolhido.divida !== segundo.divida) return 'justica';
+    if (escolhido.diasTrabalhados !== segundo.diasTrabalhados) return 'justica';
+    return 'merito';
   }
 
   function consolidate(slots, candidates, opts) {
@@ -52,7 +73,7 @@
       eligible.sort(makeComparator(slot, minMes));
       const pick = eligible[0];
       assigned.add(pick.id);
-      const reason = isPiso(pick, minMes) ? 'justica' : 'merito';
+      const reason = motivoDaEscolha(pick, eligible[1], minMes);
       fairnessDelta[pick.id] = { dias: 1, dividaResolvida: pick.divida > 0 ? 1 : 0 };
       // explica a escolha: top candidatos ordenados com as métricas que decidiram
       const explain = eligible.slice(0, 4).map(c => ({
