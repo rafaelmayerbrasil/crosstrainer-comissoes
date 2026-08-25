@@ -993,6 +993,7 @@ function openTeacherModal(id = null) {
   $f('teacherInternshipStart').value = '';
   $f('teacherContractEnd').value = '';
   $f('teacherNotes').value = '';
+  if ($f('teacherNaoRemunerado')) $f('teacherNaoRemunerado').checked = false;
   $f('teacherError').textContent = '';
   $f('teacherSaveBtn').disabled = false;
   $f('teacherSaveBtn').textContent = 'Salvar';
@@ -1018,6 +1019,7 @@ function openTeacherModal(id = null) {
     $f('teacherInternshipStart').value = dateToInputValue(t.internshipStartDate);
     $f('teacherContractEnd').value = dateToInputValue(t.contractEndDate);
     $f('teacherNotes').value = t.notes || '';
+    if ($f('teacherNaoRemunerado')) $f('teacherNaoRemunerado').checked = (t.naoRemunerado === true);
 
     TeacherFormState.selectedUnitIds = new Set(t.unitIds || []);
     TeacherFormState.selectedModalityIds = new Set(t.modalityIds || []);
@@ -1204,6 +1206,8 @@ async function saveTeacher() {
     modalityIds: Array.from(TeacherFormState.selectedModalityIds),
     hireDate: $f('teacherHireDate').value || null,
     notes: $f('teacherNotes').value.trim(),
+    // Sócio que dá aula sem receber (Rafael, 25/08) — fica fora do fechamento.
+    naoRemunerado: !!($f('teacherNaoRemunerado') && $f('teacherNaoRemunerado').checked),
   };
 
   if (data.type === 'estagiario') {

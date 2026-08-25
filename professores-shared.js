@@ -540,6 +540,12 @@ const TeacherService = {
         contractEndDate: toTimestamp(teacherData.contractEndDate),
         internshipStartDate: toTimestamp(teacherData.internshipStartDate),
         isActive: true,
+        // Sócio que dá aula e não recebe por isso (Rafael Rojais, 25/08/2026:
+        // "não recebo pois é um dos donos da cross, mas ele dá aula tb").
+        // Entra na escala e na agenda como qualquer um; o fechamento não lista.
+        // Não dá pra resolver com type:'eventual' — eventual é pago, só perde
+        // direito a férias.
+        naoRemunerado: teacherData.naoRemunerado === true,
         notes: teacherData.notes || '',
         createdAt: serverTs(),
         createdBy: currentUserId(),
@@ -2783,6 +2789,11 @@ const ClosingService = {
       // 7) Agrupa classes por teacherId
       const grouped = {};
       for (const c of validClasses) {
+        // Quem não recebe por aula fica fora da folha. Sem isto a ficha do
+        // sócio apareceria com as horas e o aviso "Sem cadastro salarial" todo
+        // mês — pendência falsa que convida alguém a "consertar" pagando.
+        const tDoc = teacherMap[c.teacherId];
+        if (tDoc && tDoc.naoRemunerado === true) continue;
         if (!grouped[c.teacherId]) grouped[c.teacherId] = [];
         grouped[c.teacherId].push(c);
       }

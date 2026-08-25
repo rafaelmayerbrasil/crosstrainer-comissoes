@@ -149,5 +149,33 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('Reconsolidar e Despublicar explicam o que fazem; reconsolidar republica');
   }
 
+  // ═══ 5. Dá aula e não recebe ══════════════════════════════════════
+  // Rafael, 25/08: "o rafa não recebe pois é um dos donos da cross, mas ele dá
+  // aula tb, e a parte dele na gestão".
+  //
+  // type:'eventual' NÃO resolve — eventual é pago, só perde direito a férias.
+  // E ficha sem teacher_salaries cai no ramo noSalaryData: aparece no
+  // fechamento com as horas e o aviso "Sem cadastro salarial", virando uma
+  // pendência mensal que convida alguém a "consertar" pagando um sócio.
+  {
+    const shared = ler('professores-shared.js');
+    assert.ok(/naoRemunerado/.test(shared), 'a ficha precisa da marca naoRemunerado');
+
+    const criar = shared.slice(shared.indexOf('async create(teacherData)'), shared.indexOf('async update(id, updates)'));
+    assert.ok(/naoRemunerado:/.test(criar), 'create grava a marca');
+
+    // O fechamento tem que pular quem não recebe, senão a ficha vira linha de
+    // pendência todo mês.
+    const agrupa = shared.slice(shared.indexOf('// 7) Agrupa classes por teacherId'), shared.indexOf('// 8) Calcula por professor'));
+    assert.ok(/naoRemunerado/.test(agrupa), 'o fechamento pula quem não recebe por aula');
+
+    const html = ler('professores.html');
+    assert.ok(/teacherNaoRemunerado/.test(html), 'o formulário tem o campo');
+
+    const cad = ler('professores-cadastro.js');
+    assert.ok(/naoRemunerado:/.test(cad), 'saveTeacher manda a marca');
+    passou('marca "não recebe por aula" existe na ficha, no form e no fechamento');
+  }
+
   console.log(`\n${ok} verificação(ões) passando.`);
 })().catch(e => { console.error('\n✗ FALHOU: ' + e.message); process.exit(1); });
