@@ -1,0 +1,159 @@
+AJUSTES DA CONVERSA DE 25/08 — textos prontos para mandar no grupo
+Escrito em 25/08/2026, depois de conferir cada ponto na base de produção.
+Formatação em asterisco simples = negrito do WhatsApp.
+
+Origem: conversa no grupo "Sistema Escala Inteligente IA" em 25/08, manhã.
+Levantaram 7 pontos (Rafael Rojais e Rodrigo). Conferi os 7 na base real e
+apareceu um oitavo, com prazo curto.
+
+===============================================================================
+MENSAGEM 1 — MANDAR PRIMEIRO (precisa de resposta hoje ou amanhã)
+===============================================================================
+
+Pessoal, fui conferir cada ponto que vocês levantaram hoje de manhã direto na
+base do sistema. Achei uma coisa que não estava na lista e que tem pressa.
+
+*O sábado 29/08 — este que vem*
+
+Na tela da Escala ele aparece como "Sem escala · clique pra criar". Mas *a
+agenda já tem 4 aulas nesse sábado*: Karin (PP), Eduarda (CP), Camila (CP) e
+Louise (PP), das 8h às 12h.
+
+Elas vieram da grade fixa antiga, não da escala. E são *as mesmas 4 pessoas em
+todos os sábados de agosto* — dia 8, 15, 22 e 29. Ou seja: agosto inteiro o
+rodízio não valeu. As escalas dos dias 8 e 15 ficaram paradas em rascunho, e as
+dos dias 22 e 29 nunca foram criadas.
+
+De setembro em diante está tudo certo — conferi um por um, de 05/09 a 31/10 a
+escala está publicada e batendo com a agenda.
+
+*Cuidado antes de mexer:* se vocês criarem e publicarem a escala do dia 29
+agora, essas 4 aulas da grade *não somem sozinhas*. O sábado ficaria com 8
+aulas e 8 professores.
+
+*Preciso saber:* deixo as 4 como estão e não criamos escala pro dia 29, ou eu
+apago as 4 e vocês montam a escala normal? Me digam até amanhã que eu resolvo.
+
+===============================================================================
+MENSAGEM 2 — MANDAR EM SEGUIDA (o retorno dos 7 pontos)
+===============================================================================
+
+Agora o retorno de cada coisa que vocês pediram hoje:
+
+*1. Trocar quem dá TOI e quem dá Hiit* (Rafael, 7h22)
+
+Rafael, eu respondi "a princípio sim" de manhã — *testei e não dá*. O sistema
+bloqueia porque entende que a pessoa já está em outra vaga daquele mesmo dia.
+Vou fazer o botão de inverter com um clique, que é o que o Rodrigo pediu
+depois. Aí funciona.
+
+*2. Clicar em "5 substituições pendentes" e não acontecer nada* (Rodrigo, 8h53)
+
+Confirmado, e o erro é no aviso, não na tela. As 5 trocas estão *esperando o
+colega confirmar*, não a gestão. A tela que abre está certa ao dizer que não
+tem nada pra vocês. Vou fazer o aviso contar só o que é de vocês, e as outras
+viram uma linha informativa sem cobrar ninguém.
+
+*3. Mostrar quem são as pessoas no "equilíbrio do ciclo"* (Rodrigo, 9h05)
+
+Vou colocar os nomes. E puxando eles, descobri por que o alerta vermelho não
+some: os 3 "abaixo do mínimo" são *Yasmin, Patrícia e Louiz Lume* — que dão TOI
+Mobility, Yoga e TOI Combate. Nenhum dos três dá TOI ou Hiit, que é o que a
+vaga de sábado pede. Então eles nunca vão ser escalados e o alerta ia ficar
+vermelho pra sempre. Vou tirar da conta quem não é habilitado e mostrar à
+parte.
+
+De quebra, o retrato de hoje: Karin com 6 sábados, Leonardo e Carla com 5,
+contra Thaynara, Bruno Othero, João Vitor e Thiago com 2.
+
+*4. Explicar o Reconsolidar e o Despublicar* (Rodrigo, 9h10)
+
+Hoje eles fazem isto:
+- *Reconsolidar* — refaz a escolha do zero e apaga os ajustes que vocês fizeram
+  na mão.
+- *Despublicar* — tira as aulas da agenda, sem avisar ninguém. Quem já foi
+  notificado continua achando que trabalha.
+
+Vou colocar essa explicação na tela antes de confirmar. E achei um problema
+junto: quando vocês trocam alguém pelo campo de seleção, a agenda se atualiza
+sozinha; mas quando clicam em *Reconsolidar*, ela *não* se atualiza. A escala
+mostraria o nome novo e a agenda continuaria com o antigo, em silêncio.
+Conferi as 11 escalas publicadas e *nenhuma está com esse problema hoje* — dá
+pra arrumar antes de acontecer.
+
+*5. Feriado que cai no sábado* (Rafael, 9h13)
+
+Rafael tem razão: hoje, se o dia for montado pela aba Sábados, o sistema paga
+como sábado e não como feriado. Mas fui conferir e *nenhum feriado de 2026 cai
+num sábado* — os dois já montados (7 de setembro e 12 de outubro) estão
+corretamente em dobro. Então não tem pagamento errado agora nem até o fim do
+ano. Vou arrumar mesmo assim, sem correria: pega feriado de cidade criado na
+mão, e 2027 tem dois caindo em sábado.
+
+*6. Não trabalhar em dias seguidos* (Rodrigo, 9h24)
+
+Essa regra não existe hoje. E ela já tem data pra fazer falta: *20/11 é sexta e
+é feriado*, já montado com Thaynara, Bruno Othero, Bruno Claudino e Vagner. O
+sábado 21/11 ainda não foi montado — sem a regra, pode cair em cima das mesmas
+pessoas. Vou construir antes de vocês montarem novembro.
+
+*7. Rafael e Will poderem dar aula* (Rafael, 9h10)
+
+Achei os dois. Vocês já têm o perfil de professor no sistema, mas *não têm
+ficha de professor* — e a escala sorteia só entre as fichas. Por isso vocês não
+aparecem. É rápido de resolver.
+
+Só que tem um detalhe: ficha de professor *entra no fechamento do mês e gera
+recibo de pagamento*. Hoje não existe um jeito de ser escalado sem entrar na
+folha. Como vocês são sócios, preciso saber como querem isso antes de criar.
+
+===============================================================================
+MENSAGEM 3 — AS PERGUNTAS (mandar junto com a 2, ou logo depois)
+===============================================================================
+
+Pra eu começar, preciso de resposta em 5 coisas:
+
+*1.* Sábado 29/08: deixo as 4 aulas da grade (Karin, Eduarda, Camila, Louise)
+ou apago pra vocês montarem a escala?
+
+*2.* Rafael e Will: vocês devem entrar no fechamento e receber recibo por aula
+dada, ou eu crio um jeito de escalar sem entrar na folha?
+
+*3.* A regra de não trabalhar em dias seguidos vale só entre feriado e sábado
+colados, ou entre quaisquer dois dias de escala seguidos (incluindo Escola
+Interna e evento)?
+
+*4.* Nessa mesma regra: se sobrar só uma pessoa habilitada pra vaga, o sistema
+escala mesmo assim avisando vocês, ou deixa a vaga aberta? *Minha sugestão é
+escalar e avisar* — vaga aberta vira aula que não existe.
+
+*5.* Os sábados de agosto foram sempre das mesmas 4 pessoas. Querem que eu
+acerte o contador de justiça pra elas não pegarem os próximos, ou deixa como
+está e o rodízio se resolve sozinho?
+
+===============================================================================
+O QUE JÁ DÁ PRA COMEÇAR SEM RESPOSTA
+===============================================================================
+
+Itens 1 (botão inverter), 2 (aviso da home), 3 (nomes no equilíbrio) e 4
+(explicação + republicar no Reconsolidar) não dependem de nenhuma resposta.
+São os quatro que entram no plano primeiro.
+
+Dependem de resposta: o 29/08 (pergunta 1), as fichas do Rafael e do Will
+(pergunta 2), a regra de dias seguidos (perguntas 3 e 4) e o acerto do
+contador (pergunta 5).
+
+===============================================================================
+COMO ISSO FOI CONFERIDO
+===============================================================================
+
+Tudo verificado na base de produção em 25/08, só leitura:
+- 19 fichas de professor, 4 usuários de gestão (Rafael Rojais e Will sem ficha)
+- 7 trocas de professor: 5 esperando colega, 0 esperando gestão
+- 27 escalas especiais; as 11 publicadas conferidas uma a uma contra a agenda
+- aulas de 01/08 em diante, com marcação de feriado e de escala
+- contador de justiça dos 19 ativos, reproduzindo o painel de equilíbrio
+- os 4 slots de sábado da grade (já desativados — não geram mais)
+
+O bloqueio da inversão TOI/Hiit foi provado rodando o serviço real contra o
+banco de teste, não só por leitura de código.
