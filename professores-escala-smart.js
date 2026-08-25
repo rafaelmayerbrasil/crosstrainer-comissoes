@@ -1268,7 +1268,14 @@ async function consolidarEscala(id) {
   // Reconsolidar refaz a escala do zero — e apaga escolha manual que a gestão
   // tenha feito. O botão não contava nada disso (Rodrigo, 25/08: "explicar
   // melhor o comportamento qdo clicar em Reconsolidar e Despublicar").
-  const jaFeita = EscalaSmartState.scales.find(s => s.id === id) || {};
+  //
+  // Lê do BANCO, não de EscalaSmartState: `status` e `published` mudam a cada
+  // consolidação/publicação, e o estado em memória envelhece. Com ele velho o
+  // aviso não aparecia e — pior — a agenda não era republicada, deixando
+  // escala e agenda divergentes: exatamente o defeito que este trecho conserta.
+  const frescoRes = await ScaleService.getScale(id);
+  const jaFeita = (frescoRes && frescoRes.success) ? frescoRes.data
+                : (EscalaSmartState.scales.find(s => s.id === id) || {});
   if (jaFeita.status === 'consolidada') {
     const temManual = (jaFeita.slots || []).some(s => s.reason === 'manual');
     const aviso = 'Reconsolidar refaz a escolha do zero, pelo rodízio e pelo mérito de hoje.\n\n'
@@ -1641,7 +1648,10 @@ async function confirmarEAvisar(batchId) {
  * de ninguém.
  */
 async function escalaGarantirFeriadoNaData(scaleId) {
-  const scale = EscalaSmartState.scales.find(s => s.id === scaleId);
+  // Do banco, não da memória: se o estado estiver velho a escala pode nem ser
+  // encontrada, e aí a etiqueta não seria gravada — pagando errado em silêncio.
+  const atual = await ScaleService.getScale(scaleId);
+  const scale = (atual && atual.success) ? atual.data : EscalaSmartState.scales.find(s => s.id === scaleId);
   if (!scale || scale.tipo !== 'sabado' || scale.feriadoNaData) return;
   const ano = Number(String(scale.date).slice(0, 4));
   if (!EscalaSmartState.feriadosByYear[ano]) await escalaLoadFeriados(ano);

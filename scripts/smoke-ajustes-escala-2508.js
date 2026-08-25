@@ -149,6 +149,25 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     passou('Reconsolidar e Despublicar explicam o que fazem; reconsolidar republica');
   }
 
+  // Pego na homologação do staging em 25/08: `published` vinha de
+  // EscalaSmartState, que envelhece. Com o estado velho o aviso não aparecia e
+  // a agenda NÃO era republicada — ou seja, o conserto não consertava nada.
+  // Tem que ler do banco.
+  {
+    const ui = ler('professores-escala-smart.js');
+    const fn = ui.slice(ui.indexOf('async function consolidarEscala'), ui.indexOf('// ─── Revisão de fechamento'));
+    assert.ok(/ScaleService\.getScale\(id\)/.test(fn),
+      'consolidarEscala lê a escala do banco, não do estado em memória');
+    const antesDoIf = fn.slice(0, fn.indexOf("if (jaFeita.status === 'consolidada')"));
+    assert.ok(/getScale/.test(antesDoIf),
+      'a leitura fresca vem ANTES de decidir se avisa e se republica');
+
+    const gar = ui.slice(ui.indexOf('async function escalaGarantirFeriadoNaData'), ui.indexOf('async function publicarEscala'));
+    assert.ok(/ScaleService\.getScale\(scaleId\)/.test(gar),
+      'a etiqueta de feriado também lê do banco — estado velho não acharia a escala');
+    passou('estado de publicação vem do banco, não da memória');
+  }
+
   // ═══ 5. Dá aula e não recebe ══════════════════════════════════════
   // Rafael, 25/08: "o rafa não recebe pois é um dos donos da cross, mas ele dá
   // aula tb, e a parte dele na gestão".
