@@ -3,6 +3,59 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 54 (24–25/08/2026) — 🗓️ ESCALA CONSERTADA + 📧 E-MAIL NO AR
+
+### ❓ O que gerou a sessão
+Rodrigo: *"Acho que vamos ter que refazer a escala dos sábados. Pq ficou tudo errado"* — print mostrando 2 professores por modalidade, a mesma pessoa em duas modalidades e a mesma pessoa em duas unidades no mesmo horário.
+
+**As escalas dele estavam certas. Todas as 11.**
+
+### 🔦 Três defeitos independentes, achados em cascata
+
+**1. A grade normal continuava valendo em dia de escala.** O gerador procurava escala com `.where('isActive','==',true)` + `unitIds` — formato das Escalas Especiais da Sprint 5a. A Escala Inteligente grava `status:'consolidada'` e a unidade dentro de cada vaga. Em produção: **24 escalas, ZERO com esses campos** — a consulta voltava vazia. E mesmo enxergando, o gerador só usava a escala como **etiqueta**: a supressão nunca foi construída.
+- Sábados: 4 aulas da grade + 4 da escala
+- **Feriados: 78 aulas de segunda-feira comum em 07/09 e 12/10, cada um**
+- **184 aulas, 259 horas** que entrariam no fechamento. Limpas (backup em `backups/`), e as 4 vagas fixas de sábado desativadas na grade (decisão do Rafael: "feriado só a escala e sábado tira da grade").
+- Módulo novo: **`functions/escala-dia.js`**. Armadilha que quase peguei: **Escola Interna e evento NÃO são donos do dia** — tratá-los assim apagaria 12 dias úteis de agosto.
+
+**2. O rodízio nunca funcionou.** O motor grava o motivo de cada escolha: **as 44 vagas saíram por "merito", "justica" zero vezes**. Causa: o rodízio só valia abaixo do piso (`diasTrabalhados < minMes`, minMes=1) e todo mundo já tinha 1 dia — então `diasTrabalhados` **nem era consultado** fora do piso, e quem tinha mais mérito ganhava sempre. Bruno Claudino e Karin pegaram os **11 sábados**; onze pessoas ficaram com 1.
+- Decisão do Rafael: **"rodízio com mérito como desempate"**. Invertida a ordem em `scale-engine.js`, e `motivoDaEscolha` passou a comparar o escolhido com o 2º colocado em vez de deduzir do piso.
+- **As 11 escalas foram refeitas** (`scripts/refazer-escalas-com-rodizio.js`): de **6 pessoas** (Bruno 11x, Karin 11x) para **16 pessoas**, ninguém com mais de 3.
+
+**3. ⚠️ Defeito que EU introduzi e corrigi.** Rodando `publishToAgenda` fora do navegador, as 44 aulas nasceram com `scheduledDate` em **texto** em vez de data — e busca por período não acha texto. Ficaram **invisíveis** pra Agenda e pro fechamento. A raiz é do código, não só do script: `typeof firebase !== 'undefined' ? Timestamp : slotDay` gravava tipo diferente conforme o ambiente. Pior: **o teste existente exigia a string**, cristalizando o defeito. Código e teste corrigidos, 11 escalas refeitas com data de verdade.
+
+### ✅ Pedidos do Rodrigo — os quatro entregues
+| Pedido | Situação |
+|---|---|
+| Ajustes contam pra próxima | **já funcionava** (`reassignSlot` move o crédito) |
+| Ver quem se inscreveu e quem não | **já existia** no "Revisar fechamento" |
+| Avisar os escalados | era genérico pra academia toda → agora **pessoal** (dia, unidade, horário, modalidade) |
+| Resumo antes de publicar | **novo**: "Montar escala e ver prévia" monta e PARA — mostra o motivo de cada escolha e quem fica pra próxima |
+| Quantos dias cada um quer | **novo**: teto macio por janela (`scale_window_quotas`) |
+
+### 🔐 Vazamento de salário fechado
+`monthly_closings` era `read: hasProfModule()` — **qualquer professor lia o pagamento de todos**. Virou `isAdmin()` (opção (a) do Rafael: nem supervisão). Provado por REST **antes** (200) e **depois** (403), com o recibo do próprio professor continuando legível. Junto: o botão "Calcular rateio" do PLR lê fechamentos e aparecia pra supervisão → travado com `canSeeSalary()`.
+
+### 👤 Ficha × login
+A Eduarda não redefinia a senha "de jeito nenhum": a ficha dizia um e-mail, o login era outro, e o Firebase não avisa quando o endereço não existe. **4 professores estavam assim.** O Hub preferia o e-mail da ficha (`t.email || u.email`) — invertido. Login da Eduarda trocado para o endereço real (a caixa antiga não existia).
+
+### 📧 E-MAIL — LIGADO EM PRODUÇÃO
+SendGrid + extensão **Trigger Email from Firestore** + CF **`onNotificationCreated`**: todo aviso passa por `notifications`, então liga num lugar só, sem tocar em tela nenhuma.
+- **Só 5 tipos** (regra do Rafael: só o que tem prazo ou dinheiro): `scale_confirmed`, `substitution_requested`, `vacation_approved`, `vacation_rejected`, `recibo_emitido`. O resto fica no sino.
+- Interruptor `meta/email_config` + modo de teste que desvia tudo pra um endereço só.
+- **⚠️ Cai no SPAM**: o remetente é `@gmail.com` e o Gmail não reconhece o SendGrid como autorizado. Decisão do Rafael: manter assim e pedir pro time marcar "não é spam". **Corrigir de verdade exige autenticar `crosstainer.com.br` no SendGrid — precisa de acesso ao DNS, que ninguém tem ainda.**
+- E-mail de apresentação disparado pros **19 professores**, 19/19 aceitos.
+- **⚠️ Extensões do Firebase serão desativadas em 31/03/2027** — trocar por envio próprio na CF antes disso.
+
+### ▶️ RETOMAR AQUI
+1. **Segunda 25/08, 02:00** — conferir se o robô respeitou a supressão de feriado/sábado (o `continue` novo só dispara quando ele roda; não consegui forçar sem `gcloud`).
+2. **Patricia** (`rodrigo_rojaeis@hotmail.com`, e-mail com erro de digitação) e **Louiz Lume** (`carollll@hotmail.com`) — não devem receber e-mail. Ver bounce no Activity Feed do SendGrid.
+3. **DNS do `crosstainer.com.br`** — descobrir quem administra, autenticar o domínio, trocar o remetente.
+4. **Nenhuma das telas novas** (prévia, cota, aviso de gerar agenda) foi clicada por humano.
+5. Limite do SendGrid grátis: **100 e-mails/dia**.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 53 (21–22/08/2026) — ⇄ TROCA DE PROFESSOR DA AULA ✅ EM PRODUÇÃO
 
 ### ❓ O que gerou a sessão
