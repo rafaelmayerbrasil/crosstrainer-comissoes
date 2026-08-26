@@ -360,6 +360,31 @@ const VIZINHAS = [
     console.log('✓ o professor só vê a escala depois de publicada');
   }
 
+  // ── inverter vale entre unidades, não só dentro ──────────────────────
+  //
+  // Rodrigo, 25/08/2026: "trouxe a possibilidade de inverter somente os
+  // colaboradores dentro da unidade. Mas traga tbm a possibilidade de inverter
+  // as unidades... um prof do TOI da PP ser invertido para o Hiit da CP".
+  //
+  // `swapSlots` JÁ aceitava qualquer par de vagas do mesmo dia — quem limitava
+  // era a tela, que só oferecia o par TOI/Hiit da mesma unidade. Um mecanismo
+  // só: o botão de um clique sai, o seletor por vaga entra.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    assert.ok(/Inverter com…/.test(ui), 'cada vaga oferece inverter com outra vaga do dia');
+    assert.ok(/Outra unidade/.test(ui), 'as vagas de outra unidade aparecem no seletor');
+    assert.ok(!/⇄ Inverter<\/button>/.test(ui), 'o botão antigo do par TOI/Hiit sai — um mecanismo só');
+    const fn = ui.slice(ui.indexOf('async function inverterVagasEscala'),
+                        ui.indexOf('async function atribuirLider'));
+    assert.ok(/habilitad/i.test(fn),
+      'inverter entre unidades pode pôr alguém numa modalidade que não é dele — tem que avisar');
+    assert.ok(/if \(!slotBId\) return;/.test(fn),
+      'voltar pro rótulo do seletor não pode disparar troca nenhuma');
+    console.log('✓ inverter vale entre unidades, com aviso de não habilitado');
+  }
+
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────
   //
   // Em produção (26/08/2026) rodam duas janelas ao mesmo tempo: sábados

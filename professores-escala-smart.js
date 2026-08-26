@@ -956,6 +956,23 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
  * do TOI e Hiit".)
  */
 async function inverterVagasEscala(scaleId, slotAId, slotBId) {
+  if (!slotBId) return;                       // voltou pro rótulo "⇄ Inverter com…"
+  const scale = EscalaSmartState.scales.find(s => s.id === scaleId) || {};
+  const slots = scale.slots || [];
+  const a = slots.find(s => s.id === slotAId) || {};
+  const b = slots.find(s => s.id === slotBId) || {};
+  // Inverter entre unidades pode pôr alguém numa modalidade que não é dele. A
+  // gestão pode querer mesmo assim — mas vendo o que está fazendo.
+  const habilitado = (pid, modId) => {
+    if (!pid || !modId) return true;
+    const t = EscalaSmartState.teacherMap.get(pid);
+    return !t || (t.modalityIds || []).indexOf(modId) !== -1;
+  };
+  const avisos = [];
+  if (!habilitado(b.assignedPersonId, a.requiredModalityId)) avisos.push(`${escalaPersonName(b.assignedPersonId)} não é habilitado(a) na modalidade da outra vaga`);
+  if (!habilitado(a.assignedPersonId, b.requiredModalityId)) avisos.push(`${escalaPersonName(a.assignedPersonId)} não é habilitado(a) na modalidade da outra vaga`);
+  if (avisos.length && !confirm(`⚠️ ${avisos.join('.\n')}.\n\nInverter mesmo assim?`)) { renderEscalaGestao(); return; }
+
   const res = await ScaleService.swapSlots(scaleId, slotAId, slotBId);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
 
@@ -1049,6 +1066,36 @@ function renderEscalaDetail(scale) {
            (outros ? `<optgroup label="Não habilitados nesta modalidade">${outros}</optgroup>` : '');
   };
 
+  // Inverter com QUALQUER vaga do dia — inclusive de outra unidade (Rodrigo,
+  // 25/08/2026: "um prof do TOI da PP ser invertido para o Hiit da CP, e
+  // vice-versa"). O serviço já fazia: `swapSlots` aceita qualquer par de vagas
+  // do mesmo dia. Era a tela que só oferecia o par da mesma unidade.
+  //
+  // Vale um seletor por vaga, e não o botão de um clique que existia antes: com
+  // dois mecanismos pra mesma coisa, a gestão teria que descobrir qual serve
+  // pra qual caso.
+  const inverterSelect = (slot) => {
+    const outras = (scale.slots || []).filter(s => s.id !== slot.id);
+    if (!outras.length) return '';
+    const rotulo = (s) => {
+      const u = EscalaSmartState.units.find(x => x.id === s.unitId) || {};
+      const uNome = (u.name || s.unitId || '').replace(/CrossTainer\s*/i, '') || s.unitId;
+      const mod = s.requiredModalityName
+        || (s.requiredModalityId === (EscalaSmartState.modToi || {}).id ? 'TOI' : 'Hiit');
+      return `${uNome} · ${mod} · ${escalaPersonName(s.assignedPersonId) || 'vaga aberta'}`;
+    };
+    const opt = (s) => `<option value="${s.id}">${escalaEsc(rotulo(s))}</option>`;
+    const mesma = outras.filter(s => s.unitId === slot.unitId);
+    const fora  = outras.filter(s => s.unitId !== slot.unitId);
+    return `<select class="input" style="width:100%;margin-top:6px;font-size:12px;"
+            onchange="inverterVagasEscala('${scale.id}','${slot.id}',this.value)"
+            title="Troca as duas pessoas de vaga">
+      <option value="">⇄ Inverter com…</option>
+      ${mesma.map(opt).join('')}
+      ${fora.length ? `<optgroup label="Outra unidade">${fora.map(opt).join('')}</optgroup>` : ''}
+    </select>`;
+  };
+
   let unitsHtml = '';
   Object.keys(byUnit).forEach(uid => {
     const cards = byUnit[uid].map(slot => {
@@ -1065,20 +1112,13 @@ function renderEscalaDetail(scale) {
         <select class="input" style="width:100%;margin-top:6px;font-size:12px;"
                 onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
                 title="Trocar quem trabalha nesta vaga">${pessoaOpts(slot)}</select>
+        ${inverterSelect(slot)}
         ${filled ? whyTableHtml(slot, scale.tipo) : ''}
       </div>`;
     }).join('');
-    // Com exatamente 2 vagas na unidade (o caso TOI + Hiit), oferece a inversão
-    // direta. Com 3+ não dá pra adivinhar quais duas, então o botão some.
-    const par = byUnit[uid];
-    const btnInverter = (par.length === 2 && (par[0].assignedPersonId || par[1].assignedPersonId))
-      ? `<button class="btn-secondary" style="font-size:12px;padding:4px 10px;"
-                 onclick="inverterVagasEscala('${scale.id}','${par[0].id}','${par[1].id}')"
-                 title="Troca as duas pessoas de modalidade">⇄ Inverter</button>`
-      : '';
     unitsHtml += `<div style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-        <span style="font-size:13px;font-weight:500;">${unitName(uid)}</span>${btnInverter}
+        <span style="font-size:13px;font-weight:500;">${unitName(uid)}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">${cards}</div></div>`;
   });
