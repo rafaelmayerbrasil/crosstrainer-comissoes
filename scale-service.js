@@ -611,6 +611,20 @@
   }
 
   /**
+   * PURO: mesma data, 12 meses (1 ano) antes — a janela móvel do rodízio.
+   * `T12:00:00` local pra não escorregar de dia em fuso horário (mesma
+   * convenção de `personsOnNearbyScale`, abaixo). 29/02 que não existe no ano
+   * de destino cai no 01/03 por conta do próprio `Date` — canto raro, sem
+   * tratamento especial.
+   */
+  function dozeMesesAntes(dataISO) {
+    const d = new Date(dataISO + 'T12:00:00');
+    if (isNaN(d)) return null;
+    d.setFullYear(d.getFullYear() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
    * PURO: quantas vagas cada pessoa tem nas escalas que casam com o filtro.
    *
    * Esta função É o contador de justiça. Até 25/08/2026 o número ficava guardado
@@ -733,12 +747,67 @@
     } catch (err) { console.error('[ScaleService.listWindowQuotas]', err); return { success: false, error: err.message, data: {} }; }
   }
 
+  /**
+   * Monta uma escala especial: pega os candidatos elegíveis, chama o motor
+   * puro (`scale-engine.js`) e grava as vagas escolhidas.
+   *
+   * @param {string} scaleId id do documento em `special_scales`
+   * @param {Object} ctx contrato de entrada. Nove chaves — três delas, se
+   *   faltarem, DEGRADAM o rodízio pra "decide só por mérito" SEM ERRO
+   *   NENHUM (`teachers`, `scalesDoAno`, `ajusteById` indiretamente):
+   *   - {Array} teachers — candidatos (elegibilidade por modalidade é feita
+   *     pelo motor, a partir de `requiredModalityId` de cada slot).
+   *   - {Object<string,number>} meritoById — desempate do rodízio (fixo,
+   *     não muda entre consolidações; é o motivo de nunca poder ser o
+   *     critério principal).
+   *   - {Array} vacations — pedidos de férias; quem tem período aprovado
+   *     cobrindo a data da escala sai do páreo antes de qualquer cálculo.
+   *   - {Object} opts — repassado cru pro motor (`minMes`, etc.).
+   *   - {Object<string,number>} cotaById — quanto cada um quer trabalhar
+   *     nesta janela (teto macio).
+   *   - {Object<string,number>} jaNoLoteById — quanto cada um já pegou
+   *     nesta janela, pra comparar com a cota.
+   *   - {Array} scalesDoAno — ⚠️ PRATICAMENTE OBRIGATÓRIA pra `sabado`,
+   *     `feriado` e `domingo_especial`: é dela que sai a contagem do
+   *     rodízio (via `contarPorPessoa`) E quem trabalhou numa data vizinha
+   *     (via `personsOnNearbyScale`). Faltando ou vazia, `contarPorPessoa`
+   *     conta 0 pra todo mundo — todo mundo empata no rodízio e quem decide
+   *     é só o mérito, sem erro, sem log (por isso o `console.warn` abaixo).
+   *     Duas pegadinhas que só se descobrem lendo o código:
+   *       1. quem consolida em LOTE (várias datas seguidas na mesma rodada)
+   *          tem que REALIMENTAR `scalesDoAno` com as escalas já montadas
+   *          nesta mesma rodada antes de consolidar a próxima data — senão
+   *          todas as datas do lote decidem com o histórico de ANTES do
+   *          lote, como se as anteriores não tivessem acontecido, e voltam
+   *          a empatar entre si.
+   *       2. apesar do nome, `scalesDoAno` carrega escalas de TODOS os anos,
+   *          não só do ano corrente — o recorte pela janela de 12 meses é
+   *          feito AQUI DENTRO (`dozeMesesAntes`). Quem pré-filtrar por ano
+   *          antes de montar `ctx` quebra a consolidação de qualquer escala
+   *          cuja janela cruze a virada do ano.
+   *   - {Set<string>|Array<string>} excluirDatas — datas extras a tirar da
+   *     contagem, além da própria data da escala (que sai sempre).
+   *   - {Object<string,number>} ajusteById — ajuste de partida por pessoa
+   *     (ver `saveAjustePartida`/`listAjustes`); soma direto na contagem.
+   *     Lido de forma blindada aqui dentro — um chamador que não passe por
+   *     `listAjustes` pode mandar negativo ou string.
+   * @param {Object} deps
+   * @returns {Promise<{success:boolean, data?:{assignments:Array}, error?:string}>}
+   */
   async function consolidate(scaleId, ctx, deps) {
     try {
       ctx = ctx || {};
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
+      // Sem data válida não tem como contar o rodízio: `slice(0,4)` numa data
+      // ausente/malformada dava `de: '-01-01'`, que filtra TODAS as escalas
+      // do histórico e zera a contagem de todo mundo em silêncio (achado na
+      // revisão de 26/08/2026). Recusa aqui é melhor que montar a escala com
+      // o rodízio cego.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(scale.date || ''))) {
+        return { success: false, error: `Data da escala inválida ("${scale.date}") — não dá pra contar o rodízio sem uma data no formato YYYY-MM-DD.` };
+      }
       // Nada de "só a 1ª consolidação conta": o número é CONTADO na hora, então
       // remontar quantas vezes quiser dá sempre a mesma resposta.
       const prefsRes = await listPreferences(scaleId, deps);
@@ -748,30 +817,55 @@
       // cálculo — não é candidato preterido, é candidato inexistente.
       const deFerias = personsOnVacation(ctx.vacations, scale.date);
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
-      // O contador é contado das escalas: mesmo tipo desta data, no ano dela.
+      // O contador é contado das escalas, numa janela de 12 MESES MÓVEIS pra
+      // trás a partir da data desta escala — não o ano civil. Motivo
+      // (26/08/2026): com ano civil, 1º de janeiro zerava o rodízio de todo
+      // mundo — e como `divida` também é sempre 0 agora (não sobrou nada que
+      // a incremente), o comparador caía direto no mérito fixo: o mesmo
+      // defeito que este branch existe pra matar, voltando a cada virada de
+      // ano. Também resolve o lote que atravessa o ano: com ano civil, cada
+      // data do lote contava num universo diferente.
+      const ate = scale.date;
+      const de = dozeMesesAntes(scale.date);
       // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
       // rodada e ainda carregam a escala ANTIGA — contá-las empurraria as
-      // pessoas erradas. A própria data sempre sai, pelo mesmo motivo.
-      const ano = String(scale.date || '').slice(0, 4);
+      // pessoas erradas. A própria data sempre sai, pelo mesmo motivo. (A
+      // exclusão é por DATA, não por id do documento: se dois documentos do
+      // mesmo grupo de tipos dividirem a mesma data — feriado + domingo
+      // especial criados à mão no mesmo dia, por exemplo —, consolidar um
+      // tira o outro da conta. Raro, e `personsOnNearbyScale` tem a mesma
+      // característica; decisão foi não tratar, 26/08/2026.)
       const excluir = new Set(Array.from(ctx.excluirDatas || []));
       excluir.add(scale.date);
-      const contagem = contarPorPessoa(ctx.scalesDoAno || [], {
+      const scalesDoAno = ctx.scalesDoAno || [];
+      // Falha silenciosa vira falha visível: sem histórico, `contarPorPessoa`
+      // conta 0 pra todo mundo, todo mundo empata no rodízio e quem decide é
+      // só o mérito — sem erro nenhum. Só nos tipos em que isso importa.
+      if (!scalesDoAno.length && ['sabado', 'feriado', 'domingo_especial'].indexOf(scale.tipo) !== -1) {
+        console.warn(`[ScaleService.consolidate] ctx.scalesDoAno vazio para escala "${scale.tipo}" de ${scale.date} — rodízio vai empatar todo mundo e decidir só por mérito.`);
+      }
+      const contagem = contarPorPessoa(scalesDoAno, {
         tipos: tiposIrmaos(scale.tipo),
-        de: `${ano}-01-01`, ate: `${ano}-12-31`,
+        de, ate,
         excluirDatas: excluir,
       });
       const ajustes = ctx.ajusteById || {};
       const fairnessById = {};
       teachers.forEach(t => {
+        // Blindado: Math.max(0, Number(...)||0) do mesmo jeito que
+        // `listAjustes`/`getFairness` já fazem — um chamador que não venha
+        // por eles pode mandar negativo ou string, e NaN ordena de forma
+        // imprevisível no comparador do motor.
+        const ajuste = Math.max(0, Number(ajustes[t.id]) || 0);
         fairnessById[t.id] = {
-          diasTrabalhados: (contagem[t.id] || 0) + (ajustes[t.id] || 0),
+          diasTrabalhados: (contagem[t.id] || 0) + ajuste,
           divida: 0,
         };
       });
       // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
       // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
       // Rafael 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
-      const vizinhoById = personsOnNearbyScale(ctx.scalesDoAno || [], scale.date);
+      const vizinhoById = personsOnNearbyScale(scalesDoAno, scale.date);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
         cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
