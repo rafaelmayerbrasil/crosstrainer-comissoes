@@ -15,11 +15,13 @@
       // nela. null = não respondeu = sem teto (entra no rodízio normal).
       cotaDesejada: (c.cotaDesejada === 0 || c.cotaDesejada > 0) ? c.cotaDesejada : null,
       jaNoLote: c.jaNoLote || 0,
-      // Já está escalado no sábado imediatamente anterior ou seguinte?
-      // (Rafael, 25/08/2026: "Para o professor não trabalhar em um sábado de
-      // feriado na sequência de um sábado normal".) Sábado que é feriado conta
-      // como sábado — é justamente o caso que originou a regra, porque ele é
-      // montado pela aba Feriados e escapava do rodízio dos sábados.
+      // Já está escalado numa data vizinha (sábado, feriado ou domingo
+      // especial, a até 7 dias)? Nasceu só entre sábados (Rafael, 25/08/2026:
+      // "Para o professor não trabalhar em um sábado de feriado na sequência
+      // de um sábado normal"). Rodrigo, 26/08/2026, pediu o outro lado: quem
+      // pegou o sábado vizinho também não deve pegar o feriado — e vice-versa.
+      // O nome do campo ficou de antes da mudança, mas quem preenche
+      // (`personsOnNearbyScale`, em scale-service.js) já manda os três tipos.
       trabalhouSabadoVizinho: c.trabalhouSabadoVizinho === true,
     };
   }
@@ -49,10 +51,11 @@
     const prefRank = (p) => (p.pref === 'prefiro' || p.pref === 'quer') ? 0 : (p.pref === 'nao_quer' ? 2 : 1);
     const altRank = (p) => (p.primaryUnitId && p.primaryUnitId !== slot.unitId) ? 0 : 1;
     return function (a, b) {
-      // Descansar entre sábados vem ANTES da cota: alguém que pediu 3 dias mas
-      // trabalhou sábado passado ainda deve ceder a vez. Teto MACIO — ordena
-      // pro fim da fila, não exclui: vaga aberta vira aula que não existe
-      // (Rafael, 25/08: "se sobrar só uma pessoa habilitada, escala assim").
+      // Descansar entre datas vizinhas vem ANTES da cota: quem trabalhou uma
+      // escala de sábado/feriado/domingo especial a até 7 dias desta ainda
+      // deve ceder a vez, mesmo tendo pedido 3 dias. Teto MACIO — ordena pro
+      // fim da fila, não exclui: vaga aberta vira aula que não existe (Rafael,
+      // 25/08: "se sobrar só uma pessoa habilitada, escala assim").
       const va = a.trabalhouSabadoVizinho ? 1 : 0, vb = b.trabalhouSabadoVizinho ? 1 : 0;
       if (va !== vb) return va - vb;
       // Quem já bateu a própria cota cede a vez a quem ainda quer trabalhar.
