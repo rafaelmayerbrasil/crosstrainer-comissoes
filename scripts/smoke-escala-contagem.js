@@ -242,6 +242,79 @@ const VIZINHAS = [
     console.log('✓ o motor decide pela contagem e remontar não muda a resposta');
   }
 
+  // ── janela de 12 meses móveis, não ano civil ─────────────────────────
+  // Revisão de 26/08/2026: ano civil zerava o rodízio em 1º de janeiro (e com
+  // `divida` sempre 0, o comparador caía direto no mérito fixo — o mesmo
+  // defeito que este branch existe pra matar) e fatiava um lote que atravessa
+  // o ano em dois universos diferentes.
+  {
+    const vaga = () => [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null }];
+
+    // 14 meses atrás fica FORA da janela (janela = 12 meses até a data da escala).
+    await SS.createScale({ date: '2027-04-10', tipo: 'sabado', name: 'Sáb 10/04', slots: vaga() }, d);
+    const idA = (await SS.listScales(d)).data.find(s => s.date === '2027-04-10').id;
+    const histA = [{ id: 'ha', date: '2026-02-10', tipo: 'sabado', slots: [{ id: 'a', assignedPersonId: 'nina' }] }];
+    const rA = await SS.consolidate(idA, {
+      teachers: [
+        { id: 'nina', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+        { id: 'oto', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+      ],
+      meritoById: { nina: 50, oto: 5 },
+      opts: { minMes: 1 },
+      scalesDoAno: histA,
+    }, d);
+    assert.strictEqual(rA.success, true, 'consolidou (14 meses)');
+    assert.strictEqual(rA.data.assignments[0].personId, 'nina', '14 meses atrás não conta — decide por mérito, como se a nina não tivesse histórico');
+
+    // 10 meses atrás entra na janela.
+    await SS.createScale({ date: '2027-04-17', tipo: 'sabado', name: 'Sáb 17/04', slots: vaga() }, d);
+    const idB = (await SS.listScales(d)).data.find(s => s.date === '2027-04-17').id;
+    const histB = [{ id: 'hb', date: '2026-06-17', tipo: 'sabado', slots: [{ id: 'a', assignedPersonId: 'paty' }] }];
+    const rB = await SS.consolidate(idB, {
+      teachers: [
+        { id: 'paty', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+        { id: 'quel', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+      ],
+      meritoById: { paty: 50, quel: 5 },
+      opts: { minMes: 1 },
+      scalesDoAno: histB,
+    }, d);
+    assert.strictEqual(rB.data.assignments[0].personId, 'quel', '10 meses atrás conta — a paty já trabalhou, a quel vem antes mesmo com menos mérito');
+
+    // Lote atravessando o ano-novo: dezembro e janeiro precisam enxergar o
+    // MESMO histórico de novembro. Com ano civil, o alvo de janeiro cairia
+    // num ano-janela diferente e perderia o registro de novembro do ano
+    // anterior — era exatamente essa a virada que zerava o rodízio.
+    await SS.createScale({ date: '2026-12-19', tipo: 'sabado', name: 'Sáb 19/12', slots: vaga() }, d);
+    await SS.createScale({ date: '2027-01-16', tipo: 'sabado', name: 'Sáb 16/01', slots: vaga() }, d);
+    const idDez = (await SS.listScales(d)).data.find(s => s.date === '2026-12-19').id;
+    const idJan = (await SS.listScales(d)).data.find(s => s.date === '2027-01-16').id;
+    const histC = [{ id: 'hc', date: '2026-11-20', tipo: 'sabado', slots: [{ id: 'a', assignedPersonId: 'rita' }] }];
+    const ctxC = {
+      teachers: [
+        { id: 'rita', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+        { id: 'sam', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+      ],
+      meritoById: { rita: 50, sam: 5 },
+      opts: { minMes: 1 },
+      scalesDoAno: histC,
+    };
+    const rDez = await SS.consolidate(idDez, ctxC, d);
+    const rJan = await SS.consolidate(idJan, ctxC, d);
+    assert.strictEqual(rDez.data.assignments[0].personId, 'sam', 'dezembro enxerga o sábado de novembro (a rita já trabalhou)');
+    assert.strictEqual(rJan.data.assignments[0].personId, 'sam', 'janeiro enxerga o MESMO sábado de novembro — ano civil cortaria isso na virada');
+    console.log('✓ janela de 12 meses móveis: 14 meses fora, 10 meses dentro, ano-novo não corta o histórico');
+  }
+
+  // ── data malformada recusa, não zera a contagem em silêncio ──────────
+  {
+    const criada = await SS.createScale({ date: '', tipo: 'sabado', name: 'Sem data', slots: [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null }] }, d);
+    const rSemData = await SS.consolidate(criada.data.id, { teachers: [{ id: 'tici', modalityIds: ['TOI'], primaryUnitId: 'cp' }], scalesDoAno: [] }, d);
+    assert.strictEqual(rSemData.success, false, 'data vazia recusa, não monta escala com rodízio cego');
+    assert.ok(/data.*inválid/i.test(rSemData.error || ''), 'erro explica o motivo');
+    console.log('✓ data malformada recusa em vez de zerar a contagem em silêncio');
+  }
+
   console.log('✓ ajuste de partida grava, lista e não fica negativo');
   console.log('\n✓ smoke-escala-contagem: todas as seções OK');
 })();
