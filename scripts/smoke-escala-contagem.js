@@ -97,4 +97,29 @@ const ESCALAS = [
   passou('feriado e domingo especial contam juntos');
 }
 
+// ── contarPorPessoa expande tipos por dentro, sozinha ──
+// Quem escreve o pedido natural `{ tipos: ['feriado'] }` — sem lembrar de passar
+// por tiposIrmaos — não pode ficar contando errado. Isso seria a mesma
+// divergência silenciosa que esta função inteira existe pra matar. A expansão
+// tem que ser idempotente: pedir já-expandido dá o mesmo resultado.
+{
+  const comDomingoEspecial = ESCALAS.concat([
+    escala('2026-12-25', 'domingo_especial', ['bruno']),
+  ]);
+  const pedidoCurto = SS.contarPorPessoa(comDomingoEspecial, { tipos: ['feriado'] });
+  const pedidoExpandido = SS.contarPorPessoa(comDomingoEspecial, { tipos: ['feriado', 'domingo_especial'] });
+  assert.deepStrictEqual(pedidoCurto, pedidoExpandido, '["feriado"] sozinho já dá o mesmo resultado que ["feriado","domingo_especial"]');
+  assert.strictEqual(pedidoCurto.bruno, 2, 'bruno soma o feriado de 07/09 com o domingo especial de 25/12');
+  passou('contarPorPessoa expande tipos internamente e é idempotente');
+}
+
+// ── sem filtro de tipos: tudo soma junto ──
+// O ramal `tipos = null` até agora só era testado com entrada vazia. Com dados
+// de verdade e sem filtro, sábado e evento da mesma pessoa têm que somar.
+{
+  const tudo = SS.contarPorPessoa(ESCALAS, {});
+  assert.strictEqual(tudo.karin, 5, 'karin: 4 sábados (05/09, 19/09, 17/10, 06/09/2025) + 1 evento (14/11)');
+  passou('sem filtro de tipos, todos os tipos contam juntos');
+}
+
 console.log(`\n✓ smoke-escala-contagem: ${ok} seções OK`);

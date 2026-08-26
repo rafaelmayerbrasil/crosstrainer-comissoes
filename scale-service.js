@@ -625,7 +625,13 @@
    */
   function contarPorPessoa(scales, filtro) {
     const f = filtro || {};
-    const tipos = (f.tipos && f.tipos.length) ? f.tipos : null;
+    const tipos = (f.tipos && f.tipos.length)
+      // Expande aqui, e não no chamador: pedir `tipos: ['feriado']` e receber só
+      // feriado, sem os domingos especiais, seria a mesma divergência silenciosa
+      // que esta função existe pra matar. Expandir é idempotente — passar a lista
+      // já expandida dá o mesmo resultado.
+      ? f.tipos.reduce((acc, t) => acc.concat(tiposIrmaos(t)), [])
+      : null;
     const excluir = (f.excluirDatas instanceof Set)
       ? f.excluirDatas : new Set(f.excluirDatas || []);
     const out = {};
