@@ -186,19 +186,10 @@
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
 
-      let fairnessAjustada = false;
-      if (scale.fairnessApplied === true) {
-        if (antes) {
-          const cur = (await getFairness(antes, deps)).data;
-          await saveFairness(antes, { diasTrabalhados: Math.max(0, cur.diasTrabalhados - 1), divida: cur.divida }, deps);
-        }
-        if (depois) {
-          const cur = (await getFairness(depois, deps)).data;
-          await saveFairness(depois, { diasTrabalhados: cur.diasTrabalhados + 1, divida: cur.divida }, deps);
-        }
-        fairnessAjustada = true;
-      }
-      return { success: true, data: { changed: true, from: antes, to: depois, fairnessAjustada, published: !!scale.published } };
+      // Não há contador pra acertar: quem conta é `contarPorPessoa`, e ela lê
+      // esta escala que acabou de ser gravada. A troca manual entra na conta
+      // sozinha, na próxima vez que alguém contar.
+      return { success: true, data: { changed: true, from: antes, to: depois, published: !!scale.published } };
     } catch (err) { console.error('[ScaleService.reassignSlot]', err); return { success: false, error: err.message }; }
   }
 
@@ -505,34 +496,44 @@
     } catch (err) { console.error('[ScaleService.setRsvp]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * O que sobrou do antigo contador: um AJUSTE DE PARTIDA por pessoa.
+   *
+   * Até 25/08/2026 este documento guardava `diasTrabalhados` e `divida` e era o
+   * contador de justiça — que vivia errado, porque só se mexia na primeira
+   * montagem de cada data. Quem conta agora é `contarPorPessoa`, direto das
+   * escalas. Sobrou o ajuste porque agosto aconteceu pela grade antiga e não
+   * existe em `special_scales`: não há o que contar, só o que lançar.
+   * (`divida` nunca foi incrementada por nada — era código morto desde a origem.)
+   */
   async function getFairness(personId, deps) {
     try {
       const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
-      const base = { personId, diasTrabalhados: 0, divida: 0 };
-      return { success: true, data: doc.exists ? Object.assign(base, doc.data()) : base };
+      const dados = doc.exists ? (doc.data() || {}) : {};
+      return { success: true, data: { personId, ajuste: Math.max(0, Number(dados.ajuste) || 0) } };
     } catch (err) { console.error('[ScaleService.getFairness]', err); return { success: false, error: err.message }; }
   }
 
-  async function saveFairness(personId, vals, deps) {
+  async function saveAjustePartida(personId, ajuste, deps) {
     try {
+      const n = Math.max(0, Math.round(Number(ajuste) || 0));
       await rdb(deps).collection('fairness_counter').doc(personId)
-        .set({ personId, diasTrabalhados: vals.diasTrabalhados || 0, divida: vals.divida || 0, updatedAt: rts(deps) });
-      return { success: true };
-    } catch (err) { console.error('[ScaleService.saveFairness]', err); return { success: false, error: err.message }; }
+        .set({ personId, ajuste: n, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { ajuste: n } };
+    } catch (err) { console.error('[ScaleService.saveAjustePartida]', err); return { success: false, error: err.message }; }
   }
 
-  async function applyFairnessDelta(delta, deps) {
+  /** Todos os ajustes de uma vez — a tela lia um por pessoa, 16 leituras por render. */
+  async function listAjustes(deps) {
     try {
-      for (const personId of Object.keys(delta || {})) {
-        const cur = (await getFairness(personId, deps)).data;
-        const dd = delta[personId];
-        await saveFairness(personId, {
-          diasTrabalhados: cur.diasTrabalhados + (dd.dias || 0),
-          divida: Math.max(0, cur.divida - (dd.dividaResolvida || 0)),
-        }, deps);
-      }
-      return { success: true };
-    } catch (err) { console.error('[ScaleService.applyFairnessDelta]', err); return { success: false, error: err.message }; }
+      const snap = await rdb(deps).collection('fairness_counter').get();
+      const out = {};
+      snap.docs.forEach(doc => {
+        const v = doc.data() || {};
+        out[v.personId || doc.id] = Math.max(0, Number(v.ajuste) || 0);
+      });
+      return { success: true, data: out };
+    } catch (err) { console.error('[ScaleService.listAjustes]', err); return { success: false, error: err.message, data: {} }; }
   }
 
   // PURO: [{personId,date,pref,excludedShifts}] → map[personId][date] = {pref, excludedShifts}
@@ -599,30 +600,102 @@
   }
 
   /**
-   * PURO: quem já está escalado no sábado imediatamente anterior ou seguinte.
+   * PURO: os tipos de escala que contam juntos. Feriado e domingo especial são
+   * a mesma coisa pra quem olha ("dia especial que não é sábado") e a aba
+   * Feriados sempre mostrou os dois.
+   */
+  function tiposIrmaos(tipo) {
+    return (tipo === 'feriado' || tipo === 'domingo_especial')
+      ? ['feriado', 'domingo_especial']
+      : [tipo];
+  }
+
+  /**
+   * PURO: mesma data, 12 meses (1 ano) antes — a janela móvel do rodízio.
+   * `T12:00:00` local pra não escorregar de dia em fuso horário (mesma
+   * convenção de `personsOnNearbyScale`, abaixo). 29/02 que não existe no ano
+   * de destino cai no 01/03 por conta do próprio `Date` — canto raro, sem
+   * tratamento especial.
+   */
+  function dozeMesesAntes(dataISO) {
+    const d = new Date(dataISO + 'T12:00:00');
+    if (isNaN(d)) return null;
+    d.setFullYear(d.getFullYear() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * PURO: quantas vagas cada pessoa tem nas escalas que casam com o filtro.
    *
-   * "Sábado vizinho" é a data ±7 dias — e sábado que é feriado CONTA, porque é
-   * exatamente o caso que originou a regra: o sábado-feriado é montado pela aba
-   * Feriados, escala separada, consolidada noutro momento, e por isso escapava
-   * do rodízio dos sábados (Rafael, 25/08/2026: "Para o professor não trabalhar
-   * em um sábado de feriado na sequência de um sábado normal").
+   * Esta função É o contador de justiça. Até 25/08/2026 o número ficava guardado
+   * em `fairness_counter` e só se mexia na PRIMEIRA montagem de cada data — então
+   * remontar a prévia trocava as pessoas sem refazer a conta, e em produção 9 das
+   * 16 pessoas estavam erradas (Karin marcava 1 e tinha 3 sábados). Contar na hora
+   * não tem como divergir.
    *
-   * Escola Interna e evento ficam de fora — "só pra sábado mesmo".
+   * @param {Array} scales lista de special_scales (a tela já carrega todas)
+   * @param {{tipos?:string[], batchId?:string, de?:string, ate?:string,
+   *          excluirDatas?:string[]|Set<string>}} filtro
+   * @returns {Object<string, number>} personId → quantas vagas
+   */
+  function contarPorPessoa(scales, filtro) {
+    const f = filtro || {};
+    const tipos = (f.tipos && f.tipos.length)
+      // Expande aqui, e não no chamador: pedir `tipos: ['feriado']` e receber só
+      // feriado, sem os domingos especiais, seria a mesma divergência silenciosa
+      // que esta função existe pra matar. Expandir é idempotente — passar a lista
+      // já expandida dá o mesmo resultado.
+      ? f.tipos.reduce((acc, t) => acc.concat(tiposIrmaos(t)), [])
+      : null;
+    const excluir = (f.excluirDatas instanceof Set)
+      ? f.excluirDatas : new Set(f.excluirDatas || []);
+    const out = {};
+    (scales || []).forEach(s => {
+      if (!s || !s.date) return;
+      if (tipos && tipos.indexOf(s.tipo) === -1) return;
+      if (f.batchId && s.windowBatchId !== f.batchId) return;
+      if (f.de && s.date < f.de) return;
+      if (f.ate && s.date > f.ate) return;
+      if (excluir.has(s.date)) return;
+      (s.slots || []).forEach(sl => {
+        const pid = sl && sl.assignedPersonId;
+        if (!pid) return;
+        out[pid] = (out[pid] || 0) + 1;
+      });
+    });
+    return out;
+  }
+
+  /**
+   * PURO: quem já está escalado numa data de escala PERTO desta.
+   *
+   * Nasceu como "sábado imediatamente anterior ou seguinte" (Rafael, 25/08/2026:
+   * "Para o professor não trabalhar em um sábado de feriado na sequência de um
+   * sábado normal") e a função saía fora se a data não fosse sábado. Rodrigo,
+   * 25/08, pediu o outro lado: quem pegou o sábado vizinho ao feriado também não
+   * deve pegar o feriado. Uma distância só resolve os dois — 07/09 é segunda, e
+   * os sábados 05/09 e 12/09 estão a 2 e 5 dias; entre sábados, ±7 dá exatamente
+   * o anterior e o seguinte, que é o comportamento de sempre.
+   *
+   * A PRÓPRIA data fica de fora: uma escala não pode barrar os próprios
+   * candidatos (quem já está numa vaga do dia já é barrado pelo motor).
+   * Escola Interna, evento e fim de ano ficam de fora — "só pra sábado mesmo".
+   *
    * @returns {Set<string>} teacherIds
    */
-  function personsOnAdjacentSaturday(scales, dateISO) {
+  function personsOnNearbyScale(scales, dateISO, dias) {
     const out = new Set();
     if (!dateISO) return out;
-    const d = new Date(dateISO + 'T12:00:00');
-    if (isNaN(d) || d.getDay() !== 6) return out;   // a regra parte de um sábado
-    const desloca = (dias) => {
-      const x = new Date(d); x.setDate(d.getDate() + dias);
-      return `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`;
-    };
-    const vizinhas = new Set([desloca(-7), desloca(7)]);
+    const janela = (dias == null) ? 7 : dias;
+    const base = new Date(dateISO + 'T12:00:00');
+    if (isNaN(base)) return out;
     (scales || []).forEach(s => {
-      if (!s || !vizinhas.has(s.date)) return;
-      if (s.tipo !== 'sabado' && s.tipo !== 'feriado') return;
+      if (!s || !s.date || s.date === dateISO) return;
+      if (s.tipo !== 'sabado' && s.tipo !== 'feriado' && s.tipo !== 'domingo_especial') return;
+      const d = new Date(s.date + 'T12:00:00');
+      if (isNaN(d)) return;
+      const dist = Math.abs(Math.round((d - base) / 86400000));
+      if (dist > janela) return;
       (s.slots || []).forEach(sl => { if (sl.assignedPersonId) out.add(sl.assignedPersonId); });
     });
     return out;
@@ -674,16 +747,69 @@
     } catch (err) { console.error('[ScaleService.listWindowQuotas]', err); return { success: false, error: err.message, data: {} }; }
   }
 
+  /**
+   * Monta uma escala especial: pega os candidatos elegíveis, chama o motor
+   * puro (`scale-engine.js`) e grava as vagas escolhidas.
+   *
+   * @param {string} scaleId id do documento em `special_scales`
+   * @param {Object} ctx contrato de entrada. Nove chaves — três delas, se
+   *   faltarem, DEGRADAM o rodízio pra "decide só por mérito" SEM ERRO
+   *   NENHUM (`teachers`, `scalesDoAno`, `ajusteById` indiretamente):
+   *   - {Array} teachers — candidatos (elegibilidade por modalidade é feita
+   *     pelo motor, a partir de `requiredModalityId` de cada slot).
+   *   - {Object<string,number>} meritoById — desempate do rodízio (fixo,
+   *     não muda entre consolidações; é o motivo de nunca poder ser o
+   *     critério principal).
+   *   - {Array} vacations — pedidos de férias; quem tem período aprovado
+   *     cobrindo a data da escala sai do páreo antes de qualquer cálculo.
+   *   - {Object} opts — repassado cru pro motor (`minMes`, etc.).
+   *   - {Object<string,number>} cotaById — quanto cada um quer trabalhar
+   *     nesta janela (teto macio).
+   *   - {Object<string,number>} jaNoLoteById — quanto cada um já pegou
+   *     nesta janela, pra comparar com a cota.
+   *   - {Array} scalesDoAno — ⚠️ PRATICAMENTE OBRIGATÓRIA pra `sabado`,
+   *     `feriado` e `domingo_especial`: é dela que sai a contagem do
+   *     rodízio (via `contarPorPessoa`) E quem trabalhou numa data vizinha
+   *     (via `personsOnNearbyScale`). Faltando ou vazia, `contarPorPessoa`
+   *     conta 0 pra todo mundo — todo mundo empata no rodízio e quem decide
+   *     é só o mérito, sem erro, sem log (por isso o `console.warn` abaixo).
+   *     Duas pegadinhas que só se descobrem lendo o código:
+   *       1. quem consolida em LOTE (várias datas seguidas na mesma rodada)
+   *          tem que REALIMENTAR `scalesDoAno` com as escalas já montadas
+   *          nesta mesma rodada antes de consolidar a próxima data — senão
+   *          todas as datas do lote decidem com o histórico de ANTES do
+   *          lote, como se as anteriores não tivessem acontecido, e voltam
+   *          a empatar entre si.
+   *       2. apesar do nome, `scalesDoAno` carrega escalas de TODOS os anos,
+   *          não só do ano corrente — o recorte pela janela de 12 meses é
+   *          feito AQUI DENTRO (`dozeMesesAntes`). Quem pré-filtrar por ano
+   *          antes de montar `ctx` quebra a consolidação de qualquer escala
+   *          cuja janela cruze a virada do ano.
+   *   - {Set<string>|Array<string>} excluirDatas — datas extras a tirar da
+   *     contagem, além da própria data da escala (que sai sempre).
+   *   - {Object<string,number>} ajusteById — ajuste de partida por pessoa
+   *     (ver `saveAjustePartida`/`listAjustes`); soma direto na contagem.
+   *     Lido de forma blindada aqui dentro — um chamador que não passe por
+   *     `listAjustes` pode mandar negativo ou string.
+   * @param {Object} deps
+   * @returns {Promise<{success:boolean, data?:{assignments:Array}, error?:string}>}
+   */
   async function consolidate(scaleId, ctx, deps) {
     try {
       ctx = ctx || {};
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
-      // A1: só a 1ª consolidação move o contador de justiça. Reconsolidar (o botão
-      // existe) reaplicava o delta a cada clique e inflava o fairness — insumo central
-      // do motor. Reconsolidação reajusta as atribuições, mas não recontabiliza justiça.
-      const jaConsolidada = scale.status === 'consolidada' || scale.fairnessApplied === true;
+      // Sem data válida não tem como contar o rodízio: `slice(0,4)` numa data
+      // ausente/malformada dava `de: '-01-01'`, que filtra TODAS as escalas
+      // do histórico e zera a contagem de todo mundo em silêncio (achado na
+      // revisão de 26/08/2026). Recusa aqui é melhor que montar a escala com
+      // o rodízio cego.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(scale.date || ''))) {
+        return { success: false, error: `Data da escala inválida ("${scale.date}") — não dá pra contar o rodízio sem uma data no formato YYYY-MM-DD.` };
+      }
+      // Nada de "só a 1ª consolidação conta": o número é CONTADO na hora, então
+      // remontar quantas vezes quiser dá sempre a mesma resposta.
       const prefsRes = await listPreferences(scaleId, deps);
       const prefById = {};
       (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
@@ -691,12 +817,62 @@
       // cálculo — não é candidato preterido, é candidato inexistente.
       const deFerias = personsOnVacation(ctx.vacations, scale.date);
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
+      // O contador é contado das escalas, numa janela de 12 MESES MÓVEIS pra
+      // trás a partir da data desta escala — não o ano civil. Motivo
+      // (26/08/2026): com ano civil, 1º de janeiro zerava o rodízio de todo
+      // mundo — e como `divida` também é sempre 0 agora (não sobrou nada que
+      // a incremente), o comparador caía direto no mérito fixo: o mesmo
+      // defeito que este branch existe pra matar, voltando a cada virada de
+      // ano. Também resolve o lote que atravessa o ano: com ano civil, cada
+      // data do lote contava num universo diferente.
+      const ate = scale.date;
+      const de = dozeMesesAntes(scale.date);
+      // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
+      // rodada e ainda carregam a escala ANTIGA — contá-las empurraria as
+      // pessoas erradas. A própria data sempre sai, pelo mesmo motivo. (A
+      // exclusão é por DATA, não por id do documento: se dois documentos do
+      // mesmo grupo de tipos dividirem a mesma data — feriado + domingo
+      // especial criados à mão no mesmo dia, por exemplo —, consolidar um
+      // tira o outro da conta. Raro, e `personsOnNearbyScale` tem a mesma
+      // característica; decisão foi não tratar, 26/08/2026.)
+      const excluir = new Set(Array.from(ctx.excluirDatas || []));
+      excluir.add(scale.date);
+      const scalesDoAno = ctx.scalesDoAno || [];
+      // Falha silenciosa vira falha visível: sem histórico, `contarPorPessoa`
+      // conta 0 pra todo mundo, todo mundo empata no rodízio e quem decide é
+      // só o mérito — sem erro nenhum. Só nos tipos em que isso importa.
+      if (!scalesDoAno.length && ['sabado', 'feriado', 'domingo_especial'].indexOf(scale.tipo) !== -1) {
+        console.warn(`[ScaleService.consolidate] ctx.scalesDoAno vazio para escala "${scale.tipo}" de ${scale.date} — rodízio vai empatar todo mundo e decidir só por mérito.`);
+      }
+      const contagem = contarPorPessoa(scalesDoAno, {
+        tipos: tiposIrmaos(scale.tipo),
+        de, ate,
+        excluirDatas: excluir,
+      });
+      const ajustes = ctx.ajusteById || {};
       const fairnessById = {};
-      for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
-      // Quem pegou o sábado vizinho vai pro fim da fila. Só entre sábados —
-      // Escola Interna e evento ficam de fora ("só pra sábado mesmo", Rafael
-      // 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
-      const vizinhoById = personsOnAdjacentSaturday(ctx.scalesDoAno || [], scale.date);
+      teachers.forEach(t => {
+        // Blindado: Math.max(0, Number(...)||0) do mesmo jeito que
+        // `listAjustes`/`getFairness` já fazem — um chamador que não venha
+        // por eles pode mandar negativo ou string, e NaN ordena de forma
+        // imprevisível no comparador do motor.
+        const ajuste = Math.max(0, Number(ajustes[t.id]) || 0);
+        fairnessById[t.id] = {
+          diasTrabalhados: (contagem[t.id] || 0) + ajuste,
+          divida: 0,
+        };
+      });
+      // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
+      // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
+      // Rafael 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
+      //
+      // As datas excluídas saem daqui também: numa remontagem elas ainda
+      // carregam a escala ANTIGA, e deixá-las falar aqui empurraria as pessoas
+      // pro fim da fila por causa de um dia que está prestes a deixar de
+      // existir — enviesando justamente a remontagem que existe pra corrigir o
+      // viés. (26/08/2026)
+      const vizinhoById = personsOnNearbyScale(
+        scalesDoAno.filter(s => s && !excluir.has(s.date)), scale.date);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
         cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
@@ -711,9 +887,8 @@
         explain: byExplain[s.id] !== undefined ? byExplain[s.id] : (s.explain || []),
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
-        .set({ slots: newSlots, status: 'consolidada', fairnessApplied: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      if (!jaConsolidada) await applyFairnessDelta(result.fairnessDelta, deps);
-      return { success: true, data: { assignments: result.assignments, fairnessAplicado: !jaConsolidada } };
+        .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { assignments: result.assignments } };
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
 
@@ -904,5 +1079,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnAdjacentSaturday, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

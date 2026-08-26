@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), ajusteMap: {}, janelaPorTipo: {}, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -23,6 +23,7 @@ const ESCALA_TABS = [
   { id: 'evento',         label: 'Eventos' },
   { id: 'fim_de_ano',     label: 'Fim de ano' },
   { id: 'escola_interna', label: 'Escola Interna' },
+  { id: 'pessoa',         label: 'Por pessoa' },
 ];
 
 function escalaIsManagement() {
@@ -114,14 +115,62 @@ async function escalaLoadBase() {
   EscalaSmartState.modToi = mods.find(m => /toi/i.test(m.name)) || null;
   EscalaSmartState.modHiit = mods.find(m => /hi+t|maromb/i.test(m.name)) || null;
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
-  // carrega o contador de justiça/compensação de cada colaborador ativo (p/ painel de equilíbrio)
-  const fmap = new Map();
-  for (const t of EscalaSmartState.teacherMap.values()) {
-    if (t.isActive === false) continue;
-    const fr = await ScaleService.getFairness(t.id);
-    fmap.set(t.id, fr.success ? fr.data : { diasTrabalhados: 0, divida: 0 });
-  }
-  EscalaSmartState.fairnessMap = fmap;
+  // Ajustes de partida (o que foi lançado na mão). O contador em si não se
+  // carrega: ele é contado das escalas que já estão aqui.
+  const aj = await ScaleService.listAjustes();
+  EscalaSmartState.ajusteMap = aj.success ? aj.data : {};
+
+  // Qual é "a janela" de cada tipo (sábados e feriados correm em lotes
+  // separados, e os dois podem estar abertos ao mesmo tempo).
+  EscalaSmartState.janelaPorTipo = escalaJanelasPorTipo(EscalaSmartState.scales);
+}
+
+/**
+ * PURA: qual é "a janela" de cada grupo de tipos.
+ *
+ * Uma janela só, global, era mentira. Em produção (26/08/2026) rodam DUAS ao
+ * mesmo tempo — sábados (9 datas) e feriados (07/09 e 12/10) — e a própria tela
+ * já avisa "Há N janela(s) em andamento". Com um lote global, a aba que
+ * perdesse a disputa mostraria ZERO pra todo mundo sob o título "Equilíbrio da
+ * janela aberta": um número que não existe, afirmado com confiança.
+ *
+ * Agrupa por `tiposIrmaos`, então feriado e domingo especial caem no mesmo
+ * balde — é assim que a aba Feriados sempre mostrou os dois. Dentro do grupo, a
+ * regra é a de sempre: a janela aberta ganha; não havendo aberta, a mais
+ * recente por data, que é a que a gestão acabou de fechar.
+ *
+ * @param {Array} scales lista de special_scales
+ * @returns {Object<string, {id: string|null, aberta: boolean}>} grupo → lote
+ */
+function escalaJanelasPorTipo(scales) {
+  const porGrupo = {};
+  (scales || []).forEach(s => {
+    if (!s || !s.windowBatchId || !s.tipo) return;
+    const chave = ScaleService.tiposIrmaos(s.tipo)[0];
+    const lotes = porGrupo[chave] || (porGrupo[chave] = {});
+    const l = lotes[s.windowBatchId]
+      || (lotes[s.windowBatchId] = { id: s.windowBatchId, aberta: false, ultima: '' });
+    if (s.status === 'janela_aberta') l.aberta = true;
+    if ((s.date || '') > l.ultima) l.ultima = s.date || '';
+  });
+  const out = {};
+  Object.keys(porGrupo).forEach(chave => {
+    const lista = Object.keys(porGrupo[chave]).map(k => porGrupo[chave][k]);
+    const aberta = lista.find(l => l.aberta);
+    const escolhido = aberta || lista.slice().sort((a, b) => (a.ultima > b.ultima ? -1 : 1))[0];
+    out[chave] = { id: escolhido ? escolhido.id : null, aberta: !!aberta };
+  });
+  return out;
+}
+
+/**
+ * O lote da janela daquele tipo. Nunca devolve indefinido: grupo sem lote
+ * nenhum vale como "nenhuma janela ainda", e é isso que o título precisa dizer
+ * em vez de anunciar uma janela aberta que não existe.
+ */
+function escalaJanelaDoTipo(tipo) {
+  const chave = ScaleService.tiposIrmaos(tipo || 'sabado')[0];
+  return (EscalaSmartState.janelaPorTipo || {})[chave] || { id: null, aberta: false };
 }
 
 function escalaEsc(s) {
@@ -153,36 +202,60 @@ function participaDoRodizio(t) {
   return mods.indexOf(toi) !== -1 || mods.indexOf(hiit) !== -1;
 }
 
-function renderEquilibrioPainel() {
-  const fm = EscalaSmartState.fairnessMap || new Map();
-  if (fm.size === 0) return '';
+/**
+ * Os dois números de cada pessoa: o da janela e o do ano.
+ *
+ * Rodrigo, 25/08/2026: "O contador deve considerar somente a janela aberta...
+ * e em outro, um relatório separado, trazer quantas vezes quem foi escalado em
+ * sábados e feriados". O painel mostra a janela; o motor decide pelo histórico —
+ * se zerasse nos dois, na 1ª data de cada janela todo mundo empataria em zero e o
+ * desempate voltaria a ser o mérito, que é fixo. Foi o defeito que quebrou
+ * agosto (Bruno e Karin nos 11 sábados).
+ */
+function escalaContagens(tipo) {
+  const scales = EscalaSmartState.scales || [];
+  const tipos = ScaleService.tiposIrmaos(tipo || 'sabado');
+  const ano = String(EscalaSmartState.year);
+  const lote = escalaJanelaDoTipo(tipo);
+  return {
+    lote,
+    janela: lote.id
+      ? ScaleService.contarPorPessoa(scales, { tipos, batchId: lote.id })
+      : {},
+    ano: ScaleService.contarPorPessoa(scales, { tipos, de: `${ano}-01-01`, ate: `${ano}-12-31` }),
+  };
+}
 
+function renderEquilibrioPainel() {
   const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
   const dentro = ativos.filter(participaDoRodizio);
   const fora   = ativos.filter(t => !participaDoRodizio(t));
   if (!dentro.length) return '';
 
-  const dadosDe = (t) => fm.get(t.id) || { diasTrabalhados: 0, divida: 0 };
-  const dias = dentro.map(t => dadosDe(t).diasTrabalhados || 0);
+  // A aba manda no que se conta: na aba Feriados, feriado; nas outras, sábado.
+  // (Rodrigo, 25/08: "Nessa seção de feriados deveria contar somente os feriados".)
+  const tipo = EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado';
+  const rotuloTipo = tipo === 'feriado' ? 'feriados' : 'sábados';
+  const c = escalaContagens(tipo);
+  const ajustes = EscalaSmartState.ajusteMap || {};
+
+  const dias = dentro.map(t => c.janela[t.id] || 0);
   const avg = dias.reduce((a, b) => a + b, 0) / dias.length;
 
   const grupos = { abaixo: [], media: [], acima: [] };
   dentro.forEach(t => {
-    const f = dadosDe(t);
-    const d = f.diasTrabalhados || 0;
-    const g = (d < 1 || (f.divida || 0) > 0) ? 'abaixo' : (d > Math.ceil(avg) ? 'acima' : 'media');
-    grupos[g].push({ t, d, divida: f.divida || 0 });
+    const n = c.janela[t.id] || 0;
+    const g = (n < 1) ? 'abaixo' : (n > Math.ceil(avg) ? 'acima' : 'media');
+    grupos[g].push({ t, n, ano: (c.ano[t.id] || 0), ajuste: (ajustes[t.id] || 0) });
   });
-  // Dentro de cada grupo, quem tem menos dias primeiro — é a ordem em que a
-  // gestão pensa ("quem está mais atrasado?").
-  Object.keys(grupos).forEach(k => grupos[k].sort((a, b) => a.d - b.d));
+  Object.keys(grupos).forEach(k => grupos[k].sort((a, b) => a.n - b.n));
 
   const linha = (x) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px;">
       <span>${escalaEsc(x.t.name)}</span>
       <span style="display:flex;align-items:center;gap:6px;color:var(--text2);white-space:nowrap;">
-        ${x.d} dia${x.d === 1 ? '' : 's'}${x.divida ? ` · deve ${x.divida}` : ''}
+        ${x.n} nesta janela · ${x.ano}${x.ajuste ? ` + ${x.ajuste} de ajuste` : ''} no ano
         <button class="btn-secondary" style="font-size:11px;padding:2px 8px;"
-                onclick="ajustarContadorJustica('${x.t.id}')" title="Corrigir na mão">✏️</button>
+                onclick="ajustarContadorJustica('${x.t.id}')" title="Lançar dias que aconteceram fora do sistema">✏️</button>
       </span>
     </div>`;
 
@@ -203,10 +276,16 @@ function renderEquilibrioPainel() {
        </div>`
     : '';
 
+  const titulo = !c.lote.id
+    ? `Equilíbrio — nenhuma janela ainda (${rotuloTipo})`
+    : c.lote.aberta
+      ? `Equilíbrio da janela aberta (${rotuloTipo})`
+      : `Equilíbrio da última janela (${rotuloTipo})`;
+
   return `<div style="margin-bottom:14px;">
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Equilíbrio do ciclo</div>
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">${titulo}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
-      ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'abaixo do mínimo')}
+      ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'ainda não pegou nenhum')}
       ${bloco('media',  '#10241a', 'var(--green)', '=', 'na média')}
       ${bloco('acima',  '#2a2410', '#caa23a',      '↑', 'acima')}
     </div>
@@ -214,7 +293,7 @@ function renderEquilibrioPainel() {
   </div>`;
 }
 
-function whyTableHtml(slot) {
+function whyTableHtml(slot, tipo) {
   const ex = slot.explain || [];
   if (!ex.length) return '';
   const prefLabel = (p) => (p === 'prefiro' || p === 'quer') ? 'prefiro' : (p === 'pode_ser' ? 'pode ser' : (p === 'nao_posso' ? 'não posso' : (p === 'nao_quer' ? '—' : '—')));
@@ -224,16 +303,18 @@ function whyTableHtml(slot) {
       <td style="padding:3px 6px;${win ? 'font-weight:600;' : 'color:var(--text2);'}">${escalaPersonName(c.personId)}</td>
       <td style="padding:3px 6px;text-align:center;">${c.merito}</td>
       <td style="padding:3px 6px;text-align:center;">${c.diasTrabalhados}</td>
-      <td style="padding:3px 6px;text-align:center;">${c.divida || 0}</td>
       <td style="padding:3px 6px;text-align:center;">${prefLabel(c.pref)}</td>
     </tr>`;
   }).join('');
   return `<details style="margin-top:8px;">
     <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>
     <table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse;">
-      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Sábados</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Dívida</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
+      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">${(tipo === 'feriado' || tipo === 'domingo_especial') ? 'Feriados' : 'Sábados'} (12 meses)</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px;">
+      Contagem dos 12 meses anteriores a esta data, sem contar o próprio dia — é o número que o rodízio usou na hora de escolher. O painel do topo mostra o ano civil, então os dois não precisam bater.
+    </div>
   </details>`;
 }
 
@@ -324,6 +405,7 @@ async function renderEscalaGestao() {
   else if (tab === 'feriado')          listHtml = renderTabFeriados(scales);
   else if (tab === 'evento')           listHtml = renderTabEventos(scales);
   else if (tab === 'escola_interna')   listHtml = renderTabEscolaInterna(scales);
+  else if (tab === 'pessoa')           listHtml = renderTabPorPessoa();
   else                                 listHtml = renderTabFimDeAno(scales);
 
   const detail = EscalaSmartState.selectedId ? renderEscalaDetail(scales.find(s => s.id === EscalaSmartState.selectedId)) : '';
@@ -335,19 +417,43 @@ async function renderEscalaGestao() {
         <button class="btn-primary" onclick="abrirRevisaoLote('${batchesAbertos[0]}')">🧮 Revisar fechamento</button>
       </div>` : '';
 
+  // Lotes já montados (nenhuma data em janela aberta) podem ser refeitos.
+  // Lotes já montados (nenhuma data em janela aberta) que ainda podem ser
+  // refeitos. UM POR LINHA, e só os da aba atual: com um botão só, apontando
+  // pro primeiro da lista, o lote de feriados nunca seria alcançável — e
+  // refazer os feriados de 07/09 e 12/10 está no escopo desta frente.
+  const tiposDaAba = (tab === 'sabado' || tab === 'feriado') ? ScaleService.tiposIrmaos(tab) : null;
+  const lotesMontados = tiposDaAba
+    ? [...new Set(scales
+        .filter(s => s.windowBatchId && s.status === 'consolidada'
+          && s.date > escalaTodayISO() && tiposDaAba.indexOf(s.tipo) !== -1)
+        .map(s => s.windowBatchId))]
+        .filter(b => !scales.some(s => s.windowBatchId === b && s.status === 'janela_aberta'))
+    : [];
+  const refazerBar = lotesMontados.map(b => {
+    const datas = scales.filter(s => s.windowBatchId === b).map(s => s.date).sort();
+    const periodo = datas.length === 1 ? escalaFmtBR(datas[0])
+      : `${escalaFmtBR(datas[0])} a ${escalaFmtBR(datas[datas.length - 1])}`;
+    const pub = scales.filter(s => s.windowBatchId === b && s.published).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--text2);">Escala montada para ${datas.length} data(s): <b>${periodo}</b>${pub ? ` · ${pub} já publicada(s)` : ''}</span>
+        <button class="btn-secondary" onclick="refazerJanela('${b}')">🔄 Refazer</button>
+      </div>`;
+  }).join('');
+
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
-    ${renderEquilibrioPainel()}
+    ${tab === 'pessoa' ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
-    ${revisaoBar}
+    ${revisaoBar}${refazerBar}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
     ${EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
       <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
     </div>` : ''}
-    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
+    <div style="display:grid;grid-template-columns:${tab === 'pessoa' ? '1fr' : 'minmax(220px,1fr) 2fr'};gap:16px;align-items:start;">
       <div>${listHtml}</div>
-      <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
+      ${tab === 'pessoa' ? '' : `<div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>`}
     </div>
     <div id="escalaModalOverlay" class="modal-overlay" style="display:none;"></div>
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
@@ -356,6 +462,126 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function escalaSetPessoa(pid) { EscalaSmartState.pessoaSel = pid || null; renderEscalaGestao(); }
+
+/**
+ * "Onde e quando fulano está escalado" — pedido 1 do Rodrigo (25/08/2026):
+ * "Deveria existir um filtro escolhendo qual professor / estagiário e mostrando
+ * aonde e qdo ele(a) está escalado".
+ *
+ * Junta as três perguntas numa tela só: as datas da pessoa, quanto ela pegou
+ * nesta janela e quanto pegou no ano (pedido 8: "quando for aberta a próxima
+ * janela, trazer o histórico da quantidade das últimas escalas no ano").
+ */
+function renderTabPorPessoa() {
+  const ativos = Array.from(EscalaSmartState.teacherMap.values())
+    .filter(t => t.isActive !== false)
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+  const sel = EscalaSmartState.pessoaSel;
+  const seletor = `<select class="input" style="max-width:320px;" onchange="escalaSetPessoa(this.value)">
+      <option value="">— escolha a pessoa —</option>
+      ${ativos.map(t => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${escalaEsc(t.name)}</option>`).join('')}
+    </select>`;
+
+  if (!sel) {
+    return `<div style="margin-bottom:12px;">${seletor}</div>
+      ${escalaHistoricoAnoHtml()}`;
+  }
+
+  const ano = String(EscalaSmartState.year);
+  const nomeUnidade = (uid) => {
+    const u = EscalaSmartState.units.find(x => x.id === uid) || {};
+    return (u.name || uid || '').replace(/CrossTainer\s*/i, '') || uid;
+  };
+  const nomeMod = (mid) => mid === (EscalaSmartState.modToi || {}).id ? 'TOI'
+    : mid === (EscalaSmartState.modHiit || {}).id ? 'Hiit' : '—';
+  const rotuloTipo = { sabado: 'Sábado', feriado: 'Feriado', domingo_especial: 'Domingo especial', evento: 'Evento', fim_de_ano: 'Fim de ano', escola_interna: 'Escola Interna' };
+
+  const linhas = [];
+  (EscalaSmartState.scales || [])
+    .filter(s => String(s.date || '').slice(0, 4) === ano)
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .forEach(s => {
+      (s.slots || []).forEach(sl => {
+        if (sl.assignedPersonId !== sel) return;
+        linhas.push(`<tr>
+          <td style="padding:4px 8px;">${escalaFmtBR(s.date)}</td>
+          <td style="padding:4px 8px;">${rotuloTipo[s.tipo] || s.tipo}</td>
+          <td style="padding:4px 8px;">${escalaEsc(nomeUnidade(sl.unitId))}</td>
+          <td style="padding:4px 8px;">${nomeMod(sl.requiredModalityId)}</td>
+          <td style="padding:4px 8px;">${sl.startTime ? `${sl.startTime}–${sl.endTime || ''}` : '—'}</td>
+          <td style="padding:4px 8px;color:${s.published ? 'var(--green)' : 'var(--text3)'};">${s.published ? '✓ publicada' : 'não publicada'}</td>
+        </tr>`);
+      });
+    });
+
+  const cSab = escalaContagens('sabado');
+  const cFer = escalaContagens('feriado');
+  const ajuste = (EscalaSmartState.ajusteMap || {})[sel] || 0;
+  const cartao = (rot, jan, an) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">${rot}</div>
+      <div style="font-size:20px;font-weight:600;">${jan}</div>
+      <div style="font-size:12px;color:var(--text2);">${an} no ano de ${ano}</div>
+    </div>`;
+
+  return `<div style="margin-bottom:12px;">${seletor}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0)}
+      ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0)}
+      ${ajuste ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">Lançado na mão</div>
+        <div style="font-size:20px;font-weight:600;">${ajuste}</div>
+        <div style="font-size:12px;color:var(--text2);">dias fora do sistema</div></div>` : ''}
+    </div>
+    ${linhas.length
+      ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="color:var(--text2);text-align:left;">
+            <th style="padding:4px 8px;font-weight:400;">Data</th>
+            <th style="padding:4px 8px;font-weight:400;">Tipo</th>
+            <th style="padding:4px 8px;font-weight:400;">Unidade</th>
+            <th style="padding:4px 8px;font-weight:400;">Modalidade</th>
+            <th style="padding:4px 8px;font-weight:400;">Horário</th>
+            <th style="padding:4px 8px;font-weight:400;">Situação</th>
+          </tr></thead><tbody>${linhas.join('')}</tbody></table>`
+      : `<p style="padding:20px;color:var(--text2);">Nenhuma escala em ${ano} para esta pessoa.</p>`}
+    ${escalaHistoricoAnoHtml()}`;
+}
+
+/**
+ * Histórico do ano por pessoa — sábados e feriados separados.
+ * Pedido 8 do Rodrigo: aparece aqui e também no modal de abrir janela, que é
+ * quando a gestão precisa dele pra decidir.
+ */
+function escalaHistoricoAnoHtml() {
+  const ano = String(EscalaSmartState.year);
+  const cSab = escalaContagens('sabado');
+  const cFer = escalaContagens('feriado');
+  const ajustes = EscalaSmartState.ajusteMap || {};
+  const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const linhas = ativos
+    .map(t => ({ t, sab: cSab.ano[t.id] || 0, fer: cFer.ano[t.id] || 0, aj: ajustes[t.id] || 0 }))
+    .filter(x => x.sab || x.fer || x.aj)
+    .sort((a, b) => (b.sab + b.fer) - (a.sab + a.fer))
+    .map(x => `<tr>
+      <td style="padding:3px 8px;">${escalaEsc(x.t.name)}</td>
+      <td style="padding:3px 8px;text-align:center;">${x.sab}</td>
+      <td style="padding:3px 8px;text-align:center;">${x.fer}</td>
+      <td style="padding:3px 8px;text-align:center;color:var(--text3);">${x.aj || '—'}</td>
+    </tr>`).join('');
+  if (!linhas) return '';
+  return `<details style="margin-top:16px;">
+    <summary style="cursor:pointer;font-size:13px;color:var(--blue);">📊 Histórico de ${ano} — quantas vezes cada um</summary>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+      <thead><tr style="color:var(--text2);text-align:left;">
+        <th style="padding:3px 8px;font-weight:400;">Pessoa</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Sábados</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Feriados</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Lançado na mão</th>
+      </tr></thead><tbody>${linhas}</tbody></table>
+  </details>`;
+}
+
 function renderTabFimDeAno(scales) {
   const docs = scales.filter(s => s.tipo === 'fim_de_ano');
   const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
@@ -860,7 +1086,6 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
   if (!res.data.changed) return;
 
   let msg = 'Vaga atualizada.';
-  if (res.data.fairnessAjustada) msg += ' Contador de justiça acertado.';
   if (res.data.published) {
     const pub = await ScaleService.publishToAgenda(scaleId);
     msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
@@ -879,6 +1104,23 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
  * do TOI e Hiit".)
  */
 async function inverterVagasEscala(scaleId, slotAId, slotBId) {
+  if (!slotBId) return;                       // voltou pro rótulo "⇄ Inverter com…"
+  const scale = EscalaSmartState.scales.find(s => s.id === scaleId) || {};
+  const slots = scale.slots || [];
+  const a = slots.find(s => s.id === slotAId) || {};
+  const b = slots.find(s => s.id === slotBId) || {};
+  // Inverter entre unidades pode pôr alguém numa modalidade que não é dele. A
+  // gestão pode querer mesmo assim — mas vendo o que está fazendo.
+  const habilitado = (pid, modId) => {
+    if (!pid || !modId) return true;
+    const t = EscalaSmartState.teacherMap.get(pid);
+    return !t || (t.modalityIds || []).indexOf(modId) !== -1;
+  };
+  const avisos = [];
+  if (!habilitado(b.assignedPersonId, a.requiredModalityId)) avisos.push(`${escalaPersonName(b.assignedPersonId)} não é habilitado(a) na modalidade da outra vaga`);
+  if (!habilitado(a.assignedPersonId, b.requiredModalityId)) avisos.push(`${escalaPersonName(a.assignedPersonId)} não é habilitado(a) na modalidade da outra vaga`);
+  if (avisos.length && !confirm(`⚠️ ${avisos.join('.\n')}.\n\nInverter mesmo assim?`)) { renderEscalaGestao(); return; }
+
   const res = await ScaleService.swapSlots(scaleId, slotAId, slotBId);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
 
@@ -895,38 +1137,44 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
 }
 
 /**
- * Corrige o contador de justiça de uma pessoa.
+ * Lança na mão o "ajuste de partida" de uma pessoa: os dias de escala que
+ * aconteceram FORA do sistema.
  *
  * Rafael, 25/08/2026: "de agora só altera pra frente, o que passou eles têm
- * como ajustar manualmente?" — não tinham. Não existia tela nenhuma pra mexer
- * no contador; o único jeito indireto era trocar alguém numa escala, o que
- * move de 1 em 1. Agosto inteiro os sábados foram das mesmas 4 pessoas (a
- * escala nunca chegou a valer), e sem essa alavanca a dívida ficaria travada.
+ * como ajustar manualmente?" — não tinham. Agosto inteiro os sábados foram das
+ * mesmas 4 pessoas e rodou pela grade antiga, então não existe escala nenhuma
+ * pra contar: só o que a gestão declarar. O que está nas escalas o sistema já
+ * conta sozinho — este número entra na conta do ano e do motor, e nunca no
+ * número da janela (a janela é o que aconteceu nela, e ponto).
  */
 async function ajustarContadorJustica(personId) {
-  const atual = (EscalaSmartState.fairnessMap || new Map()).get(personId) || { diasTrabalhados: 0, divida: 0 };
+  const atual = (EscalaSmartState.ajusteMap || {})[personId] || 0;
   const nome = escalaPersonName(personId);
-  const resp = prompt(`Quantos dias de escala ${nome} já trabalhou neste ciclo?`, String(atual.diasTrabalhados || 0));
+  const resp = prompt(
+    `Quantos dias de escala lançar na mão para ${nome}?\n\n` +
+    `O sistema já conta sozinho tudo o que está nas escalas. Este número é só para ` +
+    `o que aconteceu FORA delas — agosto, por exemplo, que rodou pela grade antiga.`,
+    String(atual));
   if (resp === null) return;
   const n = Number(String(resp).replace(',', '.'));
   if (!Number.isFinite(n) || n < 0) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
 
   const novo = Math.round(n);
-  const res = await ScaleService.saveFairness(personId, { diasTrabalhados: novo, divida: atual.divida || 0 });
+  const res = await ScaleService.saveAjustePartida(personId, novo);
   if (!res || res.success === false) { toast('Erro ao salvar: ' + ((res && res.error) || 'falha'), 'error'); return; }
 
-  // Mexer no insumo central do motor sem deixar rastro seria pedir pra alguém
-  // depois não entender por que o rodízio decidiu o que decidiu.
+  // Mexer no insumo do motor sem deixar rastro seria pedir pra alguém depois não
+  // entender por que o rodízio decidiu o que decidiu.
   if (typeof AuditService === 'object') {
     await AuditService.log({
       type: 'fairness_adjusted',
-      details: `Contador de escala de "${nome}" ajustado de ${atual.diasTrabalhados || 0} para ${novo}`,
+      details: `Ajuste de partida de "${nome}" alterado de ${atual} para ${novo}`,
       entityType: 'fairness_counter', entityId: personId,
-      before: atual, after: { diasTrabalhados: novo, divida: atual.divida || 0 },
+      before: { ajuste: atual }, after: { ajuste: novo },
       module: 'agenda',
     });
   }
-  toast(`Contador de ${nome} ajustado para ${novo}.`, 'success');
+  toast(`Ajuste de ${nome}: ${novo} dia(s).`, 'success');
   await escalaLoadBase();
   renderEscalaGestao();
 }
@@ -966,6 +1214,36 @@ function renderEscalaDetail(scale) {
            (outros ? `<optgroup label="Não habilitados nesta modalidade">${outros}</optgroup>` : '');
   };
 
+  // Inverter com QUALQUER vaga do dia — inclusive de outra unidade (Rodrigo,
+  // 25/08/2026: "um prof do TOI da PP ser invertido para o Hiit da CP, e
+  // vice-versa"). O serviço já fazia: `swapSlots` aceita qualquer par de vagas
+  // do mesmo dia. Era a tela que só oferecia o par da mesma unidade.
+  //
+  // Vale um seletor por vaga, e não o botão de um clique que existia antes: com
+  // dois mecanismos pra mesma coisa, a gestão teria que descobrir qual serve
+  // pra qual caso.
+  const inverterSelect = (slot) => {
+    const outras = (scale.slots || []).filter(s => s.id !== slot.id);
+    if (!outras.length) return '';
+    const rotulo = (s) => {
+      const u = EscalaSmartState.units.find(x => x.id === s.unitId) || {};
+      const uNome = (u.name || s.unitId || '').replace(/CrossTainer\s*/i, '') || s.unitId;
+      const mod = s.requiredModalityName
+        || (s.requiredModalityId === (EscalaSmartState.modToi || {}).id ? 'TOI' : 'Hiit');
+      return `${uNome} · ${mod} · ${escalaPersonName(s.assignedPersonId) || 'vaga aberta'}`;
+    };
+    const opt = (s) => `<option value="${s.id}">${escalaEsc(rotulo(s))}</option>`;
+    const mesma = outras.filter(s => s.unitId === slot.unitId);
+    const fora  = outras.filter(s => s.unitId !== slot.unitId);
+    return `<select class="input" style="width:100%;margin-top:6px;font-size:12px;"
+            onchange="inverterVagasEscala('${scale.id}','${slot.id}',this.value)"
+            title="Troca as duas pessoas de vaga">
+      <option value="">⇄ Inverter com…</option>
+      ${mesma.map(opt).join('')}
+      ${fora.length ? `<optgroup label="Outra unidade">${fora.map(opt).join('')}</optgroup>` : ''}
+    </select>`;
+  };
+
   let unitsHtml = '';
   Object.keys(byUnit).forEach(uid => {
     const cards = byUnit[uid].map(slot => {
@@ -982,20 +1260,13 @@ function renderEscalaDetail(scale) {
         <select class="input" style="width:100%;margin-top:6px;font-size:12px;"
                 onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
                 title="Trocar quem trabalha nesta vaga">${pessoaOpts(slot)}</select>
-        ${filled ? whyTableHtml(slot) : ''}
+        ${inverterSelect(slot)}
+        ${filled ? whyTableHtml(slot, scale.tipo) : ''}
       </div>`;
     }).join('');
-    // Com exatamente 2 vagas na unidade (o caso TOI + Hiit), oferece a inversão
-    // direta. Com 3+ não dá pra adivinhar quais duas, então o botão some.
-    const par = byUnit[uid];
-    const btnInverter = (par.length === 2 && (par[0].assignedPersonId || par[1].assignedPersonId))
-      ? `<button class="btn-secondary" style="font-size:12px;padding:4px 10px;"
-                 onclick="inverterVagasEscala('${scale.id}','${par[0].id}','${par[1].id}')"
-                 title="Troca as duas pessoas de modalidade">⇄ Inverter</button>`
-      : '';
     unitsHtml += `<div style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-        <span style="font-size:13px;font-weight:500;">${unitName(uid)}</span>${btnInverter}
+        <span style="font-size:13px;font-weight:500;">${unitName(uid)}</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">${cards}</div></div>`;
   });
@@ -1183,6 +1454,7 @@ function openAbrirJanelaModal(target) {
     <div class="form-group"><label>Fecha em <span style="color:var(--red);">*</span></label>
       <input type="datetime-local" id="janelaClosesAt" class="input"></div>
     <p style="font-size:12px;color:var(--text2);">Todos os professores ativos serão avisados no sistema para se candidatarem até essa data.</p>
+    ${escalaHistoricoAnoHtml()}
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
       <button class="btn-primary" onclick="confirmarAbrirJanela()">Abrir e avisar</button>
@@ -1281,7 +1553,8 @@ async function consolidarEscala(id) {
     const aviso = 'Reconsolidar refaz a escolha do zero, pelo rodízio e pelo mérito de hoje.\n\n'
       + (temManual ? '⚠️ Os ajustes feitos na mão nesta data serão APAGADOS.\n\n' : '')
       + (jaFeita.published ? 'A agenda será republicada com os nomes novos.\n\n' : '')
-      + 'O contador de justiça não é recontado — quem já pegou este dia segue com ele.\n\nContinuar?';
+      + 'A conta de quantos dias cada um já pegou é refeita agora, com o que está nas escalas hoje '
+      + '— e esta data fica de fora da conta, para não penalizar quem pode ser escolhido de novo.\n\nContinuar?';
     if (!confirm(aviso)) return;
   }
 
@@ -1305,6 +1578,9 @@ async function consolidarEscala(id) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
   const res = jaFeita.tipo === 'fim_de_ano'
     ? await ScaleService.consolidateByDay(id, ctx)
@@ -1387,6 +1663,56 @@ function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
  * de o time já ter sido avisado. Agora monta e mostra; publicar é o passo
  * seguinte, e no meio dá pra trocar quem quiser.
  */
+/**
+ * Refaz uma janela inteira que já foi montada (e possivelmente publicada).
+ *
+ * Existe por causa de setembro/outubro de 2026: a escala saiu de um contador
+ * travado (a Karin marcava 1 e tinha 3 sábados), então as datas foram montadas
+ * com a informação errada. Refazer é decisão da gestão — o time já foi avisado
+ * das datas antigas e vai precisar ser avisado de novo.
+ */
+async function refazerJanela(batchId) {
+  const doLote = (EscalaSmartState.scales || []).filter(s => s.windowBatchId === batchId);
+  const publicadas = doLote.filter(s => s.published).length;
+  // HOJE também está fora: a aula de hoje pode já ter sido dada e marcada como
+  // realizada, e republicar a devolveria pra "prevista".
+  const passadas = doLote.filter(s => s.date <= escalaTodayISO()).length;
+  // Republicar apaga e recria as aulas: aula já marcada como realizada voltaria
+  // pra prevista. Regra de operação firmada em 25/08/2026.
+  if (passadas) {
+    toast(`Esta janela tem ${passadas} data(s) que já aconteceram (ou são hoje). Refazer republicaria aulas do passado — não dá.`, 'error', 9000);
+    return;
+  }
+  const aviso = `Refazer a escala de ${doLote.length} data(s)?
+
+`
+    + `O sistema monta tudo de novo, do zero, com a contagem correta. Você vê a prévia antes de publicar.
+
+`
+    + (publicadas ? `⚠️ ${publicadas} data(s) já estão publicadas. As aulas saem da agenda AGORA e só voltam quando você publicar de novo — e aí todos serão avisados de que a escala MUDOU.` : '');
+  if (!confirm(aviso)) return;
+  EscalaSmartState.remontando = batchId;
+
+  // Despublica ANTES de montar. Sem isso, a prévia reescreve quem trabalha em
+  // cada dia enquanto a agenda continua com os nomes antigos e o professor —
+  // que desde 26/08 só enxerga escala publicada — vê a lista nova como se já
+  // valesse. Fechar a prévia sem publicar deixaria os três discordando em
+  // silêncio, que é o defeito que esta frente inteira existe pra matar.
+  //
+  // Preferimos o estado VISIVELMENTE incompleto (agenda vazia, professor lendo
+  // "a gestão está montando") ao estado silenciosamente errado. E a trava de
+  // data acima garante que só mexemos em dia que ainda não chegou.
+  let despublicadas = 0;
+  for (const s of doLote.filter(x => x.published)) {
+    const r = await ScaleService.unpublishFromAgenda(s.id);
+    if (r && r.success) despublicadas++;
+    else toast(`⚠️ Não consegui tirar ${escalaFmtBR(s.date)} da agenda. Confira essa data antes de publicar.`, 'error', 9000);
+  }
+  if (despublicadas) toast(`${despublicadas} data(s) saíram da agenda até você publicar a escala nova.`, 'info', 7000);
+
+  await gerarPreviaLote(batchId);
+}
+
 async function gerarPreviaLote(batchId) {
   toast('Montando a escala…', 'info');
   const byBatch = await ScaleService.listScalesByBatch(batchId);
@@ -1400,6 +1726,11 @@ async function gerarPreviaLote(batchId) {
   const cotas = await ScaleService.listWindowQuotas(batchId);
   ctx.cotaById = cotas.success ? cotas.data : {};
   ctx.jaNoLoteById = {};
+
+  // As datas deste lote ficam FORA da conta até serem remontadas nesta rodada.
+  // Enquanto carregam a escala antiga, contá-las empurraria as pessoas erradas
+  // — é o que fazia remontar a prévia PIORAR a escala em vez de melhorar.
+  const aRemontar = new Set(scales.map(s => s.date));
 
   // A regra dos sábados seguidos precisa enxergar o que ACABOU de ser montado
   // neste mesmo lote: numa janela de 2 meses os sábados vizinhos são
@@ -1421,14 +1752,23 @@ async function gerarPreviaLote(batchId) {
   for (const s of scales) {
     await ScaleService.closeElection(s.id);
     ctx.scalesDoAno = montadas;
+    ctx.excluirDatas = Array.from(aRemontar);
     const cons = await ScaleService.consolidate(s.id, ctx);
     if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`); continue; }
     registrar(s, cons.data.assignments);
+    aRemontar.delete(s.date);   // agora ela conta — já com a escala nova
     (cons.data.assignments || []).forEach(a => {
       if (a.personId) ctx.jaNoLoteById[a.personId] = (ctx.jaNoLoteById[a.personId] || 0) + 1;
     });
   }
-  await carregarEscalas();
+  // Era `carregarEscalas()` — uma função que NUNCA existiu no frontend. Entrou
+  // com a prévia em 24/08/2026 (88a307e) e foi pra produção assim: clicar em
+  // "Montar escala e ver prévia" consolidava o lote inteiro no banco e estourava
+  // ReferenceError antes de desenhar a prévia. O botão anunciado pro Rodrigo
+  // como "monta e PARA pra você conferir" montava e sumia. Passou por 12
+  // verificações automatizadas porque todas olhavam o texto do arquivo, não o
+  // comportamento. (26/08/2026)
+  await escalaLoadBase();
   renderPreviaLote(batchId, falhas);
 }
 
@@ -1477,6 +1817,9 @@ function renderPreviaLote(batchId, falhas) {
   modal.innerHTML = `
     <h2>Prévia da escala</h2>
     <p style="font-size:12px;color:var(--text2);">Nada foi publicado e ninguém foi avisado ainda. Confira, ajuste se precisar, e só então publique.</p>
+    ${EscalaSmartState.remontando === batchId ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">
+      ⚠️ Estas datas <b>saíram da agenda</b> para serem refeitas. Enquanto você não publicar, elas não existem para os professores. Se fechar agora, volte e publique.
+    </div>` : ''}
     ${falhas && falhas.length ? `<div style="background:#3a1a1a;border:1px solid var(--red);border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">Falhou em: ${falhas.join(' · ')}</div>` : ''}
     ${vagasAbertas ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">⚠️ ${vagasAbertas} vaga(s) sem ninguém — ninguém habilitado estava disponível. Preencha na mão antes de publicar, senão o dia fica sem professor.</div>` : ''}
     <div style="overflow:auto;max-height:42vh;font-size:13px;margin:10px 0;">${linhas}</div>
@@ -1515,6 +1858,9 @@ async function escalaMontarCtx() {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
 }
 
@@ -1541,6 +1887,9 @@ async function confirmarEAvisar(batchId) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
   // Consolidar + PUBLICAR na mesma passada. Antes o lote só consolidava, e o
   // aviso mandava "Confira sua agenda" apontando pra uma tela vazia: as aulas só
@@ -1598,10 +1947,16 @@ async function confirmarEAvisar(batchId) {
   for (const [teacherId, linhas] of meusDias) {
     const t = EscalaSmartState.teacherMap.get(teacherId);
     if (!t || !t.userId) continue;   // sem login vinculado: a gestão avisa por fora
+    // Remontagem não é escala nova: quem já foi avisado precisa saber que o
+    // recado anterior caducou, senão aparece no sábado errado.
+    const remontou = EscalaSmartState.remontando === batchId;
     await NotifyService.send({
       recipients: [t.userId], type: 'scale_confirmed',
-      title: linhas.length === 1 ? 'Você está escalado' : `Você está escalado em ${linhas.length} dias`,
-      body: linhas.join(' · ') + '. Já está na sua agenda.',
+      title: remontou
+        ? 'A escala mudou — confira seus dias'
+        : (linhas.length === 1 ? 'Você está escalado' : `Você está escalado em ${linhas.length} dias`),
+      body: (remontou ? 'A escala foi refeita e o aviso anterior não vale mais. Seus dias agora são: ' : '')
+        + linhas.join(' · ') + '. Já está na sua agenda.',
       link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
     });
     avisados++;
@@ -1617,8 +1972,11 @@ async function confirmarEAvisar(batchId) {
     if (foraUids.length) {
       await NotifyService.send({
         recipients: foraUids, type: 'scale_confirmed',
-        title: 'Escala definida',
-        body: `A escala de ${datas} foi definida e você não entrou nesta janela. Na próxima você vem na frente.`,
+        title: EscalaSmartState.remontando === batchId ? 'A escala mudou' : 'Escala definida',
+        body: (EscalaSmartState.remontando === batchId
+          ? `A escala de ${datas} foi refeita e você não entrou nesta janela — o aviso anterior não vale mais.`
+          : `A escala de ${datas} foi definida e você não entrou nesta janela.`)
+          + ' Na próxima você vem na frente.',
         link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
       });
     }
@@ -1635,6 +1993,7 @@ async function confirmarEAvisar(batchId) {
   } else {
     toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s) com o dia e a unidade.`, 'success', 6000);
   }
+  EscalaSmartState.remontando = null;
   closeEscalaModal();
   renderEscalaGestao();
 }
@@ -1792,11 +2151,20 @@ async function renderProfSabadosFeriados(pid, tab) {
     // a palavra "Rascunho", que é vocabulário nosso e não diz nada pra ele.
     // Relato real no grupo (14/08/2026): "qnd vou em minha agenda não tem sábado,
     // qnd vou em escala aparece sábado (15/08) - não escalado".
-    if (s.status !== 'consolidada') {
+    //
+    // E consolidada NÃO é o mesmo que valendo: a prévia (24/08) grava
+    // 'consolidada' e PARA, de propósito, pra gestão conferir e ajustar antes de
+    // publicar. Liberar a vista aí é contar pro time uma escala que ainda vai
+    // mudar — foi o que o Rodrigo pediu pra fechar em 25/08. Quem manda é a
+    // publicação. O e-mail já obedecia isso; só a tela é que vazava.
+    if (!s.published) {
+      const texto = s.status === 'consolidada'
+        ? 'A gestão está montando a escala'
+        : 'A gestão ainda não abriu as candidaturas';
       return profDateRow(
         s,
         `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Ainda não liberado`,
-        `<span style="font-size:12px;color:var(--text3);">A gestão ainda não abriu as candidaturas</span>`
+        `<span style="font-size:12px;color:var(--text3);">${texto}</span>`
       );
     }
     const escalado = ScaleService.isPersonAssigned(s, pid);
@@ -2008,6 +2376,10 @@ window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
 window.inverterVagasEscala = inverterVagasEscala;
 window.ajustarContadorJustica = ajustarContadorJustica;
+window.refazerJanela = refazerJanela;
+window.escalaSetPessoa = escalaSetPessoa;
+window.renderTabPorPessoa = renderTabPorPessoa;
+window.escalaJanelasPorTipo = escalaJanelasPorTipo;
 window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

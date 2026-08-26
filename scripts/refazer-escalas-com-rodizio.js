@@ -1,4 +1,25 @@
 'use strict';
+// ⛔ OBSOLETO (26/08/2026) — NÃO RODAR.
+//
+// Este script monta o `ctx` do `consolidate` nas linhas ~126-129 e NÃO passa
+// `scalesDoAno`. Desde a mudança de 26/08/2026 o rodízio é CONTADO das
+// escalas via `scalesDoAno` (era um contador guardado em `fairness_counter`,
+// que não existe mais) — sem essa chave, `contarPorPessoa` conta 0 pra todo
+// mundo, todo mundo empata no rodízio, e quem decide as 11 datas é o
+// `merito`, que é fixo. Ou seja: este script reproduz, e REPUBLICA em
+// produção, exatamente o bug que o branch `escala-contador-derivado` existe
+// pra matar (Bruno Claudino e Karin nos 11 sábados).
+//
+// O caminho certo pra refazer uma janela de escalas é o botão "Refazer a
+// janela" no app (tela Escala Inteligente) — ele já monta o `ctx` completo,
+// com `scalesDoAno` realimentado a cada consolidação do lote (ver JSDoc de
+// `consolidate` em scale-service.js).
+//
+// Ficou aqui por registro histórico (foi o script que corrigiu os 11 sábados
+// em 24/08/2026, antes do contador virar derivado). Se algum dia for
+// atualizado pra passar `scalesDoAno` corretamente, tire esta trava — até lá,
+// só roda com `--eu-sei-o-que-estou-fazendo`.
+//
 // Ensaio:    node scripts/refazer-escalas-com-rodizio.js --project production
 // Pra valer: node scripts/refazer-escalas-com-rodizio.js --project production --executar
 //
@@ -30,6 +51,14 @@ const EC = require('../engagement-config.js');
 const args = process.argv.slice(2);
 const projeto = args.includes('--project') ? args[args.indexOf('--project') + 1] : null;
 const executar = args.includes('--executar');
+if (!args.includes('--eu-sei-o-que-estou-fazendo')) {
+  console.error('\n⛔ OBSOLETO — este script não realimenta `scalesDoAno` no ctx do consolidate.');
+  console.error('   Desde 26/08/2026 isso zera o rodízio pra todo mundo e decide as datas só');
+  console.error('   por mérito — o bug que ele mesmo foi escrito pra corrigir, republicado em');
+  console.error('   produção. Use o botão "Refazer a janela" no app (Escala Inteligente).');
+  console.error('   Se você sabe o que está fazendo, rode de novo com --eu-sei-o-que-estou-fazendo.\n');
+  process.exit(1);
+}
 if (!projeto) { console.error('Faltou --project <staging|production>'); process.exit(1); }
 
 admin.initializeApp({ credential: admin.credential.cert(require(path.join(__dirname, `serviceAccount-${projeto}.json`))) });
