@@ -860,7 +860,6 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
   if (!res.data.changed) return;
 
   let msg = 'Vaga atualizada.';
-  if (res.data.fairnessAjustada) msg += ' Contador de justiça acertado.';
   if (res.data.published) {
     const pub = await ScaleService.publishToAgenda(scaleId);
     msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';

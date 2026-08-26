@@ -186,19 +186,10 @@
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
 
-      let fairnessAjustada = false;
-      if (scale.fairnessApplied === true) {
-        if (antes) {
-          const cur = (await getFairness(antes, deps)).data;
-          await saveFairness(antes, { diasTrabalhados: Math.max(0, cur.diasTrabalhados - 1), divida: cur.divida }, deps);
-        }
-        if (depois) {
-          const cur = (await getFairness(depois, deps)).data;
-          await saveFairness(depois, { diasTrabalhados: cur.diasTrabalhados + 1, divida: cur.divida }, deps);
-        }
-        fairnessAjustada = true;
-      }
-      return { success: true, data: { changed: true, from: antes, to: depois, fairnessAjustada, published: !!scale.published } };
+      // Não há contador pra acertar: quem conta é `contarPorPessoa`, e ela lê
+      // esta escala que acabou de ser gravada. A troca manual entra na conta
+      // sozinha, na próxima vez que alguém contar.
+      return { success: true, data: { changed: true, from: antes, to: depois, published: !!scale.published } };
     } catch (err) { console.error('[ScaleService.reassignSlot]', err); return { success: false, error: err.message }; }
   }
 
@@ -505,34 +496,44 @@
     } catch (err) { console.error('[ScaleService.setRsvp]', err); return { success: false, error: err.message }; }
   }
 
+  /**
+   * O que sobrou do antigo contador: um AJUSTE DE PARTIDA por pessoa.
+   *
+   * Até 25/08/2026 este documento guardava `diasTrabalhados` e `divida` e era o
+   * contador de justiça — que vivia errado, porque só se mexia na primeira
+   * montagem de cada data. Quem conta agora é `contarPorPessoa`, direto das
+   * escalas. Sobrou o ajuste porque agosto aconteceu pela grade antiga e não
+   * existe em `special_scales`: não há o que contar, só o que lançar.
+   * (`divida` nunca foi incrementada por nada — era código morto desde a origem.)
+   */
   async function getFairness(personId, deps) {
     try {
       const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
-      const base = { personId, diasTrabalhados: 0, divida: 0 };
-      return { success: true, data: doc.exists ? Object.assign(base, doc.data()) : base };
+      const dados = doc.exists ? (doc.data() || {}) : {};
+      return { success: true, data: { personId, ajuste: Math.max(0, Number(dados.ajuste) || 0) } };
     } catch (err) { console.error('[ScaleService.getFairness]', err); return { success: false, error: err.message }; }
   }
 
-  async function saveFairness(personId, vals, deps) {
+  async function saveAjustePartida(personId, ajuste, deps) {
     try {
+      const n = Math.max(0, Math.round(Number(ajuste) || 0));
       await rdb(deps).collection('fairness_counter').doc(personId)
-        .set({ personId, diasTrabalhados: vals.diasTrabalhados || 0, divida: vals.divida || 0, updatedAt: rts(deps) });
-      return { success: true };
-    } catch (err) { console.error('[ScaleService.saveFairness]', err); return { success: false, error: err.message }; }
+        .set({ personId, ajuste: n, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { ajuste: n } };
+    } catch (err) { console.error('[ScaleService.saveAjustePartida]', err); return { success: false, error: err.message }; }
   }
 
-  async function applyFairnessDelta(delta, deps) {
+  /** Todos os ajustes de uma vez — a tela lia um por pessoa, 16 leituras por render. */
+  async function listAjustes(deps) {
     try {
-      for (const personId of Object.keys(delta || {})) {
-        const cur = (await getFairness(personId, deps)).data;
-        const dd = delta[personId];
-        await saveFairness(personId, {
-          diasTrabalhados: cur.diasTrabalhados + (dd.dias || 0),
-          divida: Math.max(0, cur.divida - (dd.dividaResolvida || 0)),
-        }, deps);
-      }
-      return { success: true };
-    } catch (err) { console.error('[ScaleService.applyFairnessDelta]', err); return { success: false, error: err.message }; }
+      const snap = await rdb(deps).collection('fairness_counter').get();
+      const out = {};
+      snap.docs.forEach(doc => {
+        const v = doc.data() || {};
+        out[v.personId || doc.id] = Math.max(0, Number(v.ajuste) || 0);
+      });
+      return { success: true, data: out };
+    } catch (err) { console.error('[ScaleService.listAjustes]', err); return { success: false, error: err.message, data: {} }; }
   }
 
   // PURO: [{personId,date,pref,excludedShifts}] → map[personId][date] = {pref, excludedShifts}
@@ -962,5 +963,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

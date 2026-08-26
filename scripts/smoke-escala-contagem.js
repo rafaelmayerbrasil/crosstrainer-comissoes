@@ -176,4 +176,30 @@ const VIZINHAS = [
   passou('entrada vazia é segura no descanso');
 }
 
-console.log(`\n✓ smoke-escala-contagem: ${ok} seções OK`);
+// ── ajuste de partida ────────────────────────────────────────────────
+// Rafael, 25/08: "o que passou eles têm como ajustar manualmente?". Agosto
+// aconteceu pela grade antiga e não existe em special_scales, então não há o
+// que contar — só o que lançar.
+(async () => {
+  const makeFakeDb = require('./_fake-firestore.js');
+  const SE = require('../scale-engine.js');
+  const db = makeFakeDb();
+  const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+
+  const zero = await SS.getFairness('ana', d);
+  assert.strictEqual(zero.data.ajuste, 0, 'sem documento, ajuste é zero');
+
+  await SS.saveAjustePartida('ana', 3, d);
+  const dep = await SS.getFairness('ana', d);
+  assert.strictEqual(dep.data.ajuste, 3, 'ajuste gravado');
+
+  await SS.saveAjustePartida('ana', -5, d);
+  assert.strictEqual((await SS.getFairness('ana', d)).data.ajuste, 0, 'ajuste nunca fica negativo');
+
+  await SS.saveAjustePartida('bru', 1, d);
+  const todos = await SS.listAjustes(d);
+  assert.deepStrictEqual(todos.data, { ana: 0, bru: 1 }, 'listAjustes traz todo mundo de uma vez');
+
+  console.log('✓ ajuste de partida grava, lista e não fica negativo');
+  console.log('\n✓ smoke-escala-contagem: todas as seções OK');
+})();
