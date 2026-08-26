@@ -415,11 +415,22 @@ async function renderEscalaGestao() {
         <button class="btn-primary" onclick="abrirRevisaoLote('${batchesAbertos[0]}')">🧮 Revisar fechamento</button>
       </div>` : '';
 
+  // Lotes já montados (nenhuma data em janela aberta) podem ser refeitos.
+  const lotesMontados = [...new Set(scales
+    .filter(s => s.windowBatchId && s.status === 'consolidada' && s.date >= escalaTodayISO())
+    .map(s => s.windowBatchId))]
+    .filter(b => !scales.some(s => s.windowBatchId === b && s.status === 'janela_aberta'));
+  const refazerBar = (tab !== 'pessoa' && lotesMontados.length)
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--text2);">Já existe escala montada para uma janela futura.</span>
+        <button class="btn-secondary" onclick="refazerJanela('${lotesMontados[0]}')">🔄 Refazer a janela</button>
+      </div>` : '';
+
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     ${tab === 'pessoa' ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
-    ${revisaoBar}
+    ${revisaoBar}${refazerBar}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
     ${EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
@@ -1637,6 +1648,36 @@ function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
  * de o time já ter sido avisado. Agora monta e mostra; publicar é o passo
  * seguinte, e no meio dá pra trocar quem quiser.
  */
+/**
+ * Refaz uma janela inteira que já foi montada (e possivelmente publicada).
+ *
+ * Existe por causa de setembro/outubro de 2026: a escala saiu de um contador
+ * travado (a Karin marcava 1 e tinha 3 sábados), então as datas foram montadas
+ * com a informação errada. Refazer é decisão da gestão — o time já foi avisado
+ * das datas antigas e vai precisar ser avisado de novo.
+ */
+async function refazerJanela(batchId) {
+  const doLote = (EscalaSmartState.scales || []).filter(s => s.windowBatchId === batchId);
+  const publicadas = doLote.filter(s => s.published).length;
+  const passadas = doLote.filter(s => s.date < escalaTodayISO()).length;
+  // Republicar apaga e recria as aulas: aula já marcada como realizada voltaria
+  // pra prevista. Regra de operação firmada em 25/08/2026.
+  if (passadas) {
+    toast(`Esta janela tem ${passadas} data(s) que já aconteceram. Refazer republicaria aulas do passado — não dá.`, 'error', 9000);
+    return;
+  }
+  const aviso = `Refazer a escala de ${doLote.length} data(s)?
+
+`
+    + `O sistema monta tudo de novo, do zero, com a contagem correta. Você vê a prévia antes de publicar.
+
+`
+    + (publicadas ? `⚠️ ${publicadas} data(s) já estão publicadas e o time já foi avisado. Ao publicar de novo, todos serão avisados de que a escala MUDOU.` : '');
+  if (!confirm(aviso)) return;
+  EscalaSmartState.remontando = batchId;
+  await gerarPreviaLote(batchId);
+}
+
 async function gerarPreviaLote(batchId) {
   toast('Montando a escala…', 'info');
   const byBatch = await ScaleService.listScalesByBatch(batchId);
@@ -1650,6 +1691,11 @@ async function gerarPreviaLote(batchId) {
   const cotas = await ScaleService.listWindowQuotas(batchId);
   ctx.cotaById = cotas.success ? cotas.data : {};
   ctx.jaNoLoteById = {};
+
+  // As datas deste lote ficam FORA da conta até serem remontadas nesta rodada.
+  // Enquanto carregam a escala antiga, contá-las empurraria as pessoas erradas
+  // — é o que fazia remontar a prévia PIORAR a escala em vez de melhorar.
+  const aRemontar = new Set(scales.map(s => s.date));
 
   // A regra dos sábados seguidos precisa enxergar o que ACABOU de ser montado
   // neste mesmo lote: numa janela de 2 meses os sábados vizinhos são
@@ -1671,9 +1717,11 @@ async function gerarPreviaLote(batchId) {
   for (const s of scales) {
     await ScaleService.closeElection(s.id);
     ctx.scalesDoAno = montadas;
+    ctx.excluirDatas = Array.from(aRemontar);
     const cons = await ScaleService.consolidate(s.id, ctx);
     if (!cons.success) { falhas.push(`${escalaFmtBR(s.date)}: ${cons.error}`); continue; }
     registrar(s, cons.data.assignments);
+    aRemontar.delete(s.date);   // agora ela conta — já com a escala nova
     (cons.data.assignments || []).forEach(a => {
       if (a.personId) ctx.jaNoLoteById[a.personId] = (ctx.jaNoLoteById[a.personId] || 0) + 1;
     });
@@ -1854,10 +1902,16 @@ async function confirmarEAvisar(batchId) {
   for (const [teacherId, linhas] of meusDias) {
     const t = EscalaSmartState.teacherMap.get(teacherId);
     if (!t || !t.userId) continue;   // sem login vinculado: a gestão avisa por fora
+    // Remontagem não é escala nova: quem já foi avisado precisa saber que o
+    // recado anterior caducou, senão aparece no sábado errado.
+    const remontou = EscalaSmartState.remontando === batchId;
     await NotifyService.send({
       recipients: [t.userId], type: 'scale_confirmed',
-      title: linhas.length === 1 ? 'Você está escalado' : `Você está escalado em ${linhas.length} dias`,
-      body: linhas.join(' · ') + '. Já está na sua agenda.',
+      title: remontou
+        ? 'A escala mudou — confira seus dias'
+        : (linhas.length === 1 ? 'Você está escalado' : `Você está escalado em ${linhas.length} dias`),
+      body: (remontou ? 'A escala foi refeita e o aviso anterior não vale mais. Seus dias agora são: ' : '')
+        + linhas.join(' · ') + '. Já está na sua agenda.',
       link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
     });
     avisados++;
@@ -1873,8 +1927,11 @@ async function confirmarEAvisar(batchId) {
     if (foraUids.length) {
       await NotifyService.send({
         recipients: foraUids, type: 'scale_confirmed',
-        title: 'Escala definida',
-        body: `A escala de ${datas} foi definida e você não entrou nesta janela. Na próxima você vem na frente.`,
+        title: EscalaSmartState.remontando === batchId ? 'A escala mudou' : 'Escala definida',
+        body: (EscalaSmartState.remontando === batchId
+          ? `A escala de ${datas} foi refeita e você não entrou nesta janela — o aviso anterior não vale mais.`
+          : `A escala de ${datas} foi definida e você não entrou nesta janela.`)
+          + ' Na próxima você vem na frente.',
         link: { type: 'escala-smart', id: batchId }, channels: ['inapp'],
       });
     }
@@ -1891,6 +1948,7 @@ async function confirmarEAvisar(batchId) {
   } else {
     toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s) com o dia e a unidade.`, 'success', 6000);
   }
+  EscalaSmartState.remontando = null;
   closeEscalaModal();
   renderEscalaGestao();
 }
@@ -2273,6 +2331,7 @@ window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
 window.inverterVagasEscala = inverterVagasEscala;
 window.ajustarContadorJustica = ajustarContadorJustica;
+window.refazerJanela = refazerJanela;
 window.escalaSetPessoa = escalaSetPessoa;
 window.renderTabPorPessoa = renderTabPorPessoa;
 window.escalaJanelasPorTipo = escalaJanelasPorTipo;

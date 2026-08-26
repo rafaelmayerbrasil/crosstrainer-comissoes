@@ -408,6 +408,30 @@ const VIZINHAS = [
     console.log('✓ aba Por pessoa e histórico do ano ligados');
   }
 
+  // ── refazer a janela ─────────────────────────────────────────────────
+  //
+  // Setembro e outubro de 2026 foram montados com o contador travado, então
+  // saíram tortos e JÁ estão publicados. Refazer é decisão da gestão. O detalhe
+  // que decide se funciona: ao remontar, as datas do lote que ainda carregam a
+  // escala ANTIGA precisam sair da conta — senão a escala velha empurra as
+  // pessoas erradas na escala nova, que é o problema que este branch resolve.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    const previa = ui.slice(ui.indexOf('async function gerarPreviaLote'),
+                            ui.indexOf('function renderPreviaLote'));
+    assert.ok(/aRemontar/.test(previa), 'a prévia tira do bolo as datas que ainda vão ser remontadas');
+    assert.ok(/ctx\.excluirDatas = Array\.from\(aRemontar\)/.test(previa), 'e passa isso pro serviço');
+    assert.ok(/aRemontar\.delete\(s\.date\)/.test(previa), 'cada data volta a contar assim que é remontada');
+    assert.ok(/window\.refazerJanela\s*=/.test(ui), 'o botão de refazer está registrado');
+    const refazer = ui.slice(ui.indexOf('async function refazerJanela'), ui.indexOf('async function gerarPreviaLote'));
+    assert.ok(/já aconteceram/.test(refazer),
+      'refazer recusa data passada — republicar traria aula realizada de volta pra prevista');
+    assert.ok(/escala MUDOU|foi refeita/.test(ui), 'o aviso de remontagem tem texto próprio');
+    console.log('✓ refazer a janela existe e não conta a escala velha');
+  }
+
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────
   //
   // Em produção (26/08/2026) rodam duas janelas ao mesmo tempo: sábados
