@@ -122,4 +122,49 @@ const ESCALAS = [
   passou('sem filtro de tipos, todos os tipos contam juntos');
 }
 
+// ── descanso: quem trabalhou perto não pega a próxima ────────────────
+// Rodrigo, 25/08/2026: "se o colaborador foi escalado sábado passado ou seguinte
+// ao feriado em questão, preferencialmente não deverá escalado em sábados
+// próximos imediatamente anterior ou posterior ao feriado".
+const VIZINHAS = [
+  escala('2026-09-05', 'sabado',  ['ana']),
+  escala('2026-09-07', 'feriado', ['bia']),
+  escala('2026-09-12', 'sabado',  ['ceu']),
+  escala('2026-09-26', 'sabado',  ['dri']),
+  escala('2026-09-19', 'evento',  ['edu']),
+];
+{
+  // feriado de SEGUNDA enxerga os dois sábados ao lado — o pedido do Rodrigo
+  const v = SS.personsOnNearbyScale(VIZINHAS, '2026-09-07');
+  assert.ok(v.has('ana'), 'quem pegou o sábado 2 dias antes conta');
+  assert.ok(v.has('ceu'), 'quem pegou o sábado 5 dias depois conta');
+  assert.ok(!v.has('bia'), 'a própria data não conta contra si mesma');
+  assert.ok(!v.has('dri'), 'sábado a 19 dias não conta');
+  passou('feriado de meio de semana enxerga os sábados vizinhos');
+}
+{
+  // e o caminho inverso: montando o sábado, quem pegou o feriado ao lado cede
+  const v = SS.personsOnNearbyScale(VIZINHAS, '2026-09-05');
+  assert.ok(v.has('bia'), 'quem pegou o feriado 2 dias depois cede a vez no sábado');
+  passou('sábado enxerga o feriado vizinho');
+}
+{
+  // o comportamento antigo (sábado com sábado a ±7) segue igual
+  const v = SS.personsOnNearbyScale(VIZINHAS, '2026-09-12');
+  assert.ok(v.has('ana'), 'sábado anterior (7 dias) conta — comportamento de sempre');
+  assert.ok(!v.has('dri'), 'sábado a 14 dias não conta');
+  passou('sábado com sábado a ±7 preservado');
+}
+{
+  // evento e escola interna ficam de fora ("só pra sábado mesmo", Rafael 25/08)
+  const v = SS.personsOnNearbyScale(VIZINHAS, '2026-09-26');
+  assert.ok(!v.has('edu'), 'evento não entra na regra do descanso');
+  passou('evento fica de fora');
+}
+{
+  assert.strictEqual(SS.personsOnNearbyScale(VIZINHAS, null).size, 0, 'sem data devolve vazio');
+  assert.strictEqual(SS.personsOnNearbyScale(null, '2026-09-05').size, 0, 'sem escalas devolve vazio');
+  passou('entrada vazia é segura no descanso');
+}
+
 console.log(`\n✓ smoke-escala-contagem: ${ok} seções OK`);
