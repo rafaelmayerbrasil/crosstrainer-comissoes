@@ -739,10 +739,8 @@
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
-      // A1: só a 1ª consolidação move o contador de justiça. Reconsolidar (o botão
-      // existe) reaplicava o delta a cada clique e inflava o fairness — insumo central
-      // do motor. Reconsolidação reajusta as atribuições, mas não recontabiliza justiça.
-      const jaConsolidada = scale.status === 'consolidada' || scale.fairnessApplied === true;
+      // Nada de "só a 1ª consolidação conta": o número é CONTADO na hora, então
+      // remontar quantas vezes quiser dá sempre a mesma resposta.
       const prefsRes = await listPreferences(scaleId, deps);
       const prefById = {};
       (prefsRes.data || []).forEach(p => { prefById[p.personId] = p.pref; });
@@ -750,8 +748,26 @@
       // cálculo — não é candidato preterido, é candidato inexistente.
       const deFerias = personsOnVacation(ctx.vacations, scale.date);
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
+      // O contador é contado das escalas: mesmo tipo desta data, no ano dela.
+      // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
+      // rodada e ainda carregam a escala ANTIGA — contá-las empurraria as
+      // pessoas erradas. A própria data sempre sai, pelo mesmo motivo.
+      const ano = String(scale.date || '').slice(0, 4);
+      const excluir = new Set(Array.from(ctx.excluirDatas || []));
+      excluir.add(scale.date);
+      const contagem = contarPorPessoa(ctx.scalesDoAno || [], {
+        tipos: tiposIrmaos(scale.tipo),
+        de: `${ano}-01-01`, ate: `${ano}-12-31`,
+        excluirDatas: excluir,
+      });
+      const ajustes = ctx.ajusteById || {};
       const fairnessById = {};
-      for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
+      teachers.forEach(t => {
+        fairnessById[t.id] = {
+          diasTrabalhados: (contagem[t.id] || 0) + (ajustes[t.id] || 0),
+          divida: 0,
+        };
+      });
       // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
       // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
       // Rafael 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
@@ -770,9 +786,8 @@
         explain: byExplain[s.id] !== undefined ? byExplain[s.id] : (s.explain || []),
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
-        .set({ slots: newSlots, status: 'consolidada', fairnessApplied: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      if (!jaConsolidada) await applyFairnessDelta(result.fairnessDelta, deps);
-      return { success: true, data: { assignments: result.assignments, fairnessAplicado: !jaConsolidada } };
+        .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      return { success: true, data: { assignments: result.assignments } };
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
 

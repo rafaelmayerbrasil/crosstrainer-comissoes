@@ -200,6 +200,48 @@ const VIZINHAS = [
   const todos = await SS.listAjustes(d);
   assert.deepStrictEqual(todos.data, { ana: 0, bru: 1 }, 'listAjustes traz todo mundo de uma vez');
 
+  // ── o motor decide pela CONTAGEM, não pelo número guardado ──────────
+  // É o cerne do conserto: remontar duas vezes tem que dar o mesmo resultado.
+  {
+    const slots = [
+      { id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null },
+    ];
+    await SS.createScale({ date: '2026-12-05', tipo: 'sabado', name: 'Sáb 05/12', slots }, d);
+    const idNovo = (await SS.listScales(d)).data.find(s => s.date === '2026-12-05').id;
+
+    // Cida já pegou 2 sábados do ano; Duda nenhum. O rodízio tem que dar pra Duda,
+    // mesmo com a Cida tendo mais mérito.
+    const historico = [
+      { id: 'h1', date: '2026-11-07', tipo: 'sabado', slots: [{ id: 'a', assignedPersonId: 'cida' }] },
+      { id: 'h2', date: '2026-11-21', tipo: 'sabado', slots: [{ id: 'a', assignedPersonId: 'cida' }] },
+    ];
+    const ctx = {
+      teachers: [
+        { id: 'cida', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+        { id: 'duda', modalityIds: ['TOI'], primaryUnitId: 'cp' },
+      ],
+      meritoById: { cida: 99, duda: 1 },
+      opts: { minMes: 1 },
+      scalesDoAno: historico,
+    };
+    const r1 = await SS.consolidate(idNovo, ctx, d);
+    assert.strictEqual(r1.success, true, 'consolidou');
+    assert.strictEqual(r1.data.assignments[0].personId, 'duda', 'quem trabalhou menos no ano vem antes do mérito');
+
+    // Reconsolidar não pode mudar a resposta — era exatamente aqui que o contador
+    // antigo travava e a escala saía torta.
+    ctx.scalesDoAno = historico.concat((await SS.listScales(d)).data.filter(s => s.date === '2026-12-05'));
+    const r2 = await SS.consolidate(idNovo, ctx, d);
+    assert.strictEqual(r2.data.assignments[0].personId, 'duda', 'remontar dá o mesmo resultado');
+
+    // Com o ajuste de partida, a Duda passa a estar na frente na conta e cede a vez.
+    ctx.ajusteById = { duda: 5 };
+    ctx.scalesDoAno = historico;
+    const r3 = await SS.consolidate(idNovo, ctx, d);
+    assert.strictEqual(r3.data.assignments[0].personId, 'cida', 'o ajuste de partida entra na conta do motor');
+    console.log('✓ o motor decide pela contagem e remontar não muda a resposta');
+  }
+
   console.log('✓ ajuste de partida grava, lista e não fica negativo');
   console.log('\n✓ smoke-escala-contagem: todas as seções OK');
 })();
