@@ -3,6 +3,145 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 57 (26/08/2026) — ✅ O CONTADOR DA ESCALA VIROU CONTAGEM · NO AR EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+
+**No ar** — `git push origin main` (`4c0adf4..83dde1f`), verificado no `github.io`: os 3 arquivos em
+`?v=20260826`, funções novas presentes, API antiga sumiu. **Só frontend** — nenhuma rule, nenhuma
+Cloud Function, nenhum índice. Rollback = reverter o merge e empurrar.
+
+**⚠️ FALTA UMA COISA, e ela é do Rodrigo:** refazer setembro/outubro. A escala saiu torta do
+contador travado e **já está publicada e avisada por e-mail**. A gestão consegue fazer sozinha pela
+tela (botão 🔄 Refazer). Os textos prontos pro grupo estão no fim deste bloco. **Antes de refazer,
+uma pergunta precisa de resposta** — ver "A pergunta aberta".
+
+### O bug, medido antes de escrever código
+
+`fairness_counter/{personId}.diasTrabalhados` era um número **guardado** e só se mexia na PRIMEIRA
+consolidação de cada data. Como o fluxo normal remonta a prévia, as pessoas trocavam de data e a
+conta não acompanhava. Em produção: **9 das 16 pessoas com o número errado.** Karin marcava `1` e
+tinha 3 sábados (05/09, 19/09, 17/10).
+
+**E não era só tela.** Esse número é o insumo do motor. O contador travado da Karin num valor baixo
+fez o motor achar que ela era a mais atrasada e continuar dando sábados pra ela. **O contador errado
+torceu a escala real de set/out.**
+
+### A correção
+
+Parar de guardar e passar a **contar das escalas** (`contarPorPessoa`, pura). Não tem como divergir,
+e os contadores errados se corrigiram sozinhos, sem migração. **Remontar 3× seguidas dá o mesmo
+resultado** — provado no staging.
+
+`fairness_counter` sobrou só como **ajuste de partida** (`ajuste`), pra lançar o que aconteceu fora
+do sistema (agosto rodou pela grade antiga). `divida` era código morto desde a origem e saiu.
+
+### Os 8 pedidos do Rodrigo (25/08), todos atendidos
+
+| # | Pedido | Onde |
+|---|---|---|
+| 1 | Filtro por pessoa | aba **Por pessoa** (`renderTabPorPessoa`) |
+| 2 | Contador errado | `contarPorPessoa` + `consolidate` |
+| 3 | Janela × ano | painel mostra a janela; motor decide por 12 meses móveis |
+| 4 | Feriado somando sábado | `tiposIrmaos` — contas separadas |
+| 5 | Descanso perto do feriado | `personsOnNearbyScale` (±7 dias, dos dois lados) |
+| 6 | Inverter entre unidades | `inverterSelect` por vaga, grupo "Outra unidade" |
+| 7 | Nada antes de publicar | gate da tela do professor virou `published` |
+| 8 | Histórico do ano | aba Por pessoa **e** modal de abrir janela |
+
+### 🚨 O achado que não era deste branch
+
+**A "Prévia antes de publicar", entregue em 24/08 (`88a307e`), NUNCA rodou em produção.**
+`gerarPreviaLote` terminava chamando `carregarEscalas()` — função que não existe no frontend.
+Clicar em "Montar escala e ver prévia" **consolidava o lote inteiro no banco** e estourava
+`ReferenceError` antes de desenhar. Se alguém clicou desde 24/08, a escala daquele lote mudou sem
+ninguém ver.
+
+**Por que 12 verificações automatizadas não pegaram:** todas liam o TEXTO do arquivo. Nenhuma
+chamava a função. Agora existe `smoke-escala-contagem.js` → seção "a prévia RODA e desenha", que
+carrega a tela num sandbox com os serviços dublados e confere que a prévia foi desenhada.
+
+### Decisões do Rafael (26/08)
+
+1. **Contagem derivada** das escalas, não remendar o contador.
+2. **Painel mostra a janela; o motor decide pelo histórico.** Zerar nos dois faria o rodízio perder
+   a memória e o desempate voltar a ser o mérito — o defeito que quebrou agosto.
+3. **Refazer set/out e avisar** (ainda não feito — falta a gestão).
+4. Regra 5 como **preferência forte** que cede se não sobrar ninguém.
+5. Aba **Por pessoa**.
+6. **Mantém o ✏️**, agora como ajuste de partida.
+7. **Um mecanismo só** pra inverter (o botão de 1 clique saiu).
+
+**Decisão tomada durante a revisão, fora da spec:** o motor conta **12 meses móveis**, não o ano
+civil. O ano civil zerava o rodízio todo 1º de janeiro — e com todos empatados em zero o desempate
+volta pro mérito, que é fixo. O relatório do ano civil da tela não mudou.
+
+### O que a revisão derrubou (e valeu cada agente)
+
+- **Script `refazer-escalas-com-rodizio.js` virou arma:** não passa `scalesDoAno`, então com a
+  mudança de hoje distribuiria tudo por **mérito puro** e republicaria na agenda de produção — e a
+  etapa final do plano se chama "refazer". **Trancado** com `process.exit(1)` atrás de
+  `--eu-sei-o-que-estou-fazendo`.
+- **Janela era global, mas o painel filtra por tipo:** em produção rodam DUAS janelas ao mesmo
+  tempo (sábados e feriados). A aba perdedora mostrava **zero pra todo mundo** sob o título
+  "Equilíbrio da janela aberta". Virou `escalaJanelasPorTipo`.
+- **Refazer não despublicava antes**, deixando agenda e escala discordando em silêncio.
+- **Só um lote alcançável** pelo botão — o de feriados nunca seria refeito.
+- A regra do descanso **lia as datas que estão sendo jogadas fora**.
+- Refazer aceitava a data de **hoje** (aula já dada voltaria pra "prevista").
+
+### Homologação no staging
+
+- **10/10** contra o Firestore real (`scratchpad/homolog-staging.js`, com limpeza).
+- **6/6** no motor publicado, rodado no console do navegador.
+- **12/12** smokes da escala · **45** smokes do projeto.
+- Pelos dados reais do staging: Ana Paula com **6 sábados e 0 feriados** nas duas abas · inversão
+  CP↔PP executada · refazer 3× com resultado idêntico · trava de data passada recusando · professor
+  lendo "A gestão está montando a escala" nas 3 datas dele.
+- **0 erro de console.**
+
+⚠️ **NÃO houve clique humano.** Os cliques de mouse do agente não chegam na página neste ambiente
+(testado 3×: a aba não muda). A validação foi por **chamada das mesmas funções que os botões
+chamam** — mesmo código, mesmo banco, mesma tela renderizada, mas **não é alguém usando o mouse**.
+A sessão 55 afirmou "clicado de verdade"; essa afirmação não pode ser sustentada aqui.
+
+### ❓ A pergunta aberta (antes de refazer)
+
+Sábado e feriado agora são **filas separadas**, como o Rodrigo pediu. Só que **quem tem poucos
+sábados costuma ter muitos feriados**: Bruno Othero tem 1 sábado e 4 feriados; Thaynara, 1 e 3. Com
+filas separadas, o rodízio de sábado vai dar mais sábados justamente pra eles.
+
+É o comportamento pedido, não um defeito. Mas se a intenção era equilibrar **carga total**, o
+resultado vai surpreender. **Confirmar com o Rodrigo antes de refazer.**
+
+### Arquivos
+
+| Arquivo | O que mudou |
+|---|---|
+| `scale-service.js` | `contarPorPessoa`, `tiposIrmaos`, `personsOnNearbyScale`, `saveAjustePartida`, `listAjustes`; `consolidate` conta; JSDoc do `ctx` (9 chaves, 3 degradam em silêncio se faltarem) |
+| `scale-engine.js` | **só comentários** — o comparador não mudou |
+| `professores-escala-smart.js` | painel, ✏️, aba Por pessoa, inverter, gate do professor, refazer janela |
+| `professores.html` | cache-busting `?v=20260826` |
+| `scripts/smoke-escala-contagem.js` | **novo** — 26 seções, incluindo a que executa a prévia |
+| `scripts/diag-contador-escala.js` | **novo** — lê produção usando a MESMA função do motor |
+| `scripts/refazer-escalas-com-rodizio.js` | **trancado** |
+| 3 smokes | reescritos (falavam da API aposentada) |
+
+Spec: `docs/superpowers/specs/2026-08-26-escala-contador-derivado-design.md`
+Plano: `docs/superpowers/plans/2026-08-26-escala-contador-derivado.md`
+Retrato do "antes" de produção: `backups/contador-antes-2026-08-26.txt`
+
+### Pendências
+
+1. **Refazer set/out** — a gestão faz pela tela; textos prontos passados ao Rafael em 26/08.
+2. **A pergunta das filas separadas × carga total** — pro Rodrigo.
+3. **CF `escala-dia.js` trata `consolidada` como valendo**, mesmo sem publicação: numa data nunca
+   publicada com prévia abandonada, o dia pode ficar sem aula. Anterior a este branch; mexer é
+   deploy de função. **Não foi tocado.**
+4. Ficha do **Rafael Rojais** pela tela Pessoas (vem da sessão 55).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 56 (25/08/2026) — ✅ TRADUTOR DA PACTO CONSTRUÍDO · 1 PERGUNTA DE R$ 2.360 PRO RODRIGO
 
 ### ▶️▶️ RETOMAR AQUI
