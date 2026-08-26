@@ -303,16 +303,18 @@ function whyTableHtml(slot, tipo) {
       <td style="padding:3px 6px;${win ? 'font-weight:600;' : 'color:var(--text2);'}">${escalaPersonName(c.personId)}</td>
       <td style="padding:3px 6px;text-align:center;">${c.merito}</td>
       <td style="padding:3px 6px;text-align:center;">${c.diasTrabalhados}</td>
-      <td style="padding:3px 6px;text-align:center;">${c.divida || 0}</td>
       <td style="padding:3px 6px;text-align:center;">${prefLabel(c.pref)}</td>
     </tr>`;
   }).join('');
   return `<details style="margin-top:8px;">
     <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>
     <table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse;">
-      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">${(tipo === 'feriado' || tipo === 'domingo_especial') ? 'Feriados' : 'Sábados'}</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Dívida</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
+      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">${(tipo === 'feriado' || tipo === 'domingo_especial') ? 'Feriados' : 'Sábados'} (12 meses)</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px;">
+      Contagem dos 12 meses anteriores a esta data, sem contar o próprio dia — é o número que o rodízio usou na hora de escolher. O painel do topo mostra o ano civil, então os dois não precisam bater.
+    </div>
   </details>`;
 }
 
@@ -416,15 +418,28 @@ async function renderEscalaGestao() {
       </div>` : '';
 
   // Lotes já montados (nenhuma data em janela aberta) podem ser refeitos.
-  const lotesMontados = [...new Set(scales
-    .filter(s => s.windowBatchId && s.status === 'consolidada' && s.date >= escalaTodayISO())
-    .map(s => s.windowBatchId))]
-    .filter(b => !scales.some(s => s.windowBatchId === b && s.status === 'janela_aberta'));
-  const refazerBar = (tab !== 'pessoa' && lotesMontados.length)
-    ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-        <span style="font-size:13px;color:var(--text2);">Já existe escala montada para uma janela futura.</span>
-        <button class="btn-secondary" onclick="refazerJanela('${lotesMontados[0]}')">🔄 Refazer a janela</button>
-      </div>` : '';
+  // Lotes já montados (nenhuma data em janela aberta) que ainda podem ser
+  // refeitos. UM POR LINHA, e só os da aba atual: com um botão só, apontando
+  // pro primeiro da lista, o lote de feriados nunca seria alcançável — e
+  // refazer os feriados de 07/09 e 12/10 está no escopo desta frente.
+  const tiposDaAba = (tab === 'sabado' || tab === 'feriado') ? ScaleService.tiposIrmaos(tab) : null;
+  const lotesMontados = tiposDaAba
+    ? [...new Set(scales
+        .filter(s => s.windowBatchId && s.status === 'consolidada'
+          && s.date > escalaTodayISO() && tiposDaAba.indexOf(s.tipo) !== -1)
+        .map(s => s.windowBatchId))]
+        .filter(b => !scales.some(s => s.windowBatchId === b && s.status === 'janela_aberta'))
+    : [];
+  const refazerBar = lotesMontados.map(b => {
+    const datas = scales.filter(s => s.windowBatchId === b).map(s => s.date).sort();
+    const periodo = datas.length === 1 ? escalaFmtBR(datas[0])
+      : `${escalaFmtBR(datas[0])} a ${escalaFmtBR(datas[datas.length - 1])}`;
+    const pub = scales.filter(s => s.windowBatchId === b && s.published).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--text2);">Escala montada para ${datas.length} data(s): <b>${periodo}</b>${pub ? ` · ${pub} já publicada(s)` : ''}</span>
+        <button class="btn-secondary" onclick="refazerJanela('${b}')">🔄 Refazer</button>
+      </div>`;
+  }).join('');
 
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
@@ -1659,11 +1674,13 @@ function renderRevisaoFechamento(batchId, scales, matrix, feriasPorPessoa) {
 async function refazerJanela(batchId) {
   const doLote = (EscalaSmartState.scales || []).filter(s => s.windowBatchId === batchId);
   const publicadas = doLote.filter(s => s.published).length;
-  const passadas = doLote.filter(s => s.date < escalaTodayISO()).length;
+  // HOJE também está fora: a aula de hoje pode já ter sido dada e marcada como
+  // realizada, e republicar a devolveria pra "prevista".
+  const passadas = doLote.filter(s => s.date <= escalaTodayISO()).length;
   // Republicar apaga e recria as aulas: aula já marcada como realizada voltaria
   // pra prevista. Regra de operação firmada em 25/08/2026.
   if (passadas) {
-    toast(`Esta janela tem ${passadas} data(s) que já aconteceram. Refazer republicaria aulas do passado — não dá.`, 'error', 9000);
+    toast(`Esta janela tem ${passadas} data(s) que já aconteceram (ou são hoje). Refazer republicaria aulas do passado — não dá.`, 'error', 9000);
     return;
   }
   const aviso = `Refazer a escala de ${doLote.length} data(s)?
@@ -1672,9 +1689,27 @@ async function refazerJanela(batchId) {
     + `O sistema monta tudo de novo, do zero, com a contagem correta. Você vê a prévia antes de publicar.
 
 `
-    + (publicadas ? `⚠️ ${publicadas} data(s) já estão publicadas e o time já foi avisado. Ao publicar de novo, todos serão avisados de que a escala MUDOU.` : '');
+    + (publicadas ? `⚠️ ${publicadas} data(s) já estão publicadas. As aulas saem da agenda AGORA e só voltam quando você publicar de novo — e aí todos serão avisados de que a escala MUDOU.` : '');
   if (!confirm(aviso)) return;
   EscalaSmartState.remontando = batchId;
+
+  // Despublica ANTES de montar. Sem isso, a prévia reescreve quem trabalha em
+  // cada dia enquanto a agenda continua com os nomes antigos e o professor —
+  // que desde 26/08 só enxerga escala publicada — vê a lista nova como se já
+  // valesse. Fechar a prévia sem publicar deixaria os três discordando em
+  // silêncio, que é o defeito que esta frente inteira existe pra matar.
+  //
+  // Preferimos o estado VISIVELMENTE incompleto (agenda vazia, professor lendo
+  // "a gestão está montando") ao estado silenciosamente errado. E a trava de
+  // data acima garante que só mexemos em dia que ainda não chegou.
+  let despublicadas = 0;
+  for (const s of doLote.filter(x => x.published)) {
+    const r = await ScaleService.unpublishFromAgenda(s.id);
+    if (r && r.success) despublicadas++;
+    else toast(`⚠️ Não consegui tirar ${escalaFmtBR(s.date)} da agenda. Confira essa data antes de publicar.`, 'error', 9000);
+  }
+  if (despublicadas) toast(`${despublicadas} data(s) saíram da agenda até você publicar a escala nova.`, 'info', 7000);
+
   await gerarPreviaLote(batchId);
 }
 
@@ -1726,7 +1761,14 @@ async function gerarPreviaLote(batchId) {
       if (a.personId) ctx.jaNoLoteById[a.personId] = (ctx.jaNoLoteById[a.personId] || 0) + 1;
     });
   }
-  await carregarEscalas();
+  // Era `carregarEscalas()` — uma função que NUNCA existiu no frontend. Entrou
+  // com a prévia em 24/08/2026 (88a307e) e foi pra produção assim: clicar em
+  // "Montar escala e ver prévia" consolidava o lote inteiro no banco e estourava
+  // ReferenceError antes de desenhar a prévia. O botão anunciado pro Rodrigo
+  // como "monta e PARA pra você conferir" montava e sumia. Passou por 12
+  // verificações automatizadas porque todas olhavam o texto do arquivo, não o
+  // comportamento. (26/08/2026)
+  await escalaLoadBase();
   renderPreviaLote(batchId, falhas);
 }
 
@@ -1775,6 +1817,9 @@ function renderPreviaLote(batchId, falhas) {
   modal.innerHTML = `
     <h2>Prévia da escala</h2>
     <p style="font-size:12px;color:var(--text2);">Nada foi publicado e ninguém foi avisado ainda. Confira, ajuste se precisar, e só então publique.</p>
+    ${EscalaSmartState.remontando === batchId ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">
+      ⚠️ Estas datas <b>saíram da agenda</b> para serem refeitas. Enquanto você não publicar, elas não existem para os professores. Se fechar agora, volte e publique.
+    </div>` : ''}
     ${falhas && falhas.length ? `<div style="background:#3a1a1a;border:1px solid var(--red);border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">Falhou em: ${falhas.join(' · ')}</div>` : ''}
     ${vagasAbertas ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">⚠️ ${vagasAbertas} vaga(s) sem ninguém — ninguém habilitado estava disponível. Preencha na mão antes de publicar, senão o dia fica sem professor.</div>` : ''}
     <div style="overflow:auto;max-height:42vh;font-size:13px;margin:10px 0;">${linhas}</div>

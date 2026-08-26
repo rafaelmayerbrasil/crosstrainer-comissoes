@@ -428,8 +428,91 @@ const VIZINHAS = [
     const refazer = ui.slice(ui.indexOf('async function refazerJanela'), ui.indexOf('async function gerarPreviaLote'));
     assert.ok(/já aconteceram/.test(refazer),
       'refazer recusa data passada — republicar traria aula realizada de volta pra prevista');
-    assert.ok(/escala MUDOU|foi refeita/.test(ui), 'o aviso de remontagem tem texto próprio');
+    // Ancorado NO AVISO, não no arquivo inteiro: "escala MUDOU" também aparece
+    // no confirm() do próprio botão, então uma busca solta passaria sem que o
+    // aviso ao professor existisse.
+    const avisar = ui.slice(ui.indexOf('async function confirmarEAvisar'));
+    assert.ok(/foi refeita e o aviso anterior não vale mais/.test(avisar),
+      'quem já foi avisado precisa saber que o recado anterior caducou');
+    assert.ok(/EscalaSmartState\.remontando === batchId/.test(avisar),
+      'e isso só vale quando a janela foi remontada');
+    assert.ok(/EscalaSmartState\.remontando = null/.test(avisar),
+      'a marca de remontagem é limpa no fim');
+    // Despublicar antes de montar: sem isso a agenda fica com os nomes velhos
+    // enquanto a escala já tem os novos, e o professor vê a lista nova como se
+    // valesse. Estado visivelmente incompleto é melhor que silenciosamente errado.
+    assert.ok(/unpublishFromAgenda/.test(refazer),
+      'refazer tira as datas da agenda antes de remontar');
     console.log('✓ refazer a janela existe e não conta a escala velha');
+  }
+
+  // ── a prévia RODA e desenha ──────────────────────────────────────────
+  //
+  // Este teste existe por causa de um vexame: `gerarPreviaLote` terminava
+  // chamando `carregarEscalas()`, uma função que nunca existiu no frontend.
+  // Entrou com a prévia em 24/08/2026 e foi pra produção assim — o botão
+  // anunciado pro Rodrigo como "monta e PARA pra você conferir" consolidava o
+  // lote inteiro no banco e estourava ReferenceError antes de desenhar nada.
+  //
+  // Passou por doze verificações automatizadas porque TODAS liam o texto do
+  // arquivo. Nenhuma chamava a função. Esta chama: carrega a tela num sandbox
+  // com os serviços dublados e confere que a prévia foi desenhada.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+
+    const modal = { innerHTML: '' };
+    const escalas = [
+      { id: 'e1', date: '2026-12-05', tipo: 'sabado', status: 'consolidada', windowBatchId: 'lote',
+        slots: [{ id: 'v1', unitId: 'u1', requiredModalityId: 'TOI', assignedPersonId: 'ana' }] },
+    ];
+    const chamou = { closeElection: 0, consolidate: 0 };
+
+    const sandbox = {
+      console: { log() {}, warn() {}, error() {} },
+      document: { getElementById: (id) => (id === 'escalaModal' ? modal : { style: {}, innerHTML: '' }) },
+      setTimeout, clearTimeout, Date, Math, JSON, Promise, Set, Map, Array, Object, String, Number,
+      toast() {},
+      ajudaBtn: () => '',
+      AppState: { userProfile: {} },
+      EngagementService: {
+        listCycles: async () => ({ success: true, data: [{ id: 'c', inicio: '2026-01-01', fim: '2026-12-31' }] }),
+        currentCycle: (cs) => cs[0],
+        scoreboard: async () => ({ success: true, data: { total: 10 } }),
+      },
+      ScaleService: {
+        tiposIrmaos: SS.tiposIrmaos,
+        contarPorPessoa: SS.contarPorPessoa,
+        listScalesByBatch: async () => ({ success: true, data: escalas }),
+        closeElection: async () => { chamou.closeElection++; return { success: true }; },
+        consolidate: async () => {
+          chamou.consolidate++;
+          return { success: true, data: { assignments: [{ slotId: 'v1', personId: 'ana', reason: 'justica' }] } };
+        },
+        listWindowQuotas: async () => ({ success: true, data: {} }),
+        listScales: async () => ({ success: true, data: escalas }),
+        listAjustes: async () => ({ success: true, data: {} }),
+        ScaleConfigService: { get: async () => ({ success: true, data: { horarios: {} } }) },
+      },
+      UnitService: { list: async () => ({ success: true, data: [{ id: 'u1', name: 'CrossTainer CP' }] }) },
+      ModalityService: { list: async () => ({ success: true, data: [{ id: 'TOI', name: 'TOI' }, { id: 'HIIT', name: 'Hiit' }] }) },
+      TeacherService: { list: async () => ({ success: true, data: [{ id: 'ana', name: 'Ana', isActive: true, modalityIds: ['TOI'] }] }) },
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8'),
+      sandbox, { filename: 'professores-escala-smart.js' });
+
+    await sandbox.gerarPreviaLote('lote');
+
+    assert.ok(chamou.consolidate > 0, 'a prévia consolidou o lote');
+    assert.ok(/Prévia da escala/.test(modal.innerHTML),
+      'a prévia PRECISA ter sido desenhada — era exatamente isso que não acontecia');
+    assert.ok(/Ana/.test(modal.innerHTML), 'e mostra quem foi escalado');
+    assert.ok(/Nada foi publicado/.test(modal.innerHTML), 'deixando claro que ainda não vale');
+    console.log('✓ a prévia roda até o fim e desenha a tela');
   }
 
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────

@@ -865,7 +865,14 @@
       // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
       // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
       // Rafael 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
-      const vizinhoById = personsOnNearbyScale(scalesDoAno, scale.date);
+      //
+      // As datas excluídas saem daqui também: numa remontagem elas ainda
+      // carregam a escala ANTIGA, e deixá-las falar aqui empurraria as pessoas
+      // pro fim da fila por causa de um dia que está prestes a deixar de
+      // existir — enviesando justamente a remontagem que existe pra corrigir o
+      // viés. (26/08/2026)
+      const vizinhoById = personsOnNearbyScale(
+        scalesDoAno.filter(s => s && !excluir.has(s.date)), scale.date);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
         cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
