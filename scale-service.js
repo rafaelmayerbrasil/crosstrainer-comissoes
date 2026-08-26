@@ -599,6 +599,53 @@
   }
 
   /**
+   * PURO: os tipos de escala que contam juntos. Feriado e domingo especial são
+   * a mesma coisa pra quem olha ("dia especial que não é sábado") e a aba
+   * Feriados sempre mostrou os dois.
+   */
+  function tiposIrmaos(tipo) {
+    return (tipo === 'feriado' || tipo === 'domingo_especial')
+      ? ['feriado', 'domingo_especial']
+      : [tipo];
+  }
+
+  /**
+   * PURO: quantas vagas cada pessoa tem nas escalas que casam com o filtro.
+   *
+   * Esta função É o contador de justiça. Até 25/08/2026 o número ficava guardado
+   * em `fairness_counter` e só se mexia na PRIMEIRA montagem de cada data — então
+   * remontar a prévia trocava as pessoas sem refazer a conta, e em produção 9 das
+   * 16 pessoas estavam erradas (Karin marcava 1 e tinha 3 sábados). Contar na hora
+   * não tem como divergir.
+   *
+   * @param {Array} scales lista de special_scales (a tela já carrega todas)
+   * @param {{tipos?:string[], batchId?:string, de?:string, ate?:string,
+   *          excluirDatas?:string[]|Set<string>}} filtro
+   * @returns {Object<string, number>} personId → quantas vagas
+   */
+  function contarPorPessoa(scales, filtro) {
+    const f = filtro || {};
+    const tipos = (f.tipos && f.tipos.length) ? f.tipos : null;
+    const excluir = (f.excluirDatas instanceof Set)
+      ? f.excluirDatas : new Set(f.excluirDatas || []);
+    const out = {};
+    (scales || []).forEach(s => {
+      if (!s || !s.date) return;
+      if (tipos && tipos.indexOf(s.tipo) === -1) return;
+      if (f.batchId && s.windowBatchId !== f.batchId) return;
+      if (f.de && s.date < f.de) return;
+      if (f.ate && s.date > f.ate) return;
+      if (excluir.has(s.date)) return;
+      (s.slots || []).forEach(sl => {
+        const pid = sl && sl.assignedPersonId;
+        if (!pid) return;
+        out[pid] = (out[pid] || 0) + 1;
+      });
+    });
+    return out;
+  }
+
+  /**
    * PURO: quem já está escalado no sábado imediatamente anterior ou seguinte.
    *
    * "Sábado vizinho" é a data ±7 dias — e sábado que é feriado CONTA, porque é
@@ -904,5 +951,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnAdjacentSaturday, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveFairness, applyFairnessDelta, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnAdjacentSaturday, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
