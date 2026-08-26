@@ -1885,11 +1885,20 @@ async function renderProfSabadosFeriados(pid, tab) {
     // a palavra "Rascunho", que é vocabulário nosso e não diz nada pra ele.
     // Relato real no grupo (14/08/2026): "qnd vou em minha agenda não tem sábado,
     // qnd vou em escala aparece sábado (15/08) - não escalado".
-    if (s.status !== 'consolidada') {
+    //
+    // E consolidada NÃO é o mesmo que valendo: a prévia (24/08) grava
+    // 'consolidada' e PARA, de propósito, pra gestão conferir e ajustar antes de
+    // publicar. Liberar a vista aí é contar pro time uma escala que ainda vai
+    // mudar — foi o que o Rodrigo pediu pra fechar em 25/08. Quem manda é a
+    // publicação. O e-mail já obedecia isso; só a tela é que vazava.
+    if (!s.published) {
+      const texto = s.status === 'consolidada'
+        ? 'A gestão está montando a escala'
+        : 'A gestão ainda não abriu as candidaturas';
       return profDateRow(
         s,
         `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Ainda não liberado`,
-        `<span style="font-size:12px;color:var(--text3);">A gestão ainda não abriu as candidaturas</span>`
+        `<span style="font-size:12px;color:var(--text3);">${texto}</span>`
       );
     }
     const escalado = ScaleService.isPersonAssigned(s, pid);

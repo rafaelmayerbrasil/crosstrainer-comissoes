@@ -332,6 +332,34 @@ const VIZINHAS = [
     console.log('✓ a tela usa a contagem derivada');
   }
 
+  // ── nada aparece pro professor antes de publicar ─────────────────────
+  //
+  // Rodrigo, 25/08/2026: "A publicação para os colaboradores, ou seja, envio de
+  // e-mail, deve ocorrer somente depois que a janela em questão de fato for
+  // fechada e publicada pela gestão".
+  //
+  // O e-mail já estava certo — só sai no publicar. O vazamento era outro: a
+  // PRÉVIA grava `status: 'consolidada'` e PARA, de propósito, pra gestão
+  // conferir e ajustar antes. Como a tela do professor liberava a partir de
+  // 'consolidada', o time inteiro via "✓ Você está escalado" numa escala que
+  // ainda ia mudar.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    const vista = ui.slice(
+      ui.indexOf('async function renderProfSabadosFeriados'),
+      ui.indexOf('function profDateRow'));
+    assert.ok(vista.length > 100, 'achou a vista do professor');
+    assert.ok(!/status !== 'consolidada'/.test(vista),
+      'a vista do professor não pode mais liberar por status consolidada');
+    assert.ok(/!s\.published/.test(vista),
+      'quem manda é a publicação, não a consolidação');
+    assert.ok(/montando a escala/.test(vista),
+      'e enquanto isso ele lê que a gestão ainda está montando');
+    console.log('✓ o professor só vê a escala depois de publicada');
+  }
+
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────
   //
   // Em produção (26/08/2026) rodam duas janelas ao mesmo tempo: sábados
