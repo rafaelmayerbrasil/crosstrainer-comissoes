@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), ajusteMap: {}, janelaBatchId: null, janelaAberta: false, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), ajusteMap: {}, janelaPorTipo: {}, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -119,20 +119,57 @@ async function escalaLoadBase() {
   const aj = await ScaleService.listAjustes();
   EscalaSmartState.ajusteMap = aj.success ? aj.data : {};
 
-  // Qual é "a janela": a que está aberta; se não há nenhuma aberta, a última
-  // que existiu — é dela que a gestão acabou de falar.
-  const lotes = {};
-  EscalaSmartState.scales.forEach(s => {
-    if (!s.windowBatchId) return;
-    const l = lotes[s.windowBatchId] || (lotes[s.windowBatchId] = { id: s.windowBatchId, aberta: false, ultima: '' });
+  // Qual é "a janela" de cada tipo (sábados e feriados correm em lotes
+  // separados, e os dois podem estar abertos ao mesmo tempo).
+  EscalaSmartState.janelaPorTipo = escalaJanelasPorTipo(EscalaSmartState.scales);
+}
+
+/**
+ * PURA: qual é "a janela" de cada grupo de tipos.
+ *
+ * Uma janela só, global, era mentira. Em produção (26/08/2026) rodam DUAS ao
+ * mesmo tempo — sábados (9 datas) e feriados (07/09 e 12/10) — e a própria tela
+ * já avisa "Há N janela(s) em andamento". Com um lote global, a aba que
+ * perdesse a disputa mostraria ZERO pra todo mundo sob o título "Equilíbrio da
+ * janela aberta": um número que não existe, afirmado com confiança.
+ *
+ * Agrupa por `tiposIrmaos`, então feriado e domingo especial caem no mesmo
+ * balde — é assim que a aba Feriados sempre mostrou os dois. Dentro do grupo, a
+ * regra é a de sempre: a janela aberta ganha; não havendo aberta, a mais
+ * recente por data, que é a que a gestão acabou de fechar.
+ *
+ * @param {Array} scales lista de special_scales
+ * @returns {Object<string, {id: string|null, aberta: boolean}>} grupo → lote
+ */
+function escalaJanelasPorTipo(scales) {
+  const porGrupo = {};
+  (scales || []).forEach(s => {
+    if (!s || !s.windowBatchId || !s.tipo) return;
+    const chave = ScaleService.tiposIrmaos(s.tipo)[0];
+    const lotes = porGrupo[chave] || (porGrupo[chave] = {});
+    const l = lotes[s.windowBatchId]
+      || (lotes[s.windowBatchId] = { id: s.windowBatchId, aberta: false, ultima: '' });
     if (s.status === 'janela_aberta') l.aberta = true;
-    if (s.date > l.ultima) l.ultima = s.date;
+    if ((s.date || '') > l.ultima) l.ultima = s.date || '';
   });
-  const lista = Object.keys(lotes).map(k => lotes[k]);
-  const aberta = lista.find(l => l.aberta);
-  const recente = lista.slice().sort((a, b) => (a.ultima > b.ultima ? -1 : 1))[0];
-  EscalaSmartState.janelaBatchId = ((aberta || recente) || {}).id || null;
-  EscalaSmartState.janelaAberta = !!aberta;
+  const out = {};
+  Object.keys(porGrupo).forEach(chave => {
+    const lista = Object.keys(porGrupo[chave]).map(k => porGrupo[chave][k]);
+    const aberta = lista.find(l => l.aberta);
+    const escolhido = aberta || lista.slice().sort((a, b) => (a.ultima > b.ultima ? -1 : 1))[0];
+    out[chave] = { id: escolhido ? escolhido.id : null, aberta: !!aberta };
+  });
+  return out;
+}
+
+/**
+ * O lote da janela daquele tipo. Nunca devolve indefinido: grupo sem lote
+ * nenhum vale como "nenhuma janela ainda", e é isso que o título precisa dizer
+ * em vez de anunciar uma janela aberta que não existe.
+ */
+function escalaJanelaDoTipo(tipo) {
+  const chave = ScaleService.tiposIrmaos(tipo || 'sabado')[0];
+  return (EscalaSmartState.janelaPorTipo || {})[chave] || { id: null, aberta: false };
 }
 
 function escalaEsc(s) {
@@ -178,9 +215,11 @@ function escalaContagens(tipo) {
   const scales = EscalaSmartState.scales || [];
   const tipos = ScaleService.tiposIrmaos(tipo || 'sabado');
   const ano = String(EscalaSmartState.year);
+  const lote = escalaJanelaDoTipo(tipo);
   return {
-    janela: EscalaSmartState.janelaBatchId
-      ? ScaleService.contarPorPessoa(scales, { tipos, batchId: EscalaSmartState.janelaBatchId })
+    lote,
+    janela: lote.id
+      ? ScaleService.contarPorPessoa(scales, { tipos, batchId: lote.id })
       : {},
     ano: ScaleService.contarPorPessoa(scales, { tipos, de: `${ano}-01-01`, ate: `${ano}-12-31` }),
   };
@@ -236,9 +275,9 @@ function renderEquilibrioPainel() {
        </div>`
     : '';
 
-  const titulo = !EscalaSmartState.janelaBatchId
+  const titulo = !c.lote.id
     ? `Equilíbrio — nenhuma janela ainda (${rotuloTipo})`
-    : EscalaSmartState.janelaAberta
+    : c.lote.aberta
       ? `Equilíbrio da janela aberta (${rotuloTipo})`
       : `Equilíbrio da última janela (${rotuloTipo})`;
 
@@ -2062,6 +2101,7 @@ window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
 window.inverterVagasEscala = inverterVagasEscala;
 window.ajustarContadorJustica = ajustarContadorJustica;
+window.escalaJanelasPorTipo = escalaJanelasPorTipo;
 window.salvarStaffEvento = salvarStaffEvento;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

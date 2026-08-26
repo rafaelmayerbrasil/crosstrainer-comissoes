@@ -332,5 +332,52 @@ const VIZINHAS = [
     console.log('✓ a tela usa a contagem derivada');
   }
 
+  // ── a janela é por tipo, não uma só pro app inteiro ──────────────────
+  //
+  // Em produção (26/08/2026) rodam duas janelas ao mesmo tempo: sábados
+  // (batch_1786921932940, 9 datas) e feriados (batch_1786921982328, 07/09 e
+  // 12/10). Com um lote global, a aba perdedora mostrava ZERO pra todo mundo
+  // sob o título "Equilíbrio da janela aberta" — a mentira silenciosa que este
+  // branch existe pra matar. Testado de verdade, não por regex: a regra de
+  // escolha já provou que erra sozinha.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    const ini = ui.indexOf('function escalaJanelasPorTipo(');
+    const fim = ui.indexOf('function escalaJanelaDoTipo(', ini);
+    assert.ok(ini !== -1, 'a escolha da janela mora numa função pura com nome próprio');
+    assert.ok(fim > ini, 'e o delimitador dela está onde se espera');
+    const escalaJanelasPorTipo = new Function(
+      'ScaleService', ui.slice(ini, fim) + ' return escalaJanelasPorTipo;')(SS);
+
+    const duas = escalaJanelasPorTipo([
+      { date: '2026-09-05', tipo: 'sabado',  status: 'janela_aberta', windowBatchId: 'lote_sab' },
+      { date: '2026-09-12', tipo: 'sabado',  status: 'janela_aberta', windowBatchId: 'lote_sab' },
+      { date: '2026-09-07', tipo: 'feriado', status: 'janela_aberta', windowBatchId: 'lote_fer' },
+      { date: '2026-10-12', tipo: 'domingo_especial', status: 'rascunho', windowBatchId: 'lote_fer' },
+      { date: '2026-03-14', tipo: 'sabado',  status: 'consolidada', windowBatchId: 'lote_velho' },
+    ]);
+    assert.strictEqual(duas.sabado.id, 'lote_sab', 'sábado enxerga a janela de sábado');
+    assert.strictEqual(duas.feriado.id, 'lote_fer', 'feriado enxerga a SUA janela — com uma janela global, uma das duas abas zerava');
+    assert.strictEqual(duas.sabado.aberta, true, 'a janela de sábado está aberta');
+    assert.strictEqual(duas.feriado.aberta, true, 'domingo especial cai no mesmo balde do feriado');
+
+    const fechadas = escalaJanelasPorTipo([
+      { date: '2026-03-14', tipo: 'sabado',  status: 'consolidada', windowBatchId: 'sab_mar' },
+      { date: '2026-07-11', tipo: 'sabado',  status: 'consolidada', windowBatchId: 'sab_jul' },
+      { date: '2026-04-21', tipo: 'feriado', status: 'consolidada', windowBatchId: 'fer_abr' },
+    ]);
+    assert.strictEqual(fechadas.sabado.id, 'sab_jul', 'sem janela aberta, vale a última por data');
+    assert.strictEqual(fechadas.sabado.aberta, false, 'e ela não é anunciada como aberta');
+    assert.strictEqual(fechadas.feriado.id, 'fer_abr', 'a última de feriado não é a última de sábado');
+
+    assert.deepStrictEqual(escalaJanelasPorTipo([]), {}, 'entrada vazia é segura');
+    assert.deepStrictEqual(
+      escalaJanelasPorTipo([{ date: '2026-05-02', tipo: 'sabado', status: 'rascunho' }]), {},
+      'escala fora de janela nenhuma não inventa lote');
+    console.log('✓ a janela é por tipo: sábado e feriado não roubam a janela um do outro');
+  }
+
   console.log('\n✓ smoke-escala-contagem: todas as seções OK');
 })();
