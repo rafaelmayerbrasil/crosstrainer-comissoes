@@ -751,9 +751,9 @@
       const teachers = (ctx.teachers || []).filter(t => !deFerias.has(t.id));
       const fairnessById = {};
       for (const t of teachers) { fairnessById[t.id] = (await getFairness(t.id, deps)).data; }
-      // Quem pegou o sábado vizinho vai pro fim da fila. Só entre sábados —
-      // Escola Interna e evento ficam de fora ("só pra sábado mesmo", Rafael
-      // 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
+      // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
+      // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
+      // Rafael 25/08). A tela manda as escalas do ano em ctx.scalesDoAno.
       const vizinhoById = personsOnNearbyScale(ctx.scalesDoAno || [], scale.date);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
