@@ -63,6 +63,10 @@
       // ele avisou que só podia dois sábados e já fez os dois.
       const ca = acimaDaCota(a) ? 1 : 0, cb = acimaDaCota(b) ? 1 : 0;
       if (ca !== cb) return ca - cb;
+      // `divida` é estruturalmente 0 desde 26/08/2026: nada mais escreve
+      // neste campo (scale-service.js sempre manda `divida: 0` pro motor) —
+      // este `if` não tem como disparar hoje. Mantido com teste próprio;
+      // não gaste uma tarde raciocinando sobre um critério morto.
       if (b.divida !== a.divida) return b.divida - a.divida;               // quem deve dia, paga primeiro
       if (a.diasTrabalhados !== b.diasTrabalhados)                         // quem trabalhou menos vem antes
         return a.diasTrabalhados - b.diasTrabalhados;
