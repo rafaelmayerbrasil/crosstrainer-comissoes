@@ -23,6 +23,7 @@ const ESCALA_TABS = [
   { id: 'evento',         label: 'Eventos' },
   { id: 'fim_de_ano',     label: 'Fim de ano' },
   { id: 'escola_interna', label: 'Escola Interna' },
+  { id: 'pessoa',         label: 'Por pessoa' },
 ];
 
 function escalaIsManagement() {
@@ -402,6 +403,7 @@ async function renderEscalaGestao() {
   else if (tab === 'feriado')          listHtml = renderTabFeriados(scales);
   else if (tab === 'evento')           listHtml = renderTabEventos(scales);
   else if (tab === 'escola_interna')   listHtml = renderTabEscolaInterna(scales);
+  else if (tab === 'pessoa')           listHtml = renderTabPorPessoa();
   else                                 listHtml = renderTabFimDeAno(scales);
 
   const detail = EscalaSmartState.selectedId ? renderEscalaDetail(scales.find(s => s.id === EscalaSmartState.selectedId)) : '';
@@ -415,7 +417,7 @@ async function renderEscalaGestao() {
 
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
-    ${renderEquilibrioPainel()}
+    ${tab === 'pessoa' ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
     ${revisaoBar}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
@@ -423,9 +425,9 @@ async function renderEscalaGestao() {
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
       <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
     </div>` : ''}
-    <div style="display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:16px;align-items:start;">
+    <div style="display:grid;grid-template-columns:${tab === 'pessoa' ? '1fr' : 'minmax(220px,1fr) 2fr'};gap:16px;align-items:start;">
       <div>${listHtml}</div>
-      <div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>
+      ${tab === 'pessoa' ? '' : `<div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>`}
     </div>
     <div id="escalaModalOverlay" class="modal-overlay" style="display:none;"></div>
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
@@ -434,6 +436,126 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
+function escalaSetPessoa(pid) { EscalaSmartState.pessoaSel = pid || null; renderEscalaGestao(); }
+
+/**
+ * "Onde e quando fulano está escalado" — pedido 1 do Rodrigo (25/08/2026):
+ * "Deveria existir um filtro escolhendo qual professor / estagiário e mostrando
+ * aonde e qdo ele(a) está escalado".
+ *
+ * Junta as três perguntas numa tela só: as datas da pessoa, quanto ela pegou
+ * nesta janela e quanto pegou no ano (pedido 8: "quando for aberta a próxima
+ * janela, trazer o histórico da quantidade das últimas escalas no ano").
+ */
+function renderTabPorPessoa() {
+  const ativos = Array.from(EscalaSmartState.teacherMap.values())
+    .filter(t => t.isActive !== false)
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+  const sel = EscalaSmartState.pessoaSel;
+  const seletor = `<select class="input" style="max-width:320px;" onchange="escalaSetPessoa(this.value)">
+      <option value="">— escolha a pessoa —</option>
+      ${ativos.map(t => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${escalaEsc(t.name)}</option>`).join('')}
+    </select>`;
+
+  if (!sel) {
+    return `<div style="margin-bottom:12px;">${seletor}</div>
+      ${escalaHistoricoAnoHtml()}`;
+  }
+
+  const ano = String(EscalaSmartState.year);
+  const nomeUnidade = (uid) => {
+    const u = EscalaSmartState.units.find(x => x.id === uid) || {};
+    return (u.name || uid || '').replace(/CrossTainer\s*/i, '') || uid;
+  };
+  const nomeMod = (mid) => mid === (EscalaSmartState.modToi || {}).id ? 'TOI'
+    : mid === (EscalaSmartState.modHiit || {}).id ? 'Hiit' : '—';
+  const rotuloTipo = { sabado: 'Sábado', feriado: 'Feriado', domingo_especial: 'Domingo especial', evento: 'Evento', fim_de_ano: 'Fim de ano', escola_interna: 'Escola Interna' };
+
+  const linhas = [];
+  (EscalaSmartState.scales || [])
+    .filter(s => String(s.date || '').slice(0, 4) === ano)
+    .sort((a, b) => (a.date > b.date ? 1 : -1))
+    .forEach(s => {
+      (s.slots || []).forEach(sl => {
+        if (sl.assignedPersonId !== sel) return;
+        linhas.push(`<tr>
+          <td style="padding:4px 8px;">${escalaFmtBR(s.date)}</td>
+          <td style="padding:4px 8px;">${rotuloTipo[s.tipo] || s.tipo}</td>
+          <td style="padding:4px 8px;">${escalaEsc(nomeUnidade(sl.unitId))}</td>
+          <td style="padding:4px 8px;">${nomeMod(sl.requiredModalityId)}</td>
+          <td style="padding:4px 8px;">${sl.startTime ? `${sl.startTime}–${sl.endTime || ''}` : '—'}</td>
+          <td style="padding:4px 8px;color:${s.published ? 'var(--green)' : 'var(--text3)'};">${s.published ? '✓ publicada' : 'não publicada'}</td>
+        </tr>`);
+      });
+    });
+
+  const cSab = escalaContagens('sabado');
+  const cFer = escalaContagens('feriado');
+  const ajuste = (EscalaSmartState.ajusteMap || {})[sel] || 0;
+  const cartao = (rot, jan, an) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">${rot}</div>
+      <div style="font-size:20px;font-weight:600;">${jan}</div>
+      <div style="font-size:12px;color:var(--text2);">${an} no ano de ${ano}</div>
+    </div>`;
+
+  return `<div style="margin-bottom:12px;">${seletor}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0)}
+      ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0)}
+      ${ajuste ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">Lançado na mão</div>
+        <div style="font-size:20px;font-weight:600;">${ajuste}</div>
+        <div style="font-size:12px;color:var(--text2);">dias fora do sistema</div></div>` : ''}
+    </div>
+    ${linhas.length
+      ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="color:var(--text2);text-align:left;">
+            <th style="padding:4px 8px;font-weight:400;">Data</th>
+            <th style="padding:4px 8px;font-weight:400;">Tipo</th>
+            <th style="padding:4px 8px;font-weight:400;">Unidade</th>
+            <th style="padding:4px 8px;font-weight:400;">Modalidade</th>
+            <th style="padding:4px 8px;font-weight:400;">Horário</th>
+            <th style="padding:4px 8px;font-weight:400;">Situação</th>
+          </tr></thead><tbody>${linhas.join('')}</tbody></table>`
+      : `<p style="padding:20px;color:var(--text2);">Nenhuma escala em ${ano} para esta pessoa.</p>`}
+    ${escalaHistoricoAnoHtml()}`;
+}
+
+/**
+ * Histórico do ano por pessoa — sábados e feriados separados.
+ * Pedido 8 do Rodrigo: aparece aqui e também no modal de abrir janela, que é
+ * quando a gestão precisa dele pra decidir.
+ */
+function escalaHistoricoAnoHtml() {
+  const ano = String(EscalaSmartState.year);
+  const cSab = escalaContagens('sabado');
+  const cFer = escalaContagens('feriado');
+  const ajustes = EscalaSmartState.ajusteMap || {};
+  const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
+  const linhas = ativos
+    .map(t => ({ t, sab: cSab.ano[t.id] || 0, fer: cFer.ano[t.id] || 0, aj: ajustes[t.id] || 0 }))
+    .filter(x => x.sab || x.fer || x.aj)
+    .sort((a, b) => (b.sab + b.fer) - (a.sab + a.fer))
+    .map(x => `<tr>
+      <td style="padding:3px 8px;">${escalaEsc(x.t.name)}</td>
+      <td style="padding:3px 8px;text-align:center;">${x.sab}</td>
+      <td style="padding:3px 8px;text-align:center;">${x.fer}</td>
+      <td style="padding:3px 8px;text-align:center;color:var(--text3);">${x.aj || '—'}</td>
+    </tr>`).join('');
+  if (!linhas) return '';
+  return `<details style="margin-top:16px;">
+    <summary style="cursor:pointer;font-size:13px;color:var(--blue);">📊 Histórico de ${ano} — quantas vezes cada um</summary>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+      <thead><tr style="color:var(--text2);text-align:left;">
+        <th style="padding:3px 8px;font-weight:400;">Pessoa</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Sábados</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Feriados</th>
+        <th style="padding:3px 8px;font-weight:400;text-align:center;">Lançado na mão</th>
+      </tr></thead><tbody>${linhas}</tbody></table>
+  </details>`;
+}
+
 function renderTabFimDeAno(scales) {
   const docs = scales.filter(s => s.tipo === 'fim_de_ano');
   const topo = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
@@ -1306,6 +1428,7 @@ function openAbrirJanelaModal(target) {
     <div class="form-group"><label>Fecha em <span style="color:var(--red);">*</span></label>
       <input type="datetime-local" id="janelaClosesAt" class="input"></div>
     <p style="font-size:12px;color:var(--text2);">Todos os professores ativos serão avisados no sistema para se candidatarem até essa data.</p>
+    ${escalaHistoricoAnoHtml()}
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
       <button class="btn-primary" onclick="confirmarAbrirJanela()">Abrir e avisar</button>
@@ -2150,6 +2273,8 @@ window.atribuirLider = atribuirLider;
 window.trocarPessoaEscala = trocarPessoaEscala;
 window.inverterVagasEscala = inverterVagasEscala;
 window.ajustarContadorJustica = ajustarContadorJustica;
+window.escalaSetPessoa = escalaSetPessoa;
+window.renderTabPorPessoa = renderTabPorPessoa;
 window.escalaJanelasPorTipo = escalaJanelasPorTipo;
 window.salvarStaffEvento = salvarStaffEvento;
 

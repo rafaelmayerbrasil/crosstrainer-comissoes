@@ -385,6 +385,29 @@ const VIZINHAS = [
     console.log('✓ inverter vale entre unidades, com aviso de não habilitado');
   }
 
+  // ── aba "Por pessoa" + histórico do ano ──────────────────────────────
+  //
+  // Pedido 1 do Rodrigo (25/08/2026): "Deveria existir um filtro escolhendo
+  // qual professor / estagiário e mostrando aonde e qdo ele(a) está escalado".
+  // Pedido 8: "Qdo for aberta a próxima janela, trazer o histórico da qtidade
+  // das últimas escalas no ano por prof/estag" — por isso o histórico aparece
+  // TAMBÉM no modal de abrir janela, que é onde a gestão decide.
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    assert.ok(/id: 'pessoa'/.test(ui), 'existe a aba pessoa');
+    assert.ok(/function renderTabPorPessoa/.test(ui), 'existe a tela da aba');
+    assert.ok(/window\.escalaSetPessoa\s*=/.test(ui), 'o seletor de pessoa está registrado no window');
+    assert.ok(/function escalaHistoricoAnoHtml/.test(ui), 'existe o histórico do ano');
+    // 4 = a definição + 2 usos na aba + 1 no modal de abrir janela
+    assert.strictEqual((ui.match(/escalaHistoricoAnoHtml\(\)/g) || []).length, 4,
+      'o histórico do ano aparece na aba E no modal de abrir janela');
+    const aba = ui.slice(ui.indexOf('function renderTabPorPessoa'), ui.indexOf('function escalaHistoricoAnoHtml'));
+    assert.ok(/publicada/.test(aba), 'a lista diz se a data já está publicada');
+    console.log('✓ aba Por pessoa e histórico do ano ligados');
+  }
+
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────
   //
   // Em produção (26/08/2026) rodam duas janelas ao mesmo tempo: sábados
