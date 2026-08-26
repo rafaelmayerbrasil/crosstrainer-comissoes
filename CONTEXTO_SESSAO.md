@@ -3,6 +3,101 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 56 (25/08/2026) — ✅ TRADUTOR DA PACTO CONSTRUÍDO · 1 PERGUNTA DE R$ 2.360 PRO RODRIGO
+
+### ▶️▶️ RETOMAR AQUI
+
+**O módulo de Comissões voltou a ter entrada de dados.** As duas perguntas de 19/08 foram
+respondidas pelo Rafael — **assumir LOCAL e marcar** · **script separado** — e a peça foi
+construída, testada e rodada no export real. **Nada em `commission.js` nem no `index.html`.**
+
+**✅ A pergunta dos R$ 13.203 foi RESPONDIDA PELO DADO** (25/08, à noite). O Rafael tirou o
+**"Relatório Faturamento por Período"** (01→25/08, 715 linhas), que lista o que foi *vendido*.
+Cruzando: dos **62 contratos migrados, 50 nem aparecem lá**, e os 12 que aparecem são **6
+cancelamentos** (já excluídos como rescisão) e **6 ajustes de R$ 0,00**. **Nenhum é venda de
+agosto.** A regra está confirmada pela própria Pacto — pro Rodrigo vira confirmação, não decisão.
+
+**🛑 Mas esse arquivo revelou um risco pior, e já está bloqueado.** Os dois relatórios da Pacto
+têm **as mesmas 21 colunas nas mesmas posições** — o tradutor engolia os dois. Só que o
+`faturamento` traz o **contrato inteiro** e o `faturamento-recebido` traz a **parcela**:
+contrato 7078, R$ 259,00 contra **R$ 3.108,00 — 12× exato**. Como a comissão é 5% do valor
+quitado, o arquivo errado pagaria **R$ 155 em vez de R$ 12,95 por anual**, sem erro na tela. E
+**plano recorrente dá 1,0× nos dois**, então conferir por amostragem não pegaria.
+`PactoAdapter.detectarRelatorio()` agora **recusa** o arquivo errado (`Forma Pagamento` vem
+100% preenchida num e 100% vazia no outro). `--forcar` ignora.
+
+O Rafael ainda **não enviou** as perguntas de `memory/pendencias-rodrigo-comissoes-crm.md`.
+
+**⚠️ O export usado é de 13/08** — meio mês. Para pagar agosto de verdade, pedir um export do
+mês fechado e rodar de novo.
+
+### 🧰 O que foi construído
+
+| Arquivo | O que é |
+|---|---|
+| `pacto-adapter.js` | o tradutor. Objeto puro estilo `commission.js`: sem Firebase, sem import, sem navegador. Roda em script hoje, plugado na tela depois, na API no fim |
+| `scripts/traduzir-export-pacto.js` | gera `PACTO-<mês>-CP.xlsx` e `-PP.xlsx` + relatório de conferência |
+| `scripts/lib-xlsx-write.js` | escritor mínimo de xlsx (a lib que existia só lia) |
+| `scripts/smoke-pacto-adapter.js` | 29 casos, metade rodando o motor de verdade |
+| `scripts/smoke-pacto-ponta-a-ponta.js` | 8 casos da corrente inteira, com o **SheetJS da tela** |
+| `scripts/smoke-xlsx-write.js` | 4 casos de ida e volta |
+
+Suíte do projeto: **42/42** (só `smoke-9.js` fora, exige `--project`). **Nada commitado ainda.**
+
+```bash
+node scripts/traduzir-export-pacto.js "carga nova comissoes/faturamento-recebido_6d85c17be56a3354e9142649a1c0a830_20260813_081650.xls" 2026-08
+```
+
+### 🚨 O achado grande: contrato migrado não é venda do mês
+
+Rodar sobre **julho** deu **R$ 6.641** contra os **R$ 3.381** realmente pagos — o dobro. Não era
+erro de tradução. O relatório é `faturamento-recebido` e a migração do TecnoFit entrou aos
+poucos: contrato que já existia apareceu com `Data Lançamento` no dia da carga e `Data Início`
+lá atrás. Contado como venda, um contrato de janeiro paga ativação e bônus de anual em agosto.
+
+Regra: `Plano` = `IMPORTAÇÃO` **e** `Data Início` fora do mês = migração. Sozinho nenhum dos dois
+serve (venda de 31/07 paga em 05/08 é real; contrato criado na Pacto em agosto pode vir sem plano).
+Sustenta a leitura: só **3 contratos de 287** recebem dinheiro em julho *e* agosto — não é
+parcelamento, é evento único; e o volume decai (156 → 49).
+
+**Julho não serve de gabarito** (a migração aconteceu no meio dele; a Pacto só tem parte do mês).
+Serviu pra coisa melhor: foi ele que denunciou a inflação de 2×.
+
+### 💰 Agosto até 13/08, com a regra aplicada
+
+| | ativações | P1+P2 |
+|---|---:|---:|
+| CP — Erica 15 · Francini 15 | 30 | R$ 881,44 |
+| PP — Kali 5 · Bárbara 1 · Erica 1 (+ Benny e Rodrigo, não comissionáveis) | 8 | R$ 276,23 |
+| **total** | **38** | **R$ 1.157,67** |
+
+Fora: 49 migrados (R$ 13.203) · 17 recebimentos TecnoFit (R$ 4.149) · 11 renovações automáticas
+· 3 rescisões. Avisos: **3 vendas divididas** pra aplicar na tela. Planos presumidos: só **2**.
+
+### 🔎 O que a construção achou que o desenho não previa
+
+- **`PACTO - MÉTODO DE GESTÃO` assina 221 linhas do `Responsável`#1** — é o robô da migração.
+  Tratado como nome, deixava **6 contratos (R$ 1.495) sem vendedora** e o robô no ranking.
+- **A Pacto já registra venda dividida** (`Consultor` = "ERICA, FRANCINI", 9 linhas). Ganho sobre
+  o TecnoFit, onde a divisão era à mão — julho precisou de 8 aplicadas na tela.
+- **`Produto` é o item da LINHA, `Plano` é o do CONTRATO.** A linha da taxa repete o `Plano`;
+  traduzir por ele daria 2 ativações e 2 bônus no mesmo contrato.
+- **`QUITAÇÃO DE DINHEIRO - CANCELAMENTO`** (5 linhas, R$ 1.001) vira `RESCISÃO CONTRATUAL`, que
+  o motor já exclui. Sem isso, 5 ativações anuais do nada.
+- **Bar e loja vêm sem `Consultor`** (40 linhas, R$ 1.953) — no TecnoFit pagavam 5%. Caem no
+  `Responsável`, que pra produto de balcão é a mesma pessoa.
+- `Data Início`/`Término` 100% preenchidos → dá pra remontar o período no `Itens`, que o motor usa
+  pra **adiar venda futura**.
+- **Duração 13 e 14** (o desenho não explicava): anual com período de brinde.
+
+**Detalhe completo:** `docs/superpowers/specs/2026-08-19-tradutor-pacto-comissoes-design.md`.
+Memórias: [[tradutor-pacto-construido]] · [[migracao-relatorio-pacto-comissoes]] ·
+[[pendencias-rodrigo-comissoes-crm]] · [[visao-sistema-unico-crm-comissoes]].
+
+---
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 55 (25/08/2026) — ✅ OS 7 AJUSTES DO GRUPO, NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
@@ -194,6 +289,57 @@ As **74 aulas de 31/07** estavam presas em `prevista` (o robô só confirma a pa
 ### ⚠️ O que NÃO foi feito
 - **Nenhuma homologação humana no navegador** — o E2E foi todo automatizado/dirigido por mim. Se aparecer defeito, é de tela.
 - A tabela **"O que ficou diferente do plano"** no fim de `docs/superpowers/plans/2026-08-21-troca-professor-aula.md` lista os 14 desvios, vários deles defeitos do próprio plano (o mais grave: `requestingUserId` gravava quem clicou, não o titular — o titular tomaria "permissão negada" ao confirmar).
+
+---
+
+## 🔖 ONDE PARAMOS — sessão 52 (19/08/2026) — 🔄 REESTRUTURAÇÃO DAS COMISSÕES: DESENHO PRONTO, 1 DECISÃO ABERTA
+
+### ▶️▶️ RETOMAR AQUI
+
+**Rafael foi dormir no meio da decisão.** Falta responder **uma** pergunta e a construção começa:
+
+> **Os 66 contratos de agosto que vieram como `IMPORTAÇÃO` perderam o LOCAL × FLEX (R$ 15 de P2 cada). O que fazer?**
+> **(a)** assumir LOCAL e marcar a linha (93% certo; erra ~R$ 50–70/mês, auditável) · **(b)** não pagar P2 nesses 66 e listar pra conferência · **(c)** buscar o plano no histórico do TecnoFit por nome.
+
+A segunda pergunta (script Node × plugado no `index.html`) ficou **sem preferência** — minha recomendação é **script Node**, porque não toca em produção e deixa conferir antes de subir.
+
+**Desenho completo:** `docs/superpowers/specs/2026-08-19-tradutor-pacto-comissoes-design.md` (**vivo**, ao contrário do spec de 14/08 que foi revertido). **Não commitado ainda.**
+
+### 🧭 O que a sessão decidiu
+
+**Rumo revelado pelo Rafael:** unificar o CRM do Rodrigo + comissões + agenda num **sistema só, sem Pacto**, e talvez **vender pra outras academias**. "Não agora, mas não me feche a porta." Plataforma em aberto. Memória: `visao-sistema-unico-crm-comissoes`.
+
+**Ordem acordada:** resolver a comissão pra rodar no próximo pagamento **já com o pensamento da unificação**; perguntar ao Rodrigo o que ele imagina antes de decidir arquitetura. As perguntas já estão montadas em `memory/pendencias-rodrigo-comissoes-crm.md` — **o Rafael ainda não enviou**.
+
+**Julho:** foi **pago com o que estava no sistema**. As planilhas corrigidas nunca subiram. A divergência (−R$ 121,68 de duplicata, +R$ 508,12 de 14 vendas nativas) está registrada — **não perseguir**.
+
+### 🔄 Reverti a decisão de 15/08 de parar o adaptador
+
+Dois erros meus: superestimei o tamanho, e chamei de descartável o que não é. **O campo `Plano` da Pacto tem exatamente o formato do `Itens` do TecnoFit**, e **Excel e API entregam o mesmo relatório** — a tradução é o mesmo código, só muda o transporte.
+
+### 📏 O que a medição de agosto resolveu (196 linhas, export de 13/08)
+
+- **Vendedora sai de `Consultor` e só.** Rejeitado o fallback pro `Responsável`: concordam **46%** — um é quem lançou, o outro quem vendeu. E o buraco real é de **3 linhas de contrato**, não 50 (40 das 50 são bar/loja).
+- **Automática = `Responsável`#2 == `RECORRENCIA`.** As 13 são **subconjunto exato** das 34 `CARTÃO RECORRENTE`. Usar a forma de pagamento cortaria **21 vendas legítimas**. É onde o dinheiro vaza — e vai crescer.
+- **Agrupar por `Contrato`** (111 contratos em 121 linhas) e **descartar as 17 `RECEBIMENTO TECNOFIT`**.
+- ⚠️ **Correção:** `IMPORTAÇÃO` é 34% do total mas **55% das linhas de contrato** (66 de 121). Eu tinha dito 34% — estava subestimando.
+- Armadilhas novas: plano escrito `MENSA L` e `PADRÃO.-` quebram o word boundary; **dois exports do mesmo dia trazem períodos diferentes** conforme o filtro marcado.
+
+### 🔧 Ferramenta nova
+
+`scripts/medir-export-pacto.js` — refaz **todas** as medições acima em qualquer export da Pacto (verificado, reproduz o relatório inteiro). Rodar em cada export novo antes de confiar nele: a qualidade muda mês a mês conforme a base migrada rola.
+
+```bash
+node scripts/medir-export-pacto.js "carga nova comissoes/faturamento-recebido_6d85c17be56a3354e9142649a1c0a830_20260813_081650.xls" 2026-08
+```
+
+### 🛠️ Arquitetura escolhida
+
+`pacto-adapter.js` — objeto puro estilo `commission.js`, sem Firebase. Roda em script Node agora, plugado no `index.html` depois, alimentado pela API no fim. **Nem `commission.js` nem `index.html` são tocados.**
+
+Descoberta que sustenta isso: **`commission.js` não tem uma linha de Firebase** (as 2 ocorrências são comentário). As **158** chamadas ao Firestore estão todas na cola do `index.html`. Logo a reforma que separa motor de cola é **a mesma** que barateia uma troca de plataforma — não são trabalhos concorrentes.
+
+---
 
 ---
 
