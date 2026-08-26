@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), fairnessMap: new Map(), tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), ajusteMap: {}, janelaBatchId: null, janelaAberta: false, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -114,14 +114,25 @@ async function escalaLoadBase() {
   EscalaSmartState.modToi = mods.find(m => /toi/i.test(m.name)) || null;
   EscalaSmartState.modHiit = mods.find(m => /hi+t|maromb/i.test(m.name)) || null;
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
-  // carrega o contador de justiça/compensação de cada colaborador ativo (p/ painel de equilíbrio)
-  const fmap = new Map();
-  for (const t of EscalaSmartState.teacherMap.values()) {
-    if (t.isActive === false) continue;
-    const fr = await ScaleService.getFairness(t.id);
-    fmap.set(t.id, fr.success ? fr.data : { diasTrabalhados: 0, divida: 0 });
-  }
-  EscalaSmartState.fairnessMap = fmap;
+  // Ajustes de partida (o que foi lançado na mão). O contador em si não se
+  // carrega: ele é contado das escalas que já estão aqui.
+  const aj = await ScaleService.listAjustes();
+  EscalaSmartState.ajusteMap = aj.success ? aj.data : {};
+
+  // Qual é "a janela": a que está aberta; se não há nenhuma aberta, a última
+  // que existiu — é dela que a gestão acabou de falar.
+  const lotes = {};
+  EscalaSmartState.scales.forEach(s => {
+    if (!s.windowBatchId) return;
+    const l = lotes[s.windowBatchId] || (lotes[s.windowBatchId] = { id: s.windowBatchId, aberta: false, ultima: '' });
+    if (s.status === 'janela_aberta') l.aberta = true;
+    if (s.date > l.ultima) l.ultima = s.date;
+  });
+  const lista = Object.keys(lotes).map(k => lotes[k]);
+  const aberta = lista.find(l => l.aberta);
+  const recente = lista.slice().sort((a, b) => (a.ultima > b.ultima ? -1 : 1))[0];
+  EscalaSmartState.janelaBatchId = ((aberta || recente) || {}).id || null;
+  EscalaSmartState.janelaAberta = !!aberta;
 }
 
 function escalaEsc(s) {
@@ -153,36 +164,58 @@ function participaDoRodizio(t) {
   return mods.indexOf(toi) !== -1 || mods.indexOf(hiit) !== -1;
 }
 
-function renderEquilibrioPainel() {
-  const fm = EscalaSmartState.fairnessMap || new Map();
-  if (fm.size === 0) return '';
+/**
+ * Os dois números de cada pessoa: o da janela e o do ano.
+ *
+ * Rodrigo, 25/08/2026: "O contador deve considerar somente a janela aberta...
+ * e em outro, um relatório separado, trazer quantas vezes quem foi escalado em
+ * sábados e feriados". O painel mostra a janela; o motor decide pelo histórico —
+ * se zerasse nos dois, na 1ª data de cada janela todo mundo empataria em zero e o
+ * desempate voltaria a ser o mérito, que é fixo. Foi o defeito que quebrou
+ * agosto (Bruno e Karin nos 11 sábados).
+ */
+function escalaContagens(tipo) {
+  const scales = EscalaSmartState.scales || [];
+  const tipos = ScaleService.tiposIrmaos(tipo || 'sabado');
+  const ano = String(EscalaSmartState.year);
+  return {
+    janela: EscalaSmartState.janelaBatchId
+      ? ScaleService.contarPorPessoa(scales, { tipos, batchId: EscalaSmartState.janelaBatchId })
+      : {},
+    ano: ScaleService.contarPorPessoa(scales, { tipos, de: `${ano}-01-01`, ate: `${ano}-12-31` }),
+  };
+}
 
+function renderEquilibrioPainel() {
   const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
   const dentro = ativos.filter(participaDoRodizio);
   const fora   = ativos.filter(t => !participaDoRodizio(t));
   if (!dentro.length) return '';
 
-  const dadosDe = (t) => fm.get(t.id) || { diasTrabalhados: 0, divida: 0 };
-  const dias = dentro.map(t => dadosDe(t).diasTrabalhados || 0);
+  // A aba manda no que se conta: na aba Feriados, feriado; nas outras, sábado.
+  // (Rodrigo, 25/08: "Nessa seção de feriados deveria contar somente os feriados".)
+  const tipo = EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado';
+  const rotuloTipo = tipo === 'feriado' ? 'feriados' : 'sábados';
+  const c = escalaContagens(tipo);
+  const ajustes = EscalaSmartState.ajusteMap || {};
+
+  const dias = dentro.map(t => c.janela[t.id] || 0);
   const avg = dias.reduce((a, b) => a + b, 0) / dias.length;
 
   const grupos = { abaixo: [], media: [], acima: [] };
   dentro.forEach(t => {
-    const f = dadosDe(t);
-    const d = f.diasTrabalhados || 0;
-    const g = (d < 1 || (f.divida || 0) > 0) ? 'abaixo' : (d > Math.ceil(avg) ? 'acima' : 'media');
-    grupos[g].push({ t, d, divida: f.divida || 0 });
+    const n = c.janela[t.id] || 0;
+    const g = (n < 1) ? 'abaixo' : (n > Math.ceil(avg) ? 'acima' : 'media');
+    grupos[g].push({ t, n, ano: (c.ano[t.id] || 0), ajuste: (ajustes[t.id] || 0) });
   });
-  // Dentro de cada grupo, quem tem menos dias primeiro — é a ordem em que a
-  // gestão pensa ("quem está mais atrasado?").
-  Object.keys(grupos).forEach(k => grupos[k].sort((a, b) => a.d - b.d));
+  Object.keys(grupos).forEach(k => grupos[k].sort((a, b) => a.n - b.n));
 
   const linha = (x) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px;">
       <span>${escalaEsc(x.t.name)}</span>
       <span style="display:flex;align-items:center;gap:6px;color:var(--text2);white-space:nowrap;">
-        ${x.d} dia${x.d === 1 ? '' : 's'}${x.divida ? ` · deve ${x.divida}` : ''}
+        ${x.n} nesta janela · ${x.ano}${x.ajuste ? ` + ${x.ajuste} de ajuste` : ''} no ano
         <button class="btn-secondary" style="font-size:11px;padding:2px 8px;"
-                onclick="ajustarContadorJustica('${x.t.id}')" title="Corrigir na mão">✏️</button>
+                onclick="ajustarContadorJustica('${x.t.id}')" title="Lançar dias que aconteceram fora do sistema">✏️</button>
       </span>
     </div>`;
 
@@ -203,10 +236,16 @@ function renderEquilibrioPainel() {
        </div>`
     : '';
 
+  const titulo = !EscalaSmartState.janelaBatchId
+    ? `Equilíbrio — nenhuma janela ainda (${rotuloTipo})`
+    : EscalaSmartState.janelaAberta
+      ? `Equilíbrio da janela aberta (${rotuloTipo})`
+      : `Equilíbrio da última janela (${rotuloTipo})`;
+
   return `<div style="margin-bottom:14px;">
-    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Equilíbrio do ciclo</div>
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">${titulo}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
-      ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'abaixo do mínimo')}
+      ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'ainda não pegou nenhum')}
       ${bloco('media',  '#10241a', 'var(--green)', '=', 'na média')}
       ${bloco('acima',  '#2a2410', '#caa23a',      '↑', 'acima')}
     </div>
@@ -214,7 +253,7 @@ function renderEquilibrioPainel() {
   </div>`;
 }
 
-function whyTableHtml(slot) {
+function whyTableHtml(slot, tipo) {
   const ex = slot.explain || [];
   if (!ex.length) return '';
   const prefLabel = (p) => (p === 'prefiro' || p === 'quer') ? 'prefiro' : (p === 'pode_ser' ? 'pode ser' : (p === 'nao_posso' ? 'não posso' : (p === 'nao_quer' ? '—' : '—')));
@@ -231,7 +270,7 @@ function whyTableHtml(slot) {
   return `<details style="margin-top:8px;">
     <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>
     <table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse;">
-      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Sábados</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Dívida</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
+      <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">${(tipo === 'feriado' || tipo === 'domingo_especial') ? 'Feriados' : 'Sábados'}</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Dívida</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </details>`;
@@ -894,38 +933,44 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
 }
 
 /**
- * Corrige o contador de justiça de uma pessoa.
+ * Lança na mão o "ajuste de partida" de uma pessoa: os dias de escala que
+ * aconteceram FORA do sistema.
  *
  * Rafael, 25/08/2026: "de agora só altera pra frente, o que passou eles têm
- * como ajustar manualmente?" — não tinham. Não existia tela nenhuma pra mexer
- * no contador; o único jeito indireto era trocar alguém numa escala, o que
- * move de 1 em 1. Agosto inteiro os sábados foram das mesmas 4 pessoas (a
- * escala nunca chegou a valer), e sem essa alavanca a dívida ficaria travada.
+ * como ajustar manualmente?" — não tinham. Agosto inteiro os sábados foram das
+ * mesmas 4 pessoas e rodou pela grade antiga, então não existe escala nenhuma
+ * pra contar: só o que a gestão declarar. O que está nas escalas o sistema já
+ * conta sozinho — este número entra na conta do ano e do motor, e nunca no
+ * número da janela (a janela é o que aconteceu nela, e ponto).
  */
 async function ajustarContadorJustica(personId) {
-  const atual = (EscalaSmartState.fairnessMap || new Map()).get(personId) || { diasTrabalhados: 0, divida: 0 };
+  const atual = (EscalaSmartState.ajusteMap || {})[personId] || 0;
   const nome = escalaPersonName(personId);
-  const resp = prompt(`Quantos dias de escala ${nome} já trabalhou neste ciclo?`, String(atual.diasTrabalhados || 0));
+  const resp = prompt(
+    `Quantos dias de escala lançar na mão para ${nome}?\n\n` +
+    `O sistema já conta sozinho tudo o que está nas escalas. Este número é só para ` +
+    `o que aconteceu FORA delas — agosto, por exemplo, que rodou pela grade antiga.`,
+    String(atual));
   if (resp === null) return;
   const n = Number(String(resp).replace(',', '.'));
   if (!Number.isFinite(n) || n < 0) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
 
   const novo = Math.round(n);
-  const res = await ScaleService.saveFairness(personId, { diasTrabalhados: novo, divida: atual.divida || 0 });
+  const res = await ScaleService.saveAjustePartida(personId, novo);
   if (!res || res.success === false) { toast('Erro ao salvar: ' + ((res && res.error) || 'falha'), 'error'); return; }
 
-  // Mexer no insumo central do motor sem deixar rastro seria pedir pra alguém
-  // depois não entender por que o rodízio decidiu o que decidiu.
+  // Mexer no insumo do motor sem deixar rastro seria pedir pra alguém depois não
+  // entender por que o rodízio decidiu o que decidiu.
   if (typeof AuditService === 'object') {
     await AuditService.log({
       type: 'fairness_adjusted',
-      details: `Contador de escala de "${nome}" ajustado de ${atual.diasTrabalhados || 0} para ${novo}`,
+      details: `Ajuste de partida de "${nome}" alterado de ${atual} para ${novo}`,
       entityType: 'fairness_counter', entityId: personId,
-      before: atual, after: { diasTrabalhados: novo, divida: atual.divida || 0 },
+      before: { ajuste: atual }, after: { ajuste: novo },
       module: 'agenda',
     });
   }
-  toast(`Contador de ${nome} ajustado para ${novo}.`, 'success');
+  toast(`Ajuste de ${nome}: ${novo} dia(s).`, 'success');
   await escalaLoadBase();
   renderEscalaGestao();
 }
@@ -981,7 +1026,7 @@ function renderEscalaDetail(scale) {
         <select class="input" style="width:100%;margin-top:6px;font-size:12px;"
                 onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
                 title="Trocar quem trabalha nesta vaga">${pessoaOpts(slot)}</select>
-        ${filled ? whyTableHtml(slot) : ''}
+        ${filled ? whyTableHtml(slot, scale.tipo) : ''}
       </div>`;
     }).join('');
     // Com exatamente 2 vagas na unidade (o caso TOI + Hiit), oferece a inversão
@@ -1280,7 +1325,8 @@ async function consolidarEscala(id) {
     const aviso = 'Reconsolidar refaz a escolha do zero, pelo rodízio e pelo mérito de hoje.\n\n'
       + (temManual ? '⚠️ Os ajustes feitos na mão nesta data serão APAGADOS.\n\n' : '')
       + (jaFeita.published ? 'A agenda será republicada com os nomes novos.\n\n' : '')
-      + 'O contador de justiça não é recontado — quem já pegou este dia segue com ele.\n\nContinuar?';
+      + 'A conta de quantos dias cada um já pegou é refeita agora, com o que está nas escalas hoje '
+      + '— e esta data fica de fora da conta, para não penalizar quem pode ser escolhido de novo.\n\nContinuar?';
     if (!confirm(aviso)) return;
   }
 
@@ -1304,6 +1350,9 @@ async function consolidarEscala(id) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
   const res = jaFeita.tipo === 'fim_de_ano'
     ? await ScaleService.consolidateByDay(id, ctx)
@@ -1514,6 +1563,9 @@ async function escalaMontarCtx() {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
 }
 
@@ -1540,6 +1592,9 @@ async function confirmarEAvisar(batchId) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    // O que foi lançado na mão (agosto, que rodou pela grade antiga) entra na
+    // conta do motor — mas nunca no número da janela.
+    ajusteById: EscalaSmartState.ajusteMap || {},
   };
   // Consolidar + PUBLICAR na mesma passada. Antes o lote só consolidava, e o
   // aviso mandava "Confira sua agenda" apontando pra uma tela vazia: as aulas só

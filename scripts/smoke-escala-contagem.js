@@ -316,5 +316,21 @@ const VIZINHAS = [
   }
 
   console.log('✓ ajuste de partida grava, lista e não fica negativo');
+
+  // ── a tela está ligada na contagem, não no contador velho ───────────
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
+    assert.ok(!/fairnessMap/.test(ui), 'a tela não pode mais guardar fairnessMap');
+    assert.ok(!/saveFairness|applyFairnessDelta/.test(ui), 'a tela não chama mais a API aposentada');
+    assert.ok(/ScaleService\.contarPorPessoa\(/.test(ui), 'a tela conta pelas escalas');
+    assert.ok(/ScaleService\.listAjustes\(/.test(ui), 'a tela carrega os ajustes de uma vez');
+    assert.ok(/ScaleService\.saveAjustePartida\(/.test(ui), 'o lápis grava ajuste de partida');
+    const painel = ui.slice(ui.indexOf('function renderEquilibrioPainel'), ui.indexOf('function whyTableHtml'));
+    assert.ok(/no ano/.test(painel), 'o painel mostra o número do ano ao lado do da janela');
+    console.log('✓ a tela usa a contagem derivada');
+  }
+
   console.log('\n✓ smoke-escala-contagem: todas as seções OK');
 })();
