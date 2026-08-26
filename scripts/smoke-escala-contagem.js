@@ -132,6 +132,7 @@ const VIZINHAS = [
   escala('2026-09-12', 'sabado',  ['ceu']),
   escala('2026-09-26', 'sabado',  ['dri']),
   escala('2026-09-19', 'evento',  ['edu']),
+  escala('2026-09-13', 'domingo_especial', ['fef']),
 ];
 {
   // feriado de SEGUNDA enxerga os dois sábados ao lado — o pedido do Rodrigo
@@ -154,6 +155,14 @@ const VIZINHAS = [
   assert.ok(v.has('ana'), 'sábado anterior (7 dias) conta — comportamento de sempre');
   assert.ok(!v.has('dri'), 'sábado a 14 dias não conta');
   passou('sábado com sábado a ±7 preservado');
+}
+{
+  // domingo especial entra igual feriado (tiposIrmaos, Task 1) — sem esta
+  // asserção, apagar 'domingo_especial' do filtro de tipos em
+  // personsOnNearbyScale passaria a suíte inteira em silêncio.
+  const v = SS.personsOnNearbyScale(VIZINHAS, '2026-09-12');
+  assert.ok(v.has('fef'), 'domingo especial vizinho (13/09, 1 dia depois) conta igual feriado');
+  passou('domingo especial entra na regra do descanso');
 }
 {
   // evento e escola interna ficam de fora ("só pra sábado mesmo", Rafael 25/08)
