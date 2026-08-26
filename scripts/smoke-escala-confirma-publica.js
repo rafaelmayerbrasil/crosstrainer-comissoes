@@ -80,7 +80,13 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
   // ════════ 4. o confirmar do lote TEM que publicar ════════
   // Guarda a ligação na tela: é o passo que faltava.
   {
-    const src = fs.readFileSync(path.join(raiz, 'professores-escala-smart.js'), 'utf8');
+    // Normaliza a quebra de linha antes de casar: o repositório tem
+    // `core.autocrlf` ligado, então o mesmo arquivo é LF no commit e CRLF no
+    // disco do Windows — e um `\n}` ancorado na quebra passava a vida achando
+    // que a função tinha sumido. O teste ficava vermelho sem nada estar errado,
+    // que é a pior espécie de teste: some do radar por descrédito. (26/08/2026)
+    const src = fs.readFileSync(path.join(raiz, 'professores-escala-smart.js'), 'utf8')
+      .replace(/\r\n/g, '\n');
     const m = src.match(/async function confirmarEAvisar[\s\S]*?\n}\n/);
     assert.ok(m, 'confirmarEAvisar precisa existir');
     const corpo = m[0];
@@ -126,13 +132,21 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
 
   // ════════ 5. o professor não pode ler "Não escalado" antes da eleição ════════
   {
-    const src = fs.readFileSync(path.join(raiz, 'professores-escala-smart.js'), 'utf8');
+    const src = fs.readFileSync(path.join(raiz, 'professores-escala-smart.js'), 'utf8')
+      .replace(/\r\n/g, '\n');
     const m = src.match(/async function renderProfSabadosFeriados[\s\S]*?\n}\n/);
     assert.ok(m, 'renderProfSabadosFeriados precisa existir');
     const corpo = m[0];
 
-    assert.ok(/status !== 'consolidada'/.test(corpo),
+    // A separação continua sendo a razão desta seção existir; o que mudou em
+    // 26/08/2026 foi quem manda nela. Era `status !== 'consolidada'` — mas a
+    // prévia grava 'consolidada' e PARA, pra gestão conferir antes, então o
+    // time via "Você está escalado" numa escala que ainda ia mudar. Agora quem
+    // libera é a publicação.
+    assert.ok(/!s\.published/.test(corpo),
       'a tela do professor precisa separar "ainda não abriram" de "não fui escolhido"');
+    assert.ok(/montando a escala/.test(corpo),
+      'e dizer que a gestão está montando enquanto a escala não vale');
     assert.ok(!/ESCALA_STATUS_LABEL/.test(corpo),
       '"Rascunho"/"Consolidada" é vocabulário interno — não mostrar pro professor');
     console.log('✓ antes da eleição a tela diz que ainda não abriu, não "não escalado"');

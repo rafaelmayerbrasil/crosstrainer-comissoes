@@ -2,17 +2,22 @@
 // Roda: node scripts/smoke-trocar-pessoa-escala.js
 //
 // A gestão discordar de UMA pessoa não pode custar refazer a escala inteira
-// (Rafael, 12/08/2026). O risco da troca manual é silencioso: o contador de
-// JUSTIÇA já foi creditado na consolidação. Se a troca não mover o crédito,
-// quem saiu fica com um dia que não trabalhou e quem entrou trabalha de graça
-// no rodízio — e o motor passa a decidir errado pra sempre.
+// (Rafael, 12/08/2026). O risco da troca manual ERA silencioso: o contador de
+// justiça era um número guardado, e se a troca não movesse o crédito, quem saiu
+// ficava com um dia que não trabalhou. Desde 26/08/2026 não há crédito a mover
+// — o número é CONTADO das escalas, então a troca entra na conta sozinha. Estes
+// casos continuam valendo: são a prova de que a conta acompanha a vaga.
 const assert = require('assert');
 const makeFakeDb = require('./_fake-firestore.js');
 const SS = require('../scale-service.js');
 const SE = require('../scale-engine.js');
 const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
 
-const dias = async (d, pid) => (await SS.getFairness(pid, d)).data.diasTrabalhados;
+// O "contador" virou contagem: pergunta-se às escalas, não a um documento.
+const dias = async (d, pid) => {
+  const todas = (await SS.listScales(d)).data;
+  return SS.contarPorPessoa(todas, { tipos: ['sabado'] })[pid] || 0;
+};
 
 async function novaEscala(d, slots) {
   return (await SS.createScale({
@@ -36,7 +41,6 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
 
   const r = await SS.reassignSlot(sab.id, 's1', 'p2', d);
   assert.ok(r.success && r.data.changed, 'troca aceita');
-  assert.ok(r.data.fairnessAjustada, 'avisa que mexeu no contador');
   assert.strictEqual(await dias(d, 'p1'), 0, 'quem SAIU devolve o dia');
   assert.strictEqual(await dias(d, 'p2'), 1, 'quem ENTROU recebe o dia');
 
@@ -53,13 +57,18 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
   assert.strictEqual((await SS.getScale(sab.id, d)).data.slots[0].assignedPersonId, null, 'vaga volta a ficar aberta');
   console.log('✓ esvaziar a vaga devolve o crédito');
 
-  /* ── 3. Escala AINDA NÃO consolidada não mexe em contador ────────── */
+  /* ── 3. Vaga preenchida CONTA, consolidada ou não ────────────────── */
+  // Mudou de propósito em 26/08/2026. Antes, escalar alguém numa escala que
+  // ainda não tinha sido consolidada não creditava nada — o crédito dependia de
+  // um `fairnessApplied` que a tela nem sempre gravava, e era por aí que o
+  // contador se descolava da realidade. Agora vale o óbvio: se a pessoa está na
+  // vaga, ela trabalha naquele dia, e portanto conta.
   d = deps(makeFakeDb());
   sab = await novaEscala(d);
   const r3 = await SS.reassignSlot(sab.id, 's1', 'p1', d);
-  assert.ok(r3.success && !r3.data.fairnessAjustada, 'sem consolidação, nada de contador');
-  assert.strictEqual(await dias(d, 'p1'), 0, 'ninguém ganha dia numa escala que nunca foi contabilizada');
-  console.log('✓ escala não consolidada não mexe na justiça');
+  assert.ok(r3.success && r3.data.changed, 'troca aceita mesmo sem consolidação');
+  assert.strictEqual(await dias(d, 'p1'), 1, 'quem está na vaga conta, consolidada ou não');
+  console.log('✓ vaga preenchida conta sem depender de consolidação');
 
   /* ── 4. Mesma pessoa em duas vagas do mesmo dia é recusado ───────── */
   d = deps(makeFakeDb());

@@ -42,14 +42,17 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(prefs.data.length, 2, 'ana(atualizada)+bru, sem duplicar');
   assert.strictEqual(prefs.data.find(p => p.personId === 'ana').pref, 'nao_quer', 'ana sobrescrita');
 
-  // ── Fairness ──
+  // ── Ajuste de partida ──
+  // O contador guardado foi aposentado em 26/08/2026: ele só se mexia na
+  // primeira montagem de cada data, e remontar a prévia trocava as pessoas sem
+  // refazer a conta (9 das 16 erradas em produção). Quem conta agora é
+  // `contarPorPessoa`, direto das escalas. O documento sobrou pra guardar só o
+  // que aconteceu FORA do sistema — agosto, que rodou pela grade antiga.
   let f = await SS.getFairness('ana', d);
-  assert.deepStrictEqual({ dias: f.data.diasTrabalhados, div: f.data.divida }, { dias: 0, div: 0 }, 'fairness default zero');
-  await SS.saveFairness('ana', { diasTrabalhados: 3, divida: 2 }, d);
-  await SS.applyFairnessDelta({ ana: { dias: 1, dividaResolvida: 1 } }, d);
+  assert.strictEqual(f.data.ajuste, 0, 'nasce sem ajuste');
+  await SS.saveAjustePartida('ana', 3, d);
   f = await SS.getFairness('ana', d);
-  assert.strictEqual(f.data.diasTrabalhados, 4, 'dias 3+1');
-  assert.strictEqual(f.data.divida, 1, 'dívida 2-1');
+  assert.strictEqual(f.data.ajuste, 3, 'ajuste de partida gravado');
 
   console.log('✓ smoke-scale-service: preferências/fairness OK');
 
@@ -89,13 +92,16 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   const g2 = await SS.getScale(c2.data.id, d);
   assert.strictEqual(g2.data.status, 'consolidada', 'status consolidada');
   assert.strictEqual(g2.data.slots[0].assignedPersonId, 'zeca', 'slot gravado com a pessoa');
-  const fa = await SS.getFairness('zeca', d);
-  assert.strictEqual(fa.data.diasTrabalhados, 1, 'fairness incrementado pela consolidação');
+  // Consolidar não escreve contador nenhum: quem conta é contarPorPessoa, e ela
+  // lê a escala. O antigo cuidado de "reconsolidar não pode inflar o número"
+  // deixa de existir junto com o número — remontar dá sempre a mesma resposta.
+  const contagem = SS.contarPorPessoa((await SS.listScales(d)).data, { tipos: ['sabado'] });
+  assert.strictEqual(contagem.zeca, 1, 'a contagem enxerga o zeca escalado');
+  assert.strictEqual((await SS.getFairness('zeca', d)).data.ajuste, 0, 'consolidar não mexe no ajuste de partida');
 
-  // A1: reconsolidar NÃO pode inflar o fairness de novo (era +1 a cada clique → corrompia justiça)
   await SS.consolidate(c2.data.id, ctx, d);
-  const fa2 = await SS.getFairness('zeca', d);
-  assert.strictEqual(fa2.data.diasTrabalhados, 1, 'reconsolidar não incrementa fairness de novo');
+  const contagem2 = SS.contarPorPessoa((await SS.listScales(d)).data, { tipos: ['sabado'] });
+  assert.strictEqual(contagem2.zeca, 1, 'reconsolidar não infla a conta');
 
   console.log('✓ smoke-scale-service: consolidate OK');
 

@@ -74,11 +74,13 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     assert.strictEqual(byId.hiit.assignedPersonId, 'ana', 'Hiit virou ana');
     assert.strictEqual(byId.toi.reason, 'manual', 'vira escolha da gestão');
 
-    // Inverter não é escalar mais ninguém: o contador de justiça não se mexe.
-    const fAna = (await SS.getFairness('ana', d)).data;
-    assert.strictEqual(fAna.diasTrabalhados, 0, 'inverter não mexe no contador');
+    // Inverter não é escalar mais ninguém: a conta do dia continua a mesma.
+    // (Desde 26/08/2026 não há contador guardado — conta-se das escalas.)
+    const contagem = SS.contarPorPessoa((await SS.listScales(d)).data, { tipos: ['sabado'] });
+    assert.strictEqual(contagem.ana, 1, 'ana segue com 1 dia depois de inverter');
+    assert.strictEqual(contagem.bia, 1, 'bia segue com 1 dia depois de inverter');
 
-    passou('swapSlots inverte TOI <-> Hiit sem mexer no contador');
+    passou('swapSlots inverte TOI <-> Hiit sem mudar quantos dias cada um tem');
   }
 
   {
@@ -108,8 +110,8 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
       'os chips precisam abrir a lista de nomes');
     assert.ok(/window\.ajustarContadorJustica\s*=/.test(ui),
       'precisa de um jeito de corrigir o contador na mão');
-    assert.ok(/ScaleService\.saveFairness\(/.test(ui),
-      'a correção precisa gravar de verdade');
+    assert.ok(/ScaleService\.saveAjustePartida\(/.test(ui),
+      'a correção precisa gravar de verdade (desde 26/08 como ajuste de partida)');
     passou('equilíbrio mostra nomes, separa quem não participa e permite corrigir');
   }
 
@@ -334,13 +336,13 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
       'Ana trabalhou no sábado anterior, então o seguinte foi pra Bia');
 
     // A função pura, direto: sábado-feriado do lado conta como sábado.
-    const vizinhos = SS.personsOnAdjacentSaturday(
+    const vizinhos = SS.personsOnNearbyScale(
       [{ date: '2026-11-14', tipo: 'feriado', slots: [{ assignedPersonId: 'ana' }] }],
       '2026-11-21');
     assert.ok(vizinhos.has('ana'), 'sábado que é feriado conta como sábado vizinho');
 
     // Escola Interna e evento ficam de fora — "só pra sábado mesmo".
-    const fora = SS.personsOnAdjacentSaturday(
+    const fora = SS.personsOnNearbyScale(
       [{ date: '2026-11-14', tipo: 'escola_interna', slots: [{ assignedPersonId: 'ana' }] }],
       '2026-11-21');
     assert.strictEqual(fora.size, 0, 'Escola Interna não entra na regra');
