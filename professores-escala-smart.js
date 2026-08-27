@@ -254,8 +254,9 @@ function renderEquilibrioPainel() {
       <span>${escalaEsc(x.t.name)}</span>
       <span style="display:flex;align-items:center;gap:6px;color:var(--text2);white-space:nowrap;">
         ${x.n} nesta janela · ${x.ano}${x.ajuste ? ` + ${x.ajuste} de ajuste` : ''} no ano
-        <button class="btn-secondary" style="font-size:11px;padding:2px 8px;"
-                onclick="ajustarContadorJustica('${x.t.id}')" title="Lançar dias que aconteceram fora do sistema">✏️</button>
+        <button class="btn-secondary" style="font-size:11px;padding:2px 8px;white-space:nowrap;"
+                onclick="ajustarContadorJustica('${x.t.id}')"
+                title="Registrar dias que esta pessoa trabalhou FORA do sistema. Não muda a escala nem tira ninguém de sábado nenhum.">+ dias fora</button>
       </span>
     </div>`;
 
@@ -1150,10 +1151,19 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
 async function ajustarContadorJustica(personId) {
   const atual = (EscalaSmartState.ajusteMap || {})[personId] || 0;
   const nome = escalaPersonName(personId);
+  // ⚠️ O Rodrigo usou isto achando que era "editar o número da janela" (26/08):
+  // queria baixar alguém de 4 para 3, digitou 3 e a pessoa foi para 4+3=7. O
+  // texto agora diz o que ISTO faz, o que NÃO faz, e onde fica o que ele queria.
   const resp = prompt(
-    `Quantos dias de escala lançar na mão para ${nome}?\n\n` +
-    `O sistema já conta sozinho tudo o que está nas escalas. Este número é só para ` +
-    `o que aconteceu FORA delas — agosto, por exemplo, que rodou pela grade antiga.`,
+    `DIAS TRABALHADOS FORA DO SISTEMA — ${nome}\n\n` +
+    `Hoje: ${atual} dia(s) lançados na mão.\n\n` +
+    `Use isto só para o que o sistema não viu — agosto, por exemplo, que rodou ` +
+    `pela grade antiga. Tudo o que está nas escalas já é contado sozinho, e o ` +
+    `número que você digitar aqui SOMA a esse total no ano.\n\n` +
+    `⚠️ Isto NÃO muda a escala: ninguém entra nem sai de sábado nenhum por causa ` +
+    `deste número. Ele serve para o rodízio ser justo daqui pra frente.\n\n` +
+    `Para tirar alguém de um sábado: abra o sábado e troque a pessoa na vaga, ` +
+    `ou clique em "Refazer" para o sistema redistribuir a janela inteira.`,
     String(atual));
   if (resp === null) return;
   const n = Number(String(resp).replace(',', '.'));
