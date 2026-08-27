@@ -5,7 +5,10 @@
 > As duas perguntas de 19/08 foram respondidas pelo Rafael: **assumir LOCAL e marcar** · **script separado**.
 > ⚠️ **Construir levantou duas questões maiores que a original** — ver "Contratos migrados" e
 > "Os dois relatórios são gêmeos".
-> 🔁 **Refeito em 26/08:** um `git clean -fd` apagou os arquivos (nada estava commitado). Reconstruído idêntico.
+> ⏸ **26/08: PARADO esperando 3 respostas do Rodrigo. NÃO PUBLICAR.** Fase 2 pronta (upload pela
+> tela) e homologada no staging, mas **não está em produção** — branch `comissoes-tradutor-pacto`.
+> Falta construir a **competência** (ver seção própria) antes de publicar.
+> 🔁 **Refeito em 26/08:**
 > Substitui o spec parado de 14/08 (adaptador de Excel), que foi revertido — ver "Por que voltou atrás".
 
 ## Objetivo
@@ -289,6 +292,71 @@ presumidos, contratos migrados, descartadas e avisos. **Conferir antes de subir 
 - **`KALI LÓPEZ` (Pacto) e `KALI DUTRA` (TecnoFit) são a mesma pessoa** — normalizado no adapter.
 - **As metas são por unidade e saem de `units/{id}`**, nunca supor as padrão. Por isso a simulação do script só vale para P1 e P2.
 - **Nada disto estava commitado e um `git clean -fd` apagou tudo em 26/08.** Commitar cedo.
+
+## 📐 A CONSTRUIR — competência e o corte do dia 15 (decidido em 26/08)
+
+**A regra:** a comissão pertence ao **mês da venda**; paga-se o que o cliente **efetivamente
+pagou**; no **dia 15** olha-se o que entrou e paga; o que entra depois **acumula pro pagamento
+seguinte**. É a que já valia no TecnoFit.
+
+**Decisões do Rafael:**
+
+| decisão | valor |
+|---|---|
+| competência | **`Data Início` do contrato** (avulso: data do recebimento) |
+| corte | **dia 15, fixo** |
+| primeira competência | **agosto/2026** |
+| julho | **fica como está** (o vão foi pro Rodrigo decidir) |
+
+### A regra nunca esteve no código — validado nas duas pontas
+
+1. **No código não existe.** Sem corte de dia 15, sem competência. O único "adiar" é
+   `parseStartDate` para venda futura.
+2. **No histórico de produção existe, e sempre foi manual.** Todo período tem só vendas do próprio
+   mês (cp_2026-07: 129 itens, todos de julho; e assim em todos). E o "acumula" era feito
+   **re-subindo o mês** — `cp_2026-05` tem **4 uploads** cujos itens convivem no período.
+
+> **O corte do dia 15 era o dia em que a pessoa exportava o arquivo.**
+
+### Por isso a obra é pequena
+
+Não precisa tirar a detecção automática de período — basta **trocar o que alimenta ela**. Hoje a
+coluna `Data` da saída leva o `Data Lançamento` (recebimento); passa a levar a competência. A
+detecção então acerta sozinha e período, metas, fechamento e re-upload seguem iguais.
+
+- **corte do dia 15:** continua sendo o recorte do export; o tradutor lista o que ficou de fora
+- **acumulado:** nada a construir — re-sobe o mês com a janela maior, como já se faz
+- ⚠️ **cuidado:** `parseStartDate` usa a mesma data para adiar venda futura — conferir o ripple
+
+### ❌ `Data Cadastro` não serve de data da venda
+
+Proposta do Rafael, recusada pelo dado: **356 das 419 linhas de contrato (85%) trazem
+`24/07/2026`**, o dia da carga da migração. A Pacto tem duas faixas — **`4xxx`** (migrados, todos
+com esse carimbo mesmo começando em agosto) e **`7xxx`** (nativos, cadastro real, acerta **93%**).
+Hoje **55 contratos que começam em agosto ainda carregam o `24/07`** (32 renovações, 17
+rematrículas, 6 matrículas): usá-la jogaria esses 55 em julho, que está fechado.
+
+**Revisitar quando os `4xxx` vencerem e renovarem** — aí o cadastro vira a melhor âncora, inclusive
+para "vendeu em 28/08, começa em 01/09", e a troca é de uma linha.
+
+### 💰 O vão de julho — R$ 599,35, esperando o Rodrigo
+
+30 contratos com início em julho cujo dinheiro entrou em agosto (R$ 8.346,06 de caixa):
+
+| | linhas | caixa | comissão |
+|---|---:|---:|---:|
+| recebidas até 15/08 | 13 | R$ 3.553,00 | **R$ 301,88** |
+| recebidas depois de 15/08 | 17 | R$ 4.793,06 | **R$ 297,47** |
+| **total** | **30** | **R$ 8.346,06** | **R$ 599,35** |
+
+Kali R$ 273,45 · Bárbara R$ 163,57 · Francini R$ 90,40 · Erica R$ 71,93.
+
+### ⚠️ Metas: sempre olhar `metasMensais`
+
+A gestão **define meta mês a mês** (`periodos/{unidade}_{AAAA-MM}.metasMensais`): pp_2026-07 meta
+45/minRenov 15; cp_2026-06 meta 55/minRenov 15. O `units/{id}.config` é só o padrão, usado quando o
+mês ainda não teve meta — era o caso de agosto, e foi por isso que o P3 do Príncipe apareceu zerado.
+**Não concluir nada sobre meta olhando só o config da unidade.**
 
 ## Fora de escopo
 

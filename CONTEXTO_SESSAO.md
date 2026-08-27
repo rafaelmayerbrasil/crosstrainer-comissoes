@@ -3,6 +3,163 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 58 (26/08/2026) — ✅ UPLOAD PELA TELA HOMOLOGADO · ⏸️ ESPERANDO 3 RESPOSTAS DO RODRIGO
+
+### ▶️▶️ RETOMAR AQUI
+
+**Estado:** o tradutor da Pacto está plugado na tela de Upload, homologado pelo Rafael no staging
+com o arquivo real de agosto. **NÃO ESTÁ EM PRODUÇÃO** — tudo na branch `comissoes-tradutor-pacto`.
+⚠️ Se alguém subir o arquivo da Pacto em produção hoje, das 549 linhas **zero são aproveitadas** e
+a tela diz "Nenhum dado encontrado no arquivo".
+
+**Parado esperando o Rodrigo.** O Rafael tem um texto pronto com 3 itens (montado nesta sessão).
+Enquanto ele não responde, **não publicar**: duas das respostas mudam o fechamento de agosto, e a
+competência ainda vai ser construída — melhor publicar uma vez só.
+
+**A construir depois das respostas:** competência pela `Data Início` + corte fixo no dia 15 +
+lista do que ficou fora do corte. As decisões já foram tomadas (abaixo).
+
+### ✅ Decisões do Rafael nesta sessão
+
+| decisão | valor |
+|---|---|
+| competência da comissão | **`Data Início` do contrato** |
+| corte de pagamento | **dia 15, fixo** |
+| primeira competência sob a regra | **agosto/2026** |
+| julho | **fica como está** (⏸️ mas os R$ 599,35 do vão foram pro Rodrigo decidir) |
+| `Data Cadastro` como data da venda | **rejeitada** — ver abaixo |
+
+### 📐 A regra de competência — validada, e ela NUNCA esteve no código
+
+Regra (do Rafael, confirmada como a que já valia no TecnoFit): a comissão pertence ao **mês da
+venda**; paga-se o que o cliente **efetivamente pagou**; no **dia 15** olha-se o que entrou e paga;
+o que entra depois **acumula pro pagamento seguinte**.
+
+**Validado em duas frentes:**
+
+1. **No código: não existe.** Sem corte de dia 15, sem conceito de competência. O único "adiar" é
+   por data de início do plano, para venda futura.
+2. **No histórico de produção: existe, e sempre foi manual.**
+   - **Competência confirmada:** todo período tem só vendas do próprio mês, sem exceção
+     (cp_2026-04 131 itens todos de 04; cp_2026-07 129 todos de 07; pp_2026-07 192 todos de 07…).
+   - **O "acumula" também:** a maioria dos meses foi subida **mais de uma vez** — `cp_2026-05`
+     teve **4 uploads** (166+7+3+2 itens), e os itens dos vários uploads **convivem** no período.
+     É o mecanismo da "Opção A operacional" escolhida em maio ([[comissao-entrada-atrasada]]).
+
+> **O corte do dia 15 era o dia em que a pessoa exportava o arquivo.** A regra estava na rotina,
+> não no software. Por isso dá pra manter o mecanismo operacional e mexer pouco.
+
+### 🔧 O que a construção vai exigir (menor do que parecia)
+
+O Rafael achou que teríamos que **tirar** a detecção automática de período. Não precisa — basta
+**trocar o que alimenta ela**: hoje a coluna `Data` leva o recebimento; passa a levar a
+competência. A detecção então acerta sozinha, e período/metas/fechamento/re-upload seguem iguais.
+
+- **corte do dia 15:** continua sendo o recorte do export; o tradutor só lista o que ficou de fora
+- **acumulado:** nada a construir — re-sobe o mês com a janela maior, como já é feito
+- **avulso** (água, aula avulsa): sem contrato e sem início → competência = data do recebimento
+
+### ❌ `Data Cadastro` não serve como data da venda
+
+O Rafael propôs usá-la. O dado recusou, e o porquê importa:
+
+- **356 das 419 linhas de contrato (85%) têm cadastro `24/07/2026`** — o dia da carga da migração.
+- A Pacto tem **duas faixas de contrato**: os **`4xxx`** vieram na migração e todos carregam esse
+  carimbo mesmo começando em agosto; os **`7xxx`** são nativos e têm cadastro real.
+- Nos nativos funciona bem: **cadastro e início no mesmo mês em 93%** (72 linhas).
+- Mas **55 contratos que começam em agosto ainda carregam o `24/07`** (32 renovações, 17
+  rematrículas, 6 matrículas). Usá-la jogaria esses 55 em julho, que está fechado.
+
+**Vai se resolver sozinho:** conforme os `4xxx` vencerem e renovarem, viram `7xxx` com cadastro de
+verdade. Aí o cadastro passa a ser a melhor âncora — inclusive para "vendeu em 28/08, começa em
+01/09" — e a troca é de uma linha. Por ora, `Data Início` (100% presente, mês certo nos migrados).
+
+### 💰 O vão de julho — R$ 599,35, decisão do Rodrigo
+
+**30 contratos com início em julho cujo dinheiro entrou em agosto** (R$ 8.346,06 de caixa). Pela
+regra são competência julho, e julho já foi fechado e pago.
+
+| | linhas | caixa | comissão |
+|---|---:|---:|---:|
+| recebidas **até 15/08** | 13 | R$ 3.553,00 | **R$ 301,88** |
+| recebidas **depois de 15/08** | 17 | R$ 4.793,06 | **R$ 297,47** |
+| **total** | **30** | **R$ 8.346,06** | **R$ 599,35** |
+
+Por pessoa: Kali R$ 273,45 · Bárbara R$ 163,57 · Francini R$ 90,40 · Erica R$ 71,93.
+
+Três opções foram ao Rodrigo: **(a)** pagar junto com agosto como complemento (recomendada) ·
+**(b)** reabrir julho e pagar pela regra · **(c)** não pagar.
+
+### 🔴 CORREÇÃO — o que eu disse sobre as metas estava ERRADO
+
+Eu afirmei que "as metas foram calibradas na época do TecnoFit" e que "a Kali e a Bárbara perdem o
+P3 por causa da migração". **Errado.** A gestão **define meta mês a mês** (`metasMensais` no doc do
+período, botão "Configurar Metas do Mês"):
+
+| período | meta | minRenov | minNovos |
+|---|---:|---:|---:|
+| pp_2026-07 | 45 | 15 | 18 |
+| pp_2026-06 | 32 | 11 | 15 |
+| cp_2026-07 | 50 | 13 | 18 |
+| cp_2026-06 | 55 | 15 | 20 |
+
+**O que houve é que agosto ainda não teve a meta configurada**, então o sistema caiu no padrão da
+unidade (50 / 25 / 18) e o P3 do Príncipe apareceu zerado. Não é meta velha — é meta do mês que
+ainda não foi definida. ⚠️ **Lição:** eu comparei contra o `units/{id}.config` sem olhar se o
+período tinha override. Sempre checar `metasMensais` antes de concluir qualquer coisa sobre meta.
+
+**Contexto real que continua valendo:** o Príncipe fez 27 em agosto contra 49 em julho, porque a
+base migrada está no meio do contrato e não gera renovação. É efeito de transição e se corrige
+sozinho. Sugerido ao Rodrigo **esperar a competência** antes de definir a meta de agosto, porque o
+número vai mudar.
+
+### 🧰 O que foi construído e homologado hoje
+
+3 pontos no `index.html`, **nada no `commission.js`**: carrega o `pacto-adapter.js` · o
+`handleFile` reconhece o arquivo da Pacto, traduz e filtra pela unidade aberta (formato antigo
+segue passando direto) · a prévia ganhou o **resumo do que ficou de fora**, por unidade. A tela
+**barra o "Faturamento por Período"** antes de calcular, e o texto parou de mandar subir "o Excel
+do TecnoFit".
+
+**Homologado pelo Rafael no navegador:**
+
+| | linhas | processadas | ativações | comissão |
+|---|---:|---:|---:|---:|
+| CP | 109 | 102 | 53 | R$ 1.810,11 |
+| PP | 148 | 132 | 27 | R$ 722,89 |
+
+No CP o bloco mostrou: 53 migrados (R$ 13.471,97) · 111 recebimentos antigos (R$ 28.769,62) ·
+5 planos presumidos (R$ 1.150,00) · 5 avisos.
+
+### 🐛 Dois bugs meus, os dois pegos pelo Rafael no navegador
+
+Mesma raiz: **o id da unidade no sistema não é a sigla do arquivo** (`unit-cp` × `CP`).
+
+1. **Nenhuma linha era encontrada.** Corrigido com `PactoAdapter.siglaDaUnidade()`, que compara só
+   as letras e pela ponta (cobre `cp`, `CP`, `unit-cp`, `unit_cp` sem regra por ambiente).
+2. **O resumo aparecia vazio** — corrigi o caminho dos dados e **esqueci o da tela**. R$ 42 mil de
+   descarte sumindo em silêncio, que é exatamente o que aquele bloco existe para impedir.
+
+> **Lição:** teste que confere "a função é chamada" não basta — tem que conferir **com o quê** ela
+> é chamada. O smoke agora casa a chamada com `PactoAdapter.siglaDaUnidade(`.
+
+### 👤 Nomes das vendedoras conferidos contra PRODUÇÃO
+
+`scripts/conferir-vendedoras-pacto.js` (novo, somente leitura, roda em staging e produção). Dos 6
+nomes do arquivo de agosto: 4 já existiam; **`RODRIGO ROJAIS` da Pacto é o `RODRIGO` do cadastro**
+(140 linhas em 24 períodos) — entrou em `APELIDOS`, senão criava pessoa nova e rachava o histórico.
+⚠️ **`RAFAEL ROJAIS` é OUTRO sócio**, com 269 linhas próprias. `BÁRBARA VIEIRA CARDOSO` é nova de
+verdade. Sem impacto em dinheiro (ele já era não-comissionável dos dois jeitos).
+
+### 🧪 Validação
+
+`smoke-upload-pacto-tela.js` **novo, 11 casos** (6 guardam a LIGAÇÃO na tela) · `smoke-pacto-adapter`
+em **41** · suíte do projeto verde · homologado no navegador pelo Rafael.
+
+Commits em `comissoes-tradutor-pacto`: `6fc06fe` `25875a5` `6c6a4c4` `bbddfff` `2737c70` `8f6c569`.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 57 (26/08/2026) — ✅ O CONTADOR DA ESCALA VIROU CONTAGEM · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
@@ -139,73 +296,6 @@ Retrato do "antes" de produção: `backups/contador-antes-2026-08-26.txt`
    publicada com prévia abandonada, o dia pode ficar sem aula. Anterior a este branch; mexer é
    deploy de função. **Não foi tocado.**
 4. Ficha do **Rafael Rojais** pela tela Pessoas (vem da sessão 55).
-
----
-
-## 🔖 ONDE PARAMOS — sessão 58 (26/08/2026) — ✅ O UPLOAD VOLTOU A SER PELA TELA · HOMOLOGADO NO STAGING
-
-### ▶️▶️ RETOMAR AQUI
-
-**A rotina de sempre voltou:** arrastar o arquivo da Pacto na tela de Upload. Sem script, sem
-planilha intermediária. **Homologado pelo Rafael no staging**, com o arquivo real de agosto.
-
-| | linhas | processadas | ativações | comissão |
-|---|---:|---:|---:|---:|
-| CP | 109 | 102 | 53 | R$ 1.810,11 |
-| PP | 148 | 132 | 27 | R$ 722,89 |
-
-**Falta:** merge para `main` (é o que publica pros usuários) — só com o OK do Rafael.
-
-**⏸️ Questão de dinheiro aberta, e é de gestão, não de código:** o **P3 do Príncipe zerou**.
-27 ativações (mín. 50) · 14 novos+retorno (mín. 18, **zera** o P3) · 9 renovações (mín. 25).
-Em julho PP tinha 47. A queda **não é performance**: a base migrada está no meio do contrato e
-não gera renovação nenhuma agora — só volta a contar quando o contrato vencer. É efeito de
-transição da troca de plataforma e deve se corrigir sozinho. Do jeito que está, a Kali e a
-Bárbara pagam a conta da migração. Dá pra ajustar pela própria tela ("Configurar Metas do Mês").
-
-### 🧰 O que mudou (3 pontos no `index.html`, nada no `commission.js`)
-
-1. carrega o `pacto-adapter.js` depois do motor;
-2. `handleFile` reconhece o arquivo da Pacto, traduz, filtra pela unidade aberta e entrega ao
-   motor no formato de sempre — arquivo do formato antigo não passa por nada disso;
-3. a pré-visualização ganhou o **resumo do que ficou de fora**, por unidade.
-
-O item 3 não é enfeite: no CP são **53 migrados (R$ 13.471,97)** e **111 recebimentos antigos
-(R$ 28.769,62)**. Sem mostrar, o sistema engoliria isso em silêncio.
-
-A tela também **barra o "Faturamento por Período"** antes de calcular qualquer coisa, e o texto
-da tela parou de mandar subir "o Excel do TecnoFit".
-
-### 🐛 Dois bugs meus, os dois pegos pelo Rafael no navegador
-
-Ambos a mesma raiz: **o id da unidade no sistema não é a sigla do arquivo**. No staging é
-`unit-cp`; o arquivo traz `(CP)`.
-
-1. **Nenhuma linha era encontrada** — "o arquivo não tem linhas da unidade UNIT-CP, só de CP
-   (109), PP (148)". Corrigido com `PactoAdapter.siglaDaUnidade()`, que compara só as letras e
-   pela ponta (cobre `cp`, `CP`, `unit-cp`, `unit_cp` sem regra por ambiente).
-2. **O resumo aparecia vazio** — eu corrigi o caminho dos dados e esqueci o da TELA, que
-   continuava filtrando por `UNIT-CP`. **R$ 42 mil de descarte sumindo em silêncio**, que é
-   exatamente o que aquele bloco existe para impedir. O smoke agora exige que a chamada use a
-   tradução, senão um `.toUpperCase()` volta sem ninguém ver.
-
-> **Lição:** teste estrutural que confere "a função é chamada" não basta — tem que conferir
-> **com o quê** ela é chamada.
-
-### ✅ O corte foi validado contra o relatório de vendas
-
-Como o P3 do PP zerou, cruzei os contratos descartados contra o "Faturamento por Período"
-(01→25/08), que lista o que foi **vendido**: **CP 116 e PP 95 não aparecem lá**, e os que
-aparecem são quitação de cancelamento ou ajuste de R$ 0,00. **Nenhum é venda de agosto** — as
-27 ativações do Príncipe são reais.
-
-### 🧪 Validação
-
-`scripts/smoke-upload-pacto-tela.js` **novo, 11 casos** — 6 guardam a LIGAÇÃO na tela (o buraco
-que deixou a "Prévia" da escala nunca rodar em produção) e 5 refazem o caminho do `handleFile`.
-`smoke-pacto-adapter` foi a **40**. Suíte do projeto verde. Homologado no navegador pelo Rafael.
-
-Commits na branch `comissoes-tradutor-pacto`: `6fc06fe` `25875a5` `6c6a4c4` `bbddfff` `2737c70`.
 
 ---
 
