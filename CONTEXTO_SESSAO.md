@@ -7,17 +7,83 @@
 
 ### ▶️▶️ RETOMAR AQUI
 
-**Estado:** o tradutor da Pacto está plugado na tela de Upload, homologado pelo Rafael no staging
-com o arquivo real de agosto. **NÃO ESTÁ EM PRODUÇÃO** — tudo na branch `comissoes-tradutor-pacto`.
-⚠️ Se alguém subir o arquivo da Pacto em produção hoje, das 549 linhas **zero são aproveitadas** e
-a tela diz "Nenhum dado encontrado no arquivo".
-
-**Parado esperando o Rodrigo.** O Rafael tem um texto pronto com 3 itens (montado nesta sessão).
-Enquanto ele não responde, **não publicar**: duas das respostas mudam o fechamento de agosto, e a
+**⏸️ Parado esperando o Rodrigo.** O Rafael **ENVIOU** o texto com os 3 itens em 27/08. Enquanto
+não responde, **não publicar Comissões**: duas das respostas mudam o fechamento de agosto, e a
 competência ainda vai ser construída — melhor publicar uma vez só.
+
+**Duas frentes, dois lugares:**
+
+| | onde está | estado |
+|---|---|---|
+| Botão da escala + manuais | `main` (`e44b4a7`) | **✅ EM PRODUÇÃO** (27/08) |
+| Tradutor da Pacto + upload pela tela | branch `comissoes-tradutor-pacto` | ⏸️ esperando Rodrigo + competência |
+
+⚠️ Se alguém subir o arquivo da Pacto **em produção** hoje, das 549 linhas **zero são aproveitadas**
+e a tela diz "Nenhum dado encontrado no arquivo". O tradutor só existe na branch.
+
+**Quando ele responder:** construir a competência (`Data Início` + corte dia 15), homologar no
+staging com o Rafael clicando, e aí sim merge da branch pro `main`.
+
+### ✅ Subiu pra produção em 27/08 — escala e manuais (`e44b4a7`)
+
+**O botão de ajuste da escala enganou o Rodrigo.** No painel de Equilíbrio cada pessoa aparece como
+"4 nesta janela" com um ✏️ do lado. Ele quis baixar a Heloísa de 4 para 3, clicou, digitou 3 — e o
+campo **registra dias trabalhados FORA do sistema**. Ela foi de 4 para **4+3 = 7**, o contrário.
+Não deu estrago (ele clicou em Refazer logo depois), mas o dado de justiça ficou sujo.
+
+Virou **"+ dias fora"** em vez do lápis mudo, o title avisa que **não muda a escala**, e a caixa
+passou a dizer: quanto já existe hoje, que o número **soma**, que **não tira ninguém de sábado
+nenhum**, e onde fica o que ele queria (trocar na vaga ou Refazer).
+
+**Os manuais estavam três semanas atrasados.** Entre 13/08 e 26/08 foram pra produção a Grade de
+Horários, a prévia da escala, o publicar em lote, o inverter, a cota, o desligar pessoa — e o
+manual não falava de nada disso. Manual não quebra: só envelhece, e quem lê aprende errado.
+
+- **manual-admin** ganhou 10 blocos: Grade de Horários com "Gerar agenda agora" e o cuidado com a
+  troca de dia da semana · prévia · publicar em lote · Refazer/Reconsolidar/Despublicar com a regra
+  de só reconsolidar sábado futuro · Inverter · como o rodízio decide · o painel de Equilíbrio e o
+  "+ dias fora" · cota · sábado-feriado em dobro e "não recebe por aula" · desligar/religar.
+- **manual-professores** ganhou 3: quantos dias quer · por que nada aparece antes de publicar · como
+  o sistema escolhe.
+
+Testes novos: `smoke-ajuste-contador-rotulo.js` (6, ancora o rótulo e o texto) e
+`smoke-manual-atualizado.js` (8, ancora os assuntos do manual + caça link morto).
+⚠️ **Ao entregar recurso que muda a rotina de alguém, acrescentar o assunto no segundo.**
+
+Publicado por **cherry-pick** do commit da escala sobre o `main` — ele não encosta em nenhum arquivo
+de Comissões, então deu pra subir sem levar o tradutor junto. Verificado no `github.io`.
 
 **A construir depois das respostas:** competência pela `Data Início` + corte fixo no dia 15 +
 lista do que ficou fora do corte. As decisões já foram tomadas (abaixo).
+
+### 📨 O que o Rodrigo respondeu (27/08)
+
+1. **Os R$ 599,35:** pediu **a lista dos 30 clientes** antes de decidir. Lista gerada e entregue
+   (cliente, início, recebimento, valor, vendedora, plano). ⚠️ Um deles, **GIAN GIAROLI**, é
+   quitação de cancelamento — não paga comissão de todo jeito.
+2. **Os contratos migrados:** *"não terei capacidade de verificar 157 contratos, então dessa vez vc
+   pode decidir por mim"* — mas entendeu errado, achou que eu estava dizendo que **ninguém vendeu em
+   agosto**. Corrigido no texto: agosto tem **80 ativações** (CP 53 · PP 27) e R$ 28 mil de caixa; os
+   migrados são **outro conjunto**, de contratos que começaram antes. **Decisão tomada: ficam fora**,
+   com o cruzamento como prova e a ressalva de que é reversível em minutos.
+3. **A meta de agosto:** vai **pedir às vendedoras a lista das vendas de agosto**. É a conferência
+   independente perfeita — quando chegar, cruzar com o que o sistema contou.
+
+### 🔢 Números dos migrados, apurados de verdade
+
+⚠️ Eu tinha escrito "157 contratos" e "211 dos 157", que é impossível. Apurado:
+
+| | linhas | contratos | valor |
+|---|---:|---:|---:|
+| CP | 161 | 158 | R$ 41.598,59 |
+| PP | 127 | 123 | R$ 36.753,64 |
+| **total** | **288** | **279** | **R$ 78.352,23** |
+
+Cruzando com o relatório de vendas: **211 não aparecem lá**. Os **70 que aparecem** são
+**10 quitações de cancelamento** e **60 ajustes de modalidade de R$ 0,00**. **Nenhum é venda.**
+
+O "157" da tela é só o balde "contratos migrados"; os outros 122 caem em "recebimento de contrato
+antigo". Mesmo fenômeno, dois rótulos.
 
 ### ✅ Decisões do Rafael nesta sessão
 

@@ -195,6 +195,24 @@ preenchida** no recebido e **100% vazia** no faturamento (386/386 contra 0/715).
 - Duração **26** aparece pela primeira vez.
 - `RECORRENCIA` no `Responsável`#2 sobe pra 40 linhas (era 13 no recebido de meio mês).
 
+## 🔢 Migrados: os números apurados (27/08)
+
+⚠️ O "157" que aparece na tela é só o balde **contratos migrados**; os outros 122 caem em
+**recebimento de contrato antigo**. Mesmo fenômeno, dois rótulos. O total real:
+
+| | linhas | contratos | valor |
+|---|---:|---:|---:|
+| CP | 161 | 158 | R$ 41.598,59 |
+| PP | 127 | 123 | R$ 36.753,64 |
+| **total** | **288** | **279** | **R$ 78.352,23** |
+
+Cruzando com o "Faturamento por Período" (o que foi vendido): **211 não aparecem lá**. Os **70 que
+aparecem** são **10 quitações de cancelamento** e **60 ajustes de modalidade de R$ 0,00**.
+**Nenhum é venda de agosto.**
+
+✅ **Decisão tomada em 27/08:** o Rodrigo delegou (*"dessa vez vc pode decidir por mim"*) e eles
+**ficam fora**. Reversível em minutos se a lista das vendedoras mostrar o contrário.
+
 ## ✅ Resolvido (26/08) — o `Consultor` de PP é o Rodrigo em 16 contratos
 
 Rodando o export de 26/08 (mês quase fechado), PP fica com **17 ativações comissionáveis contra
