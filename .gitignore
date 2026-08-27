@@ -47,3 +47,10 @@ docs/rodrigo-roteiro-completo.txt
 apresentacao-modulo-professores.html
 .claude/launch.json
 .claude/settings.json
+
+# Exports da Pacto — dado de cliente (nome, contrato, valor). Repositorio publico.
+faturamento*.xls
+faturamento*.xlsx
+relatorios pacto/
+carga nova comissoes/
+PACTO-*.xlsx
