@@ -201,12 +201,29 @@ A causa: **16 contratos de PP vêm com `Consultor` = `RODRIGO ROJAIS`**, que est
 não-comissionáveis, então ninguém recebe por eles. Em 9 desses 16 o `Responsável`#1 é a Kali ou
 a Bárbara, o que levantou a dúvida: seria o cadastro com consultor padrão errado?
 
-**Não é. O Rafael confirmou em 26/08: o Rodrigo vende também.** Sendo sócio e não-comissionável,
-está correto que essas 16 vendas não paguem comissão a ninguém — o `Responsável` ali é só quem
-digitou o lançamento. Nada a mudar: o tradutor segue o `Consultor`, como decidido.
+**Não é. O Rafael confirmou em 26/08: o Rodrigo vende também**, e é a mesma regra que já valia
+no TecnoFit — o nome dele aparecia lá do mesmo jeito. Nada a mudar: o tradutor segue o
+`Consultor`, como decidido.
 
-⚠️ Consequência de operação: quando o Rodrigo atende, aquela venda **não conta ativação para a
-meta de ninguém**. Se PP vier sistematicamente atrás do CP no P3, é aqui que o efeito aparece.
+**E a venda dele CONTA para a meta da unidade** — o Rafael lembrou disso e o motor confirma.
+Verificado rodando `CE.calculate` sobre o export de 26/08:
+
+| | meta da unidade | de quem recebe | dos não-comissionáveis |
+|---|---:|---:|---:|
+| CP | **53** | 51 | 2 (Rodrigo) |
+| PP | **27** | 17 | 10 (Rodrigo 9, Benny 1) |
+
+O `unitAtivacoes` (`commission.js:842`) soma **todas** as ativações, sem filtrar
+`isNaoCom` — é o que sustenta a faixa do P3 (meta / super / gold). O que o
+não-comissionável não recebe é o P1 e o P2 dele (`commission.js:330`), e o caixa
+dele **não entra na base do P3** (`commission.js:576` e `669`), nem ele participa
+do rateio do pool (`commission.js:677`).
+
+Ou seja: **o Rodrigo puxa a unidade para a faixa e não tira nada de ninguém.** Sem as 9 dele,
+PP teria 18 em vez de 27. Já estava certo no motor; não precisou de nenhuma mudança.
+
+⚠️ Os números acima usam a **meta padrão (50)**. As metas reais são por unidade e moram em
+`units/{id}` — a simulação do script vale para P1 e P2, não para a faixa.
 
 ## ⚠️ Julho não serve de gabarito
 
