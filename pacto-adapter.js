@@ -258,6 +258,26 @@ const PactoAdapter = {
     return m ? m[1].toUpperCase() : '';
   },
 
+  /**
+   * Traduz o id da unidade do SISTEMA para a sigla que vem no arquivo.
+   *
+   * Não são a mesma coisa: no staging a unidade é `unit-cp`, em produção é
+   * `cp`, e o arquivo traz `CROSSTAINER UNID. CAMPECHE (CP)`. Comparar o texto
+   * cru dava "o arquivo não tem linhas da unidade UNIT-CP" com o arquivo certo
+   * na mão (pego pelo Rafael no staging em 26/08).
+   *
+   * Compara só as letras e pela ponta, então cobre `cp`, `CP`, `unit-cp` e
+   * `unit_cp` sem inventar regra nova a cada ambiente.
+   *
+   * @param {string} unitId          id da unidade no sistema
+   * @param {string[]} disponiveis   siglas presentes no arquivo (ex.: ['CP','PP'])
+   */
+  siglaDaUnidade(unitId, disponiveis) {
+    const norm = String(unitId || '').toUpperCase().replace(/[^A-Z]/g, '');
+    if (!norm) return '';
+    return (disponiveis || []).find(s => norm.endsWith(String(s).toUpperCase())) || '';
+  },
+
   /** Situação Contrato → Tipo de Venda no vocabulário do motor */
   tipoDeVenda(situacao) {
     const s = String(situacao || '').toLowerCase();

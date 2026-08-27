@@ -569,4 +569,34 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   ok('migrados e descartadas carregam a unidade, pra tela filtrar');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 30. O id da unidade no sistema não é a sigla do arquivo
+// ════════════════════════════════════════════════════════════════════
+// Bug pego pelo Rafael no staging em 26/08: a unidade do sistema é `unit-cp`,
+// e o arquivo da Pacto traz `CROSSTAINER UNID. CAMPECHE (CP)`. Comparar o texto
+// cru dava "o arquivo não tem linhas da unidade UNIT-CP" com o arquivo certo na
+// mão. Em produção os ids são `cp`/`pp`, então o teste cobre as duas formas.
+{
+  const disp = ['CP', 'PP'];
+  assert.strictEqual(PA.siglaDaUnidade('unit-cp', disp), 'CP');
+  assert.strictEqual(PA.siglaDaUnidade('unit-pp', disp), 'PP');
+  assert.strictEqual(PA.siglaDaUnidade('cp', disp), 'CP');
+  assert.strictEqual(PA.siglaDaUnidade('PP', disp), 'PP');
+  assert.strictEqual(PA.siglaDaUnidade('unit_cp', disp), 'CP');
+  assert.strictEqual(PA.siglaDaUnidade('unidade-centro', disp), '', 'unidade que não é CP nem PP');
+  assert.strictEqual(PA.siglaDaUnidade('', disp), '');
+  ok('id da unidade do sistema (unit-cp, cp, PP) casa com a sigla do arquivo');
+}
+{
+  // e ponta a ponta: subir com o id do staging tem que trazer as linhas
+  const r = traduz([
+    linha({ ...ANUAL_LOCAL, empresa: CP }),
+    linha({ ...ANUAL_LOCAL, contrato: '9101', empresa: PP }),
+  ]);
+  const sigla = PA.siglaDaUnidade('unit-cp', Object.keys(r.porUnidade).filter(k => k));
+  assert.strictEqual(sigla, 'CP');
+  assert.strictEqual(r.porUnidade[sigla].length, 1, 'e acha a linha do Campeche');
+  ok('com o id do staging o upload encontra as linhas da unidade');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

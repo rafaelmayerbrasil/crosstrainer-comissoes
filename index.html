@@ -2947,12 +2947,12 @@
       <div class="page" id="page-upload">
         <div class="page-hdr">
           <h1>Upload de Arquivo <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
-          <p>Suba o Excel do TecnoFit para processar as comissões.</p>
+          <p>Suba o relatório <strong>Faturamento Recebido</strong> da Pacto para processar as comissões. O mesmo arquivo serve para as duas unidades — suba uma vez em cada.</p>
         </div>
         <div class="upload-zone" id="uploadZone">
           <div class="uz-icon">📊</div>
           <p><strong>Arraste o arquivo Excel aqui</strong> ou clique para selecionar</p>
-          <div class="hint">Arquivo .xlsx exportado do TecnoFit</div>
+          <div class="hint">Pacto → <strong>Faturamento Recebido</strong> (o arquivo começa com <code>faturamento-recebido_</code>) · o formato antigo do TecnoFit também continua funcionando</div>
           <input type="file" id="fileInput" accept=".xlsx,.xls">
         </div>
         <div id="periodMonthGroup"
@@ -4225,8 +4225,11 @@
           // Se o arquivo for do formato antigo (TecnoFit), nada disto roda.
           let pacto = null;
           if (typeof PactoAdapter !== 'undefined' && PactoAdapter.ehExportPacto(json)) {
-            const sigla = String(currentUnitId || '').toUpperCase();
             pacto = PactoAdapter.traduzir(json, {});
+            // O id da unidade no sistema (`unit-cp` no staging, `cp` em produção)
+            // não é a sigla que vem no arquivo (`(CP)`) — traduzir antes de casar.
+            const sigla = PactoAdapter.siglaDaUnidade(
+              currentUnitId, Object.keys(pacto.porUnidade).filter(k => k));
 
             // A Pacto tem DOIS relatórios com as MESMAS colunas nas mesmas
             // posições. O "Faturamento por Período" traz o contrato inteiro em
@@ -4250,7 +4253,7 @@
             if (!vendasUnidade.length) {
               const outras = Object.entries(pacto.porUnidade)
                 .filter(([u, v]) => u && v.length).map(([u, v]) => `${u} (${v.length})`).join(', ');
-              toast(`O arquivo não tem linhas da unidade ${sigla || '(?)'}${outras ? ' — só de ' + outras : ''}.`, 'error');
+              toast(`O arquivo não tem linhas desta unidade${outras ? ' — só de ' + outras : ''}. Troque a unidade no topo e tente de novo.`, 'error');
               return;
             }
             json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(vendasUnidade)];
