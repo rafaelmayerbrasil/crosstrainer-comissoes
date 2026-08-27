@@ -101,6 +101,26 @@ const PactoAdapter = {
   ehImportacao(txt) { return String(txt || '').toUpperCase().includes('IMPORTA'); },
 
   /**
+   * O arquivo é um export da Pacto?
+   *
+   * Existe para a tela de Upload decidir sozinha: se for da Pacto, traduz antes
+   * de entregar ao motor; se não for, segue o caminho de sempre. O formato
+   * antigo do TecnoFit ainda pode aparecer (arquivo guardado, re-upload de mês
+   * fechado) e não pode quebrar.
+   *
+   * Assinatura: `Nome Cliente` na posição 2 e `Data Lançamento` na 14 — as duas
+   * juntas, porque só uma delas casaria com planilha de outro assunto.
+   */
+  ehExportPacto(linhas) {
+    return (linhas || []).slice(0, 5).some(l => {
+      if (!l) return false;
+      const nome = String(l[this.COL.nome] || '').trim().toUpperCase();
+      const lanc = String(l[this.COL.lancamento] || '').trim().toUpperCase();
+      return nome === 'NOME CLIENTE' && lanc.startsWith('DATA LAN');
+    });
+  },
+
+  /**
    * Diz QUAL dos dois relatórios da Pacto é o arquivo. Existe porque eles têm
    * exatamente as mesmas 21 colunas nas mesmas posições — o tradutor engole os
    * dois sem reclamar — e só um serve para comissão:
@@ -364,6 +384,7 @@ const PactoAdapter = {
         cliente: this.campo(l, 'nome'), produto: this.campo(l, 'produto'),
         valor: this.valorBR(this.campo(l, 'valor')),
         inicio: this.campo(l, 'inicio'), duracao: this.campo(l, 'duracao'),
+        unidade: this.unidadeDe(l),
       };
       // Gateway antigo + contrato que começou antes = dinheiro de contrato velho.
       // O gateway SOZINHO não descarta: venda nova também é cobrada por ele.

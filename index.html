@@ -3230,6 +3230,9 @@
 
   <!-- COMMISSION ENGINE -->
   <script src="commission.js"></script>
+  <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
+       Não altera o commission.js: traduz antes, na entrada do upload. -->
+  <script src="pacto-adapter.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -4166,13 +4169,93 @@
       input.onchange = e => { if (e.target.files.length) handleFile(e.target.files[0]); };
     }
 
+    // Resumo do que o tradutor da Pacto deixou de fora, para a conferência.
+    // Existe porque o descarte é grande e silencioso: em agosto/2026 foram 157
+    // contratos migrados (R$ 43.929) e 134 recebimentos antigos (R$ 35.065).
+    // Sem mostrar, o sistema engoliria R$ 79 mil sem ninguém saber.
+    function pactoResumoHtml(pacto, sigla) {
+      const daUnidade = lista => (lista || []).filter(x => !x.unidade || x.unidade === sigla);
+      const migrados = daUnidade(pacto.migrados);
+      const descartadas = daUnidade(pacto.descartadas);
+      const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
+      const avisos = pacto.avisos || [];
+      const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
+      const meses = Object.keys(pacto.meses || {}).sort();
+      const outrosMeses = meses.filter(m => m !== pacto.mes);
+
+      const bloco = (icone, titulo, itens, corpo) => !itens.length ? '' : `
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700">${icone} ${titulo} (${itens.length}) — R$ ${fmt(soma(itens))}</summary>
+          <div style="max-height:220px;overflow:auto;margin-top:8px;font-size:11px;color:var(--text2)">${corpo}</div>
+        </details>`;
+
+      return `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:4px">📦 Arquivo da Pacto traduzido — unidade ${sigla}</div>
+        <div style="font-size:11px;color:var(--text3)">
+          Período usado: <strong>${pacto.mes}</strong>${outrosMeses.length ? ` · o arquivo também tinha ${outrosMeses.join(', ')}, que ficaram de fora` : ''}
+        </div>
+        ${bloco('📥', 'Contratos migrados do TecnoFit, fora do cálculo', migrados,
+          migrados.map(m => `<div>${m.cliente} — R$ ${fmt(m.valor)} · começou em ${m.inicio}</div>`).join(''))}
+        ${bloco('🗂️', 'Recebimento de contrato antigo, fora do cálculo', descartadas,
+          descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
+        ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
+          marcadas.map(v => `<div>${v['Cliente']} — R$ ${fmt(v['Valor Quitado/Recibo'])} · ${v['Itens'].replace(/\s*\(.*\)$/, '')}</div>`).join(''))}
+        ${!avisos.length ? '' : `
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--yellow)">⚠️ Avisos (${avisos.length})</summary>
+          <div style="max-height:220px;overflow:auto;margin-top:8px;font-size:11px;color:var(--text2)">
+            ${avisos.map(a => `<div>${a.motivo} — ${a.cliente || ''}${a.comQuem ? ' → dividir com ' + a.comQuem : ''}</div>`).join('')}
+          </div>
+        </details>`}
+      </div>`;
+    }
+
     function handleFile(file) {
       const reader = new FileReader();
       reader.onload = async e => {
         try {
           const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          let json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+          // ── Export da Pacto: traduzir antes de entregar ao motor ──
+          // Desde agosto/2026 a entrada é o export da Pacto, em outro formato.
+          // `pacto-adapter.js` traduz aqui; o `commission.js` não muda uma linha.
+          // Se o arquivo for do formato antigo (TecnoFit), nada disto roda.
+          let pacto = null;
+          if (typeof PactoAdapter !== 'undefined' && PactoAdapter.ehExportPacto(json)) {
+            const sigla = String(currentUnitId || '').toUpperCase();
+            pacto = PactoAdapter.traduzir(json, {});
+
+            // A Pacto tem DOIS relatórios com as MESMAS colunas nas mesmas
+            // posições. O "Faturamento por Período" traz o contrato inteiro em
+            // vez da parcela — 12× num anual — e a comissão é 5% desse valor.
+            if (pacto.relatorio !== 'recebido') {
+              document.getElementById('uploadPreview').style.display = 'none';
+              document.getElementById('uploadActions').style.display = 'none';
+              document.getElementById('uploadZone').innerHTML = `
+                <div style="color:var(--red);padding:20px">
+                  <div style="font-size:40px;margin-bottom:10px">🛑</div>
+                  <h3 style="margin-bottom:8px">Este é o relatório errado da Pacto</h3>
+                  <p style="font-size:13px;margin-bottom:16px">Parece o <strong>"Faturamento por Período"</strong>. Ele tem as mesmas colunas do certo, mas traz o <strong>valor do contrato inteiro</strong> em vez da parcela que entrou — num plano anual dá 12× a mais.</p>
+                  <p style="font-size:12px;color:var(--text3)">Use o relatório <strong>"Faturamento Recebido"</strong> (o arquivo começa com <code>faturamento-recebido_</code>).</p>
+                  <button class="btn btn-sm" style="margin-top:20px" onclick="initUpload()">Tentar novamente</button>
+                </div>`;
+              toast('Relatório errado: use o "Faturamento Recebido".', 'error');
+              return;
+            }
+
+            const vendasUnidade = pacto.porUnidade[sigla] || [];
+            if (!vendasUnidade.length) {
+              const outras = Object.entries(pacto.porUnidade)
+                .filter(([u, v]) => u && v.length).map(([u, v]) => `${u} (${v.length})`).join(', ');
+              toast(`O arquivo não tem linhas da unidade ${sigla || '(?)'}${outras ? ' — só de ' + outras : ''}.`, 'error');
+              return;
+            }
+            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(vendasUnidade)];
+          }
+
           const rawRows = CommissionEngine.cleanRawData(json);
 
           if (rawRows.length === 0) { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
@@ -4258,7 +4341,7 @@
             }
           });
 
-          pendingUpload = { rawRows, result, fileName: file.name, newVendors, usersToUpdateUnit };
+          pendingUpload = { rawRows, result, fileName: file.name, newVendors, usersToUpdateUnit, pacto };
 
           // Show preview
           const prev = document.getElementById('uploadPreview');
@@ -4273,6 +4356,7 @@
           prev.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${file.name}</h3>
+          ${pacto ? pactoResumoHtml(pacto, String(currentUnitId||"").toUpperCase()) : ""}
           <div class="stats-row" id="uploadStatsRow">
             <div class="stat"><div class="s-label">Registros</div><div class="s-value">${rawRows.length}</div></div>
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>

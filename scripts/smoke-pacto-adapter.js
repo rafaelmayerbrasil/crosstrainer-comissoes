@@ -492,4 +492,81 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   ok('reconhece o relatório errado (faturamento) — é ele que pagaria 12× a mais');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 25-27. Reconhecer o arquivo da Pacto na tela de Upload
+// ════════════════════════════════════════════════════════════════════
+// Plugado no `index.html`, o tradutor precisa decidir sozinho se o arquivo que
+// a pessoa arrastou é da Pacto ou é o formato antigo — porque o formato antigo
+// ainda pode aparecer (arquivo guardado, re-upload de mês fechado) e não pode
+// quebrar. O cabeçalho da Pacto tem `Nome Cliente` na posição 2 e
+// `Data Lançamento` na 14; o do TecnoFit começa em `Código | Cliente | Data`.
+{
+  const cabecalhoPacto = [];
+  for (let i = 0; i <= 21; i++) cabecalhoPacto[i] = '';
+  cabecalhoPacto[2] = 'Nome Cliente'; cabecalhoPacto[4] = 'Responsável ';
+  cabecalhoPacto[5] = 'Responsável '; cabecalhoPacto[14] = 'Data Lançamento';
+  cabecalhoPacto[21] = 'Consultor ';
+  assert.strictEqual(PA.ehExportPacto([cabecalhoPacto, linha(ANUAL_LOCAL)]), true);
+  ok('reconhece o arquivo da Pacto pelo cabeçalho');
+}
+{
+  // O formato antigo do TecnoFit, que a tela sempre aceitou
+  const tecnofit = [
+    ['Código', 'Cliente', 'Data', 'Itens', 'Valor Venda', 'Desconto Venda',
+     'Desconto Recebimento', 'Valor Final', 'Valor Quitado/Recibo', 'Origem',
+     'Tipo de Venda', 'Vendedor'],
+    ['31754166587', 'FULANO', '46204', 'ACESSO LIVRE | RECORRENTE | FLEX', '419',
+     '-', '-', '419', '419', 'Balcão', 'Renovação', 'ERICA FAUSTINO'],
+  ];
+  assert.strictEqual(PA.ehExportPacto(tecnofit), false, 'não pode confundir com o formato antigo');
+  ok('NÃO confunde o formato antigo do TecnoFit com o da Pacto');
+}
+{
+  assert.strictEqual(PA.ehExportPacto([]), false, 'arquivo vazio');
+  assert.strictEqual(PA.ehExportPacto([['qualquer', 'coisa']]), false, 'planilha aleatória');
+  ok('arquivo vazio ou de outro assunto não passa por export da Pacto');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 28. Uma unidade por vez: o arquivo traz CP e PP juntos
+// ════════════════════════════════════════════════════════════════════
+// A tela sobe uma unidade por vez (`currentUnitId`), mas o export da Pacto vem
+// com as duas. Subir o mesmo arquivo nas duas unidades tem que dar, em cada
+// uma, só as linhas dela — senão o Campeche paga a comissão do Príncipe.
+{
+  const r = traduz([
+    linha({ ...ANUAL_LOCAL, empresa: CP, consultor: 'ERICA FAUSTINO' }),
+    linha({ ...ANUAL_LOCAL, contrato: '9001', empresa: PP, consultor: 'KALI LÓPEZ' }),
+    linha({ ...ANUAL_LOCAL, contrato: '9002', empresa: PP, consultor: 'KALI LÓPEZ' }),
+  ]);
+  assert.deepStrictEqual(r.porUnidade.CP.map(v => v['Vendedor']), ['ERICA FAUSTINO']);
+  assert.deepStrictEqual(r.porUnidade.PP.map(v => v['Vendedor']), ['KALI DUTRA', 'KALI DUTRA']);
+
+  // É assim que a tela monta o que entrega ao motor
+  const planilhaPP = [PA.CABECALHO_SAIDA, ...PA.paraPlanilha(r.porUnidade.PP)];
+  const rows = CE.cleanRawData(planilhaPP);
+  assert.strictEqual(rows.length, 2, 'o motor recebe só as 2 do Príncipe');
+  assert.ok(rows.every(x => x['Vendedor'] === 'KALI DUTRA'));
+  ok('mesmo arquivo, uma unidade por vez: cada upload leva só as linhas da sua');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 29. O que ficou de fora também é por unidade
+// ════════════════════════════════════════════════════════════════════
+// Subindo o Campeche, a tela não pode listar os contratos migrados do Príncipe
+// — a pessoa conferindo CP ficaria procurando nomes que não são dela.
+{
+  const r = traduz([
+    linha({ ...IMP, ...{ inicio: '07/01/2026', termino: '06/01/2027' }, empresa: CP, nome: 'DO CAMPECHE' }),
+    linha({ ...IMP, ...{ inicio: '07/01/2026', termino: '06/01/2027' }, contrato: '9003', empresa: PP, nome: 'DO PRINCIPE' }),
+    linha({ ...ANUAL_LOCAL, contrato: '9004', empresa: PP, nome: 'OUTRO DO PRINCIPE',
+            inicio: '07/01/2026', termino: '06/01/2027', forma: 'PIX - RECEBIMENTO TECNOFIT' }),
+  ]);
+  assert.strictEqual(r.migrados.length, 2);
+  assert.deepStrictEqual(r.migrados.filter(m => m.unidade === 'CP').map(m => m.cliente), ['DO CAMPECHE']);
+  assert.deepStrictEqual(r.migrados.filter(m => m.unidade === 'PP').map(m => m.cliente), ['DO PRINCIPE']);
+  assert.strictEqual(r.descartadas[0].unidade, 'PP', 'descartada também sabe a unidade');
+  ok('migrados e descartadas carregam a unidade, pra tela filtrar');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
