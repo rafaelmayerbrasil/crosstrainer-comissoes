@@ -43,9 +43,21 @@ const PactoAdapter = {
   // muda a comissão em silêncio. O caso 10 do smoke existe pra guardar isso.
   MARCA_PRESUMIDO: '[PLANO PRESUMIDO]',
 
-  // Mesma pessoa com dois nomes nas duas plataformas. Sem unificar, o histórico
-  // racha em duas vendedoras e as metas e o P3 passam a contar cada metade.
-  APELIDOS: { 'KALI LÓPEZ': 'KALI DUTRA', 'KALI LOPEZ': 'KALI DUTRA' },
+  // Mesma pessoa com dois nomes nas duas plataformas. Sem unificar, a tela
+  // cadastra uma pessoa nova (ela cria sozinha todo nome que não reconhece) e o
+  // histórico racha em dois — o motor agrupa pelo TEXTO do vendedor.
+  //
+  // Conferido contra a base de PRODUÇÃO em 26/08 com
+  // `scripts/conferir-vendedoras-pacto.js --producao`. Rodar de novo sempre que
+  // aparecer nome novo no relatório.
+  //   • KALI LÓPEZ (Pacto)    = KALI DUTRA (cadastro, vendedora)
+  //   • RODRIGO ROJAIS (Pacto) = RODRIGO (cadastro; 140 linhas em 24 períodos)
+  //     ⚠️ RAFAEL ROJAIS é OUTRO sócio, com 269 linhas próprias — não misturar.
+  APELIDOS: {
+    'KALI LÓPEZ': 'KALI DUTRA',
+    'KALI LOPEZ': 'KALI DUTRA',
+    'RODRIGO ROJAIS': 'RODRIGO',
+  },
 
   // Rótulos de sistema que aparecem nas colunas de gente e não são vendedora.
   // `PACTO - MÉTODO DE GESTÃO` assina 221 das 386 linhas do Responsável#1 — é o

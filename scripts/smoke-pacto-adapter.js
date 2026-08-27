@@ -371,7 +371,9 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
 }
 {
   const v = soUma({ ...ANUAL_LOCAL, consultor: '', resp1: 'RODRIGO ROJAIS', resp2: 'ADMINISTRADOR' });
-  assert.strictEqual(v['Vendedor'], 'RODRIGO ROJAIS', 'ADMINISTRADOR não disputa com gente');
+  // 'RODRIGO' e não 'RODRIGO ROJAIS' porque o apelido já resolveu o nome —
+  // o que este caso guarda é que ADMINISTRADOR não disputou com a pessoa.
+  assert.strictEqual(v['Vendedor'], 'RODRIGO', 'ADMINISTRADOR não disputa com gente');
   ok('Responsável#2 = ADMINISTRADOR: vale o #1');
 }
 {
@@ -406,6 +408,21 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   const v = soUma({ ...ANUAL_LOCAL, consultor: 'KALI LÓPEZ' });
   assert.strictEqual(v['Vendedor'], 'KALI DUTRA');
   ok('KALI LÓPEZ → KALI DUTRA (senão o histórico dela racha em duas)');
+}
+{
+  // Conferido contra a base de PRODUÇÃO em 26/08: o sócio está cadastrado como
+  // `RODRIGO` (admin, 2 unidades) e tem 140 linhas em 24 períodos com esse nome.
+  // A Pacto manda `RODRIGO ROJAIS` — subir assim criaria uma pessoa nova e
+  // rachava o histórico. `RAFAEL ROJAIS` é OUTRO sócio, com 269 linhas próprias:
+  // o apelido não pode encostar nele.
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS' })['Vendedor'], 'RODRIGO');
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RAFAEL ROJAIS' })['Vendedor'], 'RAFAEL ROJAIS');
+
+  // e os dois continuam não-comissionáveis no motor (a lista casa por `includes`)
+  const naoCom = CE.defaultConfig.naoComissionaveis.map(x => x.toUpperCase());
+  ['RODRIGO', 'RAFAEL ROJAIS'].forEach(n =>
+    assert.ok(naoCom.some(x => n.includes(x)), n + ' tem que continuar sem comissão'));
+  ok('RODRIGO ROJAIS → RODRIGO, sem encostar no RAFAEL ROJAIS (sócios diferentes)');
 }
 
 // ════════════════════════════════════════════════════════════════════

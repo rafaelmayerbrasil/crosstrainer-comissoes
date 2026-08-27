@@ -142,6 +142,73 @@ Retrato do "antes" de produção: `backups/contador-antes-2026-08-26.txt`
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 58 (26/08/2026) — ✅ O UPLOAD VOLTOU A SER PELA TELA · HOMOLOGADO NO STAGING
+
+### ▶️▶️ RETOMAR AQUI
+
+**A rotina de sempre voltou:** arrastar o arquivo da Pacto na tela de Upload. Sem script, sem
+planilha intermediária. **Homologado pelo Rafael no staging**, com o arquivo real de agosto.
+
+| | linhas | processadas | ativações | comissão |
+|---|---:|---:|---:|---:|
+| CP | 109 | 102 | 53 | R$ 1.810,11 |
+| PP | 148 | 132 | 27 | R$ 722,89 |
+
+**Falta:** merge para `main` (é o que publica pros usuários) — só com o OK do Rafael.
+
+**⏸️ Questão de dinheiro aberta, e é de gestão, não de código:** o **P3 do Príncipe zerou**.
+27 ativações (mín. 50) · 14 novos+retorno (mín. 18, **zera** o P3) · 9 renovações (mín. 25).
+Em julho PP tinha 47. A queda **não é performance**: a base migrada está no meio do contrato e
+não gera renovação nenhuma agora — só volta a contar quando o contrato vencer. É efeito de
+transição da troca de plataforma e deve se corrigir sozinho. Do jeito que está, a Kali e a
+Bárbara pagam a conta da migração. Dá pra ajustar pela própria tela ("Configurar Metas do Mês").
+
+### 🧰 O que mudou (3 pontos no `index.html`, nada no `commission.js`)
+
+1. carrega o `pacto-adapter.js` depois do motor;
+2. `handleFile` reconhece o arquivo da Pacto, traduz, filtra pela unidade aberta e entrega ao
+   motor no formato de sempre — arquivo do formato antigo não passa por nada disso;
+3. a pré-visualização ganhou o **resumo do que ficou de fora**, por unidade.
+
+O item 3 não é enfeite: no CP são **53 migrados (R$ 13.471,97)** e **111 recebimentos antigos
+(R$ 28.769,62)**. Sem mostrar, o sistema engoliria isso em silêncio.
+
+A tela também **barra o "Faturamento por Período"** antes de calcular qualquer coisa, e o texto
+da tela parou de mandar subir "o Excel do TecnoFit".
+
+### 🐛 Dois bugs meus, os dois pegos pelo Rafael no navegador
+
+Ambos a mesma raiz: **o id da unidade no sistema não é a sigla do arquivo**. No staging é
+`unit-cp`; o arquivo traz `(CP)`.
+
+1. **Nenhuma linha era encontrada** — "o arquivo não tem linhas da unidade UNIT-CP, só de CP
+   (109), PP (148)". Corrigido com `PactoAdapter.siglaDaUnidade()`, que compara só as letras e
+   pela ponta (cobre `cp`, `CP`, `unit-cp`, `unit_cp` sem regra por ambiente).
+2. **O resumo aparecia vazio** — eu corrigi o caminho dos dados e esqueci o da TELA, que
+   continuava filtrando por `UNIT-CP`. **R$ 42 mil de descarte sumindo em silêncio**, que é
+   exatamente o que aquele bloco existe para impedir. O smoke agora exige que a chamada use a
+   tradução, senão um `.toUpperCase()` volta sem ninguém ver.
+
+> **Lição:** teste estrutural que confere "a função é chamada" não basta — tem que conferir
+> **com o quê** ela é chamada.
+
+### ✅ O corte foi validado contra o relatório de vendas
+
+Como o P3 do PP zerou, cruzei os contratos descartados contra o "Faturamento por Período"
+(01→25/08), que lista o que foi **vendido**: **CP 116 e PP 95 não aparecem lá**, e os que
+aparecem são quitação de cancelamento ou ajuste de R$ 0,00. **Nenhum é venda de agosto** — as
+27 ativações do Príncipe são reais.
+
+### 🧪 Validação
+
+`scripts/smoke-upload-pacto-tela.js` **novo, 11 casos** — 6 guardam a LIGAÇÃO na tela (o buraco
+que deixou a "Prévia" da escala nunca rodar em produção) e 5 refazem o caminho do `handleFile`.
+`smoke-pacto-adapter` foi a **40**. Suíte do projeto verde. Homologado no navegador pelo Rafael.
+
+Commits na branch `comissoes-tradutor-pacto`: `6fc06fe` `25875a5` `6c6a4c4` `bbddfff` `2737c70`.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 56 (25/08/2026) — ✅ TRADUTOR DA PACTO CONSTRUÍDO · 1 PERGUNTA DE R$ 2.360 PRO RODRIGO
 
 ### ▶️▶️ RETOMAR AQUI
