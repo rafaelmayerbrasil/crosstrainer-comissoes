@@ -4359,7 +4359,7 @@
           prev.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
           <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${file.name}</h3>
-          ${pacto ? pactoResumoHtml(pacto, String(currentUnitId||"").toUpperCase()) : ""}
+          ${pacto ? pactoResumoHtml(pacto, PactoAdapter.siglaDaUnidade(currentUnitId, Object.keys(pacto.porUnidade).filter(k => k))) : ""}
           <div class="stats-row" id="uploadStatsRow">
             <div class="stat"><div class="s-label">Registros</div><div class="s-value">${rawRows.length}</div></div>
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>

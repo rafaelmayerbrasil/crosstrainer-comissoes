@@ -53,6 +53,11 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
 {
   assert.ok(html.includes('function pactoResumoHtml('), 'resumo do que ficou de fora existe');
   assert.ok(html.includes('pactoResumoHtml(pacto,'), 'e é chamado na pré-visualização');
+  // ⚠️ Tem que receber a SIGLA, não o id cru da unidade. Passando `UNIT-CP` o
+  // filtro por unidade nunca casa e o bloco aparece vazio — foi o que aconteceu
+  // no 1º teste do Rafael: R$ 79 mil de descarte sumiram da tela em silêncio.
+  assert.ok(/pactoResumoHtml\(pacto,\s*PactoAdapter\.siglaDaUnidade\(/.test(html),
+    'o resumo recebe a sigla traduzida, não o currentUnitId cru');
   assert.ok(html.includes('pacto.migrados') || html.includes('pacto.descartadas'),
     'o resumo mostra o que foi descartado');
   ok('a pré-visualização mostra o que o tradutor deixou de fora');
@@ -107,8 +112,8 @@ const arquivo = [
 /** Refaz o que o handleFile faz, para uma unidade. */
 function subir(json, currentUnitId) {
   if (!PA.ehExportPacto(json)) return { pacto: null, rows: CE.cleanRawData(json) };
-  const sigla = String(currentUnitId || '').toUpperCase();
   const pacto = PA.traduzir(json, {});
+  const sigla = PA.siglaDaUnidade(currentUnitId, Object.keys(pacto.porUnidade).filter(k => k));
   if (pacto.relatorio !== 'recebido') return { bloqueado: true, pacto };
   const vendas = pacto.porUnidade[sigla] || [];
   if (!vendas.length) return { semLinhas: true, pacto };
@@ -123,6 +128,14 @@ function subir(json, currentUnitId) {
   assert.strictEqual(pp.rows.length, 1, 'Príncipe recebe 1 (o migrado fica fora)');
   assert.strictEqual(pp.rows[0]['Cliente'], 'DO PRINCIPE');
   ok('mesmo arquivo, duas subidas: cada unidade recebe só o que é dela');
+}
+{
+  // No staging as unidades são `unit-cp`/`unit-pp`; em produção `cp`/`pp`.
+  // Os dois caminhos têm que dar o mesmo resultado.
+  const a = subir(arquivo, 'unit-cp'), b = subir(arquivo, 'cp');
+  assert.strictEqual(a.rows.length, 1);
+  assert.deepStrictEqual(a.rows, b.rows, 'unit-cp e cp levam às mesmas linhas');
+  ok('id de unidade do staging (unit-cp) e de produção (cp) dão o mesmo');
 }
 {
   const cp = subir(arquivo, 'cp');
