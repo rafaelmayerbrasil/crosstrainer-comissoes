@@ -129,6 +129,16 @@
   </div>
   <div class="tip">💡 Cadastrou o professor mas o login falhou ou foi pulado? Sem problema: a ficha mostra o aviso "sem acesso" com o botão <strong>Criar acesso</strong> — nada se perde.</div>
 
+  <div class="card">
+    <h3>🚪 Desligar e religar alguém</h3>
+    <p>Quando uma pessoa sai, use <strong>Desligar</strong> na ficha dela. Isso <strong>corta o acesso na hora</strong> e tira ela das listas de escala, substituição e avisos — mas <strong>preserva todo o histórico</strong>: aulas dadas, pagamentos, férias.</p>
+    <div class="tip">💡 <strong>Nunca apague uma pessoa que já trabalhou.</strong> Apagar quebra o histórico e os fechamentos antigos. Desligar é o caminho certo — e o botão <strong>Religar</strong> traz de volta se ela voltar.</div>
+  </div>
+  <div class="card">
+    <h3>💸 "Não recebe por aula"</h3>
+    <p>É a marca pro sócio ou parceiro que <strong>dá aula mas não é pago por ela</strong>. A pessoa entra na escala, aparece na agenda e conta pro rodízio normalmente — só <strong>não gera pagamento</strong> no fechamento.</p>
+  </div>
+
   <h2 id="perfis">🛡️ 3. Perfis e permissões</h2>
   <div class="card">
     <table>
@@ -145,10 +155,13 @@
   <div class="card">
     <h3>Como a agenda funciona</h3>
     <ol>
-      <li>Você monta a <strong>grade semanal</strong> (Agenda): horários fixos por unidade, modalidade e professor.</li>
-      <li>O sistema <strong>gera as aulas automaticamente</strong> toda semana a partir da grade (inclusive detectando feriados nacionais sozinho).</li>
+      <li>Você monta a <strong>Grade de Horários</strong>: os horários fixos de cada semana, por unidade, modalidade e professor. É o molde.</li>
+      <li>O sistema <strong>gera as aulas de verdade</strong> a partir desse molde, com <strong>8 semanas</strong> de antecedência, e detecta feriado nacional sozinho.</li>
       <li>Na <strong>Agenda Geral</strong> você acompanha tudo: previstas, realizadas, substituídas e canceladas, por unidade.</li>
     </ol>
+    <div class="tip">💡 <strong>Não precisa esperar a virada da semana.</strong> O botão <strong>"Gerar agenda agora"</strong>, na Grade de Horários, cria as aulas na hora. Use sempre que montar ou mexer na grade — assim você confere o resultado no mesmo dia.</div>
+    <div class="warn">⚠️ <strong>Mudou a grade? O sistema pergunta antes de mexer nas aulas já geradas.</strong> Ele só altera as que ninguém encostou — aula já realizada, substituída ou cancelada fica como está.<br><br>
+    <strong>Uma exceção importante:</strong> se você mudar o <strong>dia da semana</strong> de um horário, o sistema move as aulas já criadas, mas <strong>pergunta antes</strong>. Confira a agenda depois dessa troca — é a mudança que mais bagunça.</div>
   </div>
   <div class="card">
     <h3>🎯 Peso das escalas especiais</h3>
@@ -232,6 +245,71 @@
     <p>Na <strong>Escola Interna</strong> você aponta o líder de cada dia direto na agenda. E a antiga "Chamada" virou <strong>Confirmar Presença</strong>: onde se registra quem realmente esteve — o líder planejado na escala já entra pré-marcado.</p>
     <p>Dá pra criar <strong>a semana inteira de uma vez</strong> (a escala é montada na semana anterior) e a sessão nasce em <strong>uma unidade por dia</strong> — padrão PP, com opção de CP. Antes nascia nas duas, e por isso a CP vivia sem líder.</p>
     <div class="warn">⚠️ Escola Interna <strong>não é remunerada</strong>: aparece na agenda de quem conduz, mas fica <strong>fora da conta de horas</strong> do fechamento. O reconhecimento dela é por <strong>pontos</strong> no Placar (participar 1 · conduzir 2).</div>
+  </div>
+
+  <div class="card">
+    <h3>👀 Prévia: montar sem publicar</h3>
+    <p>Antes de valer pra alguém, você pode <strong>montar a escala e olhar</strong>. O sistema mostra quem entrou em cada vaga <strong>e o porquê</strong> de cada escolha, além de quem ficou de fora e vai ter prioridade na próxima.</p>
+    <div class="warn">⚠️ <strong>Enquanto você não publica, o professor não vê nada.</strong> Nem na agenda dele, nem na tela de escala. Pode montar, desmontar e refazer à vontade — ninguém é avisado antes da hora.</div>
+  </div>
+
+  <div class="card">
+    <h3>📅 Publicar: um clique resolve a janela inteira</h3>
+    <p>Quando estiver bom, use o botão <strong>"✅ Publicar na agenda e avisar"</strong>, o que fica no nível da <strong>janela</strong>. Ele percorre <strong>todos os sábados do lote</strong>, cria as aulas de cada um e avisa o time.</p>
+    <ul>
+      <li>O botão <strong>"📅 Publicar na agenda"</strong> que aparece <strong>dentro de um sábado</strong> publica <strong>só aquele</strong>.</li>
+      <li>Pode clicar de novo sem medo: <strong>não duplica aula</strong> e não mexe em mês já fechado.</li>
+    </ul>
+    <div class="warn">⚠️ <strong>Mexeu na escala depois de publicar? Publique de novo.</strong> Refazer, trocar pessoa ou inverter muda a <strong>escala</strong>; a <strong>agenda</strong> só acompanha quando você publica outra vez.</div>
+  </div>
+
+  <div class="card">
+    <h3>🔄 Refazer, Reconsolidar e Despublicar</h3>
+    <ul>
+      <li><strong>Refazer</strong> — joga fora a distribuição atual e monta de novo, do zero, com os contadores mais recentes. É o que usar quando a divisão ficou desequilibrada.</li>
+      <li><strong>Reconsolidar</strong> — recalcula <strong>um sábado</strong> e republica a agenda dele.</li>
+      <li><strong>Despublicar</strong> — tira as aulas daquele sábado da agenda. A escala continua montada; só some da agenda de todo mundo.</li>
+    </ul>
+    <div class="warn">⚠️ <strong>Só reconsolide sábado que ainda não aconteceu.</strong> Republicar recria as aulas do dia, e aula que já estava <strong>realizada</strong> volta pra <strong>prevista</strong> — dando trabalho de acertar na mão depois.</div>
+  </div>
+
+  <div class="card">
+    <h3>⇄ Inverter duas pessoas</h3>
+    <p>Quando você quer só <strong>trocar duas pessoas de lugar</strong>, o botão <strong>⇄ Inverter</strong> faz isso num clique — inclusive entre <strong>TOI e Hiit</strong> no mesmo dia, e <strong>entre unidades</strong>.</p>
+    <div class="tip">💡 Sem ele, o sistema barrava a troca: ele não deixa a mesma pessoa ocupar duas vagas no mesmo dia, então trocar na mão exigia tirar uma, salvar, e só então pôr a outra.</div>
+  </div>
+
+  <div class="card">
+    <h3>⚖️ Como o sistema decide quem entra</h3>
+    <p>A ordem é <strong>rodízio primeiro, mérito só pra desempatar</strong>. Quem pegou menos sábados vem antes; entre duas pessoas empatadas, entra quem tem mais pontos.</p>
+    <ul>
+      <li><strong>A conta é dos últimos 12 meses</strong>, não do ano do calendário — senão todo 1º de janeiro o rodízio zeraria e quem já tinha pegado muito voltaria pro começo da fila.</li>
+      <li><strong>Ninguém pega dois sábados seguidos</strong>, salvo se não houver outra pessoa disponível. O sistema prefere repetir alguém a deixar vaga aberta.</li>
+      <li><strong>Feriado dá descanso nos sábados vizinhos</strong>, dos dois lados — quem trabalha no feriado não emenda com o sábado antes nem com o de depois.</li>
+      <li>Na aba <strong>Feriados</strong>, a conta é <strong>só de feriados</strong>. Sábado conta com sábado, feriado com feriado.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>📊 Equilíbrio da janela — e o botão "+ dias fora"</h3>
+    <p>Acima da escala você vê como está a divisão, <strong>com os nomes</strong>: quem ainda não pegou nenhum, quem está na média e quem está acima. Serve pra bater o olho antes de publicar.</p>
+    <p>Ao lado de cada pessoa há o botão <strong>"+ dias fora"</strong>. Ele serve pra <strong>uma coisa só</strong>: registrar dias que a pessoa trabalhou e que o <strong>sistema não viu</strong> — agosto, por exemplo, que rodou pela grade antiga.</p>
+    <div class="warn">⚠️ <strong>Esse botão NÃO muda a escala.</strong> Ninguém entra nem sai de sábado nenhum por causa dele, e o número que você digita <strong>soma</strong> ao total da pessoa no ano. Se você digitar 3 em quem tem 4, ela fica com <strong>7</strong>, não com 3.<br><br>
+    <strong>Pra tirar alguém de um sábado</strong>, abra o sábado e troque a pessoa na vaga, ou clique em <strong>Refazer</strong> pra o sistema redistribuir a janela inteira.</div>
+    <div class="tip">💡 Se aparecer alguém "abaixo do mínimo" que nunca é escalado, confira as modalidades dela: quem <strong>não dá TOI nem Hiit</strong> fica fora do rodízio de sábado por definição, e o sistema mostra esses nomes no rodapé do painel.</div>
+  </div>
+
+  <div class="card">
+    <h3>🙋 Quantos dias cada um quer</h3>
+    <p>Ao responder a janela, o professor também diz <strong>quantos dias quer pegar</strong>. O sistema respeita isso como <strong>teto macio</strong>: tenta não passar do que a pessoa pediu, mas <strong>nunca deixa vaga aberta</strong> por causa da cota.</p>
+  </div>
+
+  <div class="card">
+    <h3>💰 O que a escala faz com o pagamento</h3>
+    <ul>
+      <li><strong>Sábado que cai em feriado paga em dobro</strong> — o peso de sábado e o de feriado se somam.</li>
+      <li>Pessoa marcada como <strong>"não recebe por aula"</strong> (o caso do sócio que dá aula) entra na escala normalmente, aparece na agenda, e <strong>não gera pagamento</strong>.</li>
+    </ul>
   </div>
 
   <h2 id="ferias">🏖️ 6. Férias, recesso e saldos</h2>
