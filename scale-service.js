@@ -185,6 +185,9 @@
         : s);
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `deps.nomePorId` (não `ctx` — esta função não recebe um) é quem a tela
+      // manda pra virar id em nome no `detalhe`. Faltando, cai no id cru sem
+      // erro nenhum — pegadinha silenciosa pra quem for ligar a tela.
       await registrarHistorico(scaleId, {
         acao: 'vaga_trocada',
         detalhe: diffEscalados([slot], slots.filter(s => s.id === slotId), (deps && deps.nomePorId) || {}),
@@ -233,9 +236,15 @@
 
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: novos, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // Reaproveita `diffEscalados` em vez de montar "A ⇄ B" na mão: a versão
+      // manual perdia a modalidade de cada vaga e, quando só UMA das duas
+      // vagas tinha gente (o guard-clause acima só barra as DUAS vazias),
+      // produzia um "— ⇄ Nome" sem explicação nenhuma.
+      // `deps.nomePorId` (mesma regra de `reassignSlot`: sem `ctx` aqui) —
+      // faltando, o histórico cai no id cru, sem quebrar nada.
       await registrarHistorico(scaleId, {
         acao: 'invertida',
-        detalhe: `${(deps && deps.nomePorId || {})[a.assignedPersonId] || a.assignedPersonId || '—'} ⇄ ${(deps && deps.nomePorId || {})[b.assignedPersonId] || b.assignedPersonId || '—'}`,
+        detalhe: diffEscalados([a, b], novos.filter(s => s.id === slotAId || s.id === slotBId), (deps && deps.nomePorId) || {}),
       }, deps);
 
       return { success: true, data: { published: !!scale.published, from: a.assignedPersonId || null, to: b.assignedPersonId || null } };
@@ -372,7 +381,7 @@
       await rdb(deps).collection('special_scales').doc(id).set(patch, { merge: true });
       await registrarHistorico(id, {
         acao: 'janela_aberta',
-        detalhe: (opts && opts.closesAt) ? `janela até ${opts.closesAt}` : 'janela aberta',
+        detalhe: (opts && opts.closesAt) ? `janela até ${opts.closesAt}` : 'sem prazo definido',
       }, deps);
       return { success: true };
     } catch (err) { console.error('[ScaleService.openElection]', err); return { success: false, error: err.message }; }
@@ -809,7 +818,7 @@
    * puro (`scale-engine.js`) e grava as vagas escolhidas.
    *
    * @param {string} scaleId id do documento em `special_scales`
-   * @param {Object} ctx contrato de entrada. Nove chaves — duas delas, se
+   * @param {Object} ctx contrato de entrada. Onze chaves — duas delas, se
    *   faltarem, DEGRADAM o rodízio pra "decide só por mérito" SEM ERRO
    *   NENHUM (`teachers`, `scalesDoAno`):
    *   - {Array} teachers — candidatos (elegibilidade por modalidade é feita
@@ -847,6 +856,13 @@
    *   - {string|null} marcoZero — data a partir da qual a contagem vale
    *     (`YYYY-MM-DD`). Se a chave NÃO vier, a função lê de `scale_config`;
    *     passar `null` explicitamente desliga o marco.
+   *   - {string} [acaoHistorico] — rótulo da ação gravada no histórico da
+   *     escala (Task 9). Sem ela, vale 'consolidada'; a tela manda 'refeita'
+   *     quando o chamador é o botão 🔄 Refazer, pra não se confundir com uma
+   *     montagem qualquer no histórico.
+   *   - {Object<string,string>} [nomePorId] — nome de exibição por id, usado
+   *     só para compor o `detalhe` do histórico (quem entrou/saiu). Sem ela,
+   *     o histórico mostra o id cru — feio, mas nunca quebra.
    * @param {Object} deps
    * @returns {Promise<{success:boolean, data?:{assignments:Array}, error?:string}>}
    */
@@ -1072,9 +1088,15 @@
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `diffEscalados` (mesma usada em `consolidate`) responde "quem mexeu, e
+      // o quê" — a pergunta que a Task 9 existe pra responder — em vez de só
+      // "quantas vagas mexeram". Sem isso a mesma ação 'consolidada' falava
+      // duas línguas dependendo de qual das duas funções gravou.
+      // `ctx.nomePorId` (esta função recebe `ctx`, diferente de reassignSlot/
+      // swapSlots) — sem ela, o histórico cai no id cru, sem quebrar nada.
       await registrarHistorico(scaleId, {
         acao: 'consolidada',
-        detalhe: `${slots.length} vaga(s) em ${days.length} dia(s)`,
+        detalhe: diffEscalados(slots, newSlots, ctx.nomePorId || {}),
       }, deps);
       const escalados = new Set(Object.values(bySlot).filter(Boolean));
       const naoEscalados = teachers.filter(t => !escalados.has(t.id)).map(t => t.id);
@@ -1170,7 +1192,7 @@
       if (res.blocked) return { success: false, error: 'Há aulas em mês fechado; não é possível despublicar.' };
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: false, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      await registrarHistorico(scaleId, { acao: 'despublicada', detalhe: `${res.removed} aula(s) removidas da agenda` }, deps);
+      await registrarHistorico(scaleId, { acao: 'despublicada', detalhe: `${res.removed} aula(s) removida(s) da agenda` }, deps);
       return { success: true, data: { removed: res.removed } };
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }

@@ -96,7 +96,39 @@ const SE = require('../scale-engine.js');
   assert.ok(h.every(x => typeof x.ts === 'string' && x.ts.length >= 20), 'toda entrada tem carimbo ISO');
   assert.ok(h.every(x => x.uid === 'tester'), 'toda entrada diz quem fez');
   assert.ok(/bru|entrou/.test(h[3].detalhe), 'a troca de vaga diz o que mudou');
+  // A frase mais informativa das sete (quem ENTROU, não só quantas vagas
+  // mexeram) tem que aparecer na consolidação normal, não só na troca manual.
+  assert.ok(/entrou/.test(h[1].detalhe), 'a consolidação diz quem entrou, via diffEscalados');
   passou('as ações do serviço deixam rastro no documento da escala');
 
-  console.log(`\n${ok}/3 blocos OK`);
+  // ── swapSlots deixa rastro real (execução, não só leitura do texto) ──
+  // Precisa de DUAS vagas já preenchidas na MESMA escala — a escala principal
+  // acima só tem uma. Escala à parte, com as duas vagas já atribuídas na
+  // criação (não depende de consolidate pra isso).
+  const slots2 = [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'ana', startTime: '08:00', endTime: '12:00' },
+    { id: 'cp_HIIT', unitId: 'cp', requiredModalityId: 'HIIT', requiredModalityName: 'Hiit', assignedPersonId: 'bru', startTime: '08:00', endTime: '12:00' },
+  ];
+  const id2 = (await SS.createScale({ date: '2026-09-12', tipo: 'sabado', slots: slots2 }, d)).data.id;
+  await SS.swapSlots(id2, 'cp_TOI', 'cp_HIIT', d);
+  const h2 = (await SS.getScale(id2, d)).data.historico || [];
+  assert.strictEqual(h2.length, 1, 'swapSlots grava a entrada dele');
+  assert.strictEqual(h2[0].acao, 'invertida', 'swapSlots grava "invertida"');
+  assert.ok(/entrou|saiu/.test(h2[0].detalhe), 'swapSlots diz quem trocou, via diffEscalados (não "A ⇄ B" na mão)');
+  passou('swapSlots deixa rastro real no histórico');
+
+  // ── consolidateByDay deixa rastro real (execução, não só leitura do texto) ──
+  // Mesmo formato de fixture que smoke-scale-service.js usa pro fim de ano:
+  // templateSlotsFimDeAno + tipo 'fim_de_ano'.
+  const feSlots = SS.templateSlotsFimDeAno({ start: '2026-12-24', end: '2026-12-24', closedDays: [] }, [{ id: 'cp' }]);
+  const id3 = (await SS.createScale({ date: '2026-12-24', tipo: 'fim_de_ano', name: 'Fim de ano teste', slots: feSlots }, d)).data.id;
+  const feCtx = { teachers: [{ id: 'p1', modalityIds: [] }, { id: 'p2', modalityIds: [] }] };
+  await SS.consolidateByDay(id3, feCtx, d);
+  const h3 = (await SS.getScale(id3, d)).data.historico || [];
+  assert.strictEqual(h3.length, 1, 'consolidateByDay grava a entrada dele');
+  assert.strictEqual(h3[0].acao, 'consolidada', 'consolidateByDay grava "consolidada"');
+  assert.ok(/entrou/.test(h3[0].detalhe), 'consolidateByDay diz quem entrou, não só quantos');
+  passou('consolidateByDay deixa rastro real no histórico, com quem entrou');
+
+  console.log(`\n${ok}/5 blocos OK`);
 })().catch(e => { console.error('❌', e.message); process.exit(1); });
