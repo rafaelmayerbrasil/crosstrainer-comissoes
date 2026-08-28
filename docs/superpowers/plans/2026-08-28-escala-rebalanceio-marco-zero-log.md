@@ -36,7 +36,16 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 2 · marco zero no motor | ✅ fechada — `55acad7` + `c3a359b` (blindagem) |
 | 3+4 · marco zero na tela + config | ✅ fechada — `67f973a` + `566da32` + `d521077` (rede de teste) |
 | 5 · ajuste manual sai do motor | ✅ fechada — `b2cc98d` |
-| 6 a 25 | ⬜ não começadas |
+| 6 · ajuste manual sai da tela | ✅ fechada — `b96091d` |
+| 7 a 25 | ⬜ não começadas |
+
+### ✋ Não "limpe" o `<span>` do painel de Equilíbrio
+
+A revisão de qualidade da Task 6 apontou (Minor) que o `<span>` da direita em
+`renderEquilibrioPainel` ficou com `display:flex;align-items:center;gap:6px` envolvendo um único
+nó de texto, agora que o botão saiu — e sugeriu simplificar. **Não simplifique:** a **Task 18**
+devolve um botão a esse mesmo `<span>`, já como **Ajustar** do rebalanceio. O flex e o gap estão
+esperando por ele.
 
 ### 🔗 Tasks 5 e 6 são um PAR — não separe
 
@@ -863,7 +872,19 @@ git add scripts/zerar-ajustes-partida.js
 git commit -m "chore(escala): script para zerar os ajustes de partida, com backup"
 ```
 
-⚠️ **Produção fica para a Task 24**, depois da homologação (regra inviolável 7).
+⚠️ **Produção fica para a Task 25** (o rótulo "Task 24" acima era um erro de digitação já
+existente no plano), depois da homologação (regra inviolável 7).
+
+> 🚨 **Emenda (sessão 61, execução da Task 7).** O script foi implementado com **`--executar`**,
+> não `--aplicar` como no texto acima — os três scripts de migração vizinhos
+> (`apagar-aulas-julho.js`, `limpar-grade-em-dia-de-escala.js`, `refazer-escalas-com-rodizio.js`)
+> usam todos `--executar` com o mesmo par de comentários `Ensaio:`/`Pra valer:`, e é essa a
+> convenção real do projeto para "ensaio por padrão, só grava com a flag". O caminho do
+> `serviceAccount` também seguiu o padrão dos vizinhos: `path.join(__dirname, ...)`, não
+> `require('./...')`. E `zeradoEm` grava `admin.firestore.FieldValue.serverTimestamp()` (como
+> `updatedAt` nos vizinhos), não `new Date().toISOString()` — é um campo simples, não dentro de
+> array, então `serverTimestamp()` funciona normalmente. **A Task 25 (Passo 3, linhas com
+> `zerar-ajustes-partida.js --project production`) precisa usar `--executar`, não `--aplicar`.**
 
 ---
 
@@ -2745,6 +2766,22 @@ existentes (texto de gente, sem jargão):
 
 E **remover** do manual qualquer menção ao "+ dias fora", que deixou de existir.
 
+> 🚨 **Emenda (sessão 60, achado da revisão da Task 6).** Depois da Task 6 o manual ficou
+> **órfão na hora**: `manual-admin.html` (~linhas 294-297) ainda tem a seção
+> *"📊 Equilíbrio da janela — e o botão '+ dias fora'"* ensinando um botão que não existe mais na
+> tela. E `scripts/smoke-manual-atualizado.js` **passou 8/8 mesmo assim** — ele só verifica
+> **presença** de assunto, nunca **ausência** de recurso morto. É a memória
+> [[manual-envelhece-em-silencio]] acontecendo de novo, agora ao contrário.
+>
+> Por isso, acrescente à trava do Passo 1 também as asserções de **ausência**:
+>
+> ```js
+> assert.ok(!/\+ dias fora/.test(manualAdmin), 'o manual não ensina mais o botão que foi apagado');
+> assert.ok(!/Lançado na mão/.test(manualAdmin), 'a coluna que saiu da tela saiu do manual');
+> ```
+>
+> Ausência é o único fato que ler texto prova bem — e é justamente o que faltava aqui.
+
 - [ ] **Passo 4: rodar e ver passar**
 
 ```bash
@@ -2841,7 +2878,7 @@ node scripts/zerar-ajustes-partida.js --project production
 Conferir o relatório (deve aparecer o `+3` da Heloísa). Só então:
 
 ```bash
-node scripts/zerar-ajustes-partida.js --project production --aplicar
+node scripts/zerar-ajustes-partida.js --project production --executar
 ```
 
 - [ ] **Passo 4: limpar 02/11 e 20/11**
