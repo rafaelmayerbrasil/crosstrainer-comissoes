@@ -24,4 +24,53 @@ const passou = (m) => { console.log('✓ ' + m); ok++; };
   passou('dataDeCorte escolhe sempre o corte mais recente dos dois');
 }
 
-console.log(`\n${ok}/1 blocos OK`);
+const makeFakeDb = require('./_fake-firestore.js');
+const SE = require('../scale-engine.js');
+
+// ── o motor respeita o marco zero ──
+(async () => {
+  const db = makeFakeDb();
+  const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+
+  const vaga = (id) => ({ id, unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null, startTime: '08:00', endTime: '12:00' });
+  const nova = async (date) => (await SS.createScale({ date, tipo: 'sabado', slots: [vaga('v1')] }, d)).data.id;
+
+  // Histórico ANTES do marco: a ana pegou 3 sábados de agosto.
+  const antigas = ['2026-08-01', '2026-08-08', '2026-08-15'].map(date => ({
+    id: `old_${date}`, date, tipo: 'sabado',
+    slots: [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana' }],
+  }));
+
+  const teachers = [
+    { id: 'ana', modalityIds: ['TOI'] },
+    { id: 'bru', modalityIds: ['TOI'] },
+  ];
+  const ctxBase = { teachers, meritoById: { ana: 100, bru: 0 }, scalesDoAno: antigas, opts: { minMes: 1 } };
+
+  // SEM marco zero: os 3 sábados de agosto contam, a ana está atrás no rodízio.
+  const semMarco = await nova('2026-09-05');
+  await SS.consolidate(semMarco, Object.assign({}, ctxBase, { marcoZero: null }), d);
+  const r1 = await SS.getScale(semMarco, d);
+  assert.strictEqual(r1.data.slots[0].assignedPersonId, 'bru',
+    'sem marco zero, agosto conta e a ana cede a vez');
+  passou('sem marco zero, o histórico anterior pesa no rodízio');
+
+  // COM marco zero em 01/09: agosto some da conta, empatam em 0, decide o mérito.
+  const comMarco = await nova('2026-09-12');
+  await SS.consolidate(comMarco, Object.assign({}, ctxBase, { marcoZero: '2026-09-01' }), d);
+  const r2 = await SS.getScale(comMarco, d);
+  assert.strictEqual(r2.data.slots[0].assignedPersonId, 'ana',
+    'com marco zero, agosto não conta: empatam em 0 e o mérito desempata');
+  passou('marco zero apaga o histórico anterior para o motor');
+
+  // Sem ctx.marcoZero, lê da config — e a config manda.
+  await SS.ScaleConfigService.save({ marcoZero: '2026-09-01' }, d);
+  const daConfig = await nova('2026-09-19');
+  await SS.consolidate(daConfig, ctxBase, d);
+  const r3 = await SS.getScale(daConfig, d);
+  assert.strictEqual(r3.data.slots[0].assignedPersonId, 'ana',
+    'quem não passa ctx.marcoZero recebe o valor da config, não zero');
+  passou('consolidate lê o marco zero da config quando o ctx não manda');
+
+  console.log(`\n${ok}/4 blocos OK`);
+})();

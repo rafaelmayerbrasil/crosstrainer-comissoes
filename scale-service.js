@@ -807,6 +807,9 @@
    *     (ver `saveAjustePartida`/`listAjustes`); soma direto na contagem.
    *     Lido de forma blindada aqui dentro — um chamador que não passe por
    *     `listAjustes` pode mandar negativo ou string.
+   *   - {string|null} marcoZero — data a partir da qual a contagem vale
+   *     (`YYYY-MM-DD`). Se a chave NÃO vier, a função lê de `scale_config`;
+   *     passar `null` explicitamente desliga o marco.
    * @param {Object} deps
    * @returns {Promise<{success:boolean, data?:{assignments:Array}, error?:string}>}
    */
@@ -842,7 +845,16 @@
       // ano. Também resolve o lote que atravessa o ano: com ano civil, cada
       // data do lote contava num universo diferente.
       const ate = scale.date;
-      const de = dozeMesesAntes(scale.date);
+      // Marco zero: o ctx manda (é como os testes injetam), senão vale a config.
+      // Ler AQUI DENTRO e não confiar no chamador é de propósito: chamador que
+      // esquecesse de passar faria o rodízio decidir num universo diferente sem
+      // erro nenhum — a falha silenciosa clássica desta base.
+      let marcoZero = ctx.marcoZero;
+      if (marcoZero === undefined) {
+        const cfg = await ScaleConfigService.get(deps);
+        marcoZero = (cfg.success && cfg.data && cfg.data.marcoZero) || null;
+      }
+      const de = dataDeCorte(scale.date, marcoZero);
       // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
       // rodada e ainda carregam a escala ANTIGA — contá-las empurraria as
       // pessoas erradas. A própria data sempre sai, pelo mesmo motivo. (A
