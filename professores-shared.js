@@ -288,7 +288,7 @@ const AuditService = {
    * @param {Object} [params.before]     - estado anterior (serializável)
    * @param {Object} [params.after]      - estado novo
    */
-  async log({ type, details, entityType, entityId, before, after, module }) {
+  async log({ type, details, entityType, entityId, before, after, module, unitId }) {
     if (!currentUserId()) {
       console.warn('[AuditService.log] Sem usuário autenticado, log abortado');
       return { success: false, error: 'unauthenticated' };
@@ -308,7 +308,11 @@ const AuditService = {
         userId: currentUserId(),
         userName: currentUserName(),
         role: currentUserRoles(),
-        unitId: null,
+        // Vinha SEMPRE null, e a tela de Auditoria filtra por unidade: o que era
+        // gravado não aparecia para ninguém (achado em 28/08/2026). Continua
+        // aceitando ausência — quem não sabe a unidade manda nada e o
+        // comportamento é o de antes.
+        unitId: unitId || null,
         timestamp: serverTs(),
       });
       return { success: true, data: { id: docRef.id } };
