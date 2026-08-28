@@ -449,6 +449,22 @@ function escalaHorario(scale) {
   return `${inicios[0]}–${fins[fins.length - 1]}`;
 }
 
+/**
+ * "✅ Publicar as 8 datas de sábado na agenda e avisar".
+ *
+ * O botão dizia só "Publicar na agenda e avisar" e o Rodrigo não achou
+ * (28/08/2026). Dizer o número e o tipo é o que faz ele ser reconhecido como
+ * "o botão que falta apertar".
+ */
+function escalaRotuloPublicar(scales) {
+  const n = (scales || []).length;
+  const tipo = (scales && scales[0] && scales[0].tipo) || 'sabado';
+  const rot = { sabado: 'sábado', feriado: 'feriado', domingo_especial: 'domingo especial', fim_de_ano: 'fim de ano' }[tipo] || 'escala';
+  return n === 1
+    ? `✅ Publicar 1 data de ${rot} na agenda e avisar`
+    : `✅ Publicar as ${n} datas de ${rot} na agenda e avisar`;
+}
+
 /* ─── GESTÃO ───────────────────────────────────────────────────────── */
 function escalaCardDoc(s) {
   const sel = s.id === EscalaSmartState.selectedId;
@@ -594,13 +610,21 @@ async function renderEscalaGestao() {
         .filter(b => !scales.some(s => s.windowBatchId === b && s.status === 'janela_aberta'))
     : [];
   const refazerBar = lotesMontados.map(b => {
-    const datas = scales.filter(s => s.windowBatchId === b).map(s => s.date).sort();
-    const periodo = datas.length === 1 ? escalaFmtBR(datas[0])
+    const doLote = scales.filter(s => s.windowBatchId === b);
+    const datas = doLote.map(s => s.date).sort();
+    const periodo = datas.length === 1 ? ScaleService.fmtDataLonga(datas[0])
       : `${escalaFmtBR(datas[0])} a ${escalaFmtBR(datas[datas.length - 1])}`;
-    const pub = scales.filter(s => s.windowBatchId === b && s.published).length;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
-        <span style="font-size:13px;color:var(--text2);">Escala montada para ${datas.length} data(s): <b>${periodo}</b>${pub ? ` · ${pub} já publicada(s)` : ''}</span>
-        <button class="btn-secondary" onclick="refazerJanela('${b}')">🔄 Refazer</button>
+    const pub = doLote.filter(s => s.published).length;
+    const faltaPublicar = doLote.length - pub;
+    // O botão de publicar mora AQUI e não só no rodapé da prévia: com a prévia
+    // fechada, o lote montado ficava sem nenhuma pista de que faltava publicar.
+    const btnPublicar = faltaPublicar
+      ? `<button class="btn-primary" onclick="confirmarEAvisar('${b}')">${escalaRotuloPublicar(doLote)}</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:${faltaPublicar ? '#3a2f1a' : 'var(--surface2)'};border:1px solid ${faltaPublicar ? '#caa23a' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--text2);">Escala montada para ${doLote.length} data(s): <b>${periodo}</b>${pub ? ` · ${pub} já publicada(s)` : ''}${faltaPublicar ? ` · <b style="color:#caa23a;">ainda não publicada</b>` : ''}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${btnPublicar}
+          <button class="btn-secondary" onclick="refazerJanela('${b}')">🔄 Refazer</button></div>
       </div>`;
   }).join('');
 
@@ -1941,9 +1965,12 @@ function renderPreviaLote(batchId, falhas) {
 
   const vagasAbertas = scales.reduce((n, s) => n + (s.slots || []).filter(x => !x.assignedPersonId).length, 0);
 
+  const btnPublicar = `<button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">${escalaRotuloPublicar(scales)}</button>`;
+
   modal.innerHTML = `
     <h2>Prévia da escala</h2>
     <p style="font-size:12px;color:var(--text2);">Nada foi publicado e ninguém foi avisado ainda. Confira, ajuste se precisar, e só então publique.</p>
+    <div style="display:flex;justify-content:flex-end;margin:8px 0;">${btnPublicar}</div>
     ${EscalaSmartState.remontando === batchId ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;margin:10px 0;font-size:12px;">
       ⚠️ Estas datas <b>saíram da agenda</b> para serem refeitas. Enquanto você não publicar, elas não existem para os professores. Se fechar agora, volte e publique.
     </div>` : ''}
@@ -1961,7 +1988,7 @@ function renderPreviaLote(batchId, falhas) {
     <p style="font-size:12px;color:var(--text2);margin-top:10px;">Para trocar alguém: feche esta janela, abra a data na lista e use o seletor da vaga. A troca conta no rodízio das próximas.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Fechar sem publicar</button>
-      <button class="btn-primary" onclick="confirmarEAvisar('${batchId}')">✅ Publicar na agenda e avisar</button>
+      ${btnPublicar}
     </div>`;
 }
 

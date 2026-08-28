@@ -485,6 +485,16 @@ const VIZINHAS = [
     assert.ok(/Nada foi publicado/.test(modal.innerHTML), 'deixando claro que ainda não vale');
     console.log('✓ a prévia roda até o fim e desenha a tela');
 
+    // Task 13 (28/08/2026): o botão de publicar ganhou o número real e passou
+    // a aparecer também no TOPO da prévia, não só no rodapé — o Rodrigo não
+    // achava o botão. `escalas` tem 1 data de tipo 'sabado' neste lote.
+    {
+      const rotulo = '✅ Publicar 1 data de sábado na agenda e avisar';
+      const ocorrencias = (modal.innerHTML.match(new RegExp(rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+      assert.strictEqual(ocorrencias, 2, 'o botão de publicar aparece 2x: topo e rodapé da prévia');
+    }
+    console.log('✓ o botão de publicar tem o número real e mora no topo e no rodapé');
+
     // escalaLoadBase é quem chamava ScaleService.listAjustes() (removida na
     // Task 5). Chamar de verdade, no mesmo sandbox, prova que a tela não
     // estoura mais — a mesma classe de falha que passou por 12 verificações
