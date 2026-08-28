@@ -133,5 +133,18 @@ const SE = require('../scale-engine.js');
   assert.ok(/entrou/.test(h3[0].detalhe), 'consolidateByDay diz quem entrou, não só quantos');
   passou('consolidateByDay deixa rastro real no histórico, com quem entrou');
 
-  console.log(`\n${ok}/5 blocos OK`);
+  // ── tirar do lote (pedido 7b) ──
+  const id4 = (await SS.createScale({ date: '2026-11-20', tipo: 'feriado', slots }, d)).data.id;
+  await SS.openElection(id4, { batchId: 'b_nov' }, d);
+  await SS.reassignSlot(id4, 'cp_TOI', 'ana', d);
+  const outRes = await SS.removeFromBatch(id4, d);
+  assert.ok(outRes.success, 'tirou do lote');
+  const s4 = (await SS.getScale(id4, d)).data;
+  assert.strictEqual(s4.windowBatchId, null, 'saiu do lote');
+  assert.strictEqual(s4.status, 'rascunho', 'voltou pra rascunho');
+  assert.strictEqual(s4.slots[0].assignedPersonId, null, 'as vagas foram limpas');
+  assert.ok((s4.historico || []).some(h => h.acao === 'tirada_do_lote'), 'ficou registrado');
+  passou('removeFromBatch limpa a data e deixa rastro');
+
+  console.log(`\n${ok}/6 blocos OK`);
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

@@ -1223,5 +1223,38 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, appendHistorico, diffEscalados, registrarHistorico };
+  /**
+   * Tira uma data do lote: sai da janela, as vagas são limpas e ela volta pro
+   * rascunho. Pedido 7 do Rodrigo (28/08/2026) — nasceu de 02/11 e 20/11, que
+   * foram consolidados fora de qualquer janela e ficaram com gente escalada numa
+   * escala que ninguém abriu.
+   *
+   * Se estiver publicada, despublica ANTES: deixar aula na agenda de uma escala
+   * que voltou pro rascunho é o pior dos dois mundos.
+   */
+  async function removeFromBatch(scaleId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      if (scale.published) {
+        const un = await unpublishFromAgenda(scaleId, deps);
+        if (!un.success) return un;   // mês fechado: erro claro, não silêncio
+      }
+      const slots = (scale.slots || []).map(s => Object.assign({}, s, {
+        assignedPersonId: null, reason: null, explain: [],
+      }));
+      await rdb(deps).collection('special_scales').doc(scaleId).set({
+        slots, status: 'rascunho', windowBatchId: null, windowClosesAt: null,
+        updatedAt: rts(deps), updatedBy: ruid(deps),
+      }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'tirada_do_lote',
+        detalhe: `saiu do lote ${scale.windowBatchId || '—'}; ${(scale.slots || []).filter(s => s.assignedPersonId).length} vaga(s) limpa(s)`,
+      }, deps);
+      return { success: true, data: { erasBatchId: scale.windowBatchId || null } };
+    } catch (err) { console.error('[ScaleService.removeFromBatch]', err); return { success: false, error: err.message }; }
+  }
+
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico };
 });

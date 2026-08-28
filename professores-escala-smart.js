@@ -1423,6 +1423,8 @@ function renderEscalaDetail(scale) {
       <button class="btn-primary" onclick="consolidarEscala('${scale.id}')">🧮 ${scale.status === 'consolidada' ? 'Reconsolidar' : 'Consolidar'}</button>
       ${scale.status === 'consolidada' && !scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : ''}
       ${scale.published ? `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>` : ''}
+      ${(!escalaEhPassada(scale.date) && (scale.windowBatchId || (scale.slots || []).some(s => s.assignedPersonId)))
+        ? `<button class="btn-secondary" onclick="tirarDoLote('${scale.id}')">🚫 Tirar do lote</button>` : ''}
     </div>`;
 
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
@@ -2199,6 +2201,26 @@ async function despublicarEscala(id) {
   const res = await ScaleService.unpublishFromAgenda(id);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
   toast('Escala despublicada.', 'success');
+  renderEscalaGestao();
+}
+
+// Pedido 7 do Rodrigo (28/08/2026): tirar uma data do lote — nasceu de 02/11
+// e 20/11, consolidadas fora de qualquer janela, com gente escalada numa
+// escala que ninguém abriu. `removeFromBatch` é destrutivo (limpa as vagas e,
+// se publicada, tira as aulas da agenda antes) — por isso só aparece pra data
+// que ainda não aconteceu (guard em `renderEscalaDetail`) e o `confirm()`
+// avisa sobre quem já foi notificado.
+async function tirarDoLote(scaleId) {
+  const scale = EscalaSmartState.scales.find(s => s.id === scaleId) || {};
+  const escalados = (scale.slots || []).filter(s => s.assignedPersonId).length;
+  if (!confirm(`Tirar ${ScaleService.fmtDataLonga(scale.date)} do lote?\n\n`
+    + `As ${escalados} vaga(s) são limpas, a data volta para rascunho e sai da janela.\n`
+    + (scale.published ? `\n⚠️ Ela está PUBLICADA: as aulas saem da agenda agora. Quem já foi avisado NÃO é desavisado — fale com as pessoas.\n` : '')
+    + `\nEla volta a existir quando você abrir uma janela nova que a inclua.\n\nContinuar?`)) return;
+  const res = await ScaleService.removeFromBatch(scaleId);
+  if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error', 9000); return; }
+  toast('Data tirada do lote e zerada.', 'success');
+  await escalaLoadBase();
   renderEscalaGestao();
 }
 
