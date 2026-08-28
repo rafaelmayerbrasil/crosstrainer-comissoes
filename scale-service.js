@@ -625,6 +625,22 @@
   }
 
   /**
+   * PURO: de que data a contagem do rodízio começa a valer.
+   *
+   * Dois cortes, vence o mais recente: a janela de 12 meses móveis (que já
+   * existia) e o MARCO ZERO configurável (Rafael, 28/08/2026 — "a contagem
+   * começa em 01/09, e dá pra zerar na virada do ano"). O marco é um PISO, não
+   * um substituto: passado um ano dele, os 12 meses voltam a mandar sozinhos e
+   * ninguém precisa lembrar de mexer em nada.
+   */
+  function dataDeCorte(dataISO, marcoZero) {
+    const doze = dozeMesesAntes(dataISO);
+    if (!marcoZero) return doze;
+    if (!doze) return marcoZero;
+    return doze > marcoZero ? doze : marcoZero;
+  }
+
+  /**
    * PURO: quantas vagas cada pessoa tem nas escalas que casam com o filtro.
    *
    * Esta função É o contador de justiça. Até 25/08/2026 o número ficava guardado
@@ -1079,5 +1095,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });
