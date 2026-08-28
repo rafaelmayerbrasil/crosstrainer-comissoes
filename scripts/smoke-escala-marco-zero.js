@@ -72,5 +72,22 @@ const SE = require('../scale-engine.js');
     'quem não passa ctx.marcoZero recebe o valor da config, não zero');
   passou('consolidate lê o marco zero da config quando o ctx não manda');
 
-  console.log(`\n${ok}/4 blocos OK`);
-})();
+  // Marco zero corrompido na config (ex.: um Timestamp virado string, ou
+  // qualquer coisa fora de YYYY-MM-DD): cai pra null, com aviso — nunca em
+  // silêncio, mas também nunca derrubando a consolidação.
+  await SS.ScaleConfigService.save({ marcoZero: 'nao-e-uma-data' }, d);
+  const avisos = [];
+  const warnOriginal = console.warn;
+  console.warn = (...args) => avisos.push(args.join(' '));
+  const configInvalida = await nova('2026-09-26');
+  await SS.consolidate(configInvalida, ctxBase, d);
+  console.warn = warnOriginal;
+  const r4 = await SS.getScale(configInvalida, d);
+  assert.strictEqual(r4.data.slots[0].assignedPersonId, 'bru',
+    'marco zero inválido na config é ignorado — agosto volta a contar e a ana cede a vez');
+  assert.ok(avisos.some(a => /marco zero/i.test(a)),
+    'e um aviso avisa que o valor configurado foi ignorado');
+  passou('marco zero inválido na config cai pra null, com aviso, sem derrubar a consolidação');
+
+  console.log(`\n${ok}/5 blocos OK`);
+})().catch(e => { console.error('❌', e.message); process.exit(1); });

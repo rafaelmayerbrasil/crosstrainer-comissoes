@@ -852,7 +852,27 @@
       let marcoZero = ctx.marcoZero;
       if (marcoZero === undefined) {
         const cfg = await ScaleConfigService.get(deps);
-        marcoZero = (cfg.success && cfg.data && cfg.data.marcoZero) || null;
+        if (!cfg.success) {
+          // Mesma lógica do warn de `scalesDoAno` vazio, logo abaixo: a
+          // consolidação segue (12 meses móveis é comportamento válido), mas
+          // ninguém pode achar que o marco foi aplicado sem checar o console.
+          console.warn(`[ScaleService.consolidate] não deu pra ler scale_config para aplicar o marco zero de ${scale.date} — consolidando sem marco.`);
+          marcoZero = null;
+        } else {
+          const bruto = cfg.data && cfg.data.marcoZero;
+          // Blindado como `ajusteById`, um pouco acima: um doc corrompido em
+          // `scale_config` (Timestamp do Firestore, string fora do formato)
+          // não pode virar corte de janela sem sentido em silêncio — mesma
+          // classe de bug que a checagem de `scale.date`, duas linhas acima,
+          // existe pra matar. Aqui o fallback (12 meses) é válido; só não
+          // pode ser mudo.
+          if (bruto && !/^\d{4}-\d{2}-\d{2}$/.test(String(bruto))) {
+            console.warn(`[ScaleService.consolidate] marco zero configurado ("${bruto}") não é uma data YYYY-MM-DD válida — ignorando e consolidando sem marco.`);
+            marcoZero = null;
+          } else {
+            marcoZero = bruto || null;
+          }
+        }
       }
       const de = dataDeCorte(scale.date, marcoZero);
       // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
