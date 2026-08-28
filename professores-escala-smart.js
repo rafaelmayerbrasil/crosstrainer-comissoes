@@ -349,6 +349,79 @@ function escalaPersonName(id) {
   return t ? t.name : id;
 }
 
+/** { personId: nome } — o histórico precisa de nome, não de id. */
+function escalaNomePorId() {
+  const out = {};
+  EscalaSmartState.teacherMap.forEach((t, id) => { out[id] = t.name || id; });
+  return out;
+}
+
+const ESCALA_ACAO_LABEL = {
+  janela_aberta: '📨 Janela aberta', consolidada: '🧮 Montada', refeita: '🔄 Refeita',
+  publicada: '📅 Publicada', despublicada: '↩️ Despublicada', invertida: '⇄ Invertida',
+  vaga_trocada: '✋ Vaga trocada', rebalanceada: '⚖ Rebalanceada', tirada_do_lote: '🚫 Tirada do lote',
+};
+
+/**
+ * ISO em UTC → data e hora de quem está lendo. O `ts` do histórico é
+ * `new Date().toISOString()`, sempre UTC: mostrar cru deixaria a hora 3h
+ * adiantada aqui, e o histórico existe justamente pra dizer QUANDO.
+ */
+function escalaHistoricoQuando(ts) {
+  const d = new Date(ts);
+  if (!ts || isNaN(d.getTime())) return String(ts || '—');
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function escalaHistoricoLinha(h) {
+  const quando = escalaHistoricoQuando(h.ts);
+  return `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+    <span style="color:var(--text3);">${quando}</span>
+    · <b>${ESCALA_ACAO_LABEL[h.acao] || h.acao}</b>
+    · ${escalaEsc(h.nome || h.uid || '—')}
+    ${h.detalhe ? `<div style="color:var(--text2);margin-left:2px;">${escalaEsc(h.detalhe)}</div>` : ''}
+  </div>`;
+}
+
+/** 🕐 Histórico desta escala — responde "alguém mexeu?" em 5 segundos. */
+function escalaHistoricoDaEscalaHtml(scale) {
+  const h = ((scale && scale.historico) || []).slice().reverse();
+  if (!h.length) return '';
+  return `<details style="margin-top:12px;">
+    <summary style="cursor:pointer;font-size:12px;color:var(--blue);">🕐 Histórico desta escala (${h.length})</summary>
+    <div style="margin-top:6px;">${h.map(escalaHistoricoLinha).join('')}</div>
+  </details>`;
+}
+
+/**
+ * 📜 Últimas alterações carregadas nesta tela — junta o histórico de tudo que
+ * está em memória (aba/ano corrente). NÃO é "do módulo inteiro": uma
+ * alteração de outra aba ou ano não aparece aqui.
+ */
+function escalaHistoricoGeralHtml() {
+  const todas = [];
+  (EscalaSmartState.scales || []).forEach(s => {
+    (s.historico || []).forEach(h => todas.push(Object.assign({}, h, { data: s.date, nomeEscala: s.name || s.date })));
+  });
+  if (!todas.length) return '';
+  todas.sort((a, b) => (a.ts > b.ts ? -1 : 1));
+  const linhas = todas.slice(0, 50).map(h => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="color:var(--text3);">${escalaHistoricoQuando(h.ts)}</span>
+      · <b>${ESCALA_ACAO_LABEL[h.acao] || h.acao}</b>
+      · ${escalaEsc(h.nome || h.uid || '—')}
+      · <span style="color:var(--text2);">${escalaEsc(h.nomeEscala)}</span>
+      ${h.detalhe ? `<div style="color:var(--text2);">${escalaEsc(h.detalhe)}</div>` : ''}
+    </div>`).join('');
+  // "do módulo" prometia mais do que entrega: só o que está carregado na tela
+  // agora (aba/ano corrente) — uma alteração de outra aba ou ano não aparece
+  // aqui, mesmo sendo "do módulo". Rótulo honesto ao escopo real.
+  return `<details style="margin-top:20px;">
+    <summary style="cursor:pointer;font-size:13px;color:var(--blue);">📜 Últimas alterações carregadas nesta tela (${Math.min(todas.length, 50)})</summary>
+    <div style="margin-top:6px;">${linhas}</div>
+  </details>`;
+}
+
 /**
  * Horário da escala, tirado das vagas. "Também não fala o horário" (Rafael,
  * 12/08/2026): a lista dizia só a data, e quem olhava não sabia se o sábado era
@@ -533,6 +606,7 @@ async function renderEscalaGestao() {
       <div>${listHtml}</div>
       ${tab === 'pessoa' ? '' : `<div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>`}
     </div>
+    ${escalaHistoricoGeralHtml()}
     <div id="escalaModalOverlay" class="modal-overlay" style="display:none;"></div>
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
 
@@ -908,6 +982,7 @@ function renderFimDeAnoDetail(scale) {
     ${daysHtml || '<p style="color:var(--text2);">Sem dias nesta escala.</p>'}
     ${sinalHtml}
     ${actions}
+    ${escalaHistoricoDaEscalaHtml(scale)}
   </div>`;
 }
 
@@ -939,6 +1014,7 @@ function renderEscolaInternaDetail(scale) {
       <div style="font-size:12px;color:var(--text2);">${scale.date} · atribuição manual do líder</div></div>
     ${cards || '<p style="color:var(--text2);">Sem sessões.</p>'}
     ${actions}
+    ${escalaHistoricoDaEscalaHtml(scale)}
   </div>`;
 }
 
@@ -1081,6 +1157,7 @@ function renderEventoDetail(scale) {
       <button class="btn-primary" onclick="salvarStaffEvento('${scale.id}')">Salvar staff e convidar</button>
     </div>
     ${consolidado}
+    ${escalaHistoricoDaEscalaHtml(scale)}
   </div>`;
 }
 
@@ -1153,7 +1230,7 @@ async function salvarStaffEvento(scaleId) {
  * de mês já pago, então republicar aqui é seguro.
  */
 async function trocarPessoaEscala(scaleId, slotId, personId) {
-  const res = await ScaleService.reassignSlot(scaleId, slotId, personId || null);
+  const res = await ScaleService.reassignSlot(scaleId, slotId, personId || null, { nomePorId: escalaNomePorId() });
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); renderEscalaGestao(); return; }
   if (!res.data.changed) return;
 
@@ -1193,7 +1270,7 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
   if (!habilitado(a.assignedPersonId, b.requiredModalityId)) avisos.push(`${escalaPersonName(a.assignedPersonId)} não é habilitado(a) na modalidade da outra vaga`);
   if (avisos.length && !confirm(`⚠️ ${avisos.join('.\n')}.\n\nInverter mesmo assim?`)) { renderEscalaGestao(); return; }
 
-  const res = await ScaleService.swapSlots(scaleId, slotAId, slotBId);
+  const res = await ScaleService.swapSlots(scaleId, slotAId, slotBId, { nomePorId: escalaNomePorId() });
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }
 
   let msg = 'Vagas invertidas.';
@@ -1315,6 +1392,7 @@ function renderEscalaDetail(scale) {
     </div>
     ${unitsHtml || '<p style="color:var(--text2);">Sem vagas nesta escala.</p>'}
     ${actions}
+    ${escalaHistoricoDaEscalaHtml(scale)}
   </div>`;
 }
 
@@ -1607,6 +1685,12 @@ async function consolidarEscala(id) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    nomePorId: escalaNomePorId(),
+    // Sem `acaoHistorico`: este fluxo é de UMA escala (id de escala, não de
+    // lote) — não existe "refazer" aqui, é sempre "Reconsolidar"/"Consolidar"
+    // pelo botão. Cai no default do serviço ('consolidada'). Comparar
+    // `EscalaSmartState.remontando` (que guarda um batchId) contra `id` (id de
+    // escala) nunca bateria — seria uma condição morta.
   };
   const res = jaFeita.tipo === 'fim_de_ano'
     ? await ScaleService.consolidateByDay(id, ctx)
@@ -1746,6 +1830,8 @@ async function gerarPreviaLote(batchId) {
   const scales = byBatch.data.slice().sort((a, b) => (a.date > b.date ? 1 : -1));
 
   const ctx = await escalaMontarCtx();
+  // Veio do 🔄 Refazer? Então o histórico diz "refeita", não "montada".
+  ctx.acaoHistorico = (EscalaSmartState.remontando === batchId) ? 'refeita' : 'consolidada';
   // Cota da janela: quantos dias cada um disse que quer. O motor precisa saber
   // também quantos a pessoa JÁ pegou neste lote — por isso o contador vai sendo
   // atualizado a cada data, na ordem.
@@ -1884,6 +1970,7 @@ async function escalaMontarCtx() {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    nomePorId: escalaNomePorId(),
   };
 }
 
@@ -1910,7 +1997,11 @@ async function confirmarEAvisar(batchId) {
     // O motor precisa enxergar os sábados vizinhos pra não repetir a pessoa
     // em dois sábados seguidos (Rafael, 25/08).
     scalesDoAno: EscalaSmartState.scales || [],
+    nomePorId: escalaNomePorId(),
   };
+  // Veio do 🔄 Refazer? Então o histórico diz "refeita", não "montada" — mesmo
+  // critério de gerarPreviaLote, comparando contra o MESMO batchId.
+  ctx.acaoHistorico = (EscalaSmartState.remontando === batchId) ? 'refeita' : 'consolidada';
   // Consolidar + PUBLICAR na mesma passada. Antes o lote só consolidava, e o
   // aviso mandava "Confira sua agenda" apontando pra uma tela vazia: as aulas só
   // nasciam se alguém abrisse cada sábado e clicasse "📅 Publicar na agenda", um
