@@ -9,6 +9,10 @@
   function rdb(deps)  { if (deps && deps.db) return deps.db; return (typeof db !== 'undefined') ? db : null; }
   function rts(deps)  { if (deps && deps.ts) return deps.ts(); return (typeof serverTs === 'function') ? serverTs() : new Date().toISOString(); }
   function ruid(deps) { if (deps && deps.uid) return deps.uid(); return (typeof currentUserId === 'function') ? currentUserId() : null; }
+  // Mesma fonte que o `AuditService.log` usa. Sem isto o histórico mostra o uid
+  // cru do Firebase como autor — e "log de alteração por usuário" com um
+  // `AbCdEf123456` no lugar do nome não responde a pergunta de ninguém.
+  function rnome(deps) { if (deps && deps.nome) return deps.nome(); return (typeof currentUserName === 'function') ? currentUserName() : null; }
   function rSE(deps)  { if (deps && deps.SE) return deps.SE; return ScaleEngine; }
 
   function templateSlots(tipo, units, times) {
@@ -803,7 +807,7 @@
       }
       const entrada = {
         ts: new Date().toISOString(), uid: ruid(deps) || null,
-        nome: nome || null, acao: acao || 'alterada', detalhe: detalhe || '',
+        nome: nome || rnome(deps) || null, acao: acao || 'alterada', detalhe: detalhe || '',
       };
       await ref.set({ historico: appendHistorico((doc.data() || {}).historico, entrada) }, { merge: true });
       return { success: true, data: entrada };

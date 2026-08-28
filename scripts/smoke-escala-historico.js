@@ -76,7 +76,7 @@ const SE = require('../scale-engine.js');
 
 (async () => {
   const db = makeFakeDb();
-  const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+  const d = { db, ts: () => 'TS', uid: () => 'tester', nome: () => 'Rodrigo Gestor', SE };
   const slots = [{ id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: null, startTime: '08:00', endTime: '12:00' }];
   const id = (await SS.createScale({ date: '2026-09-05', tipo: 'sabado', slots }, d)).data.id;
 
@@ -95,6 +95,9 @@ const SE = require('../scale-engine.js');
     'as seis ações gravam, na ordem em que aconteceram, e refazer não se confunde com montar');
   assert.ok(h.every(x => typeof x.ts === 'string' && x.ts.length >= 20), 'toda entrada tem carimbo ISO');
   assert.ok(h.every(x => x.uid === 'tester'), 'toda entrada diz quem fez');
+  // Sem isto a tela mostra o uid cru do Firebase como autor — e um
+  // `AbCdEf123456` no lugar do nome não responde "quem mexeu?" pra ninguém.
+  assert.ok(h.every(x => x.nome === 'Rodrigo Gestor'), 'toda entrada diz o NOME de quem fez, não só o uid');
   assert.ok(/bru|entrou/.test(h[3].detalhe), 'a troca de vaga diz o que mudou');
   // A frase mais informativa das sete (quem ENTROU, não só quantas vagas
   // mexeram) tem que aparecer na consolidação normal, não só na troca manual.
