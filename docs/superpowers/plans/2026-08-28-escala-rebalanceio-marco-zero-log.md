@@ -42,7 +42,28 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 9 · as 7 ações gravam histórico | ✅ fechada — `a808bf9` + `051e335` (quem mexeu, com teste) |
 | 10 · `AuditService.log` aceita unidade | ✅ fechada — `920d997` |
 | 11 · as duas telas de histórico | ✅ fechada — `5197593` + `98e216d` (escape) + `ae907f4` (nome do autor) |
-| 12 a 25 | ⬜ não começadas |
+| 12+13 · data legível + botão de publicar achável | ✅ fechadas — `70d1b55` + `d641b56` + `4d864e3` |
+| 14 a 25 | ⬜ não começadas |
+
+### ⚠️ Duas lacunas DECLARADAS das Tasks 12+13 (não corrigidas, por orçamento)
+
+1. **`refazerBar` não tem teste que a CHAME.** A Task 13 tem duas metades: a barra persistente na
+   tela de gestão e o botão no topo da prévia. **Só a segunda** é exercitada por chamada de função
+   (`gerarPreviaLote` no sandbox `vm`); `renderEscalaGestao` é dublado em todos os smokes, então
+   nenhum teste executa `refazerBar`. Dado o histórico deste projeto (a prévia que nunca rodou),
+   **isto é exatamente a metade que costuma quebrar sem ninguém ver.** Cobrir na **Task 24**.
+2. **`escalaRotuloPublicar` reescreve o dicionário de tipos** (`sabado→'sábado'` etc.) que já existe
+   em `rotuloTipo`, no mesmo arquivo, só com capitalização diferente. Duas tabelas que vão divergir.
+   Unificar quando alguém encostar nessa região.
+
+### 🕳️ A varredura de data crua já deu falso negativo uma vez
+
+`scripts/smoke-escala-data-formatada.js` tratava "linha sem `<`" como legítima. As três chamadas de
+`profDateRow(s, \`${s.date} · …\`, …)` montavam o texto **sem HTML na própria linha** e só viravam
+tela lá dentro — resultado: **data ISO crua na tela DO PROFESSOR**, e a varredura dizendo que estava
+tudo certo. Apertada em `4d864e3`: linha sem HTML só é legítima se também **não** entregar o texto
+como argumento a `profDateRow`/`escalaCardDoc`/`render*`/`*Html`. Se for afrouxar isso um dia,
+lembre por que apertou.
 
 ### 💸 Mudança de método a partir da Task 12 (pedido do Rafael, limite semanal)
 
