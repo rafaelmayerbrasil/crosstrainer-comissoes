@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 'use strict';
 
-const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), janelaPorTipo: {}, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null };
+const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, selectedId: null, teacherMap: new Map(), janelaPorTipo: {}, pessoaSel: null, remontando: null, tab: 'sabado', year: new Date().getFullYear(), feriadosByYear: {}, config: null, timeframe: 'futuros', selected: new Set(), _janelaTarget: null, pessoaJanela: 'todas' };
 
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
@@ -168,6 +168,18 @@ function escalaJanelaDoTipo(tipo) {
   const chave = ScaleService.tiposIrmaos(tipo || 'sabado')[0];
   return (EscalaSmartState.janelaPorTipo || {})[chave] || { id: null, aberta: false };
 }
+
+/** Rótulo do lote: o período que ele cobre. `null` = data fora de qualquer janela. */
+function escalaRotuloJanela(batchId) {
+  if (!batchId) return null;
+  const datas = (EscalaSmartState.scales || [])
+    .filter(s => s.windowBatchId === batchId).map(s => s.date).sort();
+  if (!datas.length) return batchId;
+  return datas.length === 1 ? escalaFmtBR(datas[0])
+    : `${escalaFmtBR(datas[0])} a ${escalaFmtBR(datas[datas.length - 1])}`;
+}
+
+function escalaSetPessoaJanela(v) { EscalaSmartState.pessoaJanela = v || 'todas'; renderEscalaGestao(); }
 
 function escalaEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
@@ -688,22 +700,50 @@ function renderTabPorPessoa() {
   const rotuloTipo = { sabado: 'Sábado', feriado: 'Feriado', domingo_especial: 'Domingo especial', evento: 'Evento', fim_de_ano: 'Fim de ano', escola_interna: 'Escola Interna' };
 
   const linhas = [];
+  // Pedido 7a do Rodrigo: dizer de qual janela é cada data. 02/11 e 20/11
+  // (Task 14) foram consolidadas fora de qualquer janela — daí o "⚠️ fora de
+  // janela" e o filtro pra achar essas datas de novo.
+  const filtro = EscalaSmartState.pessoaJanela || 'todas';
+  const lotesDaPessoa = new Set();
+
+  const brutas = [];
   (EscalaSmartState.scales || [])
     .filter(s => String(s.date || '').slice(0, 4) === ano)
     .sort((a, b) => (a.date > b.date ? 1 : -1))
     .forEach(s => {
       (s.slots || []).forEach(sl => {
         if (sl.assignedPersonId !== sel) return;
-        linhas.push(`<tr>
-          <td style="padding:4px 8px;">${escalaFmtBR(s.date)}</td>
-          <td style="padding:4px 8px;">${rotuloTipo[s.tipo] || s.tipo}</td>
-          <td style="padding:4px 8px;">${escalaEsc(nomeUnidade(sl.unitId))}</td>
-          <td style="padding:4px 8px;">${nomeMod(sl.requiredModalityId)}</td>
-          <td style="padding:4px 8px;">${sl.startTime ? `${sl.startTime}–${sl.endTime || ''}` : '—'}</td>
-          <td style="padding:4px 8px;color:${s.published ? 'var(--green)' : 'var(--text3)'};">${s.published ? '✓ publicada' : 'não publicada'}</td>
-        </tr>`);
+        if (s.windowBatchId) lotesDaPessoa.add(s.windowBatchId);
+        brutas.push({ s, sl });
       });
     });
+
+  brutas
+    .filter(({ s }) => filtro === 'todas'
+      || (filtro === 'fora' && !s.windowBatchId)
+      || filtro === s.windowBatchId)
+    .forEach(({ s, sl }) => {
+      // Data consolidada fora de qualquer janela é o defeito que gerou o pedido:
+      // 02/11 e 20/11 tinham gente escalada num lote que ninguém abriu.
+      const janela = s.windowBatchId
+        ? escalaEsc(escalaRotuloJanela(s.windowBatchId))
+        : `<span style="color:#caa23a;">⚠️ fora de janela</span>`;
+      linhas.push(`<tr>
+        <td style="padding:4px 8px;">${escalaFmtBR(s.date)}</td>
+        <td style="padding:4px 8px;">${rotuloTipo[s.tipo] || s.tipo}</td>
+        <td style="padding:4px 8px;">${janela}</td>
+        <td style="padding:4px 8px;">${escalaEsc(nomeUnidade(sl.unitId))}</td>
+        <td style="padding:4px 8px;">${nomeMod(sl.requiredModalityId)}</td>
+        <td style="padding:4px 8px;">${sl.startTime ? `${sl.startTime}–${sl.endTime || ''}` : '—'}</td>
+        <td style="padding:4px 8px;color:${s.published ? 'var(--green)' : 'var(--text3)'};">${s.published ? '✓ publicada' : 'não publicada'}</td>
+      </tr>`);
+    });
+
+  const filtroHtml = `<select class="input" style="max-width:260px;margin-left:8px;" onchange="escalaSetPessoaJanela(this.value)">
+      <option value="todas" ${filtro === 'todas' ? 'selected' : ''}>Todas as janelas</option>
+      ${[...lotesDaPessoa].map(b => `<option value="${b}" ${filtro === b ? 'selected' : ''}>${escalaEsc(escalaRotuloJanela(b))}</option>`).join('')}
+      <option value="fora" ${filtro === 'fora' ? 'selected' : ''}>⚠️ Fora de janela</option>
+    </select>`;
 
   const cSab = escalaContagens('sabado');
   const cFer = escalaContagens('feriado');
@@ -713,7 +753,7 @@ function renderTabPorPessoa() {
       <div style="font-size:12px;color:var(--text2);">${an} no ano de ${ano}</div>
     </div>`;
 
-  return `<div style="margin-bottom:12px;">${seletor}</div>
+  return `<div style="margin-bottom:12px;">${seletor}${filtroHtml}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0)}
       ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0)}
@@ -724,6 +764,7 @@ function renderTabPorPessoa() {
           <thead><tr style="color:var(--text2);text-align:left;">
             <th style="padding:4px 8px;font-weight:400;">Data</th>
             <th style="padding:4px 8px;font-weight:400;">Tipo</th>
+            <th style="padding:4px 8px;font-weight:400;">Janela</th>
             <th style="padding:4px 8px;font-weight:400;">Unidade</th>
             <th style="padding:4px 8px;font-weight:400;">Modalidade</th>
             <th style="padding:4px 8px;font-weight:400;">Horário</th>
