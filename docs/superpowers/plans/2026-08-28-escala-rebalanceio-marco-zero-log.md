@@ -26,42 +26,51 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 
 # 🚦 ESTADO DA EXECUÇÃO — atualize esta seção a cada tarefa fechada
 
-> **Última atualização:** 28/08/2026, fim da sessão 59 (a sessão acabou por limite de uso, não
-> por ter terminado o trabalho). Branch: **`escala-rebalanceio-log`**, saída de `main` (`e44b4a7`).
+> **Última atualização:** 28/08/2026, sessão 60. Branch: **`escala-rebalanceio-log`**, saída de
+> `main` (`e44b4a7`).
 > **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada.**
 
 | Tarefa | Estado |
 |--------|--------|
 | 1 · `dataDeCorte` | ✅ fechada — `bb28ab6` |
 | 2 · marco zero no motor | ✅ fechada — `55acad7` + `c3a359b` (blindagem) |
-| 3+4 · marco zero na tela + config | 🟡 **corrigida, falta a RE-REVISÃO** — `67f973a` + `566da32` |
-| 5 a 25 | ⬜ não começadas |
+| 3+4 · marco zero na tela + config | ✅ fechada — `67f973a` + `566da32` + `d521077` (rede de teste) |
+| 5 · ajuste manual sai do motor | ✅ fechada — `b2cc98d` |
+| 6 a 25 | ⬜ não começadas |
 
-## ⚠️ Primeira coisa a fazer ao retomar
+### 🔗 Tasks 5 e 6 são um PAR — não separe
 
-**A correção das Tasks 3+4 entrou** (`566da32`), a árvore está limpa e os testes passam — isso eu
-verifiquei rodando na mão, não é relato de subagente:
+A Task 5 apagou `getFairness`/`saveAjustePartida`/`listAjustes` de `scale-service.js`, e a tela
+**ainda os chama** até a Task 6 entrar. Entre um commit e outro a branch fica com a tela quebrada
+(`TypeError: ScaleService.listAjustes is not a function`). **Nunca subir a Task 5 sem a 6.**
+Levantado pela revisão de qualidade da Task 5.
 
-```
-node --check professores-escala-smart.js   → syntax OK
-node scripts/smoke-escala-marco-zero.js    → 5/5 motor + 9/9 tela
-smoke-escala-contagem · smoke-escala-tabs · smoke-css-vars → verdes
-```
+### 📌 Achado fora de escopo, para o backlog
 
-**O que falta:** a correção **não passou pela re-revisão de qualidade**, que é o passo que o
-processo manda. A sessão acabou antes. Então:
+`scripts/diag-contador-escala.js` ainda lê `fairness_counter` e imprime a coluna "lançado na mão"
+ao lado da contagem derivada. Depois da Task 5 essa coleção não tem **nenhum** caminho de escrita
+vivo no app — o diagnóstico exibe um número congelado que já não afeta escala nenhuma, sem avisar
+disso. Ou some com a coluna, ou põe a nota. Não bloqueia o plano.
 
-1. Despache um revisor de qualidade sobre `git diff 67f973a 566da32`, cobrando os 6 achados abaixo.
-2. Só então siga para a **Task 5**.
+## ✅ Tasks 3+4 — encerradas na sessão 60
 
-**Um buraco que o próprio implementador declarou** e que a re-revisão precisa fechar: a prova de
-"o teste falha quando deve" foi feita só para o **Important 3** (a validação de formato). Os
-**Important 1 e 2** vivem na camada de render (`escalaNotaMarcoHtml`) e **não têm prova de que o
-teste os pegaria** se regredissem. Vale checar se um assert barato fecha isso.
+A re-revisão de qualidade rodou sobre `git diff 67f973a 566da32` e confirmou os **6 achados
+fechados de verdade**, lendo o código, sem problema novo introduzido.
 
-## Os 6 achados das Tasks 3+4 — aplicados em `566da32`, pendentes de conferência
+**O buraco declarado foi medido e fechado.** O revisor regrediu de propósito os Important 1 e 2 e
+provou que o teste **não pegava** nenhum dos dois (seguia 9/9 verde). `d521077` acrescentou o
+assert que faltava: chama `renderTabPorPessoa()` e `escalaHistoricoAnoHtml()` de verdade no
+sandbox, conta as ocorrências da nota, e verifica que ela **some** num ano posterior ao do marco.
+Provado falhando nas duas regressões antes de entrar. Suíte da tela: **10/10**.
 
-O implementador diz ter resolvido todos assim (**confirme lendo o código, não o relato**):
+> ⚠️ **Armadilha achada aqui, vale para qualquer teste futuro de
+> `escalaHistoricoAnoHtml`:** chamá-la num ano **sem nenhuma escala cadastrada** devolve `''` por
+> um guard-clause anterior (`if (!linhas) return '';`). O teste passa por motivo errado. Sempre
+> cadastre ao menos uma escala no ano que você está exercitando.
+
+## Os 6 achados das Tasks 3+4 — ✅ todos conferidos no código (sessão 60)
+
+Resolvidos assim, e cada item foi confirmado com `arquivo:linha` pela re-revisão:
 
 1. helper único `escalaNotaMarcoHtml(c)` (~linha 254), usado em `renderEquilibrioPainel` (~316),
    `escalaHistoricoAnoHtml` (~662, que cobre os 3 call-sites, inclusive o modal "Abrir janela") e
@@ -95,12 +104,13 @@ Texto original dos achados, para conferir contra o código:
 **Não mexer:** `AuditService.log` sem `try/catch` — foi verificado que ele nunca lança (try/catch
 interno), e é o padrão pré-existente do arquivo.
 
-## Teste de tela das Tasks 3+4 — ✅ feito em `566da32`
+## Teste de tela das Tasks 3+4 — ✅ `566da32` + `d521077`
 
 `scripts/smoke-escala-marco-zero.js` ganhou um segundo bloco IIFE em sandbox `vm`, no molde do
 bloco final de `smoke-escala-contagem.js`, que **chama** as funções: `salvarMarcoZero` (caminho
 feliz com audit, erro do save, confirm recusado, no-op), `renderConfigEscalaHtml` (não-Admin recebe
-`''`) e `escalaContagens` (com marco, sem marco, ano anterior ao marco, marco malformado). **9/9.**
+`''`), `escalaContagens` (com marco, sem marco, ano anterior ao marco, marco malformado) e
+`renderTabPorPessoa`/`escalaHistoricoAnoHtml` (a nota do marco nos call-sites reais). **10/10.**
 
 É o modelo a copiar nas próximas tarefas de tela.
 
