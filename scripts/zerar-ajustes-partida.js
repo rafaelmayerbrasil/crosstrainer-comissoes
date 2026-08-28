@@ -34,35 +34,35 @@ const db = admin.firestore();
   const nomes = {};
   teachSnap.docs.forEach(d => { nomes[d.id] = (d.data() || {}).name || d.id; });
 
-  const linhas = snap.docs
+  const aZerar = snap.docs
     .map(d => ({ id: (d.data() || {}).personId || d.id, ajuste: Number((d.data() || {}).ajuste) || 0 }))
     .filter(x => x.ajuste !== 0);
 
   console.log(`Projeto: ${projeto}`);
-  if (!linhas.length) { console.log('Nada a zerar: nenhum ajuste diferente de zero.'); process.exit(0); }
-
-  // ─── Backup ANTES de gravar ────────────────────────────────────────────
-  const dir = path.join(__dirname, '..', 'backups');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const arquivo = path.join(dir, `fairness-ajustes-${projeto}-${new Date().toISOString().slice(0, 10)}.json`);
-  fs.writeFileSync(arquivo, JSON.stringify(linhas, null, 2), 'utf8');
-  console.log(`💾 Backup salvo: ${arquivo}\n`);
+  if (!aZerar.length) { console.log('Nada a zerar: nenhum ajuste diferente de zero.'); process.exit(0); }
 
   console.log('Pessoa                          antes → depois');
-  linhas.forEach(x => console.log(`${(nomes[x.id] || x.id).padEnd(30)}  ${String(x.ajuste).padStart(3)} → 0`));
-  console.log(`\n${linhas.length} pessoa(s).`);
+  aZerar.forEach(x => console.log(`${(nomes[x.id] || x.id).padEnd(30)}  ${String(x.ajuste).padStart(3)} → 0`));
+  console.log(`\n${aZerar.length} pessoa(s).`);
 
   if (!executar) {
     console.log('\n🔍 ENSAIO — nada foi gravado. Repita com --executar para valer.');
     process.exit(0);
   }
 
+  // ─── Backup ANTES de gravar ────────────────────────────────────────────
+  const dir = path.join(__dirname, '..', 'backups');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const arquivo = path.join(dir, `fairness-ajustes-${projeto}-${new Date().toISOString().slice(0, 10)}.json`);
+  fs.writeFileSync(arquivo, JSON.stringify(aZerar, null, 2), 'utf8');
+  console.log(`💾 Backup salvo: ${arquivo}\n`);
+
   // ─── Zerar ──────────────────────────────────────────────────────────────
-  for (const x of linhas) {
+  for (const x of aZerar) {
     await db.collection('fairness_counter').doc(x.id)
       .set({ ajuste: 0, zeradoEm: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   }
-  console.log(`\n✅ ${linhas.length} ajuste(s) zerado(s).`);
+  console.log(`\n✅ ${aZerar.length} ajuste(s) zerado(s).`);
 
   // ─── Conferência ──────────────────────────────────────────────────────
   const conf = (await db.collection('fairness_counter').get()).docs
