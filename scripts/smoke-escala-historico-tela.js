@@ -204,6 +204,31 @@ function novoSandbox() {
   passou('escalaHistoricoQuando não estoura com ts ausente/inválido');
 }
 
+// ── 5b. o que NÃO está no mapa também precisa sair escapado ──────────────
+// `h.acao` e `h.ts` vêm do banco. O fallback `|| acao` não é hipótese remota:
+// `rebalanceada` e `tirada_do_lote` só passam a ser gravadas nas Tasks 14 e 19.
+// `escalaHistoricoQuando` devolve o `ts` CRU quando a data é inválida — por
+// isso quem escapa é o ponto de montagem do HTML, não a função pura.
+{
+  const { sandbox } = novoSandbox();
+  const html = sandbox.escalaHistoricoDaEscalaHtml({ historico: [
+    { ts: '<img src=x onerror=alert(2)>', uid: 'u1', nome: 'Ana',
+      acao: '<img src=x onerror=alert(1)>', detalhe: 'x' },
+  ] });
+  assert.ok(!html.includes('<img src=x onerror=alert(1)>'), 'ação fora do mapa não entra crua no HTML');
+  assert.ok(!html.includes('<img src=x onerror=alert(2)>'), 'ts inválido não entra cru no HTML');
+  assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'), 'a ação sai escapada');
+  assert.ok(html.includes('&lt;img src=x onerror=alert(2)&gt;'), 'o ts inválido sai escapado');
+  passou('ação fora do mapa e ts inválido não injetam HTML');
+
+  const herdado = sandbox.escalaHistoricoDaEscalaHtml({ historico: [
+    { ts: '2026-08-28T09:00:00.000Z', uid: 'u1', acao: 'constructor', detalhe: 'x' },
+  ] });
+  assert.ok(!herdado.includes('[native code]'), 'ação "constructor" não acha a função herdada de Object.prototype');
+  assert.ok(herdado.includes('<b>constructor</b>'), 'ação "constructor" cai no fallback, como texto');
+  passou('ESCALA_ACAO_LABEL não herda de Object.prototype');
+}
+
 (async () => {
   // ── 6. gerarPreviaLote: acaoHistorico diz "refeita" só quando veio do 🔄 ──
   // A verificação mais valiosa da tarefa: é o fio que faz "refazer" não se

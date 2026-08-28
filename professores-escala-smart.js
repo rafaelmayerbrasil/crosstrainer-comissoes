@@ -356,11 +356,24 @@ function escalaNomePorId() {
   return out;
 }
 
-const ESCALA_ACAO_LABEL = {
+// `Object.create(null)` de propósito: `h.acao` vem do banco, e uma ação chamada
+// `constructor` ou `toString` acharia a função herdada de `Object.prototype` e
+// despejaria "function () { [native code] }" na tela da gestão.
+const ESCALA_ACAO_LABEL = Object.assign(Object.create(null), {
   janela_aberta: '📨 Janela aberta', consolidada: '🧮 Montada', refeita: '🔄 Refeita',
   publicada: '📅 Publicada', despublicada: '↩️ Despublicada', invertida: '⇄ Invertida',
   vaga_trocada: '✋ Vaga trocada', rebalanceada: '⚖ Rebalanceada', tirada_do_lote: '🚫 Tirada do lote',
-};
+});
+
+/**
+ * Rótulo da ação, sempre seguro pra HTML. O fallback `|| acao` NÃO é hipótese
+ * remota: `rebalanceada` e `tirada_do_lote` só passam a ser gravadas nas Tasks
+ * 14 e 19, e qualquer ação nova cai aqui. Sem o escape, o valor do banco entra
+ * cru dentro do `<b>`.
+ */
+function escalaHistoricoAcaoLabel(acao) {
+  return escalaEsc(ESCALA_ACAO_LABEL[acao] || acao);
+}
 
 /**
  * ISO em UTC → data e hora de quem está lendo. O `ts` do histórico é
@@ -377,8 +390,8 @@ function escalaHistoricoQuando(ts) {
 function escalaHistoricoLinha(h) {
   const quando = escalaHistoricoQuando(h.ts);
   return `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
-    <span style="color:var(--text3);">${quando}</span>
-    · <b>${ESCALA_ACAO_LABEL[h.acao] || h.acao}</b>
+    <span style="color:var(--text3);">${escalaEsc(quando)}</span>
+    · <b>${escalaHistoricoAcaoLabel(h.acao)}</b>
     · ${escalaEsc(h.nome || h.uid || '—')}
     ${h.detalhe ? `<div style="color:var(--text2);margin-left:2px;">${escalaEsc(h.detalhe)}</div>` : ''}
   </div>`;
@@ -407,8 +420,8 @@ function escalaHistoricoGeralHtml() {
   if (!todas.length) return '';
   todas.sort((a, b) => (a.ts > b.ts ? -1 : 1));
   const linhas = todas.slice(0, 50).map(h => `<div style="font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);">
-      <span style="color:var(--text3);">${escalaHistoricoQuando(h.ts)}</span>
-      · <b>${ESCALA_ACAO_LABEL[h.acao] || h.acao}</b>
+      <span style="color:var(--text3);">${escalaEsc(escalaHistoricoQuando(h.ts))}</span>
+      · <b>${escalaHistoricoAcaoLabel(h.acao)}</b>
       · ${escalaEsc(h.nome || h.uid || '—')}
       · <span style="color:var(--text2);">${escalaEsc(h.nomeEscala)}</span>
       ${h.detalhe ? `<div style="color:var(--text2);">${escalaEsc(h.detalhe)}</div>` : ''}
