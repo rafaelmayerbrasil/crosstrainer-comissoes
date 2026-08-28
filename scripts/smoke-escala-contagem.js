@@ -176,29 +176,11 @@ const VIZINHAS = [
   passou('entrada vazia é segura no descanso');
 }
 
-// ── ajuste de partida ────────────────────────────────────────────────
-// Rafael, 25/08: "o que passou eles têm como ajustar manualmente?". Agosto
-// aconteceu pela grade antiga e não existe em special_scales, então não há o
-// que contar — só o que lançar.
 (async () => {
   const makeFakeDb = require('./_fake-firestore.js');
   const SE = require('../scale-engine.js');
   const db = makeFakeDb();
   const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
-
-  const zero = await SS.getFairness('ana', d);
-  assert.strictEqual(zero.data.ajuste, 0, 'sem documento, ajuste é zero');
-
-  await SS.saveAjustePartida('ana', 3, d);
-  const dep = await SS.getFairness('ana', d);
-  assert.strictEqual(dep.data.ajuste, 3, 'ajuste gravado');
-
-  await SS.saveAjustePartida('ana', -5, d);
-  assert.strictEqual((await SS.getFairness('ana', d)).data.ajuste, 0, 'ajuste nunca fica negativo');
-
-  await SS.saveAjustePartida('bru', 1, d);
-  const todos = await SS.listAjustes(d);
-  assert.deepStrictEqual(todos.data, { ana: 0, bru: 1 }, 'listAjustes traz todo mundo de uma vez');
 
   // ── o motor decide pela CONTAGEM, não pelo número guardado ──────────
   // É o cerne do conserto: remontar duas vezes tem que dar o mesmo resultado.
@@ -233,12 +215,6 @@ const VIZINHAS = [
     ctx.scalesDoAno = historico.concat((await SS.listScales(d)).data.filter(s => s.date === '2026-12-05'));
     const r2 = await SS.consolidate(idNovo, ctx, d);
     assert.strictEqual(r2.data.assignments[0].personId, 'duda', 'remontar dá o mesmo resultado');
-
-    // Com o ajuste de partida, a Duda passa a estar na frente na conta e cede a vez.
-    ctx.ajusteById = { duda: 5 };
-    ctx.scalesDoAno = historico;
-    const r3 = await SS.consolidate(idNovo, ctx, d);
-    assert.strictEqual(r3.data.assignments[0].personId, 'cida', 'o ajuste de partida entra na conta do motor');
     console.log('✓ o motor decide pela contagem e remontar não muda a resposta');
   }
 
@@ -315,8 +291,6 @@ const VIZINHAS = [
     console.log('✓ data malformada recusa em vez de zerar a contagem em silêncio');
   }
 
-  console.log('✓ ajuste de partida grava, lista e não fica negativo');
-
   // ── a tela está ligada na contagem, não no contador velho ───────────
   {
     const fs = require('fs');
@@ -325,8 +299,6 @@ const VIZINHAS = [
     assert.ok(!/fairnessMap/.test(ui), 'a tela não pode mais guardar fairnessMap');
     assert.ok(!/saveFairness|applyFairnessDelta/.test(ui), 'a tela não chama mais a API aposentada');
     assert.ok(/ScaleService\.contarPorPessoa\(/.test(ui), 'a tela conta pelas escalas');
-    assert.ok(/ScaleService\.listAjustes\(/.test(ui), 'a tela carrega os ajustes de uma vez');
-    assert.ok(/ScaleService\.saveAjustePartida\(/.test(ui), 'o lápis grava ajuste de partida');
     const painel = ui.slice(ui.indexOf('function renderEquilibrioPainel'), ui.indexOf('function whyTableHtml'));
     assert.ok(/no ano/.test(painel), 'o painel mostra o número do ano ao lado do da janela');
     console.log('✓ a tela usa a contagem derivada');
@@ -492,6 +464,12 @@ const VIZINHAS = [
         },
         listWindowQuotas: async () => ({ success: true, data: {} }),
         listScales: async () => ({ success: true, data: escalas }),
+        // TODO Task 6: some junto com o ajuste manual da tela. `listAjustes`
+        // foi removida de scale-service.js nesta tarefa (Task 5), mas
+        // professores-escala-smart.js:120 (`gerarPreviaLote`) ainda chama
+        // `ScaleService.listAjustes()` — tirar o stub aqui quebraria ESTE
+        // teste, que existe pra provar que a prévia RODA de verdade. A tela
+        // só perde essa chamada na Task 6.
         listAjustes: async () => ({ success: true, data: {} }),
         ScaleConfigService: { get: async () => ({ success: true, data: { horarios: {} } }) },
       },

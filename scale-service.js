@@ -496,46 +496,6 @@
     } catch (err) { console.error('[ScaleService.setRsvp]', err); return { success: false, error: err.message }; }
   }
 
-  /**
-   * O que sobrou do antigo contador: um AJUSTE DE PARTIDA por pessoa.
-   *
-   * Até 25/08/2026 este documento guardava `diasTrabalhados` e `divida` e era o
-   * contador de justiça — que vivia errado, porque só se mexia na primeira
-   * montagem de cada data. Quem conta agora é `contarPorPessoa`, direto das
-   * escalas. Sobrou o ajuste porque agosto aconteceu pela grade antiga e não
-   * existe em `special_scales`: não há o que contar, só o que lançar.
-   * (`divida` nunca foi incrementada por nada — era código morto desde a origem.)
-   */
-  async function getFairness(personId, deps) {
-    try {
-      const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
-      const dados = doc.exists ? (doc.data() || {}) : {};
-      return { success: true, data: { personId, ajuste: Math.max(0, Number(dados.ajuste) || 0) } };
-    } catch (err) { console.error('[ScaleService.getFairness]', err); return { success: false, error: err.message }; }
-  }
-
-  async function saveAjustePartida(personId, ajuste, deps) {
-    try {
-      const n = Math.max(0, Math.round(Number(ajuste) || 0));
-      await rdb(deps).collection('fairness_counter').doc(personId)
-        .set({ personId, ajuste: n, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      return { success: true, data: { ajuste: n } };
-    } catch (err) { console.error('[ScaleService.saveAjustePartida]', err); return { success: false, error: err.message }; }
-  }
-
-  /** Todos os ajustes de uma vez — a tela lia um por pessoa, 16 leituras por render. */
-  async function listAjustes(deps) {
-    try {
-      const snap = await rdb(deps).collection('fairness_counter').get();
-      const out = {};
-      snap.docs.forEach(doc => {
-        const v = doc.data() || {};
-        out[v.personId || doc.id] = Math.max(0, Number(v.ajuste) || 0);
-      });
-      return { success: true, data: out };
-    } catch (err) { console.error('[ScaleService.listAjustes]', err); return { success: false, error: err.message, data: {} }; }
-  }
-
   // PURO: [{personId,date,pref,excludedShifts}] → map[personId][date] = {pref, excludedShifts}
   function dayPrefsToAvailability(dayPrefs) {
     const out = {};
@@ -768,9 +728,9 @@
    * puro (`scale-engine.js`) e grava as vagas escolhidas.
    *
    * @param {string} scaleId id do documento em `special_scales`
-   * @param {Object} ctx contrato de entrada. Nove chaves — três delas, se
+   * @param {Object} ctx contrato de entrada. Nove chaves — duas delas, se
    *   faltarem, DEGRADAM o rodízio pra "decide só por mérito" SEM ERRO
-   *   NENHUM (`teachers`, `scalesDoAno`, `ajusteById` indiretamente):
+   *   NENHUM (`teachers`, `scalesDoAno`):
    *   - {Array} teachers — candidatos (elegibilidade por modalidade é feita
    *     pelo motor, a partir de `requiredModalityId` de cada slot).
    *   - {Object<string,number>} meritoById — desempate do rodízio (fixo,
@@ -803,10 +763,6 @@
    *          cuja janela cruze a virada do ano.
    *   - {Set<string>|Array<string>} excluirDatas — datas extras a tirar da
    *     contagem, além da própria data da escala (que sai sempre).
-   *   - {Object<string,number>} ajusteById — ajuste de partida por pessoa
-   *     (ver `saveAjustePartida`/`listAjustes`); soma direto na contagem.
-   *     Lido de forma blindada aqui dentro — um chamador que não passe por
-   *     `listAjustes` pode mandar negativo ou string.
    *   - {string|null} marcoZero — data a partir da qual a contagem vale
    *     (`YYYY-MM-DD`). Se a chave NÃO vier, a função lê de `scale_config`;
    *     passar `null` explicitamente desliga o marco.
@@ -860,12 +816,11 @@
           marcoZero = null;
         } else {
           const bruto = cfg.data && cfg.data.marcoZero;
-          // Blindado como `ajusteById`, um pouco acima: um doc corrompido em
-          // `scale_config` (Timestamp do Firestore, string fora do formato)
-          // não pode virar corte de janela sem sentido em silêncio — mesma
-          // classe de bug que a checagem de `scale.date`, duas linhas acima,
-          // existe pra matar. Aqui o fallback (12 meses) é válido; só não
-          // pode ser mudo.
+          // Blindado: um doc corrompido em `scale_config` (Timestamp do
+          // Firestore, string fora do formato) não pode virar corte de
+          // janela sem sentido em silêncio — mesma classe de bug que a
+          // checagem de `scale.date`, duas linhas acima, existe pra matar.
+          // Aqui o fallback (12 meses) é válido; só não pode ser mudo.
           if (bruto && !/^\d{4}-\d{2}-\d{2}$/.test(String(bruto))) {
             console.warn(`[ScaleService.consolidate] marco zero configurado ("${bruto}") não é uma data YYYY-MM-DD válida — ignorando e consolidando sem marco.`);
             marcoZero = null;
@@ -897,18 +852,13 @@
         de, ate,
         excluirDatas: excluir,
       });
-      const ajustes = ctx.ajusteById || {};
+      // A contagem vem SÓ das escalas. O "ajuste de partida" lançado na mão foi
+      // aposentado em 28/08/2026 (pedido 1 do Rodrigo, aprovado pelo Rafael):
+      // era um segundo caminho para o mesmo número, e foi por ele que a Heloísa
+      // saiu de 4 para 7. Um caminho só não tem como divergir.
       const fairnessById = {};
       teachers.forEach(t => {
-        // Blindado: Math.max(0, Number(...)||0) do mesmo jeito que
-        // `listAjustes`/`getFairness` já fazem — um chamador que não venha
-        // por eles pode mandar negativo ou string, e NaN ordena de forma
-        // imprevisível no comparador do motor.
-        const ajuste = Math.max(0, Number(ajustes[t.id]) || 0);
-        fairnessById[t.id] = {
-          diasTrabalhados: (contagem[t.id] || 0) + ajuste,
-          divida: 0,
-        };
+        fairnessById[t.id] = { diasTrabalhados: contagem[t.id] || 0, divida: 0 };
       });
       // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
       // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
@@ -1127,5 +1077,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
 });

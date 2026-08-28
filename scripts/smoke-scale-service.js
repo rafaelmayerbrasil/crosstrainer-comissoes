@@ -42,18 +42,6 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(prefs.data.length, 2, 'ana(atualizada)+bru, sem duplicar');
   assert.strictEqual(prefs.data.find(p => p.personId === 'ana').pref, 'nao_quer', 'ana sobrescrita');
 
-  // ── Ajuste de partida ──
-  // O contador guardado foi aposentado em 26/08/2026: ele só se mexia na
-  // primeira montagem de cada data, e remontar a prévia trocava as pessoas sem
-  // refazer a conta (9 das 16 erradas em produção). Quem conta agora é
-  // `contarPorPessoa`, direto das escalas. O documento sobrou pra guardar só o
-  // que aconteceu FORA do sistema — agosto, que rodou pela grade antiga.
-  let f = await SS.getFairness('ana', d);
-  assert.strictEqual(f.data.ajuste, 0, 'nasce sem ajuste');
-  await SS.saveAjustePartida('ana', 3, d);
-  f = await SS.getFairness('ana', d);
-  assert.strictEqual(f.data.ajuste, 3, 'ajuste de partida gravado');
-
   console.log('✓ smoke-scale-service: preferências/fairness OK');
 
   // ── buildCandidates (puro) ──
@@ -97,7 +85,6 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   // deixa de existir junto com o número — remontar dá sempre a mesma resposta.
   const contagem = SS.contarPorPessoa((await SS.listScales(d)).data, { tipos: ['sabado'] });
   assert.strictEqual(contagem.zeca, 1, 'a contagem enxerga o zeca escalado');
-  assert.strictEqual((await SS.getFairness('zeca', d)).data.ajuste, 0, 'consolidar não mexe no ajuste de partida');
 
   await SS.consolidate(c2.data.id, ctx, d);
   const contagem2 = SS.contarPorPessoa((await SS.listScales(d)).data, { tipos: ['sabado'] });

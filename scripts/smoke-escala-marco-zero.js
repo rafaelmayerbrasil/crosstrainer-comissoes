@@ -89,7 +89,37 @@ const SE = require('../scale-engine.js');
     'e um aviso avisa que o valor configurado foi ignorado');
   passou('marco zero inválido na config cai pra null, com aviso, sem derrubar a consolidação');
 
-  console.log(`\n${ok}/5 blocos OK`);
+  // ── o ajuste manual não existe mais para o motor ──
+  // Rodrigo usou o "+ dias fora" achando que editava o contador da janela e
+  // levou a Heloísa de 4 para 7 (26/08). O caminho foi apagado: a contagem vem
+  // SÓ das escalas. Este teste é de comportamento, não de texto — ler o arquivo
+  // foi o que deixou a prévia quebrada passar 12 vezes.
+  //
+  // Datas novas (não '2026-09-26'/'2026-10-03' como no plano): o bloco acima já
+  // usa '2026-09-26' para `configInvalida` e deixa `scale_config.marcoZero`
+  // como 'nao-e-uma-data'. Não é uma colisão de verdade (createScale não
+  // exige data única, e o resíduo da config não vaza porque os dois
+  // `consolidate` abaixo passam `marcoZero` explícito) — mas usar datas
+  // frescas evita qualquer dúvida de leitura e mantém os dois testes
+  // isolados um do outro.
+  const semAjuste = await nova('2026-11-07');
+  await SS.consolidate(semAjuste, Object.assign({}, ctxBase, { marcoZero: '2026-09-01' }), d);
+  const esperado = (await SS.getScale(semAjuste, d)).data.slots[0].assignedPersonId;
+
+  const comAjuste = await nova('2026-11-14');
+  await SS.consolidate(comAjuste, Object.assign({}, ctxBase, {
+    marcoZero: '2026-09-01', ajusteById: { ana: 99 },
+  }), d);
+  const obtido = (await SS.getScale(comAjuste, d)).data.slots[0].assignedPersonId;
+  assert.strictEqual(obtido, esperado,
+    'ajusteById é ignorado: mandar 99 dias não pode mudar quem é escolhido');
+
+  assert.strictEqual(typeof SS.saveAjustePartida, 'undefined', 'saveAjustePartida foi removida');
+  assert.strictEqual(typeof SS.listAjustes, 'undefined', 'listAjustes foi removida');
+  assert.strictEqual(typeof SS.getFairness, 'undefined', 'getFairness foi removida');
+  passou('o ajuste manual não influencia mais o motor');
+
+  console.log(`\n${ok}/6 blocos OK`);
 })().then(rodarTestesDaTela).catch(e => { console.error('❌', e.message); process.exit(1); });
 
 // ── a TELA respeita o marco zero (chama de verdade, não só lê o texto) ──
