@@ -663,7 +663,11 @@ async function renderEscalaGestao() {
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
-function escalaSetPessoa(pid) { EscalaSmartState.pessoaSel = pid || null; renderEscalaGestao(); }
+// Trocar de pessoa ZERA o filtro de janela: o lote é de quem estava selecionado
+// antes. Mantido, ele faria a tela dizer "Nenhuma escala em 2026 para esta
+// pessoa" pra quem TEM escala — e o select cairia sozinho pra "Todas as
+// janelas", então a tela mentiria duas vezes de uma vez.
+function escalaSetPessoa(pid) { EscalaSmartState.pessoaSel = pid || null; EscalaSmartState.pessoaJanela = 'todas'; renderEscalaGestao(); }
 
 /**
  * "Onde e quando fulano está escalado" — pedido 1 do Rodrigo (25/08/2026):

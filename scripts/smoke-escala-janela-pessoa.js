@@ -119,4 +119,22 @@ sandbox.EscalaSmartState.scales = [
   passou('o filtro só lista os lotes em que a própria pessoa está escalada');
 }
 
-console.log(`\n${ok}/3 blocos OK`);
+// ── trocar de pessoa não pode carregar o filtro da anterior ──────────────
+// O lote pertence a quem estava selecionado antes. Se o filtro ficar de pé, a
+// tela diz "Nenhuma escala em 2026 para esta pessoa" pra quem TEM escala — e o
+// <select> cai sozinho pra "Todas as janelas", então a tela mente duas vezes.
+{
+  sandbox.EscalaSmartState.scales.push(
+    { id: 's5', date: '2026-10-10', tipo: 'sabado', windowBatchId: 'b_doBruno', status: 'consolidada', published: false,
+      slots: [{ id: 'v3', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'bru' }] },
+  );
+  sandbox.escalaSetPessoaJanela('b1');          // filtro do lote da ana
+  sandbox.escalaSetPessoa('bru');               // ...e agora olhamos o bruno
+  assert.strictEqual(sandbox.EscalaSmartState.pessoaJanela, 'todas', 'trocar de pessoa zera o filtro de janela');
+  const html = sandbox.renderTabPorPessoa();
+  assert.ok(!/Nenhuma escala em/.test(html), 'o bruno TEM escala — a tela não pode dizer que não tem');
+  sandbox.EscalaSmartState.scales.pop();
+  passou('trocar de pessoa não carrega o filtro de janela da anterior');
+}
+
+console.log(`\n${ok}/4 blocos OK`);
