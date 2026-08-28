@@ -24,11 +24,14 @@ limite de uso, não por ter terminado.**
 outubro seguem publicados com as mesmas pessoas, como o Rafael pediu ("não mexa em nada").
 
 **Estado:** Tasks 1 e 2 fechadas (marco zero no motor, com blindagem contra valor corrompido na
-config). Tasks 3+4 (marco zero na tela + tela de configuração) commitadas em `67f973a` mas **com 6
-achados de revisão em aberto** — a sessão terminou com um subagente ainda rodando a correção e a
-árvore suja. **A primeira coisa ao retomar é rodar `git status` e `git log --oneline main..HEAD`**
-e decidir se aproveita ou refaz; o plano explica os dois caminhos e lista os 6 achados. Tasks 5 a
-25 nem começaram.
+config). Tasks 3+4 (marco zero na tela + tela de configuração) commitadas em `67f973a`, e os 6
+achados da revisão de qualidade **corrigidos em `566da32`** — árvore limpa, testes verdes,
+verificado rodando na mão. **Falta só a re-revisão de qualidade dessa correção**
+(`git diff 67f973a 566da32`), que é onde retomar. Tasks 5 a 25 nem começaram.
+
+A tela ganhou teste que **chama** as funções em sandbox `vm` (9 verificações) — é o modelo a
+copiar nas próximas tarefas de tela. ⚠️ Um buraco declarado: a prova de "o teste falha quando
+deve" cobriu só a validação de formato; a nota do marco na tela não tem essa prova.
 
 **Como estava sendo executado:** skill `superpowers:subagent-driven-development` — um implementador
 por tarefa, depois revisão de especificação, depois revisão de qualidade, cada uma por subagente

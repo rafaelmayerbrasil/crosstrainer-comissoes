@@ -34,30 +34,45 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 |--------|--------|
 | 1 · `dataDeCorte` | ✅ fechada — `bb28ab6` |
 | 2 · marco zero no motor | ✅ fechada — `55acad7` + `c3a359b` (blindagem) |
-| 3+4 · marco zero na tela + config | ⏳ **EM CORREÇÃO** — `67f973a` commitado, mas a revisão de qualidade pediu mudanças; veja abaixo |
+| 3+4 · marco zero na tela + config | 🟡 **corrigida, falta a RE-REVISÃO** — `67f973a` + `566da32` |
 | 5 a 25 | ⬜ não começadas |
 
 ## ⚠️ Primeira coisa a fazer ao retomar
 
-A sessão 59 terminou com um subagente **ainda rodando** e com **alterações não commitadas** em
-`professores-escala-smart.js`. Antes de qualquer outra coisa:
+**A correção das Tasks 3+4 entrou** (`566da32`), a árvore está limpa e os testes passam — isso eu
+verifiquei rodando na mão, não é relato de subagente:
 
-```bash
-git status --short
-git log --oneline main..HEAD
+```
+node --check professores-escala-smart.js   → syntax OK
+node scripts/smoke-escala-marco-zero.js    → 5/5 motor + 9/9 tela
+smoke-escala-contagem · smoke-escala-tabs · smoke-css-vars → verdes
 ```
 
-- Se houver commit **depois** de `67f973a` mexendo em `professores-escala-smart.js`, a correção
-  chegou a ser gravada → **revise-a** contra a lista de 6 achados abaixo e siga para a Task 5.
-- Se a árvore estiver **suja** e sem commit novo, o subagente foi interrompido no meio →
-  **inspecione o diff** (`git diff`), decida se aproveita ou descarta
-  (`git checkout -- professores-escala-smart.js`) e **refaça a Task 3+4 do zero** com as correções
-  já embutidas. Refazer é mais barato que auditar trabalho pela metade.
+**O que falta:** a correção **não passou pela re-revisão de qualidade**, que é o passo que o
+processo manda. A sessão acabou antes. Então:
 
-## Os 6 achados abertos das Tasks 3+4
+1. Despache um revisor de qualidade sobre `git diff 67f973a 566da32`, cobrando os 6 achados abaixo.
+2. Só então siga para a **Task 5**.
 
-Vieram da revisão de qualidade e **ainda precisam existir no código final**, tenham sido aplicados
-ou não:
+**Um buraco que o próprio implementador declarou** e que a re-revisão precisa fechar: a prova de
+"o teste falha quando deve" foi feita só para o **Important 3** (a validação de formato). Os
+**Important 1 e 2** vivem na camada de render (`escalaNotaMarcoHtml`) e **não têm prova de que o
+teste os pegaria** se regredissem. Vale checar se um assert barato fecha isso.
+
+## Os 6 achados das Tasks 3+4 — aplicados em `566da32`, pendentes de conferência
+
+O implementador diz ter resolvido todos assim (**confirme lendo o código, não o relato**):
+
+1. helper único `escalaNotaMarcoHtml(c)` (~linha 254), usado em `renderEquilibrioPainel` (~316),
+   `escalaHistoricoAnoHtml` (~662, que cobre os 3 call-sites, inclusive o modal "Abrir janela") e
+   os cartões de `renderTabPorPessoa` (~623)
+2. usa `c.deAno` e só renderiza quando `c.deAno !== '${ano}-01-01'`
+3. `escalaContagens` valida `/^\d{4}-\d{2}-\d{2}$/` (~232-235), cai para `null` com `console.warn`
+4. comentário de `escalaContagens` reescrito (~220-226), coerente com `whyTableHtml`
+5. botão virou **"Voltar aos 12 meses"**, e o texto de apoio/`confirm` explicam o efeito
+6. `<summary>` alinhado em `var(--blue)`
+
+Texto original dos achados, para conferir contra o código:
 
 1. **(Important)** A nota "Contando a partir de…" só está em `renderEquilibrioPainel`, mas o número
    do ano — já cortado pelo marco — aparece em **três** lugares: ali, em `escalaHistoricoAnoHtml()`
@@ -80,12 +95,14 @@ ou não:
 **Não mexer:** `AuditService.log` sem `try/catch` — foi verificado que ele nunca lança (try/catch
 interno), e é o padrão pré-existente do arquivo.
 
-## Teste que ainda falta nas Tasks 3+4
+## Teste de tela das Tasks 3+4 — ✅ feito em `566da32`
 
-Estender `scripts/smoke-escala-marco-zero.js` com um bloco `vm` que **chame** as funções da tela
-(ver a regra de teste de tela mais abaixo). Prioridade: `salvarMarcoZero` (caminho feliz, erro do
-save, confirm recusado, no-op) → `renderConfigEscalaHtml` (não-Admin recebe `''`) →
-`escalaContagens` (com marco, sem marco, ano anterior ao marco, marco malformado).
+`scripts/smoke-escala-marco-zero.js` ganhou um segundo bloco IIFE em sandbox `vm`, no molde do
+bloco final de `smoke-escala-contagem.js`, que **chama** as funções: `salvarMarcoZero` (caminho
+feliz com audit, erro do save, confirm recusado, no-op), `renderConfigEscalaHtml` (não-Admin recebe
+`''`) e `escalaContagens` (com marco, sem marco, ano anterior ao marco, marco malformado). **9/9.**
+
+É o modelo a copiar nas próximas tarefas de tela.
 
 ## Como esta execução vem sendo conduzida
 
