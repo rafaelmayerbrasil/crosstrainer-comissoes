@@ -723,6 +723,63 @@
     } catch (err) { console.error('[ScaleService.listWindowQuotas]', err); return { success: false, error: err.message, data: {} }; }
   }
 
+  // ── Histórico da escala (pedido 6, 28/08/2026) ──────────────────────
+  // Mora DENTRO do documento da escala, e não em `audit_log`, por um motivo
+  // duro: `audit_log` é `allow read: if isAdmin()`. A Supervisão, que é gestão
+  // para todo o resto da escala, não conseguiria ler — a tela nasceria invisível
+  // para metade de quem precisa dela. `special_scales` já é legível pelo módulo.
+  const HISTORICO_MAX = 50;
+
+  /** PURO: acrescenta uma entrada e corta as mais velhas. */
+  function appendHistorico(lista, entrada, max) {
+    const cap = max || HISTORICO_MAX;
+    const out = (Array.isArray(lista) ? lista.slice() : []).concat([entrada]);
+    return out.length > cap ? out.slice(out.length - cap) : out;
+  }
+
+  /** PURO: o que mudou entre dois conjuntos de vagas, por NOME. */
+  function diffEscalados(antes, depois, nomePorId) {
+    const nome = (id) => (nomePorId && nomePorId[id]) || id;
+    const mapa = {};
+    (antes || []).forEach(s => { mapa[s.id] = { antes: s.assignedPersonId || null, slot: s }; });
+    const partes = [];
+    (depois || []).forEach(s => {
+      const a = (mapa[s.id] || {}).antes || null;
+      const b = s.assignedPersonId || null;
+      if (a === b) return;
+      const rot = s.requiredModalityName ? ` (${s.requiredModalityName})` : '';
+      if (a && b) partes.push(`saiu ${nome(a)}, entrou ${nome(b)}${rot}`);
+      else if (b) partes.push(`entrou ${nome(b)}${rot}`);
+      else partes.push(`saiu ${nome(a)}${rot}`);
+    });
+    return partes.length ? partes.join(' · ') : 'nada mudou';
+  }
+
+  /**
+   * Grava uma linha no histórico da escala. Efeito colateral: se falhar, NÃO
+   * derruba a ação que estava sendo registrada — log perdido é ruim, ação
+   * perdida pela metade é pior.
+   *
+   * `ts` é string ISO do cliente de propósito: o Firestore recusa
+   * `serverTimestamp()` dentro de array.
+   */
+  async function registrarHistorico(scaleId, { acao, detalhe, nome }, deps) {
+    try {
+      const ref = rdb(deps).collection('special_scales').doc(scaleId);
+      const doc = await ref.get();
+      if (!doc.exists) return { success: false, error: 'Escala não encontrada' };
+      const entrada = {
+        ts: new Date().toISOString(), uid: ruid(deps) || null,
+        nome: nome || null, acao: acao || 'alterada', detalhe: detalhe || '',
+      };
+      await ref.set({ historico: appendHistorico((doc.data() || {}).historico, entrada) }, { merge: true });
+      return { success: true, data: entrada };
+    } catch (err) {
+      console.warn('[ScaleService.registrarHistorico] log perdido, ação mantida', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   /**
    * Monta uma escala especial: pega os candidatos elegíveis, chama o motor
    * puro (`scale-engine.js`) e grava as vagas escolhidas.
@@ -1077,5 +1134,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, appendHistorico, diffEscalados, registrarHistorico };
 });
