@@ -217,10 +217,22 @@ function escalaContagens(tipo) {
   const tipos = ScaleService.tiposIrmaos(tipo || 'sabado');
   const ano = String(EscalaSmartState.year);
   const lote = escalaJanelaDoTipo(tipo);
-  // O marco zero corta o histórico do ano do mesmo jeito que corta o do motor —
-  // senão a tela mostraria dias que o rodízio não enxerga, que é exatamente a
-  // divergência silenciosa que esta frente existe pra matar.
-  const marco = (EscalaSmartState.config || {}).marcoZero || null;
+  // O marco zero é um PISO comum ao motor e à tela, mas a BASE de cada um é
+  // diferente: o motor corta a partir de 12 meses móveis antes da data da
+  // escala (`dataDeCorte`, scale-service.js); a tela corta a partir de 1º de
+  // janeiro do ano civil selecionado — de propósito, como `whyTableHtml` já
+  // observa ("o painel do topo mostra o ano civil, então os dois não
+  // precisam bater"). O marco entra por cima de QUALQUER uma das duas bases,
+  // mas não faz elas coincidirem.
+  let marco = (EscalaSmartState.config || {}).marcoZero || null;
+  // Mesma blindagem do serviço (scale-service.js, dentro de `consolidate`):
+  // um `scale_config.marcoZero` corrompido (Timestamp virado string, edição
+  // manual fora do formato) não pode virar corte sem sentido em silêncio —
+  // aqui o fallback é não cortar nada, mas nunca estourando o render.
+  if (marco && !/^\d{4}-\d{2}-\d{2}$/.test(String(marco))) {
+    console.warn(`[escalaContagens] marco zero configurado ("${marco}") não é uma data YYYY-MM-DD válida — ignorando na tela.`);
+    marco = null;
+  }
   const deAno = (marco && marco > `${ano}-01-01`) ? marco : `${ano}-01-01`;
   return {
     lote, marco, deAno,
@@ -229,6 +241,20 @@ function escalaContagens(tipo) {
       : {},
     ano: ScaleService.contarPorPessoa(scales, { tipos, de: deAno, ate: `${ano}-12-31` }),
   };
+}
+
+/**
+ * Nota "contando a partir de" pro número do ano — comum aos três lugares que
+ * mostram esse corte (painel de Equilíbrio, histórico do ano, cartões da aba
+ * Por pessoa). Usa `deAno` (o corte que REALMENTE valeu), não `marco` cru:
+ * num ano posterior ao do marco, 1º de janeiro já é mais recente que ele e o
+ * marco para de cortar qualquer coisa — nesse caso não há nota nenhuma, pra
+ * não afirmar um corte que não está mais em vigor.
+ */
+function escalaNotaMarcoHtml(c) {
+  const ano = String(EscalaSmartState.year);
+  if (!c || !c.deAno || c.deAno === `${ano}-01-01`) return '';
+  return `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Contando a partir de ${escalaFmtBR(c.deAno)}.</div>`;
 }
 
 function renderEquilibrioPainel() {
@@ -288,13 +314,9 @@ function renderEquilibrioPainel() {
       ? `Equilíbrio da janela aberta (${rotuloTipo})`
       : `Equilíbrio da última janela (${rotuloTipo})`;
 
-  const marcoHtml = c.marco
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Contando a partir de ${escalaFmtBR(c.marco)}.</div>`
-    : '';
-
   return `<div style="margin-bottom:14px;">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">${titulo}</div>
-    ${marcoHtml}
+    ${escalaNotaMarcoHtml(c)}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
       ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'ainda não pegou nenhum')}
       ${bloco('media',  '#10241a', 'var(--green)', '=', 'na média')}
@@ -382,17 +404,18 @@ function renderConfigEscalaHtml() {
   if (!(typeof isAdminGestao === 'function' && isAdminGestao())) return '';
   const marco = (EscalaSmartState.config || {}).marcoZero || '';
   return `<details style="margin-bottom:12px;">
-    <summary style="cursor:pointer;font-size:13px;color:var(--text2);">⚙️ Configurações da escala</summary>
+    <summary style="cursor:pointer;font-size:13px;color:var(--blue);">⚙️ Configurações da escala</summary>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;">
       <div style="font-size:13px;font-weight:600;margin-bottom:4px;">A contagem de justiça começa em</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
         Tudo antes desta data não conta — nem na tela, nem na hora de montar a escala.
         Use na virada do ano para zerar o rodízio (ex.: 01/01/2027).
+        Sem data, vale só o padrão: os últimos 12 meses.
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <input type="date" class="input" id="escalaMarcoZero" style="max-width:190px;" value="${marco}">
         <button class="btn-primary" onclick="salvarMarcoZero()">Salvar</button>
-        ${marco ? `<button class="btn-secondary" onclick="salvarMarcoZero(true)">Tirar o marco</button>` : ''}
+        ${marco ? `<button class="btn-secondary" onclick="salvarMarcoZero(true)">Voltar aos 12 meses</button>` : ''}
       </div>
     </div>
   </details>`;
@@ -404,7 +427,7 @@ async function salvarMarcoZero(limpar) {
   const novo = limpar ? null : ((el && el.value) || null);
   if (novo && !/^\d{4}-\d{2}-\d{2}$/.test(novo)) { toast('Data inválida.', 'error'); return; }
   if (novo === antes) { toast('Nada mudou.', 'info'); return; }
-  if (!confirm(`A contagem passa a começar em ${novo ? escalaFmtBR(novo) : '— sem marco —'}.\n\n`
+  if (!confirm(`${novo ? `A contagem passa a começar em ${escalaFmtBR(novo)}.` : 'Sem data, a contagem volta a valer só os últimos 12 meses (o padrão).'}\n\n`
              + `Isso muda o número que o rodízio usa para decidir quem trabalha. `
              + `Nenhuma escala já montada é alterada agora.\n\nContinuar?`)) return;
   const res = await ScaleService.ScaleConfigService.save({ marcoZero: novo });
@@ -597,6 +620,7 @@ function renderTabPorPessoa() {
         <div style="font-size:20px;font-weight:600;">${ajuste}</div>
         <div style="font-size:12px;color:var(--text2);">dias fora do sistema</div></div>` : ''}
     </div>
+    ${escalaNotaMarcoHtml(cSab)}
     ${linhas.length
       ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead><tr style="color:var(--text2);text-align:left;">
@@ -635,6 +659,7 @@ function escalaHistoricoAnoHtml() {
   if (!linhas) return '';
   return `<details style="margin-top:16px;">
     <summary style="cursor:pointer;font-size:13px;color:var(--blue);">📊 Histórico de ${ano} — quantas vezes cada um</summary>
+    ${escalaNotaMarcoHtml(cSab)}
     <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
       <thead><tr style="color:var(--text2);text-align:left;">
         <th style="padding:3px 8px;font-weight:400;">Pessoa</th>
