@@ -37,7 +37,22 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 3+4 · marco zero na tela + config | ✅ fechada — `67f973a` + `566da32` + `d521077` (rede de teste) |
 | 5 · ajuste manual sai do motor | ✅ fechada — `b2cc98d` |
 | 6 · ajuste manual sai da tela | ✅ fechada — `b96091d` |
-| 7 a 25 | ⬜ não começadas |
+| 7 · script que zera os ajustes | ✅ fechada — `bc4af5a` + `268b7b1` (ensaio não grava em disco) |
+| 8 · helpers do histórico | ✅ fechada — `9c8f575` |
+| 9 a 25 | ⬜ não começadas |
+
+### 🧪 O caminho de escrita do `zerar-ajustes-partida.js` FOI exercitado
+
+Staging **não tem nenhum `ajuste` lançado** — os 6 documentos de `fairness_counter` lá são do
+esquema antigo (`diasTrabalhados`/`divida`/`updatedAt`), sem o campo. Então o script, rodado
+direto, só exercita o caminho "nada a fazer". Foi validado com **fixture descartável**
+(`ajuste:3`, `ajuste:-2`, `ajuste:0`) e cleanup completo, duas vezes — antes e depois do conserto.
+Provado: ensaio não grava (nem no banco, nem em disco), `--executar` zera só os não-zerados,
+o backup traz os valores certos, `zeradoEm` vira `Timestamp` de verdade, a reentrada diz
+"Nada a zerar", e os 6 documentos reais ficaram intactos campo a campo.
+
+**Quando a Task 25 chegar, produção terá dados de verdade** — inclusive o `+3` da Heloísa. Rode o
+ensaio e **confira a lista na mão** antes de aplicar.
 
 ### ✋ Não "limpe" o `<span>` do painel de Equilíbrio
 
@@ -1550,6 +1565,13 @@ git commit -m "feat(escala): botao de publicar com o numero real, na barra da te
 ---
 
 ## Task 14: "Tirar do lote"
+
+> ℹ️ **Nota (sessão 60).** A Task 8 levantou que `diffEscalados` percorre só `depois` — uma vaga
+> que existisse em `antes` e sumisse em `depois` não seria relatada. **Aqui isso não morde:** o
+> teste abaixo prova que `removeFromBatch` **mantém a vaga e limpa o ocupante**
+> (`slots[0].assignedPersonId === null`), então o diff enxerga `a='ana' → b=null` e escreve
+> "saiu Ana" corretamente. Só cuide de **não** passar a encolher o array de `slots` — se algum dia
+> encolher, o histórico ficará mudo sobre quem saiu.
 
 **Arquivos:**
 - Modificar: `scale-service.js` (função nova + export), `professores-escala-smart.js`
