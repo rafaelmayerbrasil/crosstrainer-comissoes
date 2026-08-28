@@ -217,12 +217,17 @@ function escalaContagens(tipo) {
   const tipos = ScaleService.tiposIrmaos(tipo || 'sabado');
   const ano = String(EscalaSmartState.year);
   const lote = escalaJanelaDoTipo(tipo);
+  // O marco zero corta o histórico do ano do mesmo jeito que corta o do motor —
+  // senão a tela mostraria dias que o rodízio não enxerga, que é exatamente a
+  // divergência silenciosa que esta frente existe pra matar.
+  const marco = (EscalaSmartState.config || {}).marcoZero || null;
+  const deAno = (marco && marco > `${ano}-01-01`) ? marco : `${ano}-01-01`;
   return {
-    lote,
+    lote, marco, deAno,
     janela: lote.id
       ? ScaleService.contarPorPessoa(scales, { tipos, batchId: lote.id })
       : {},
-    ano: ScaleService.contarPorPessoa(scales, { tipos, de: `${ano}-01-01`, ate: `${ano}-12-31` }),
+    ano: ScaleService.contarPorPessoa(scales, { tipos, de: deAno, ate: `${ano}-12-31` }),
   };
 }
 
@@ -283,8 +288,13 @@ function renderEquilibrioPainel() {
       ? `Equilíbrio da janela aberta (${rotuloTipo})`
       : `Equilíbrio da última janela (${rotuloTipo})`;
 
+  const marcoHtml = c.marco
+    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Contando a partir de ${escalaFmtBR(c.marco)}.</div>`
+    : '';
+
   return `<div style="margin-bottom:14px;">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">${titulo}</div>
+    ${marcoHtml}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
       ${bloco('abaixo', '#2a1414', 'var(--red)',   '↓', 'ainda não pegou nenhum')}
       ${bloco('media',  '#10241a', 'var(--green)', '=', 'na média')}
@@ -359,6 +369,57 @@ function escalaCardDoc(s) {
     <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''}</div></div>
     <span style="font-size:12px;font-weight:600;color:${statusColor};">${statusTxt}</span>
   </div>`;
+}
+
+/**
+ * ⚙️ Configurações da escala — hoje só o marco zero.
+ *
+ * `scale_config` é `write: isAdmin()` nas Security Rules, então o bloco só
+ * aparece pra Admin: mostrar um campo que a Supervisão não consegue gravar
+ * seria prometer o que a regra nega.
+ */
+function renderConfigEscalaHtml() {
+  if (!(typeof isAdminGestao === 'function' && isAdminGestao())) return '';
+  const marco = (EscalaSmartState.config || {}).marcoZero || '';
+  return `<details style="margin-bottom:12px;">
+    <summary style="cursor:pointer;font-size:13px;color:var(--text2);">⚙️ Configurações da escala</summary>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px;">A contagem de justiça começa em</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
+        Tudo antes desta data não conta — nem na tela, nem na hora de montar a escala.
+        Use na virada do ano para zerar o rodízio (ex.: 01/01/2027).
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="date" class="input" id="escalaMarcoZero" style="max-width:190px;" value="${marco}">
+        <button class="btn-primary" onclick="salvarMarcoZero()">Salvar</button>
+        ${marco ? `<button class="btn-secondary" onclick="salvarMarcoZero(true)">Tirar o marco</button>` : ''}
+      </div>
+    </div>
+  </details>`;
+}
+
+async function salvarMarcoZero(limpar) {
+  const el = document.getElementById('escalaMarcoZero');
+  const antes = (EscalaSmartState.config || {}).marcoZero || null;
+  const novo = limpar ? null : ((el && el.value) || null);
+  if (novo && !/^\d{4}-\d{2}-\d{2}$/.test(novo)) { toast('Data inválida.', 'error'); return; }
+  if (novo === antes) { toast('Nada mudou.', 'info'); return; }
+  if (!confirm(`A contagem passa a começar em ${novo ? escalaFmtBR(novo) : '— sem marco —'}.\n\n`
+             + `Isso muda o número que o rodízio usa para decidir quem trabalha. `
+             + `Nenhuma escala já montada é alterada agora.\n\nContinuar?`)) return;
+  const res = await ScaleService.ScaleConfigService.save({ marcoZero: novo });
+  if (!res || res.success === false) { toast('Erro ao salvar: ' + ((res && res.error) || 'falha'), 'error'); return; }
+  if (typeof AuditService === 'object') {
+    await AuditService.log({
+      type: 'scale_marco_zero', module: 'agenda',
+      details: `Marco zero da contagem: ${antes || '—'} → ${novo || '—'}`,
+      entityType: 'scale_config', entityId: 'default',
+      before: { marcoZero: antes }, after: { marcoZero: novo },
+    });
+  }
+  toast('Marco zero salvo.', 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
 }
 
 async function renderEscalaGestao() {
@@ -444,6 +505,7 @@ async function renderEscalaGestao() {
 
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
+    ${renderConfigEscalaHtml()}
     ${tab === 'pessoa' ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
     ${revisaoBar}${refazerBar}
