@@ -185,6 +185,10 @@
         : s);
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'vaga_trocada',
+        detalhe: diffEscalados([slot], slots.filter(s => s.id === slotId), (deps && deps.nomePorId) || {}),
+      }, deps);
 
       // Não há contador pra acertar: quem conta é `contarPorPessoa`, e ela lê
       // esta escala que acabou de ser gravada. A troca manual entra na conta
@@ -229,6 +233,10 @@
 
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: novos, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'invertida',
+        detalhe: `${(deps && deps.nomePorId || {})[a.assignedPersonId] || a.assignedPersonId || '—'} ⇄ ${(deps && deps.nomePorId || {})[b.assignedPersonId] || b.assignedPersonId || '—'}`,
+      }, deps);
 
       return { success: true, data: { published: !!scale.published, from: a.assignedPersonId || null, to: b.assignedPersonId || null } };
     } catch (err) { console.error('[ScaleService.swapSlots]', err); return { success: false, error: err.message }; }
@@ -362,6 +370,10 @@
       if (opts && opts.closesAt) patch.windowClosesAt = opts.closesAt;
       if (opts && opts.batchId) patch.windowBatchId = opts.batchId;
       await rdb(deps).collection('special_scales').doc(id).set(patch, { merge: true });
+      await registrarHistorico(id, {
+        acao: 'janela_aberta',
+        detalhe: (opts && opts.closesAt) ? `janela até ${opts.closesAt}` : 'janela aberta',
+      }, deps);
       return { success: true };
     } catch (err) { console.error('[ScaleService.openElection]', err); return { success: false, error: err.message }; }
   }
@@ -955,6 +967,14 @@
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `ctx.acaoHistorico` deixa o REFAZER se identificar como tal. Sem isso,
+      // refazer a janela gravaria "consolidada" de novo e a pergunta do Rodrigo
+      // — "alguém mexeu?" — continuaria sem resposta, porque montar e REMONTAR
+      // ficariam indistinguíveis no histórico.
+      await registrarHistorico(scaleId, {
+        acao: ctx.acaoHistorico || 'consolidada',
+        detalhe: diffEscalados(scale.slots || [], newSlots, ctx.nomePorId || {}),
+      }, deps);
       return { success: true, data: { assignments: result.assignments } };
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
@@ -1052,6 +1072,10 @@
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'consolidada',
+        detalhe: `${slots.length} vaga(s) em ${days.length} dia(s)`,
+      }, deps);
       const escalados = new Set(Object.values(bySlot).filter(Boolean));
       const naoEscalados = teachers.filter(t => !escalados.has(t.id)).map(t => t.id);
       return { success: true, data: { naoEscalados, totalSlots: slots.length, diasTrabalhadosPorPessoa: working } };
@@ -1132,6 +1156,10 @@
       }
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'publicada',
+        detalhe: `${created} aula(s) na agenda${vagasAbertas.length ? ` · ${vagasAbertas.length} vaga(s) aberta(s)` : ''}`,
+      }, deps);
       return { success: true, data: { created, vagasAbertas, jaCongelados } };
     } catch (err) { console.error('[ScaleService.publishToAgenda]', err); return { success: false, error: err.message }; }
   }
@@ -1142,6 +1170,7 @@
       if (res.blocked) return { success: false, error: 'Há aulas em mês fechado; não é possível despublicar.' };
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: false, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, { acao: 'despublicada', detalhe: `${res.removed} aula(s) removidas da agenda` }, deps);
       return { success: true, data: { removed: res.removed } };
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }

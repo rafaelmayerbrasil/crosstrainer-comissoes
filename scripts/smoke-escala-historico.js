@@ -7,9 +7,8 @@
 // `audit_log` é read-only-Admin e a tela de Auditoria filtra por unidade.
 // Por isso o histórico mora DENTRO do documento da escala.
 const assert = require('assert');
-// Usado pelo bloco assíncrono de integração da Task 9 (registrarHistorico
-// contra um banco de verdade) — nesta tarefa só os helpers puros são
-// testados, então o require fica sem uso local por enquanto.
+// Banco fake p/ o bloco assíncrono de integração (registrarHistorico
+// pendurado nas ações do serviço, contra um Firestore de mentira).
 const makeFakeDb = require('./_fake-firestore.js');
 const SS = require('../scale-service.js');
 
@@ -72,4 +71,32 @@ const passou = (m) => { console.log('✓ ' + m); ok++; };
   passou('diffEscalados descreve a mudança por nome');
 }
 
-console.log(`\n${ok}/2 blocos OK`);
+// ── as ações do serviço deixam rastro (integração, banco fake) ──
+const SE = require('../scale-engine.js');
+
+(async () => {
+  const db = makeFakeDb();
+  const d = { db, ts: () => 'TS', uid: () => 'tester', SE };
+  const slots = [{ id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: null, startTime: '08:00', endTime: '12:00' }];
+  const id = (await SS.createScale({ date: '2026-09-05', tipo: 'sabado', slots }, d)).data.id;
+
+  await SS.openElection(id, null, d);
+  await SS.consolidate(id, { teachers: [{ id: 'ana', modalityIds: ['TOI'] }], meritoById: { ana: 1 }, scalesDoAno: [], marcoZero: null, opts: { minMes: 1 } }, d);
+  await SS.publishToAgenda(id, d);
+  await SS.reassignSlot(id, 'cp_TOI', 'bru', d);
+  await SS.unpublishFromAgenda(id, d);
+
+  // E o refazer se identifica como refazer, não como uma montagem qualquer.
+  await SS.consolidate(id, { teachers: [{ id: 'ana', modalityIds: ['TOI'] }], meritoById: { ana: 1 }, scalesDoAno: [], marcoZero: null, opts: { minMes: 1 }, acaoHistorico: 'refeita' }, d);
+
+  const h = (await SS.getScale(id, d)).data.historico || [];
+  const acoes = h.map(x => x.acao);
+  assert.deepStrictEqual(acoes, ['janela_aberta', 'consolidada', 'publicada', 'vaga_trocada', 'despublicada', 'refeita'],
+    'as seis ações gravam, na ordem em que aconteceram, e refazer não se confunde com montar');
+  assert.ok(h.every(x => typeof x.ts === 'string' && x.ts.length >= 20), 'toda entrada tem carimbo ISO');
+  assert.ok(h.every(x => x.uid === 'tester'), 'toda entrada diz quem fez');
+  assert.ok(/bru|entrou/.test(h[3].detalhe), 'a troca de vaga diz o que mudou');
+  passou('as ações do serviço deixam rastro no documento da escala');
+
+  console.log(`\n${ok}/3 blocos OK`);
+})().catch(e => { console.error('❌', e.message); process.exit(1); });
