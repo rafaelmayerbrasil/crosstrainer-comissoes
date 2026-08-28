@@ -464,13 +464,6 @@ const VIZINHAS = [
         },
         listWindowQuotas: async () => ({ success: true, data: {} }),
         listScales: async () => ({ success: true, data: escalas }),
-        // TODO Task 6: some junto com o ajuste manual da tela. `listAjustes`
-        // foi removida de scale-service.js nesta tarefa (Task 5), mas
-        // professores-escala-smart.js:120 (`gerarPreviaLote`) ainda chama
-        // `ScaleService.listAjustes()` — tirar o stub aqui quebraria ESTE
-        // teste, que existe pra provar que a prévia RODA de verdade. A tela
-        // só perde essa chamada na Task 6.
-        listAjustes: async () => ({ success: true, data: {} }),
         ScaleConfigService: { get: async () => ({ success: true, data: { horarios: {} } }) },
       },
       UnitService: { list: async () => ({ success: true, data: [{ id: 'u1', name: 'CrossTainer CP' }] }) },
@@ -491,6 +484,13 @@ const VIZINHAS = [
     assert.ok(/Ana/.test(modal.innerHTML), 'e mostra quem foi escalado');
     assert.ok(/Nada foi publicado/.test(modal.innerHTML), 'deixando claro que ainda não vale');
     console.log('✓ a prévia roda até o fim e desenha a tela');
+
+    // escalaLoadBase é quem chamava ScaleService.listAjustes() (removida na
+    // Task 5). Chamar de verdade, no mesmo sandbox, prova que a tela não
+    // estoura mais — a mesma classe de falha que passou por 12 verificações
+    // de texto em 24/08 (a prévia que nunca rodou).
+    await sandbox.escalaLoadBase(); // não lança: prova que não sobrou listAjustes() pendurado
+    console.log('✓ escalaLoadBase roda de verdade sem chamar listAjustes');
   }
 
   // ── a janela é por tipo, não uma só pro app inteiro ──────────────────

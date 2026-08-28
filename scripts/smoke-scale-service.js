@@ -42,7 +42,7 @@ const deps = (db) => ({ db, ts: () => 'TS', uid: () => 'tester', SE });
   assert.strictEqual(prefs.data.length, 2, 'ana(atualizada)+bru, sem duplicar');
   assert.strictEqual(prefs.data.find(p => p.personId === 'ana').pref, 'nao_quer', 'ana sobrescrita');
 
-  console.log('✓ smoke-scale-service: preferências/fairness OK');
+  console.log('✓ smoke-scale-service: preferências OK');
 
   // ── buildCandidates (puro) ──
   const cands = SS.buildCandidates({
