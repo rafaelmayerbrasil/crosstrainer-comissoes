@@ -38,8 +38,10 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 5 · ajuste manual sai do motor | ✅ fechada — `b2cc98d` |
 | 6 · ajuste manual sai da tela | ✅ fechada — `b96091d` |
 | 7 · script que zera os ajustes | ✅ fechada — `bc4af5a` + `268b7b1` (ensaio não grava em disco) |
-| 8 · helpers do histórico | ✅ fechada — `9c8f575` |
-| 9 a 25 | ⬜ não começadas |
+| 8 · helpers do histórico | ✅ fechada — `9c8f575` + `4447ce2` (rastro de falha, race documentada) |
+| 9 · as 7 ações gravam histórico | ✅ fechada — `a808bf9` + `051e335` (quem mexeu, com teste) |
+| 10 · `AuditService.log` aceita unidade | ✅ fechada — `920d997` |
+| 11 a 25 | ⬜ não começadas |
 
 ### 🧪 O caminho de escrita do `zerar-ajustes-partida.js` FOI exercitado
 
@@ -1215,6 +1217,33 @@ Esperado: passa (nenhum chamador manda `unitId` ainda; o default é idêntico ao
 git add professores-shared.js
 git commit -m "feat(auditoria): AuditService.log aceita unitId (default null, igual a hoje)"
 ```
+
+> 🚨 **Achado da execução (sessão 60) — esta task abre uma porta que NINGUÉM atravessa.**
+> Varri o plano inteiro: **nenhuma tarefa das 25 faz um chamador passar `unitId`.** A Task 10
+> entrega só a capacidade; o comportamento continua idêntico ao de hoje em todos os 39 chamadores.
+> Isso está correto para o escopo desta frente — **o log da escala foi resolvido de outro jeito**
+> (mora dentro do documento da escala, Tasks 8 e 9, justamente porque `audit_log` é Admin-only).
+> Mas não confunda: **a Task 10 NÃO conserta a invisibilidade do `audit_log`.**
+>
+> **O problema real, medido, é maior e é pré-existente:**
+> - A tela de Auditoria **não é do módulo Professores** — ela mora em `index.html`
+>   (`loadAuditLog()`, ~linha 8930), do módulo **Comissões**. As duas frentes escrevem na **mesma**
+>   coleção `audit_log`: Comissões pelo `logAudit()` do `index.html` (que **preenche** `unitId`),
+>   Professores pelo `AuditService.log` (que gravava **sempre `null`**).
+> - A query é igualdade estrita: `.where('unitId','==',currentUnitId).orderBy('timestamp','desc')`.
+>   **Não há "todas as unidades".** Logo, **todo** registro do módulo Professores desde sempre é
+>   invisível para todo mundo, em qualquer filtro.
+> - Sobrou ainda um segundo `unitId: null` **hardcoded** em `professores-shared.js` (~linha 4300),
+>   numa escrita direta em `audit_log` que **não passa** pelo `AuditService.log` — quem for fechar
+>   esse ciclo precisa pegar os dois caminhos.
+> - `firestore.rules` não valida campo nenhum em `audit_log`, então preencher `unitId` no futuro
+>   não quebra regra. Já o índice composto `unitId`+`timestamp` **não está** no
+>   `firestore.indexes.json` rastreado, embora a tela do Comissões já rode essa query em produção —
+>   ou seja, o índice existe na infra e o arquivo está dessincronizado. Conferir antes de mexer.
+>
+> **Fechar isso é trabalho de outra frente**, com seu próprio plano: são 39 chamadores, e a decisão
+> de qual unidade cada evento pertence não é óbvia para eventos globais (o marco zero, por exemplo,
+> vale para a academia inteira — não tem unidade para passar).
 
 ---
 
