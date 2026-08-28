@@ -43,7 +43,9 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 10 · `AuditService.log` aceita unidade | ✅ fechada — `920d997` |
 | 11 · as duas telas de histórico | ✅ fechada — `5197593` + `98e216d` (escape) + `ae907f4` (nome do autor) |
 | 12+13 · data legível + botão de publicar achável | ✅ fechadas — `70d1b55` + `d641b56` + `4d864e3` |
-| 14 a 25 | ⬜ não começadas |
+| 14 · "Tirar do lote" | ✅ fechada — `66a3d04` |
+| 15 · Por pessoa mostra a janela | ✅ fechada — `9321fa7` (+ teste novo `smoke-escala-janela-pessoa.js`) |
+| 16 a 25 | ⬜ não começadas |
 
 ### ⚠️ Duas lacunas DECLARADAS das Tasks 12+13 (não corrigidas, por orçamento)
 
