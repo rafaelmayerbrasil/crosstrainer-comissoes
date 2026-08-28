@@ -728,6 +728,9 @@
   // duro: `audit_log` é `allow read: if isAdmin()`. A Supervisão, que é gestão
   // para todo o resto da escala, não conseguiria ler — a tela nasceria invisível
   // para metade de quem precisa dela. `special_scales` já é legível pelo módulo.
+  // 50 é teto de TAMANHO DE DOCUMENTO (Firestore, 1 MiB por doc), não política
+  // de retenção — não é "guardamos 50 dias" nem "50 ações", é só o que cabe
+  // folgado sem disputar espaço com `slots`.
   const HISTORICO_MAX = 50;
 
   /** PURO: acrescenta uma entrada e corta as mais velhas. */
@@ -741,10 +744,10 @@
   function diffEscalados(antes, depois, nomePorId) {
     const nome = (id) => (nomePorId && nomePorId[id]) || id;
     const mapa = {};
-    (antes || []).forEach(s => { mapa[s.id] = { antes: s.assignedPersonId || null, slot: s }; });
+    (antes || []).forEach(s => { mapa[s.id] = s.assignedPersonId || null; });
     const partes = [];
     (depois || []).forEach(s => {
-      const a = (mapa[s.id] || {}).antes || null;
+      const a = mapa[s.id] || null;
       const b = s.assignedPersonId || null;
       if (a === b) return;
       const rot = s.requiredModalityName ? ` (${s.requiredModalityName})` : '';
@@ -762,12 +765,21 @@
    *
    * `ts` é string ISO do cliente de propósito: o Firestore recusa
    * `serverTimestamp()` dentro de array.
+   *
+   * Isto é read-modify-write sem transação: duas ações simultâneas na MESMA
+   * escala podem perder uma linha. Aceito de propósito — é log de auditoria,
+   * não insumo do motor (diferente do contador de justiça, que era, e por isso
+   * torceu escala real). `arrayUnion` não resolveria: ele soma, não corta, e o
+   * cap de 50 deixaria de valer.
    */
   async function registrarHistorico(scaleId, { acao, detalhe, nome }, deps) {
     try {
       const ref = rdb(deps).collection('special_scales').doc(scaleId);
       const doc = await ref.get();
-      if (!doc.exists) return { success: false, error: 'Escala não encontrada' };
+      if (!doc.exists) {
+        console.error('[ScaleService.registrarHistorico] escala não encontrada', scaleId);
+        return { success: false, error: 'Escala não encontrada' };
+      }
       const entrada = {
         ts: new Date().toISOString(), uid: ruid(deps) || null,
         nome: nome || null, acao: acao || 'alterada', detalhe: detalhe || '',
@@ -775,7 +787,7 @@
       await ref.set({ historico: appendHistorico((doc.data() || {}).historico, entrada) }, { merge: true });
       return { success: true, data: entrada };
     } catch (err) {
-      console.warn('[ScaleService.registrarHistorico] log perdido, ação mantida', err);
+      console.error('[ScaleService.registrarHistorico] log perdido, ação mantida', err);
       return { success: false, error: err.message };
     }
   }

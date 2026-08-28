@@ -129,6 +129,7 @@ Stack: HTML/CSS/JS vanilla + Firebase (Auth + Firestore + Functions + Storage). 
 5. **CreditService race condition rara** no abate de créditos: aceito como tech debt (1 admin por vez em produção realística).
 6. **Cross-region warning** (CFs em `us-central1`, triggers de Firestore default em `sa-east1`): cosmético, sem impacto funcional.
 7. **Critérios 5/6 da Sprint 4a** (estagiário com/sem excedente) seguem sem validação direta — sem estagiário com aulas em staging.
+8. **`ScaleService.registrarHistorico` race condition rara** no histórico da escala: read-modify-write sem transação, duas ações simultâneas na MESMA escala podem perder uma linha; aceito como tech debt (é log de auditoria, não insumo do motor).
 
 ## 🐛 Bugfix em produção (Comissões)
 
