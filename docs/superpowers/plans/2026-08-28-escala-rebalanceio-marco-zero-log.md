@@ -24,6 +24,103 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 
 ---
 
+# 🚦 ESTADO DA EXECUÇÃO — atualize esta seção a cada tarefa fechada
+
+> **Última atualização:** 28/08/2026, fim da sessão 59 (a sessão acabou por limite de uso, não
+> por ter terminado o trabalho). Branch: **`escala-rebalanceio-log`**, saída de `main` (`e44b4a7`).
+> **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada.**
+
+| Tarefa | Estado |
+|--------|--------|
+| 1 · `dataDeCorte` | ✅ fechada — `bb28ab6` |
+| 2 · marco zero no motor | ✅ fechada — `55acad7` + `c3a359b` (blindagem) |
+| 3+4 · marco zero na tela + config | ⏳ **EM CORREÇÃO** — `67f973a` commitado, mas a revisão de qualidade pediu mudanças; veja abaixo |
+| 5 a 25 | ⬜ não começadas |
+
+## ⚠️ Primeira coisa a fazer ao retomar
+
+A sessão 59 terminou com um subagente **ainda rodando** e com **alterações não commitadas** em
+`professores-escala-smart.js`. Antes de qualquer outra coisa:
+
+```bash
+git status --short
+git log --oneline main..HEAD
+```
+
+- Se houver commit **depois** de `67f973a` mexendo em `professores-escala-smart.js`, a correção
+  chegou a ser gravada → **revise-a** contra a lista de 6 achados abaixo e siga para a Task 5.
+- Se a árvore estiver **suja** e sem commit novo, o subagente foi interrompido no meio →
+  **inspecione o diff** (`git diff`), decida se aproveita ou descarta
+  (`git checkout -- professores-escala-smart.js`) e **refaça a Task 3+4 do zero** com as correções
+  já embutidas. Refazer é mais barato que auditar trabalho pela metade.
+
+## Os 6 achados abertos das Tasks 3+4
+
+Vieram da revisão de qualidade e **ainda precisam existir no código final**, tenham sido aplicados
+ou não:
+
+1. **(Important)** A nota "Contando a partir de…" só está em `renderEquilibrioPainel`, mas o número
+   do ano — já cortado pelo marco — aparece em **três** lugares: ali, em `escalaHistoricoAnoHtml()`
+   (usada no modal **"Abrir janela de preferências"**, onde a gestão decide) e nos cartões da aba
+   **Por pessoa** (que **nunca** renderiza o painel de Equilíbrio). Criar **um** helper
+   (`escalaNotaMarcoHtml(c)`) e usá-lo nos três.
+2. **(Important)** A nota mostra `c.marco` cru; deve mostrar `c.deAno`, e **só aparecer quando o
+   corte de fato mudou** (`c.deAno !== '${ano}-01-01'`). Em ano posterior ao do marco, ele não corta
+   mais nada e a nota estaria mentindo.
+3. **(Important)** A tela lê `marcoZero` **sem** a validação de formato que `scale-service.js` já
+   faz (~linhas 862-874). Valor malformado faria `escalaFmtBR` estourar e derrubar o render inteiro.
+   Validar `^\d{4}-\d{2}-\d{2}$` e tratar como sem-marco se não casar.
+4. **(Minor)** O comentário de `escalaContagens` diz que a tela corta "do mesmo jeito que o motor".
+   Não corta: motor = `max(12 meses móveis, marco)`; tela = `max(1º de janeiro, marco)`. O arquivo
+   já documenta a diferença em `whyTableHtml` — o comentário a contradiz.
+5. **(Minor)** "Tirar o marco" estreia uma palavra que o usuário nunca viu no rótulo do campo.
+   Trocar por algo que diga o efeito, ex.: **"Voltar aos 12 meses"**.
+6. **(Minor)** O `<summary>` do novo `<details>` usa `var(--text2)`; os vizinhos usam `var(--blue)`.
+
+**Não mexer:** `AuditService.log` sem `try/catch` — foi verificado que ele nunca lança (try/catch
+interno), e é o padrão pré-existente do arquivo.
+
+## Teste que ainda falta nas Tasks 3+4
+
+Estender `scripts/smoke-escala-marco-zero.js` com um bloco `vm` que **chame** as funções da tela
+(ver a regra de teste de tela mais abaixo). Prioridade: `salvarMarcoZero` (caminho feliz, erro do
+save, confirm recusado, no-op) → `renderConfigEscalaHtml` (não-Admin recebe `''`) →
+`escalaContagens` (com marco, sem marco, ano anterior ao marco, marco malformado).
+
+## Como esta execução vem sendo conduzida
+
+Skill `superpowers:subagent-driven-development`: **um subagente implementador por tarefa**, depois
+**revisão de especificação**, depois **revisão de qualidade**, cada uma por um subagente novo. Só
+avança quando as duas aprovam; achado da revisão volta para o **mesmo** implementador.
+
+Vale a pena manter: **3 das 4 tarefas até agora voltaram com achado real** — nenhum deles teria
+sido pego só rodando os testes.
+
+Modelo: `sonnet` deu conta de tudo até aqui. Reserve o modelo mais capaz para as Tasks **16, 17 e
+20** (motor do rebalanceio e a tela dele), que envolvem julgamento de projeto.
+
+## Armadilhas de ambiente já descobertas (não redescubra)
+
+- **`node` não está no PATH** da sessão de shell (Windows + nvm4w). Está em `/c/nvm4w/nodejs`
+  (v22.22.2). Procure antes de concluir que node não existe.
+- **Não edite por heredoc no shell** — o quoting deste ambiente mangla backslashes de forma
+  inconsistente entre chamadas, o que estraga regex. Use a ferramenta de edição estruturada.
+- **`git commit` cospe `failed to delete '.git/worktrees/...': Permission denied`.** É sujeira de
+  worktrees antigas travadas, **não** tem relação com o commit — que passa normalmente. Ignore.
+- Rode `node --check professores-escala-smart.js` depois de mexer nele: é template literal
+  aninhado, e erro de sintaxe é a falha mais provável.
+
+## Duas emendas ao plano, decididas durante a execução
+
+Estão detalhadas mais abaixo, mas resumindo, porque valem para as tarefas que faltam:
+
+1. **Nunca passe `ctx.marcoZero`.** Deixe `consolidate` ler a config sozinha — a blindagem de
+   formato só existe nesse caminho.
+2. **Teste de tela tem que chamar a função**, num sandbox `vm`, quando ela tiver efeito colateral
+   ou for gate de permissão. `vm.createContext` já é padrão aqui (9 arquivos em `scripts/`).
+
+---
+
 ## Antes de começar
 
 ```bash
@@ -59,6 +156,24 @@ node scripts/smoke-scale-engine.js && node scripts/smoke-scale-service.js && nod
 | `scripts/smoke-escala-data-formatada.js` | `fmtDataLonga` + varredura de data crua | **criar** |
 | `scripts/smoke-escala-contagem.js`, `smoke-scale-service.js`, `smoke-ajustes-escala-2508.js`, `smoke-ajuste-contador-rotulo.js` | ancoravam o ajuste manual | modificar |
 | `manual-admin.html`, `scripts/smoke-manual-atualizado.js` | rotina nova da gestão | modificar |
+
+---
+
+## 🧪 Como se testa tela neste projeto (decidido na revisão da Task 3+4)
+
+Eu tinha suposto que os smokes de tela aqui só liam o texto do arquivo com regex. **Está errado**, e a
+verificação corrigiu a suposição: `vm.createContext` já é padrão consolidado — **9 arquivos** de
+`scripts/` usam, e `scripts/smoke-escala-contagem.js` (linhas ~460-516) já carrega
+`professores-escala-smart.js` de verdade e **chama** `gerarPreviaLote('lote')` de ponta a ponta.
+Aquele bloco nasceu justamente do conserto da prévia que nunca rodou.
+
+**Regra para toda tarefa de tela deste plano:** quando a função nova tiver **efeito colateral**
+(grava, notifica, republica) ou for um **gate de permissão**, o teste tem que **chamá-la** num
+sandbox `vm`, não procurar o texto dela no arquivo. Reaproveite o esqueleto de sandbox de
+`smoke-escala-contagem.js`, acrescentando os globais que faltarem aos mocks.
+
+Regex sobre o arquivo continua válido para uma coisa só: provar que algo **não existe mais**
+(ver `smoke-ajuste-contador-rotulo.js`, Task 6). Ausência é o único fato que ler texto prova bem.
 
 ---
 
@@ -273,6 +388,17 @@ git commit -m "feat(escala): consolidate respeita o marco zero da config"
 ```
 
 ---
+
+> ⚠️ **Achado da revisão da Task 2, que vale para todas as tarefas seguintes:** o valor de
+> `marcoZero` lido da config é blindado contra formato inválido dentro de `consolidate`, mas
+> **`ctx.marcoZero` explícito não é** — ele passa direto para `dataDeCorte`. Hoje é seguro,
+> porque o único caminho que usa `ctx.marcoZero` são os testes, com valores fixos.
+>
+> **Regra daqui pra frente: nenhuma tarefa da tela pode passar `ctx.marcoZero`.** Deixe
+> `consolidate` ler a config sozinha — é uma leitura barata por data e é o que garante a
+> blindagem. Se algum dia alguém quiser passar via `ctx` para economizar leituras num lote,
+> **mova antes a validação de formato para dentro de `dataDeCorte`**, que é o ponto único e já
+> testado isoladamente. Sem isso, a blindagem vira letra morta nesse caminho.
 
 ## Task 3: a tela conta a partir do marco zero
 
