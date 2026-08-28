@@ -2297,7 +2297,7 @@ async function renderProfSabadosFeriados(pid, tab) {
       right = open
         ? `<div style="display:flex;gap:6px;">${pbtn(s.id, 'prefiro', 'Prefiro', 'var(--green)')}${pbtn(s.id, 'pode_ser', 'Pode ser', '#5EA8FF')}${pbtn(s.id, 'nao_posso', 'Não posso', 'var(--red)')}</div>`
         : `<span style="font-size:12px;color:var(--red);">Janela encerrada</span>`;
-      return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${prazo}`, right);
+      return profDateRow(s, `${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · ${prazo}`, right);
     }
     // ANTES da eleição acontecer, "Não escalado" MENTE: o professor lê como "não
     // fui escolhido" quando a verdade é "ainda nem começou". Pior, ao lado vinha
@@ -2316,7 +2316,7 @@ async function renderProfSabadosFeriados(pid, tab) {
         : 'A gestão ainda não abriu as candidaturas';
       return profDateRow(
         s,
-        `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Ainda não liberado`,
+        `${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Ainda não liberado`,
         `<span style="font-size:12px;color:var(--text3);">${texto}</span>`
       );
     }
@@ -2324,7 +2324,7 @@ async function renderProfSabadosFeriados(pid, tab) {
     right = escalado
       ? `<span style="font-size:12px;color:var(--green);font-weight:600;">✓ Você está escalado</span>`
       : `<span style="font-size:12px;color:var(--text3);">Não escalado desta vez</span>`;
-    return profDateRow(s, `${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Escala definida`, right);
+    return profDateRow(s, `${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Escala definida`, right);
   }).join('');
 }
 

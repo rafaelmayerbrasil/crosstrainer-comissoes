@@ -34,10 +34,17 @@ const passou = (m) => { console.log('✓ ' + m); ok++; };
   //  - value="${...}" de <input type="date">: o input exige ISO
   //  - argumento de onclick/função: id/chave, não texto pra humano
   //  - comparação/atribuição em JS puro (fora de template de HTML)
+  // ⚠️ A exceção "linha sem HTML nenhum" já deu falso negativo uma vez: as três
+  // chamadas de `profDateRow(s, `${s.date} · …`, …)` montavam o texto num
+  // template literal SEM `<` na mesma linha, e só viravam HTML lá dentro — a
+  // data ISO crua chegava à tela DO PROFESSOR e a varredura dizia que estava
+  // tudo bem. Por isso a linha sem HTML só é legítima se também não estiver
+  // entregando o texto como argumento para uma função que desenha.
+  const entregaPraRender = (l) => /\b(profDateRow|escalaCardDoc|render[A-Z]\w*|\w+Html)\s*\(/.test(l);
   const legitima = (l) =>
     /value="\$\{/.test(l) ||          // input type=date
     /onclick=|onchange=/.test(l) ||   // argumento de handler
-    !/</.test(l);                     // linha sem HTML nenhum
+    (!/</.test(l) && !entregaPraRender(l));
 
   const suspeitas = linhas
     .map((l, i) => ({ n: i + 1, l }))
