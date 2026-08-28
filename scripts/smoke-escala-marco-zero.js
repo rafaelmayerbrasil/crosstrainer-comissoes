@@ -282,5 +282,49 @@ async function rodarTestesDaTela() {
     passouTela('salvarMarcoZero (no-op): valor igual ao atual não faz nada');
   }
 
-  console.log(`\n${okTela}/9 verificações da tela OK`);
+  // ── escalaNotaMarcoHtml nos 3 call-sites reais (Important 1 e 2) ──
+  //
+  // Os dois blocos acima provam escalaContagens e o gate de admin, mas nenhum
+  // chama renderTabPorPessoa nem escalaHistoricoAnoHtml de verdade — então uma
+  // regressão em quem CONCATENA a nota (tirar `${escalaNotaMarcoHtml(...)}` de
+  // um call-site) ou em QUANDO ela deveria sumir (usar `c.marco` cru em vez de
+  // `c.deAno`) passava batido. Este bloco fecha essa lacuna.
+  {
+    sandbox.EscalaSmartState.year = 2026;
+    sandbox.EscalaSmartState.config = { marcoZero: '2026-09-01', horarios: {} };
+    sandbox.EscalaSmartState.scales = [
+      { id: 's_antes', date: '2026-08-01', tipo: 'sabado', windowBatchId: null, status: 'consolidada',
+        slots: [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana' }] },
+      { id: 's_depois', date: '2026-09-05', tipo: 'sabado', windowBatchId: null, status: 'consolidada',
+        slots: [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana' }] },
+      // escala num ano POSTERIOR ao do marco — sem isso escalaHistoricoAnoHtml
+      // devolve '' por guard-clause antes de sequer avaliar a nota, e o teste
+      // passaria pelo motivo errado.
+      { id: 's_2027', date: '2027-03-06', tipo: 'sabado', windowBatchId: null, status: 'consolidada',
+        slots: [{ id: 'v1', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: 'ana' }] },
+    ];
+    sandbox.EscalaSmartState.janelaPorTipo = {};
+    sandbox.EscalaSmartState.teacherMap = new Map([['ana', { id: 'ana', name: 'Ana', isActive: true }]]);
+    sandbox.EscalaSmartState.units = [{ id: 'cp', name: 'CrossTainer CP' }];
+    sandbox.EscalaSmartState.modToi = { id: 'TOI' };
+    sandbox.EscalaSmartState.modHiit = { id: 'HIIT' };
+    sandbox.EscalaSmartState.pessoaSel = 'ana';
+
+    // Achado 1: a nota aparece nos 2 call-sites que a aba Por pessoa concatena
+    // (o cartão direto + o histórico aninhado no fim da própria aba).
+    const htmlPorPessoa = sandbox.renderTabPorPessoa();
+    const ocorrencias = (htmlPorPessoa.match(/Contando a partir de 01\/09\/2026/g) || []).length;
+    assert.strictEqual(ocorrencias, 2, 'a nota aparece 2x na aba Por pessoa: cartão + histórico aninhado');
+
+    // Achado 2: num ano POSTERIOR ao do marco, o corte não vale mais —
+    // a nota não pode afirmar um corte que já não está em vigor.
+    sandbox.EscalaSmartState.year = 2027;
+    const htmlAnoSeguinte = sandbox.escalaHistoricoAnoHtml();
+    assert.ok(!/Contando a partir de/.test(htmlAnoSeguinte || ''), 'ano posterior ao marco: sem nota (o corte não vale mais)');
+    sandbox.EscalaSmartState.year = 2026;
+
+    passouTela('escalaNotaMarcoHtml aparece nos call-sites reais e some quando o corte deixa de valer');
+  }
+
+  console.log(`\n${okTela}/10 verificações da tela OK`);
 }
