@@ -595,6 +595,28 @@
       : [tipo];
   }
 
+  // Dia da semana em array fixo: `Intl`/`toLocaleDateString` dependem do locale
+  // do navegador, e a mesma tela mostraria "Friday" em quem estiver com o
+  // sistema em inglês. Isto é texto de produto, não de sistema.
+  const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+  /**
+   * PURO: '2026-11-20' → 'sexta-feira, 20/11/2026'.
+   *
+   * O cartão da escala imprimia a data crua (Rodrigo, 28/08/2026). Mora no
+   * serviço, e não na tela, pra que o teste CHAME a função em vez de ler o texto
+   * do arquivo — a lição de 26/08. `T12:00:00` pelo mesmo motivo de
+   * `dozeMesesAntes`: não escorregar de dia por fuso.
+   */
+  function fmtDataLonga(iso) {
+    const s = String(iso == null ? '' : iso);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s + 'T12:00:00');
+    if (isNaN(d)) return s;
+    const [y, m, dd] = s.split('-');
+    return `${DIAS_SEMANA[d.getDay()]}, ${dd}/${m}/${y}`;
+  }
+
   /**
    * PURO: mesma data, 12 meses (1 ano) antes — a janela móvel do rodízio.
    * `T12:00:00` local pra não escorregar de dia em fuso horário (mesma
@@ -1201,5 +1223,5 @@
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, appendHistorico, diffEscalados, registrarHistorico };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, appendHistorico, diffEscalados, registrarHistorico };
 });

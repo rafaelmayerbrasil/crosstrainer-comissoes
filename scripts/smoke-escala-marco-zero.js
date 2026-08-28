@@ -153,6 +153,7 @@ async function rodarTestesDaTela() {
     ScaleService: {
       tiposIrmaos: SS.tiposIrmaos,
       contarPorPessoa: SS.contarPorPessoa,
+      fmtDataLonga: SS.fmtDataLonga,
       ScaleConfigService: {
         save: async (patch) => {
           saveCalls++; savedPatch = patch;
@@ -343,7 +344,9 @@ async function rodarTestesDaTela() {
     // Achado 1: a nota aparece nos 2 call-sites que a aba Por pessoa concatena
     // (o cartão direto + o histórico aninhado no fim da própria aba).
     const htmlPorPessoa = sandbox.renderTabPorPessoa();
-    const ocorrencias = (htmlPorPessoa.match(/Contando a partir de 01\/09\/2026/g) || []).length;
+    // Task 12 trocou escalaFmtBR por ScaleService.fmtDataLonga nesta nota: a
+    // data crua virou "terça-feira, 01/09/2026" (dia da semana por extenso).
+    const ocorrencias = (htmlPorPessoa.match(/Contando a partir de terça-feira, 01\/09\/2026/g) || []).length;
     assert.strictEqual(ocorrencias, 2, 'a nota aparece 2x na aba Por pessoa: cartão + histórico aninhado');
 
     // Achado 2: num ano POSTERIOR ao do marco, o corte não vale mais —

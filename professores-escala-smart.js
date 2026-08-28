@@ -250,7 +250,7 @@ function escalaContagens(tipo) {
 function escalaNotaMarcoHtml(c) {
   const ano = String(EscalaSmartState.year);
   if (!c || !c.deAno || c.deAno === `${ano}-01-01`) return '';
-  return `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Contando a partir de ${escalaFmtBR(c.deAno)}.</div>`;
+  return `<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Contando a partir de ${ScaleService.fmtDataLonga(c.deAno)}.</div>`;
 }
 
 function renderEquilibrioPainel() {
@@ -466,7 +466,7 @@ function escalaCardDoc(s) {
   const kindBadge = (s.tipo === 'evento' && s.eventKind)
     ? `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${s.eventKind === 'externo' ? '#2a1a2e' : 'var(--surface3)'};color:${s.eventKind === 'externo' ? '#c77dff' : 'var(--text2)'};margin-left:6px;">${s.eventKind === 'externo' ? 'Externo' : 'Interno'}</span>` : '';
   return `<div onclick="selectEscala('${s.id}')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;background:${sel ? 'var(--surface2)' : 'var(--surface)'};border:1px solid ${sel ? 'var(--blue)' : 'var(--border)'};border-radius:10px;padding:10px 12px;margin-bottom:6px;">
-    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${s.date}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''}</div></div>
+    <div><div style="font-weight:600;font-size:14px;">${s.name || ScaleService.fmtDataLonga(s.date)}${kindBadge}</div><div style="font-size:12px;color:var(--text2);">${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''}</div></div>
     <span style="font-size:12px;font-weight:600;color:${statusColor};">${statusTxt}</span>
   </div>`;
 }
@@ -942,7 +942,9 @@ function renderTabSabados(scales) {
 function renderFimDeAnoDetail(scale) {
   const slots = scale.slots || [];
   const unitName = (uid) => { const u = EscalaSmartState.units.find(x => x.id === uid); return u ? u.name : uid; };
-  const fmtDay = (iso) => { const p = iso.split('-'); return `${p[2]}/${p[1]}`; };
+  // Dia abreviado + data completa, cabendo nos 52px da coluna. `\w{3}` não
+  // pega "sábado" (o "á" não é \w) — `[^\s,]{3}` é seguro pra acento.
+  const fmtDay = (iso) => ScaleService.fmtDataLonga(iso).replace(/^([^\s,]{3})[^,]*,/, '$1,');
   const consolidated = scale.status === 'consolidada';
   const days = [...new Set(slots.map(s => s.day))].sort();
 
@@ -965,7 +967,7 @@ function renderFimDeAnoDetail(scale) {
       return `<div style="font-size:12px;margin-bottom:4px;"><span style="color:var(--text2);font-weight:500;">${unitName(uid)}</span>${shiftsHtml}</div>`;
     }).join('');
     daysHtml += `<div style="display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;">
-      <div style="font-weight:600;font-size:13px;min-width:52px;">${fmtDay(day)}${half ? '<div style="font-size:10px;color:#caa23a;">½ período</div>' : ''}</div>
+      <div style="font-weight:600;font-size:13px;min-width:96px;">${fmtDay(day)}${half ? '<div style="font-size:10px;color:#caa23a;">½ período</div>' : ''}</div>
       <div style="flex:1;">${unitsHtml}</div>
     </div>`;
   });
@@ -1023,8 +1025,8 @@ function renderEscolaInternaDetail(scale) {
       : `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>`}
   </div>`;
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
-    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
-      <div style="font-size:12px;color:var(--text2);">${scale.date} · atribuição manual do líder</div></div>
+    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || ScaleService.fmtDataLonga(scale.date)}</div>
+      <div style="font-size:12px;color:var(--text2);">${ScaleService.fmtDataLonga(scale.date)} · atribuição manual do líder</div></div>
     ${cards || '<p style="color:var(--text2);">Sem sessões.</p>'}
     ${actions}
     ${escalaHistoricoDaEscalaHtml(scale)}
@@ -1160,8 +1162,8 @@ function renderEventoDetail(scale) {
 
   const kindBadge = scale.eventKind === 'externo' ? 'Externo' : 'Interno';
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
-    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || scale.date}</div>
-      <div style="font-size:12px;color:var(--text2);">${scale.date} · ${kindBadge}</div></div>
+    <div style="margin-bottom:12px;"><div style="font-weight:600;">${scale.name || ScaleService.fmtDataLonga(scale.date)}</div>
+      <div style="font-size:12px;color:var(--text2);">${ScaleService.fmtDataLonga(scale.date)} · ${kindBadge}</div></div>
     ${prontoBar}
     <div style="font-size:13px;font-weight:500;margin-bottom:6px;">Staff — quem deve / poderia participar</div>
     <div style="max-height:40vh;overflow:auto;">${linhas || '<p style="color:var(--text2);">Nenhum colaborador ativo.</p>'}</div>
@@ -1401,7 +1403,7 @@ function renderEscalaDetail(scale) {
 
   return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;">
-      <div><div style="font-weight:600;">${scale.name || scale.date}</div><div style="font-size:12px;color:var(--text2);">${scale.date} · ${ESCALA_STATUS_LABEL[scale.status] || scale.status}</div></div>
+      <div><div style="font-weight:600;">${scale.name || ScaleService.fmtDataLonga(scale.date)}</div><div style="font-size:12px;color:var(--text2);">${ScaleService.fmtDataLonga(scale.date)} · ${ESCALA_STATUS_LABEL[scale.status] || scale.status}</div></div>
     </div>
     ${unitsHtml || '<p style="color:var(--text2);">Sem vagas nesta escala.</p>'}
     ${actions}
@@ -2301,7 +2303,7 @@ async function renderProfSabadosFeriados(pid, tab) {
 
 function profDateRow(s, sub, right) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
-    <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${sub}</div></div>
+    <div><div style="font-weight:600;font-size:14px;">${s.name || ScaleService.fmtDataLonga(s.date)}</div><div style="font-size:12px;color:var(--text2);">${sub}</div></div>
     ${right}
   </div>`;
 }
@@ -2320,7 +2322,7 @@ async function renderProfFimDeAno(pid) {
     const mine = {};
     (dpRes.success ? dpRes.data : []).filter(p => p.personId === pid).forEach(p => { mine[p.date] = p; });
 
-    const cabecalho = `<div style="font-weight:600;margin:4px 0 8px;">${s.name || s.date}${open ? '' : ` · <span style="color:var(--red);font-size:12px;">janela encerrada</span>`}</div>`;
+    const cabecalho = `<div style="font-weight:600;margin:4px 0 8px;">${s.name || ScaleService.fmtDataLonga(s.date)}${open ? '' : ` · <span style="color:var(--red);font-size:12px;">janela encerrada</span>`}</div>`;
     const diasHtml = dias.map(day => {
       const cur = mine[day] || { pref: null, excludedShifts: [] };
       const shifts = shiftsByDay[day];
@@ -2398,7 +2400,7 @@ async function renderProfEventos() {
       right = `<span style="font-size:12px;color:var(--text3);">informativo</span>`;
     }
     parts.push(`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
-      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)} · ${kind}${mine && mine.tier === 'obrigatorio' ? ' · você deve participar' : (mine ? ' · você poderia participar' : '')}</div></div>
+      <div><div style="font-weight:600;font-size:14px;">${s.name || ScaleService.fmtDataLonga(s.date)}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)} · ${kind}${mine && mine.tier === 'obrigatorio' ? ' · você deve participar' : (mine ? ' · você poderia participar' : '')}</div></div>
       ${right}
     </div>`);
   }
@@ -2424,7 +2426,7 @@ function renderProfEscolaInterna(pid) {
       ? `<span style="font-size:12px;color:#caa23a;font-weight:600;">★ Você lidera</span>`
       : `<span style="font-size:12px;color:var(--text3);">—</span>`;
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
-      <div><div style="font-weight:600;font-size:14px;">${s.name || s.date}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)}</div></div>
+      <div><div style="font-weight:600;font-size:14px;">${s.name || ScaleService.fmtDataLonga(s.date)}</div><div style="font-size:12px;color:var(--text2);">${escalaFmtBR(s.date)}</div></div>
       ${right}
     </div>`;
   }).join('');
