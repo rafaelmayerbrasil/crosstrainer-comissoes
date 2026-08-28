@@ -41,7 +41,26 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 8 · helpers do histórico | ✅ fechada — `9c8f575` + `4447ce2` (rastro de falha, race documentada) |
 | 9 · as 7 ações gravam histórico | ✅ fechada — `a808bf9` + `051e335` (quem mexeu, com teste) |
 | 10 · `AuditService.log` aceita unidade | ✅ fechada — `920d997` |
-| 11 a 25 | ⬜ não começadas |
+| 11 · as duas telas de histórico | ✅ fechada — `5197593` + `98e216d` (escape) + `ae907f4` (nome do autor) |
+| 12 a 25 | ⬜ não começadas |
+
+### 💸 Mudança de método a partir da Task 12 (pedido do Rafael, limite semanal)
+
+Até aqui cada tarefa gastou **3 subagentes** (implementador + revisor de spec + revisor de qualidade).
+Não fecha o plano dentro do limite. A partir da Task 12:
+- **uma revisão só**, cobrindo spec e qualidade — exceto **16, 17 e 20** (motor do rebalanceio), que
+  mantêm as duas separadas;
+- **tarefas pequenas agrupadas** num implementador só (12+13, 14+15, 21+22, 23+24+25);
+- **correção pequena de revisão o coordenador aplica direto**, sem devolver ao implementador;
+- o implementador **lê a tarefa no próprio plano** em vez de recebê-la colada (sai mais barato que
+  o coordenador ler e colar);
+- revisor roda **só os smokes que a tarefa toca**, não a suíte inteira.
+
+### 🧪 Armadilha de sandbox `vm` (achada na Task 11)
+
+Objeto criado **dentro** do sandbox tem protótipo de outro realm: `assert.deepStrictEqual` cru falha
+comparando `{a:1}` do sandbox contra `{a:1}` do host, só pelo protótipo. Compare com
+`JSON.parse(JSON.stringify(o))` antes. Strings e primitivos não sofrem disso.
 
 ### 🧪 O caminho de escrita do `zerar-ajustes-partida.js` FOI exercitado
 
