@@ -192,6 +192,10 @@
       // `deps.nomePorId` (não `ctx` — esta função não recebe um) é quem a tela
       // manda pra virar id em nome no `detalhe`. Faltando, cai no id cru sem
       // erro nenhum — pegadinha silenciosa pra quem for ligar a tela.
+      // O rebalanceio passa `semHistoricoDeVaga`: ele grava a própria linha
+      // ('rebalanceada'), que já diz "saiu X, entrou Y". Duas linhas seriam a
+      // mesma informação duas vezes, e o histórico tem teto de 50 entradas.
+      if (deps && deps.semHistoricoDeVaga) return { success: true, data: { changed: true, from: antes, to: depois, published: !!scale.published } };
       await registrarHistorico(scaleId, {
         acao: 'vaga_trocada',
         detalhe: diffEscalados([slot], slots.filter(s => s.id === slotId), (deps && deps.nomePorId) || {}),
@@ -1268,28 +1272,51 @@
    * publicada desde 26/08, e avisar seria contar o que ele não pode ver.
    */
   async function aplicarRebalanceamento({ pessoaId, movimentos, nomePorId, de, para }, deps) {
-    const nome = (id) => (nomePorId && nomePorId[id]) || id;
-    const aplicados = [], falhas = [], aRepublicar = new Set(), avisar = [];
-    for (const mv of (movimentos || [])) {
-      const res = await reassignSlot(mv.scaleId, mv.slotId, mv.entraId, deps);
-      if (!res.success) { falhas.push(`${mv.date}: ${res.error}`); continue; }
-      aplicados.push(mv);
-      await registrarHistorico(mv.scaleId, {
-        acao: 'rebalanceada',
-        detalhe: `${nome(pessoaId)} ${de} → ${para}: saiu ${nome(mv.saiId)}, entrou ${nome(mv.entraId)}`
-               + (mv.modalidade ? ` (${mv.modalidade})` : ''),
-      }, deps);
-      if (mv.published) { aRepublicar.add(mv.scaleId); avisar.push(mv); }
+    try {
+      const nome = (id) => (nomePorId && nomePorId[id]) || id;
+      const aplicados = [], falhas = [], aRepublicar = new Set(), avisar = [];
+      for (const mv of (movimentos || [])) {
+        // `semHistoricoDeVaga`: `reassignSlot` grava 'vaga_trocada' sozinho. Aqui
+        // isso seria a MESMA informação duas vezes — 'rebalanceada' já diz
+        // "saiu X, entrou Y". E o histórico tem teto de 50: duplicar gastaria
+        // metade da janela por evento.
+        const res = await reassignSlot(mv.scaleId, mv.slotId, mv.entraId,
+          Object.assign({}, deps, { semHistoricoDeVaga: true }));
+        if (!res.success) { falhas.push(`${mv.date}: ${res.error}`); continue; }
+        // Replay do mesmo plano não é evento: sem isto, reaplicar gravaria
+        // histórico e avisaria as pessoas de uma troca que não aconteceu.
+        if (res.data && res.data.changed === false) continue;
+        aplicados.push(mv);
+        await registrarHistorico(mv.scaleId, {
+          acao: 'rebalanceada',
+          detalhe: `${nome(pessoaId)} ${de} → ${para}: saiu ${nome(mv.saiId)}, entrou ${nome(mv.entraId)}`
+                 + (mv.modalidade ? ` (${mv.modalidade})` : ''),
+        }, deps);
+        if (mv.published) aRepublicar.add(mv.scaleId);
+      }
+      for (const scaleId of aRepublicar) {
+        const pub = await publishToAgenda(scaleId, deps);
+        if (!pub.success) { falhas.push(`republicar ${scaleId}: ${pub.error}`); continue; }
+        // 🚨 Aula em mês fechado NÃO é recriada — `publishToAgenda` a conta em
+        // `jaCongelados` e segue como sucesso. Sem esta checagem a escala mudava,
+        // a agenda ficava com o professor ANTIGO, e ainda avisávamos as duas
+        // pessoas de uma troca que não existe na prática. É o mesmo defeito do
+        // Reconsolidar (25/08): divergência silenciosa entre escala e agenda.
+        if (pub.data && pub.data.jaCongelados > 0) {
+          falhas.push(`${scaleId}: ${pub.data.jaCongelados} aula(s) em mês fechado — a agenda NÃO foi atualizada`);
+          continue;
+        }
+        aplicados.filter(mv => mv.scaleId === scaleId && mv.published).forEach(mv => avisar.push(mv));
+      }
+      return {
+        success: falhas.length === 0,
+        data: { aplicados: aplicados.length, movimentos: aplicados, avisar, republicadas: aRepublicar.size },
+        error: falhas.length ? falhas.join(' · ') : undefined,
+      };
+    } catch (err) {
+      console.error('[ScaleService.aplicarRebalanceamento]', err);
+      return { success: false, error: err.message };
     }
-    for (const scaleId of aRepublicar) {
-      const pub = await publishToAgenda(scaleId, deps);
-      if (!pub.success) falhas.push(`republicar ${scaleId}: ${pub.error}`);
-    }
-    return {
-      success: falhas.length === 0,
-      data: { aplicados: aplicados.length, movimentos: aplicados, avisar, republicadas: aRepublicar.size },
-      error: falhas.length ? falhas.join(' · ') : undefined,
-    };
   }
 
   return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };

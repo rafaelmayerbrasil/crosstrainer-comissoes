@@ -238,5 +238,47 @@ const SE = require('../scale-engine.js');
     'e não gravou histórico de uma troca que não aconteceu');
   passou('erro no meio de um lote não deixa estado pela metade');
 
-  console.log(`\n${ok}/10 blocos OK`);
+  // ── mês fechado: a agenda NÃO muda, então não pode dizer que mudou ────────
+  // `publishToAgenda` conta aula congelada em `jaCongelados` e devolve sucesso.
+  // Sem checar isso, a escala mudava, a agenda ficava com o professor ANTIGO e
+  // ainda avisávamos as duas pessoas de uma troca inexistente — o mesmo defeito
+  // do Reconsolidar (25/08), que deixou escala e agenda divergentes em silêncio.
+  {
+    const idFec = (await SS.createScale({ date: '2027-02-06', tipo: 'sabado', slots: [
+      { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'hel', startTime: '08:00', endTime: '12:00' },
+    ] }, d)).data.id;
+    await SS.publishToAgenda(idFec, d);
+    // congela a aula, como um fechamento mensal faria
+    const cls = await db.collection('classes').where('specialScaleId', '==', idFec).get();
+    for (const c of cls.docs) await db.collection('classes').doc(c.id).set({ monthClosingId: 'fech_2027_02' }, { merge: true });
+
+    const r = await SS.aplicarRebalanceamento({
+      pessoaId: 'hel', de: 2, para: 1, nomePorId: { hel: 'Heloísa', car: 'Carla' },
+      movimentos: [{ scaleId: idFec, date: '2027-02-06', published: true, slotId: 'cp_TOI', saiId: 'hel', entraId: 'car', modalidade: 'TOI' }],
+    }, d);
+    assert.strictEqual(r.success, false, 'mês fechado não pode voltar sucesso');
+    assert.ok(/mês fechado/.test(r.error || ''), 'e o erro diz o motivo, em português');
+    assert.deepStrictEqual(r.data.avisar, [], 'ninguém é avisado de uma troca que a agenda não recebeu');
+    passou('mês fechado não vira sucesso silencioso nem aviso falso');
+  }
+
+  // ── replay do mesmo plano não é evento novo ──────────────────────────────
+  {
+    const idRep = (await SS.createScale({ date: '2027-03-06', tipo: 'sabado', slots: [
+      { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'hel', startTime: '08:00', endTime: '12:00' },
+    ] }, d)).data.id;
+    const plano = { pessoaId: 'hel', de: 2, para: 1, nomePorId: { hel: 'Heloísa', car: 'Carla' },
+      movimentos: [{ scaleId: idRep, date: '2027-03-06', published: false, slotId: 'cp_TOI', saiId: 'hel', entraId: 'car', modalidade: 'TOI' }] };
+    await SS.aplicarRebalanceamento(plano, d);
+    const r2 = await SS.aplicarRebalanceamento(plano, d);
+    const hRep = (await SS.getScale(idRep, d)).data.historico || [];
+    assert.strictEqual(hRep.filter(x => x.acao === 'rebalanceada').length, 1, 'reaplicar o mesmo plano não grava histórico de novo');
+    assert.strictEqual(r2.data.aplicados, 0, 'e não conta como movimento aplicado');
+    // Uma linha por vaga movida, não duas: 'rebalanceada' já diz "saiu X, entrou Y".
+    assert.strictEqual(hRep.filter(x => x.acao === 'vaga_trocada').length, 0,
+      'o rebalanceio não duplica a linha do histórico com vaga_trocada');
+    passou('replay do mesmo plano é no-op, e o histórico não vem duplicado');
+  }
+
+  console.log(`\n${ok}/12 blocos OK`);
 })().catch(e => { console.error('❌', e.message); process.exit(1); });
