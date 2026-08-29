@@ -401,17 +401,42 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
     if (!fda) { toast('Selecione o período de fim de ano primeiro.', 'error'); return; }
     const porDia = {};
     (fda.slots || []).forEach(sl => { (porDia[sl.day] = porDia[sl.day] || []).push(Object.assign({}, sl)); });
-    datas = Object.keys(porDia).sort().map(day => ({ scaleId: fda.id, date: day, published: !!fda.published, slots: porDia[day] }));
+    // Dia que já aconteceu fica de fora, igual ao sábado (ver o comentário lá
+    // embaixo): a aula já foi dada, e republicar recriaria o período inteiro.
+    datas = Object.keys(porDia).sort()
+      .filter(day => !escalaEhPassada(day))
+      .map(day => ({ scaleId: fda.id, date: day, published: !!fda.published, slots: porDia[day] }));
+    if (!datas.length) { toast('Todos os dias deste período já aconteceram — não há o que ajustar.', 'error'); return; }
     contagemLocal = {};
-    (fda.slots || []).forEach(sl => { if (sl.assignedPersonId) contagemLocal[sl.assignedPersonId] = (contagemLocal[sl.assignedPersonId] || 0) + 1; });
+    // Conta pelos MESMOS dias que o motor vai ver, não pelo período inteiro.
+    datas.forEach(dt => (dt.slots || []).forEach(sl => {
+      if (sl.assignedPersonId) contagemLocal[sl.assignedPersonId] = (contagemLocal[sl.assignedPersonId] || 0) + 1;
+    }));
   } else {
     if (!c.lote.id) { toast('Não há janela para ajustar. Abra uma janela primeiro.', 'error'); return; }
     datas = (EscalaSmartState.scales || [])
       .filter(s => s.windowBatchId === c.lote.id)
+      // Sábado que JÁ ACONTECEU não entra: a aula foi dada, e mexer nela só
+      // reescreveria o passado — republicar recria as aulas e uma já realizada
+      // volta pra prevista (regra de operação de 25/08). Achado clicando no
+      // staging em 29/08: sem este filtro o rebalanceio propunha trocar o
+      // professor do sábado 15/08, duas semanas depois de a aula ter sido dada.
+      .filter(s => !escalaEhPassada(s.date))
       .map(s => ({ scaleId: s.id, date: s.date, published: !!s.published, slots: (s.slots || []).map(x => Object.assign({}, x)) }));
+    if (!datas.length) {
+      toast('Todas as datas desta janela já aconteceram — não há o que ajustar.', 'error');
+      return;
+    }
   }
 
-  const atual = contagemLocal ? (contagemLocal[personId] || 0) : (c.janela[personId] || 0);
+  // O número tem que sair das MESMAS datas que o motor vai enxergar. O painel
+  // conta a janela inteira (inclusive sábado que já passou); aqui o passado
+  // ficou de fora, então contar pelo painel faria a tela dizer 4 e o motor
+  // trabalhar com 3 — a divergência entre número mostrado e número usado é
+  // exatamente o defeito que esta frente existe para matar.
+  const atual = contagemLocal
+    ? (contagemLocal[personId] || 0)
+    : datas.reduce((n, dt) => n + (dt.slots || []).filter(s => s.assignedPersonId === personId).length, 0);
   const nome = escalaPersonName(personId);
   const rotuloAjuste = contagemLocal ? 'DIAS DESTE PERÍODO' : (tipo === 'feriado' ? 'FERIADOS NESTA JANELA' : 'SÁBADOS NESTA JANELA');
 

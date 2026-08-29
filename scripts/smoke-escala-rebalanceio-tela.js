@@ -117,6 +117,11 @@ function novoSandbox() {
   // são function-declarations e um espião posto ANTES seria clobbered.
   sandbox.escalaLoadBase = async () => { state.loadBaseCalls++; };
   sandbox.renderEscalaGestao = () => { state.renderCalls++; };
+  // "Hoje" FIXO. O ajuste ignora data que já passou, e sem fixar isto a suíte
+  // viraria bomba-relógio: as fixtures de setembro/outubro de 2026 passariam a
+  // ser "passado" na virada e os testes quebrariam sozinhos, num dia qualquer,
+  // sem ninguém ter mexido em nada.
+  sandbox.escalaTodayISO = () => '2026-08-29';
   return { sandbox, state, modal, setPrefs, setPrefsFalham };
 }
 
@@ -331,6 +336,46 @@ function baseState(sandbox, scales, loteId) {
     const ultimo = state.toastCalls[state.toastCalls.length - 1];
     assert.ok(ultimo && /janela/i.test(ultimo.msg) && ultimo.type === 'error', 'toast explica que falta abrir uma janela');
     passou('sem janela aberta, avisa e para antes de perguntar o alvo');
+  }
+
+  // ── 7a2. sábado que JÁ ACONTECEU não entra no ajuste ─────────────────────
+  // Achado clicando no staging em 29/08/2026: o rebalanceio propunha trocar o
+  // professor do sábado 15/08 — duas semanas depois de a aula ter sido dada.
+  // Republicar recria as aulas, e uma já realizada voltaria pra prevista.
+  // E o "Hoje: X" tem que contar as MESMAS datas que o motor vê, senão a tela
+  // diz 2 e o motor trabalha com 1.
+  {
+    const scales = [
+      escala('sPass', '2026-08-15', 'hel', 'lote1', false),   // já passou
+      escala('sFut', '2026-09-05', 'hel', 'lote1', false),    // ainda vem
+    ];
+    const { sandbox, state } = novoSandbox();
+    baseState(sandbox, scales, 'lote1');
+    state.promptReturn = '0';
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    const datas = state.planejarCalls[0].datas.map(d => d.date);
+    assert.deepStrictEqual(datas, ['2026-09-05'], 'a data que já passou não é oferecida ao motor');
+    assert.ok(/Hoje: 1/.test(state.promptCalls[0].msg),
+      'e o "Hoje" conta só o que ainda não aconteceu — mesmo número que o motor usa');
+    passou('sábado que já aconteceu fica de fora do ajuste, e a conta bate com o motor');
+  }
+
+  // ── 7a3. janela inteira no passado: avisa e para ─────────────────────────
+  {
+    const scales = [escala('sPass', '2026-08-15', 'hel', 'lote1', false)];
+    const { sandbox, state } = novoSandbox();
+    baseState(sandbox, scales, 'lote1');
+    state.promptReturn = '0';
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    assert.strictEqual(state.promptCalls.length, 0, 'nem chega a perguntar o alvo');
+    assert.strictEqual(state.planejarCalls.length, 0, 'e não monta plano nenhum');
+    const ultimo = state.toastCalls[state.toastCalls.length - 1];
+    assert.ok(ultimo && /já aconteceram/.test(ultimo.msg) && ultimo.type === 'error', 'explica o porquê');
+    passou('janela toda no passado avisa e para, em vez de montar plano vazio');
   }
 
   // ── 7b. "não posso" é restrição DURA e chega ao motor ────────────────────
