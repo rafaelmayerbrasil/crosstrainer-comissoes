@@ -240,6 +240,181 @@ const rngZero = () => 0;
   passou('publicada pode ser mexida, mas só depois da não publicada');
 }
 
-const TOTAL = 13;
+// ── aumentar: tira de quem tem MAIS dias ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'TOI', 'bru')]),
+    data('2026-10-17', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 0 },
+    { id: 'bru', modalityIds: ['TOI'], merito: 5, dias: 4 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 5, dias: 1 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.ok(p.atingiu, 'chegou no alvo');
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].entraId, 'hel');
+  assert.strictEqual(p.movimentos[0].saiId, 'bru', 'sai quem tem MAIS dias');
+  assert.strictEqual(p.movimentos[0].date, '2026-09-05', 'a data mais próxima entra primeiro');
+  passou('aumentar tira de quem tem mais dias');
+}
+
+// ── aumentar: empate em dias desempata pela MENOR pontuação ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'TOI', 'bru')]),
+    data('2026-09-26', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 0 },
+    { id: 'bru', modalityIds: ['TOI'], merito: 9, dias: 3 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 2, dias: 3 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos[0].saiId, 'edu',
+    'empatados em 3 dias, quem sai é quem tem a MENOR pontuação');
+  passou('aumentar: empate em dias sai o de menor pontuação');
+}
+
+// ── aumentar: ninguém tem mais dias que ela ──
+{
+  const datas = [data('2026-09-05', [vaga('v1', 'TOI', 'bru')])];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 3 },
+    { id: 'bru', modalityIds: ['TOI'], merito: 5, dias: 1 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 4, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 0, 'não tira de quem já tem menos que ela');
+  assert.strictEqual(p.atingiu, false);
+  assert.ok(/05\/09/.test(p.avisos.join(' ')), 'o aviso nomeia o dia');
+  passou('aumentar não tira de quem já tem menos dias que ela');
+}
+
+// ── aumentar: respeita férias (indisponibilidade) ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'TOI', 'zzz')]),   // mais próxima, mas hel está de férias
+    data('2026-10-17', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 1, dias: 0, indisponivel: ['2026-09-05'] },
+    { id: 'zzz', modalityIds: ['TOI'], merito: 9, dias: 5 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].date, '2026-10-17', 'pulou 05/09 — ela está de férias nesse dia');
+  assert.strictEqual(p.movimentos[0].saiId, 'edu');
+  passou('aumentar respeita férias — não entra em data que ela marcou indisponível');
+}
+
+// ── aumentar: mesma pessoa não pega dois sábados seguidos (vizinhança) ──
+{
+  const datas = [
+    data('2026-10-17', [vaga('v1', 'TOI', 'hel')]),        // ela já está aqui
+    data('2026-10-10', [vaga('v1', 'TOI', 'car')]),        // a 7 dias de 17/10 — vizinha, não pode
+    data('2026-10-31', [vaga('v1', 'TOI', 'edu')]),        // a 14 dias — livre
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 1, dias: 1 },
+    { id: 'car', modalityIds: ['TOI'], merito: 9, dias: 5 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 2, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].date, '2026-10-31', '10/10 é vizinha de um dia que ela já pegou');
+  assert.strictEqual(p.movimentos[0].saiId, 'edu');
+  passou('aumentar respeita a vizinhança — não pega dois sábados seguidos');
+}
+
+// ── aumentar: só entra em vaga de modalidade que ela dá ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'HIIT', 'bru')]),   // mais próxima, mas ela não dá HIIT
+    data('2026-09-26', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 1, dias: 0 },
+    { id: 'bru', modalityIds: ['HIIT'], merito: 9, dias: 5 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].date, '2026-09-26', 'pulou 05/09 — vaga de HIIT, ela só dá TOI');
+  assert.ok(/05\/09/.test(p.avisos.join(' ')), 'e avisou sobre o dia pulado');
+  passou('aumentar só entra em vaga de modalidade que ela dá');
+}
+
+// ── aumentar: não entra numa segunda vaga do mesmo dia ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'TOI', 'hel'), vaga('v2', 'HIIT', 'bru')]),  // ela já está nesse dia
+    data('2026-09-26', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  // hel habilitada em TOI e HIIT de propósito — se a vaga v2 de 05/09 fosse
+  // elegível por modalidade, o teste não provaria nada sobre "mesmo dia".
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI', 'HIIT'], merito: 1, dias: 1 },
+    { id: 'bru', modalityIds: ['HIIT'], merito: 9, dias: 5 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 2, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].date, '2026-09-26',
+    '05/09 ela já está escalada (v1) — não pode entrar de novo na v2 do mesmo dia');
+  assert.strictEqual(p.movimentos[0].saiId, 'edu');
+  passou('aumentar não bota a mesma pessoa em duas vagas do mesmo dia');
+}
+
+// ── aumentar: cota é teto MACIO (não impede a ENTRADA de quem bateu cota) ──
+// Cota decide quem entra no ramo de reduzir; no ramo de aumentar quem "entra"
+// é a própria pessoa ajustada — a cota dela não pode travar o pedido da gestão.
+{
+  const datas = [data('2026-09-05', [vaga('v1', 'TOI', 'bru')])];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 0, cota: 0 },   // já bateu a própria cota
+    { id: 'bru', modalityIds: ['TOI'], merito: 5, dias: 3 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1, 'a cota da própria hel não bloqueia o pedido de aumento');
+  assert.strictEqual(p.movimentos[0].entraId, 'hel');
+  passou('aumentar: cota da pessoa ajustada não impede o rebalanceio a favor dela');
+}
+
+// ── aumentar: data já publicada só é mexida depois da não publicada ──
+{
+  const datas = [
+    data('2026-09-05', [vaga('v1', 'TOI', 'bru')], true),     // publicada, mais próxima
+    data('2026-09-26', [vaga('v1', 'TOI', 'edu')], false),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 0 },
+    { id: 'bru', modalityIds: ['TOI'], merito: 5, dias: 3 },
+    { id: 'edu', modalityIds: ['TOI'], merito: 5, dias: 3 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(p.movimentos[0].date, '2026-09-26', 'mexe primeiro na que ninguém viu ainda');
+  assert.strictEqual(p.movimentos[0].published, false, 'e o serviço sabe que não precisa avisar');
+  passou('aumentar: publicada pode ser mexida, mas só depois da não publicada');
+}
+
+// ── aumentar: plano não muta a entrada ──
+{
+  const datas = [data('2026-09-05', [vaga('v1', 'TOI', 'bru')])];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 5, dias: 0 },
+    { id: 'bru', modalityIds: ['TOI'], merito: 5, dias: 3 },
+  ];
+  const antes = JSON.stringify({ datas, candidatos });
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 1, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1);
+  assert.strictEqual(JSON.stringify({ datas, candidatos }), antes,
+    'planejar é prévia: não pode alterar a escala que a tela está mostrando, também no ramo de aumentar');
+  passou('aumentar: planejar não muta a entrada');
+}
+
+const TOTAL = 23;
 assert.strictEqual(ok, TOTAL, `esperava ${TOTAL} blocos, rodaram ${ok}`);
 console.log(`\n${ok}/${TOTAL} blocos OK`);

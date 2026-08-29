@@ -271,8 +271,76 @@
     }
 
     // ── AUMENTAR ─────────────────────────────────────────────────────────────
-    // Implementado na Task 17.
-    return { atual, alvo: alvoN, atingiu: false, movimentos, avisos };
+    // NÃO dá pra decidir data por data como no reduzir: lá a vaga já está
+    // fixada (é a que a pessoa está saindo) e só se escolhe QUEM entra nela.
+    // Aqui a vaga não está fixada — a pessoa pode entrar em qualquer dia
+    // livre —, então cada movimento olha TODAS as datas elegíveis JUNTAS e
+    // escolhe o melhor par (dia, vítima): mais dias na vítima → menor mérito
+    // → data (não publicada, mais próxima) → sorteio. Escolher por data
+    // primeiro faria o primeiro dia da fila ganhar sozinho mesmo com uma
+    // vítima de mérito pior do que um candidato num dia seguinte.
+    const dataOrdinal = (iso) => Math.round(new Date(iso + 'T12:00:00').getTime() / DIA_MS);
+    // Não publicada (0) sempre antes de publicada (1); dentro do mesmo grupo,
+    // a data mais próxima (menor ordinal) vence — por isso o fator grande.
+    const prefEntrada = (dt) => (dt.published ? 1 : 0) * 1e7 + dataOrdinal(dt.date);
+
+    const datasElegiveis = () => estado
+      .filter(dt => !ocupantesDaData(estado, dt.date).has(pessoaId))   // ninguém em duas vagas do mesmo dia
+      .filter(dt => !indisponivel(pessoaId, dt.date))                 // férias aprovadas
+      .filter(dt => !temVizinha(estado, pessoaId, dt.date, viz));     // dois sábados seguidos, não
+
+    const jaAvisado = new Set();   // scaleId — não repete o mesmo aviso a cada volta do laço
+    let faltamMais = alvoN - atual;
+    while (faltamMais > 0) {
+      const pool = [];
+      datasElegiveis().forEach(dt => {
+        // Só vale tirar de quem tem MAIS dias que ela — senão o rebalanceio
+        // desequilibraria a fila em vez de equilibrá-la.
+        const vitimas = (dt.slots || [])
+          .filter(s => s.assignedPersonId && s.assignedPersonId !== pessoaId)
+          .filter(s => habilitado(pessoaId, s.requiredModalityId))
+          .filter(s => (dias[s.assignedPersonId] || 0) > (dias[pessoaId] || 0));
+        if (!vitimas.length) {
+          if (!jaAvisado.has(dt.scaleId)) {
+            jaAvisado.add(dt.scaleId);
+            avisos.push('Em ' + fmtBR(dt.date) +
+              ' ninguém tem mais dias do que ela (ou a modalidade não bate). Não mexi nesse dia.');
+          }
+          return;
+        }
+        vitimas.forEach(s => pool.push({
+          dt, slot: s, id: s.assignedPersonId,
+          merito: Number((porId[s.assignedPersonId] || {}).merito) || 0,
+          pref: prefEntrada(dt), ordem: s.assignedPersonId,
+        }));
+      });
+      if (!pool.length) break;   // nada mais a fazer — sobra faltamMais > 0, vira aviso final
+
+      // Sai quem tem MAIS dias → empate: MENOR mérito → empate: data (não
+      // publicada, mais próxima) → empate: sorteio. `melhor` sempre MINIMIZA a
+      // chave e MAXIMIZA o desempate — por isso os sinais invertidos (mais
+      // dias = -dias mínimo; menor mérito = -mérito máximo).
+      const r = melhor(pool, (x) => -(dias[x.id] || 0), (x) => -x.merito, (x) => x.pref, rng);
+      const saiId = r.item.id;
+      const diasSai = dias[saiId] || 0, diasEntra = dias[pessoaId] || 0;
+      r.item.slot.assignedPersonId = pessoaId;
+      // O contador anda A CADA movimento: sem isso, pedir 3 movimentos
+      // escolheria a mesma vítima três vezes.
+      dias[saiId] = Math.max(0, diasSai - 1);
+      dias[pessoaId] = diasEntra + 1;
+      movimentos.push({
+        scaleId: r.item.dt.scaleId, date: r.item.dt.date, published: r.item.dt.published,
+        slotId: r.item.slot.id, unitId: r.item.slot.unitId,
+        modalidade: r.item.slot.requiredModalityName || null,
+        saiId: saiId, entraId: pessoaId,
+        motivo: r.criterio, diasSai: diasSai, diasEntra: diasEntra,
+      });
+      faltamMais--;
+    }
+    if (faltamMais > 0) {
+      avisos.push('Não deu para dar ' + faltamMais + ' dia(s) a mais: sem vaga com mais dias para tirar.');
+    }
+    return { atual, alvo: alvoN, atingiu: faltamMais === 0, movimentos, avisos };
   }
 
   return { planejar, VIZINHANCA_PADRAO };
