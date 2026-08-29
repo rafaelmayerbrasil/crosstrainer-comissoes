@@ -52,7 +52,30 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 21 · `reassignSlot` colide por DIA, não por escala | ✅ fechada — `2af9d60` · teste novo em `smoke-trocar-pessoa-escala.js` (não em `smoke-scale-service.js`, que não tinha testes de `reassignSlot`) · regressão provada (revertido → falha exatamente no caso novo, caso de "mesmo dia" sábado continua passando) |
 | 22 · fim de ano — rebalanceio, botão de publicar e data | ✅ fechada — `af667be` · `smoke-escala-rebalanceio-tela` **18/18** (4 casos novos) · 2 desvios do texto do plano: guarda de cota alheia (fim de ano não tem janela) e reordenação de `datas`/`contagemLocal` pra ANTES do prompt (senão "Hoje: X" mostrava a contagem errada) |
 | 23 · manual e trava do manual | ✅ fechada — `c3105d2` · trava viu falhar (2 assuntos ausentes) antes de escrever, 12/12 depois · nenhuma afirmação da lista destoou do código (todas conferidas linha a linha em `professores-escala-smart.js`/`scale-service.js`) |
-| 24 a 25 | ⬜ não começadas |
+| 24 · suíte + homologação no staging | 🟡 **suíte local FEITA (54/54)** — falta a homologação humana no staging, que precisa do Rafael |
+| 25 · dados de produção | ⬜ **bloqueada de propósito** — só depois do OK explícito (regra inviolável 7) |
+
+### ✅ Correções que entraram depois das revisões (sessão 60)
+
+As revisões reprovaram 3 vezes, e as 3 eram defeito real, provado por execução:
+
+1. **`a689fe0` — aula já REALIZADA era apagada em silêncio.** `publishToAgenda` apaga e recria
+   **todas** as aulas do documento. No fim de ano o período inteiro divide um `scaleId`: ajustar
+   uma pessoa num dia jogava fora a aula já dada de **outro** dia — `realizada` voltava a
+   `prevista`, e presença/ocorrência iam junto (a recriação é `.set()` em documento novo). A regra
+   de operação de 25/08 ("só reconsolidar o que ainda não aconteceu") **virou trava**.
+2. **`a689fe0` — `day` faltando de um lado permitia dupla escalação.** `(s.day||null) === (slot.day||null)`
+   dava `false` quando um slot tinha `day` e o outro não, e a colisão deixava de ser detectada.
+   Agora falta de `day` presume **mesmo dia** e recusa: errar recusando custa um clique, errar
+   permitindo põe a pessoa em dois lugares ao mesmo tempo.
+3. **`2876c80` — o "não posso" do professor nunca chegava ao rebalanceio.** O motor tinha o filtro;
+   a tela nunca preenchia o campo. Agora entra como **indisponibilidade por data** (junto com
+   férias), e falha ao ler as respostas **cancela** o ajuste em vez de escalar às cegas.
+
+### 🧪 Suíte local — 54/54 (28/08, sessão 60)
+
+Rodados todos os `scripts/smoke-*.js`. Único que não roda aqui é `smoke-9.js`, que exige
+`--project staging` e rede — não é falha.
 
 ### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
 
