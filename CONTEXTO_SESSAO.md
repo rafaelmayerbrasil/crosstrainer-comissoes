@@ -3,6 +3,108 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 60 (29/08/2026) — ✅ ESCALA: REBALANCEIO, MARCO ZERO E LOG · NO AR EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+
+**As 25 tarefas fecharam e o código está em produção** — `git push origin main` (`e44b4a7..b432d8b`),
+GitHub Pages reconstruído, arquivos servidos em `?v=20260828`. Homologado no staging **clicando de
+verdade**, e um teste controlado rodou **contra a produção** e foi revertido.
+
+**O que a academia ganhou** (os 8 pedidos do Rodrigo de 28/08): marco zero configurável da contagem ·
+fim do "+ dias fora" · **histórico de quem mexeu** em cada escala (9 ações, com nome e hora local) ·
+botão **Ajustar** com prévia e **o porquê** de cada movimento · **Tirar do lote** · botão de publicar
+achável com o número real · datas por extenso · aba **Por pessoa** com filtro de janela · e a mesma
+lógica no **Fim de Ano**.
+
+### 🔴 A ÚNICA COISA QUE FALTA, E ELA IMPORTA
+
+**O aviso de ajuste em data JÁ PUBLICADA nunca foi exercitado contra o banco real.** É o caminho
+"ajustar → quem sai, quem entra e a gestão são avisados", que é a condição que o Rafael pôs para
+permitir mexer em data publicada.
+
+Por que ficou de fora: o aviso é do tipo `scale_confirmed`, que é **um dos 5 tipos que viram e-mail
+de verdade** — e a produção está com `meta/email_config` em `ativo:true, modoTeste:false`. Testar
+mandaria e-mail real para professores sobre uma mudança que eu reverteria em seguida. O Rafael
+escolheu (29/08) testar numa data **não publicada**, que cobre motor + serviço + agenda + histórico
+mas **não** o aviso.
+
+**Como fechar quando quiser:** ligar `modoTeste:true` em `meta/email_config` (o endereço de teste
+`rafael.brasil.investimentos@gmail.com` já está lá), ajustar alguém numa data publicada, conferir o
+aviso, reverter, e devolver `modoTeste:false`. O `email-config.js` foi construído exatamente para
+isso — em modo de teste **jamais cai no professor por engano**.
+
+⚠️ **A gestão vai ser a primeira a usar esse caminho.**
+
+### O que foi feito em produção (Task 25)
+
+| | |
+|---|---|
+| Código | `b432d8b` no `main`, GitHub Pages no ar |
+| Marco zero | `2026-09-01` (produção estava sem nenhum) |
+| Ajuste manual da Heloísa | **3 → 0**, backup em `backups/fairness-ajustes-production-2026-08-29.json` |
+| Feriados 02/11 e 20/11 | rascunho, vagas limpas — estavam consolidados, **não publicados, com 0 aulas** |
+| Conferido depois | 11 datas de set/out **intactas** (4 escalados cada) · 2.628 aulas de 29/08 em diante intactas · 0 ajuste manual restante |
+
+### O teste controlado em produção (31/10, não publicada)
+
+`LOUISE 3 → 2` → entrou `THIAGO VALENTIM` (desempate por **sorteio**) →
+`success:true · aplicados:1 · avisar:0 · republicadas:0` → **0 notificação criada** →
+histórico gravou `rebalanceada` → **revertido**, as 4 vagas idênticas às originais.
+
+O rastro ficou no histórico assinado como **"Teste controlado (revertido)"** em vez de apagado — se
+alguém abrir o histórico daquele sábado, entende o que houve. Ressalva: passei mérito 0 para todos
+(não carreguei a pontuação real), por isso o desempate caiu no sorteio; o mecanismo foi provado, a
+escolha específica que a tela faria pode diferir.
+
+### 🐛 Os defeitos que as revisões e o clique pegaram — nenhum teria sido pego pelos testes verdes
+
+1. **Aula já REALIZADA seria apagada em silêncio.** Publicar apaga e recria **todas** as aulas do
+   documento; no Fim de Ano o período inteiro divide um `scaleId`, então ajustar uma pessoa num dia
+   jogaria fora a aula já dada de outro — `realizada` voltando a `prevista`, com presença junto.
+   A regra de 25/08 ("só reconsolidar o que ainda não aconteceu") **virou trava**.
+2. **O ajuste propunha reescrever sábado que já aconteceu.** Achado **clicando no staging**: a
+   janela aberta lá tem as 5 datas no passado, e a prévia ofereceu trocar o professor do sábado
+   15/08. Agora data passada não entra, e o "Hoje: X" conta as **mesmas** datas que o motor vê.
+3. **O "não posso" do professor nunca chegava ao rebalanceio.** O motor tinha o filtro; a tela nunca
+   preenchia o campo. A regra existia e não valia.
+4. **Duas injeções de HTML** no histórico (`acao` fora do mapa e `ts` inválido entravam crus).
+5. **Hora 3h adiantada** — `ts` é UTC e era mostrado cru.
+6. **Autor aparecia como uid cru** do Firebase em vez do nome.
+7. **`day` faltando de um lado** permitia a mesma pessoa em duas vagas do mesmo dia (falhava aberta).
+8. **As versões dos arquivos não subiam** — o deploy entregava código novo com etiqueta velha.
+
+### 📋 Decisão do Rafael (29/08) — vizinhança é PREFERÊNCIA
+
+*"preferencialmente não pegar dois sábados seguidos, deve interpretar assim."* Implementado como
+**teto macio**, igual ao motor de consolidação: quem não tem sábado vizinho vem primeiro, quem tem
+só entra **quando não sobrou mais ninguém**. Nunca recusa o ajuste pela preferência e nunca deixa o
+dia sem professor. O manual foi corrigido junto — dizia "regra", agora diz "preferência", e separa
+isso de férias e "não posso", que continuam duros.
+
+### 🧭 Por que data passada não entra no ajuste (raciocínio, se alguém perguntar)
+
+O contador de justiça é contado **das escalas**. Pôr alguém retroativamente num sábado que já passou
+diz ao rodízio que a pessoa trabalhou num dia em que não trabalhou, e ela é empurrada para o fim da
+fila por um dia que não deu — o mesmo defeito que torceu set/out, por outra porta. Para *"quem
+realmente deu a aula?"* existe a ferramenta certa: a **Troca de professor da aula** (22/08), com
+cadeia de confirmação e pagamento acompanhando.
+
+Continua permitido **trocar uma vaga na mão** em data passada: manual e deliberado tem saída,
+automático e em lote não. Como o ajuste manual do contador foi apagado, essa é a única forma de
+corrigir uma escala antiga errada.
+
+### Como foi executado
+
+Skill `superpowers:subagent-driven-development`. Começou com 3 subagentes por tarefa (implementador
++ revisão de spec + revisão de qualidade); a partir da Task 12, por limite de uso, virou **uma
+revisão só**, tarefas agrupadas, e o coordenador aplicando as correções pequenas direto.
+**As revisões reprovaram 4 vezes, e as 4 eram defeito real provado por execução.** Vale manter.
+
+Detalhe completo: `docs/superpowers/plans/2026-08-28-escala-rebalanceio-marco-zero-log.md`.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 59 (28/08/2026) — 🚧 ESCALA: REBALANCEIO, MARCO ZERO E LOG · 4 DE 25 TAREFAS
 
 ### ▶️▶️ RETOMAR AQUI
