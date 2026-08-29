@@ -46,5 +46,21 @@ const deps = (db) => ({ db, ts: () => 'TS' });
   assert.deepStrictEqual(ids.data.sort(), ['uAna', 'uBia'], 'resolve ativos com/sem userId, ignora inativo');
   console.log('✓ resolveActiveTeacherUserIds OK');
 
+  // ── resolveManagementUserIds: admin/supervisao → userIds (Task 18, 28/08/2026) ──
+  // Cobre os DOIS formatos reais achados em staging: `profiles[]` (canônico) e
+  // `role` legado (singular, sem `profiles`) — os 12 docs de staging eram todos
+  // do formato legado. `roles`/`perfil`/`admin_gestao` NÃO existem no schema
+  // real; não são testados de propósito (apagados do código também).
+  await db.collection('users').doc('uAdminNovo').set({ profiles: ['admin'], role: 'admin' });
+  await db.collection('users').doc('uSuperNovo').set({ profiles: ['supervisao', 'professor'] });
+  await db.collection('users').doc('uAdminLegado').set({ role: 'admin' }); // sem profiles[]
+  await db.collection('users').doc('uProfessor').set({ role: 'professor' });
+  await db.collection('users').doc('uVendedor').set({ role: 'vendedor' });
+  const mgmt = await NS.resolveManagementUserIds(d);
+  assert.ok(mgmt.success, 'resolveu com sucesso');
+  assert.deepStrictEqual(mgmt.data.sort(), ['uAdminLegado', 'uAdminNovo', 'uSuperNovo'].sort(),
+    'pega admin/supervisao nos dois formatos, ignora professor e vendedor');
+  console.log('✓ resolveManagementUserIds OK');
+
   console.log('\n✅ smoke-notify-service: tudo OK');
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

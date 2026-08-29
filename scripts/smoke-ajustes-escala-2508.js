@@ -97,9 +97,10 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
   // (Yoga) e Louiz Lume (TOI Combate) — nenhum dá TOI nem Hiit, que é o que a
   // vaga de sábado exige. O alerta vermelho cobrava algo sem solução.
   //
-  // E Rafael, 25/08: "o que passou eles tem como ajustar manualmente?" — não
-  // tinham. Agosto inteiro os sábados foram das mesmas 4 pessoas e a dívida
-  // ficaria travada esperando alguém mexer no banco.
+  // O ajuste manual ("+ dias fora") ACABOU em 28/08 (pedido 1 do Rodrigo): a
+  // contagem vem só das escalas. As duas asserções que aqui exigiam
+  // window.ajustarContadorJustica e ScaleService.saveAjustePartida saíram
+  // junto — quem guarda essa ausência agora é smoke-ajuste-contador-rotulo.js.
   {
     const ui = ler('professores-escala-smart.js');
     const painel = ui.slice(ui.indexOf('function renderEquilibrioPainel'), ui.indexOf('function whyTableHtml'));
@@ -108,11 +109,7 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
       'o painel precisa separar quem participa do rodízio de sábado');
     assert.ok(/<details/.test(painel),
       'os chips precisam abrir a lista de nomes');
-    assert.ok(/window\.ajustarContadorJustica\s*=/.test(ui),
-      'precisa de um jeito de corrigir o contador na mão');
-    assert.ok(/ScaleService\.saveAjustePartida\(/.test(ui),
-      'a correção precisa gravar de verdade (desde 26/08 como ajuste de partida)');
-    passou('equilíbrio mostra nomes, separa quem não participa e permite corrigir');
+    passou('equilíbrio mostra nomes e separa quem não participa');
   }
 
   // Quem não dá TOI nem Hiit fica fora da conta do rodízio — comportamental.

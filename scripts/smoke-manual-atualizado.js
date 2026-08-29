@@ -62,13 +62,43 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: as regras do rodízio e a cota por pessoa');
 }
 {
-  // O erro que o Rodrigo cometeu: usou o botão achando que editava a escala
+  // "+ dias fora" acabou — a contagem virou 100% derivada das escalas.
+  // Ajustar é como corrigir agora: mostra a prévia, quem baixa e quem sobe.
   exige(admin, 'manual-admin', {
-    'o botão de dias fora existe': 'dias fora',
-    'e avisa que não muda a escala': 'NÃO muda a escala',
-    'e diz qual é o caminho certo': 'Refazer',
+    'o botão que muda quantos dias uma pessoa tem na janela': 'Ajustar',
+    'baixar chama quem tem menos e subir tira de quem tem mais': 'quem tem menos',
+    'data já publicada pode ser mexida e avisa todo mundo': 'já publicada',
   });
-  ok('admin: o botão "+ dias fora" está explicado, com o aviso do que ele NÃO faz');
+  ok('admin: o botão Ajustar, a prévia e o aviso de data já publicada');
+}
+{
+  exige(admin, 'manual-admin', {
+    'de quando a contagem começa a valer': 'marco zero',
+    'onde configurar': 'Configurações da escala',
+  });
+  ok('admin: marco zero — o que é e onde configurar');
+}
+{
+  exige(admin, 'manual-admin', {
+    'como zerar uma data que entrou errado': 'Tirar do lote',
+    'quem já foi avisado continua avisado': 'não é desavisado',
+  });
+  ok('admin: Tirar do lote e o aviso de quem já foi avisado');
+}
+{
+  exige(admin, 'manual-admin', {
+    'onde ver quem mexeu, por data': 'Histórico desta escala',
+    'onde ver quem mexeu, no rodapé do módulo': 'Últimas alterações',
+  });
+  ok('admin: os dois históricos — por data e o do rodapé');
+}
+{
+  // Ausência é o único fato que ler texto prova bem (emenda sessão 60). O
+  // botão "+ dias fora" foi apagado da tela (Task 6) e a coluna "Lançado na
+  // mão" também — o manual não pode continuar ensinando o que não existe mais.
+  assert.ok(!/\+ dias fora/.test(admin), 'o manual não ensina mais o botão que foi apagado');
+  assert.ok(!/Lançado na mão/.test(admin), 'a coluna que saiu da tela saiu do manual');
+  ok('admin: nenhum rastro do botão "+ dias fora" nem da coluna "Lançado na mão"');
 }
 {
   exige(admin, 'manual-admin', {

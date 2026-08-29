@@ -3,6 +3,58 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 59 (28/08/2026) — 🚧 ESCALA: REBALANCEIO, MARCO ZERO E LOG · 4 DE 25 TAREFAS
+
+### ▶️▶️ RETOMAR AQUI
+
+**Frente nova, em construção.** Os 8 pedidos que o Rodrigo mandou em 28/08 e as 7 respostas do
+Rafael no mesmo dia viraram especificação + plano, e a execução começou. **A sessão acabou por
+limite de uso, não por ter terminado.**
+
+| | onde |
+|---|---|
+| **O que construir e por quê** | `docs/superpowers/specs/2026-08-28-escala-rebalanceio-marco-zero-log-design.md` |
+| **Passo a passo, com código e testes** | `docs/superpowers/plans/2026-08-28-escala-rebalanceio-marco-zero-log.md` |
+| **Onde a execução parou** | a seção **🚦 ESTADO DA EXECUÇÃO**, no topo do plano — **leia essa primeiro** |
+
+**Branch: `escala-rebalanceio-log`** (saiu de `main` `e44b4a7`). ⚠️ **Não** saiu de
+`comissoes-tradutor-pacto` — Comissões continua esperando o Rodrigo e não pode subir junto.
+
+🔴 **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada** — setembro e
+outubro seguem publicados com as mesmas pessoas, como o Rafael pediu ("não mexa em nada").
+
+**Estado:** Tasks 1 e 2 fechadas (marco zero no motor, com blindagem contra valor corrompido na
+config). Tasks 3+4 (marco zero na tela + tela de configuração) commitadas em `67f973a`, e os 6
+achados da revisão de qualidade **corrigidos em `566da32`** — árvore limpa, testes verdes,
+verificado rodando na mão. **Falta só a re-revisão de qualidade dessa correção**
+(`git diff 67f973a 566da32`), que é onde retomar. Tasks 5 a 25 nem começaram.
+
+A tela ganhou teste que **chama** as funções em sandbox `vm` (9 verificações) — é o modelo a
+copiar nas próximas tarefas de tela. ⚠️ Um buraco declarado: a prova de "o teste falha quando
+deve" cobriu só a validação de formato; a nota do marco na tela não tem essa prova.
+
+**Como estava sendo executado:** skill `superpowers:subagent-driven-development` — um implementador
+por tarefa, depois revisão de especificação, depois revisão de qualidade, cada uma por subagente
+novo. **3 das 4 tarefas voltaram com achado real**, nenhum deles pego pelos testes. Vale manter o
+processo. `sonnet` deu conta de tudo até aqui; guardar o modelo mais capaz para as Tasks 16, 17 e
+20 (motor do rebalanceio e a tela dele).
+
+**As decisões do Rafael que regem tudo** (28/08): rebalanceio tira de quem tem mais dias, empate
+desempata pela pontuação, empate de novo sorteia · **data já publicada pode ser mexida**, avisando
+envolvidos e gestão · **não mexer em nenhuma escala já montada** · marco zero **01/09/2026**,
+configurável para zerar na virada do ano · feriados 02/11 e 20/11 **limpar e zerar** · sábado 29/08
+acontece no papel · **e toda essa lógica vale também para a Escala de Fim de Ano**.
+
+**Duas emendas ao plano, decididas durante a execução e que valem para o que falta:**
+1. **Nunca passar `ctx.marcoZero`** — deixar `consolidate` ler a config sozinha, porque a blindagem
+   de formato só existe nesse caminho.
+2. **Teste de tela tem que CHAMAR a função**, em sandbox `vm`, quando ela tiver efeito colateral ou
+   for gate de permissão. Eu supus que aqui só se testava tela por regex no texto do arquivo —
+   errado: `vm.createContext` já é padrão, 9 arquivos em `scripts/` usam, e o
+   `smoke-escala-contagem.js` já chama `gerarPreviaLote` de verdade desde o conserto da prévia.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 57 (26/08/2026) — ✅ O CONTADOR DA ESCALA VIROU CONTAGEM · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
