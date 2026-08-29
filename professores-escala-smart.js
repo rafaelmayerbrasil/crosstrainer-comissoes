@@ -292,6 +292,9 @@ function renderEquilibrioPainel() {
       <span>${escalaEsc(x.t.name)}</span>
       <span style="display:flex;align-items:center;gap:6px;color:var(--text2);white-space:nowrap;">
         ${x.n} nesta janela · ${x.ano} no ano
+        <button class="btn-secondary" style="font-size:11px;padding:2px 8px;white-space:nowrap;"
+                onclick="abrirAjusteFrequencia('${x.t.id}')"
+                title="Mudar quantos dias esta pessoa tem nesta janela. O sistema rebalanceia os outros e mostra a prévia antes.">Ajustar</button>
       </span>
     </div>`;
 
@@ -366,6 +369,189 @@ function escalaNomePorId() {
   const out = {};
   EscalaSmartState.teacherMap.forEach((t, id) => { out[id] = t.name || id; });
   return out;
+}
+
+/**
+ * Ajustar quantos dias uma pessoa tem na janela. Ocupa o lugar do antigo
+ * botão de lançar dias fora do sistema na mão — que o Rodrigo leu como
+ * "editar este número". Este aqui faz o que ele queria: muda a escala de
+ * verdade e rebalanceia os outros (Rodrigo, 28/08/2026).
+ *
+ * A prévia e o "Aplicar" usam o MESMO objeto `plano` — não há segunda
+ * montagem que possa divergir da que a gestão viu (é a garantia que o motor
+ * `ScaleRebalance` promete: "devolve PLANO, não efeito").
+ */
+async function abrirAjusteFrequencia(personId) {
+  const tipo = EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado';
+  const c = escalaContagens(tipo);
+  if (!c.lote.id) { toast('Não há janela para ajustar. Abra uma janela primeiro.', 'error'); return; }
+  const atual = c.janela[personId] || 0;
+  const nome = escalaPersonName(personId);
+
+  const resp = prompt(
+    `AJUSTAR ${tipo === 'feriado' ? 'FERIADOS' : 'SÁBADOS'} NESTA JANELA — ${nome}\n\n`
+    + `Hoje: ${atual} nesta janela.\n\n`
+    + `Digite quantos ela deve ter. O sistema rebalanceia os outros: se você baixar, `
+    + `chama quem tem MENOS dias; se subir, tira de quem tem MAIS.\n\n`
+    + `Você vê o que vai acontecer antes de qualquer mudança.`,
+    String(atual));
+  if (resp === null) return;
+  // Campo em branco (só espaços incluído) NÃO pode virar alvo 0 por
+  // `Number('') === 0` — 0 é um alvo de verdade ("tira ela de tudo"), e
+  // campo vazio não é a mesma coisa que digitar zero. Mesma armadilha que
+  // `ScaleRebalance.planejar` documenta e blinda para quem chama direto —
+  // aqui a blindagem tem que vir ANTES do `Number(...)`, porque depois dele
+  // a distinção já se perdeu.
+  if (!String(resp).trim()) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
+  const alvo = Number(String(resp).trim().replace(',', '.'));
+  if (!Number.isFinite(alvo) || alvo < 0) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
+
+  const datas = (EscalaSmartState.scales || [])
+    .filter(s => s.windowBatchId === c.lote.id)
+    .map(s => ({ scaleId: s.id, date: s.date, published: !!s.published, slots: (s.slots || []).map(x => Object.assign({}, x)) }));
+
+  const ctx = await escalaMontarCtx();
+  const feriasPorPessoa = {};
+  (ctx.vacations || []).forEach(v => {
+    if (!v || v.status !== 'aprovada' || !v.teacherId) return;
+    feriasPorPessoa[v.teacherId] = feriasPorPessoa[v.teacherId] || [];
+    datas.forEach(dt => {
+      if (ScaleService.personsOnVacation([v], dt.date).has(v.teacherId)) feriasPorPessoa[v.teacherId].push(dt.date);
+    });
+  });
+
+  const cotas = await ScaleService.listWindowQuotas(c.lote.id);
+  const cotaById = cotas.success ? cotas.data : {};
+
+  const candidatos = Array.from(EscalaSmartState.teacherMap.values())
+    .filter(t => t.isActive !== false)
+    .map(t => ({
+      id: t.id, modalityIds: t.modalityIds || [],
+      merito: ctx.meritoById[t.id] || 0,
+      dias: c.janela[t.id] || 0,
+      cota: (cotaById[t.id] === 0 || cotaById[t.id] > 0) ? cotaById[t.id] : null,
+      indisponivel: feriasPorPessoa[t.id] || [],
+    }));
+
+  const plano = ScaleRebalance.planejar({ pessoaId: personId, alvo: Math.round(alvo), datas, candidatos });
+  EscalaSmartState._planoAjuste = { plano, personId, de: atual, para: Math.round(alvo) };
+  renderPreviaAjuste();
+}
+
+// `mv.motivo` vem de `ScaleRebalance.melhor()` — é o critério que decidiu QUEM
+// entra/sai. A prévia existe pra responder "por que essa pessoa?" (Rafael,
+// 28/08); sem este rótulo o motivo fica só no objeto, nunca chega à gestão.
+const ESCALA_MOTIVO_REBALANCEIO_LABEL = Object.assign(Object.create(null), {
+  unico: 'único possível', rodizio: 'rodízio (dias)', merito: 'mérito',
+  data: 'data mais conveniente', sorteio: 'sorteio',
+});
+function escalaMotivoRebalanceioLabel(motivo) {
+  return escalaEsc(ESCALA_MOTIVO_REBALANCEIO_LABEL[motivo] || motivo || '—');
+}
+
+/** Desenha a prévia do plano montado por `abrirAjusteFrequencia` — não grava nada. */
+function renderPreviaAjuste() {
+  const st = EscalaSmartState._planoAjuste;
+  if (!st) return;
+  const { plano, personId, de, para } = st;
+  const nome = escalaPersonName(personId);
+  const nomeUnidade = (uid) => {
+    const u = EscalaSmartState.units.find(x => x.id === uid) || {};
+    return (u.name || uid || '').replace(/CrossTainer\s*/i, '') || uid;
+  };
+  const linhas = plano.movimentos.map(mv => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <b>${ScaleService.fmtDataLonga(mv.date)}</b> · ${escalaEsc(nomeUnidade(mv.unitId))}${mv.modalidade ? ` (${escalaEsc(mv.modalidade)})` : ''}
+      ${mv.published ? ' <span style="color:#caa23a;">· já publicada</span>' : ''}
+      <div style="color:var(--text2);">sai ${escalaEsc(escalaPersonName(mv.saiId))} · entra <b>${escalaEsc(escalaPersonName(mv.entraId))}</b>
+        <span style="color:var(--text3);">— por quê: ${escalaMotivoRebalanceioLabel(mv.motivo)}</span></div>
+    </div>`).join('');
+  const publicadas = plano.movimentos.filter(m => m.published).length;
+
+  const modal = document.getElementById('escalaModal');
+  const overlay = document.getElementById('escalaModalOverlay');
+  modal.innerHTML = `
+    <h2>${escalaEsc(nome)}: ${de} → ${para}</h2>
+    <p style="font-size:12px;color:var(--text2);">Nada foi alterado ainda. Confira e confirme.</p>
+    ${plano.movimentos.length ? `<div style="max-height:40vh;overflow:auto;margin:10px 0;">${linhas}</div>`
+      : `<p style="color:var(--text2);">Nenhuma mudança possível.</p>`}
+    ${plano.avisos.length ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px;font-size:12px;margin:10px 0;">
+      ${plano.avisos.map(a => escalaEsc(a)).join('<br>')}
+    </div>` : ''}
+    ${!plano.atingiu ? `<div style="font-size:12px;color:#caa23a;margin-bottom:8px;">Não deu para chegar em ${para}. As mudanças acima continuam valendo se você confirmar.</div>` : ''}
+    ${publicadas ? `<div style="background:#3a1a1a;border:1px solid var(--red);border-radius:8px;padding:10px;font-size:12px;margin-bottom:8px;">
+      ⚠️ ${publicadas} data(s) já publicada(s) serão mexidas. A agenda é refeita e <b>quem sai, quem entra e a gestão são avisados</b>.
+    </div>` : ''}
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
+      ${plano.movimentos.length ? `<button class="btn-primary" onclick="aplicarAjusteFrequencia()">Aplicar estas mudanças</button>` : ''}
+    </div>`;
+  modal.style.display = 'block';
+  if (overlay) overlay.style.display = 'flex';
+}
+
+/**
+ * Aplica o MESMO `plano` que `renderPreviaAjuste` desenhou (lido de
+ * `EscalaSmartState._planoAjuste`, montado uma única vez em
+ * `abrirAjusteFrequencia`) — nunca remonta. Avisa quem saiu, quem entrou e,
+ * sempre que algo foi de fato aplicado, a gestão.
+ */
+async function aplicarAjusteFrequencia() {
+  const st = EscalaSmartState._planoAjuste;
+  if (!st) return;
+  const { plano, personId, de, para } = st;
+  toast('Aplicando…', 'info');
+  const nomePorId = escalaNomePorId();
+  const res = await ScaleService.aplicarRebalanceamento(
+    { pessoaId: personId, movimentos: plano.movimentos, nomePorId, de, para },
+    { nomePorId });
+
+  const avisar = (res.data && res.data.avisar) || [];
+  const uid = (pid) => (EscalaSmartState.teacherMap.get(pid) || {}).userId || null;
+  const nomeUnidade = (u) => { const x = EscalaSmartState.units.find(y => y.id === u) || {}; return (x.name || u || '').replace(/CrossTainer\s*/i, '') || u; };
+  let avisados = 0;
+  for (const mv of avisar) {
+    const onde = `${ScaleService.fmtDataLonga(mv.date)} · ${nomeUnidade(mv.unitId)}${mv.modalidade ? ` (${mv.modalidade})` : ''}`;
+    if (uid(mv.saiId)) {
+      await NotifyService.send({ recipients: [uid(mv.saiId)], type: 'scale_confirmed',
+        title: 'Você saiu de um dia da escala',
+        body: `A gestão ajustou a distribuição: você não trabalha mais em ${onde}. Sua agenda já está atualizada.`,
+        link: { type: 'escala-smart', id: mv.scaleId }, channels: ['inapp'] });
+      avisados++;
+    }
+    if (uid(mv.entraId)) {
+      await NotifyService.send({ recipients: [uid(mv.entraId)], type: 'scale_confirmed',
+        title: 'Você entrou em um dia da escala',
+        body: `A gestão ajustou a distribuição: você trabalha em ${onde}. Já está na sua agenda.`,
+        link: { type: 'escala-smart', id: mv.scaleId }, channels: ['inapp'] });
+      avisados++;
+    }
+  }
+  // A gestão é avisada sempre que houve mudança — publicada ou não. Se o
+  // resolvedor falhar (`success:false`), NÃO é silêncio: a falha aparece no
+  // toast, porque `resolveManagementUserIds` devolve `data:[]` tanto quando
+  // não há gestão cadastrada quanto quando a consulta explodiu — só o
+  // `success` diferencia os dois casos.
+  const ges = await NotifyService.resolveManagementUserIds();
+  let gestaoAvisoFalhou = false;
+  if (!ges.success) {
+    gestaoAvisoFalhou = true;
+    console.error('[aplicarAjusteFrequencia] não deu para descobrir quem é a gestão — ninguém foi avisado', ges.error);
+  } else if (ges.data.length && (res.data && res.data.aplicados)) {
+    await NotifyService.send({ recipients: ges.data, type: 'scale_confirmed',
+      title: 'Escala ajustada',
+      body: `${escalaPersonName(personId)}: ${de} → ${para}. ${res.data.aplicados} troca(s)`
+          + (avisar.length ? `, ${avisar.length} em data já publicada.` : '.'),
+      link: { type: 'escala-smart', id: null }, channels: ['inapp'] });
+  }
+
+  if (!res.success) toast(`Aplicado em parte — falhou: ${res.error}`, 'error', 12000);
+  else if (gestaoAvisoFalhou) toast(`${res.data.aplicados} troca(s) aplicada(s), mas não deu para avisar a gestão — confira na tela.`, 'error', 12000);
+  else toast(`${res.data.aplicados} troca(s) aplicada(s)${avisados ? `, ${avisados} aviso(s) enviado(s)` : ''}.`, 'success', 7000);
+
+  EscalaSmartState._planoAjuste = null;
+  closeEscalaModal();
+  await escalaLoadBase();
+  renderEscalaGestao();
 }
 
 // `Object.create(null)` de propósito: `h.acao` vem do banco, e uma ação chamada
@@ -761,6 +947,7 @@ function renderTabPorPessoa() {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
       ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0)}
       ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0)}
+      <button class="btn-secondary" style="align-self:center;" onclick="abrirAjusteFrequencia('${sel}')">Ajustar nesta janela</button>
     </div>
     ${escalaNotaMarcoHtml(cSab)}
     ${linhas.length
@@ -2600,5 +2787,7 @@ window.escalaSetPessoa = escalaSetPessoa;
 window.renderTabPorPessoa = renderTabPorPessoa;
 window.escalaJanelasPorTipo = escalaJanelasPorTipo;
 window.salvarStaffEvento = salvarStaffEvento;
+window.abrirAjusteFrequencia = abrirAjusteFrequencia;
+window.aplicarAjusteFrequencia = aplicarAjusteFrequencia;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');
