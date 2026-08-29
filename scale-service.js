@@ -1256,5 +1256,41 @@
     } catch (err) { console.error('[ScaleService.removeFromBatch]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico };
+  /**
+   * Aplica um plano vindo de `ScaleRebalance.planejar`.
+   *
+   * Data publicada É mexida (Rafael, 28/08/2026: "por erros que podem acontecer
+   * no futuro pelos gestores, deve ser possível alterar a data já publicada") —
+   * mas nunca em silêncio: republica a agenda e devolve a lista de quem precisa
+   * ser avisado. Quem avisa é a tela, que é quem tem NotifyService.
+   *
+   * Data NÃO publicada não gera aviso nenhum: o professor não enxerga escala não
+   * publicada desde 26/08, e avisar seria contar o que ele não pode ver.
+   */
+  async function aplicarRebalanceamento({ pessoaId, movimentos, nomePorId, de, para }, deps) {
+    const nome = (id) => (nomePorId && nomePorId[id]) || id;
+    const aplicados = [], falhas = [], aRepublicar = new Set(), avisar = [];
+    for (const mv of (movimentos || [])) {
+      const res = await reassignSlot(mv.scaleId, mv.slotId, mv.entraId, deps);
+      if (!res.success) { falhas.push(`${mv.date}: ${res.error}`); continue; }
+      aplicados.push(mv);
+      await registrarHistorico(mv.scaleId, {
+        acao: 'rebalanceada',
+        detalhe: `${nome(pessoaId)} ${de} → ${para}: saiu ${nome(mv.saiId)}, entrou ${nome(mv.entraId)}`
+               + (mv.modalidade ? ` (${mv.modalidade})` : ''),
+      }, deps);
+      if (mv.published) { aRepublicar.add(mv.scaleId); avisar.push(mv); }
+    }
+    for (const scaleId of aRepublicar) {
+      const pub = await publishToAgenda(scaleId, deps);
+      if (!pub.success) falhas.push(`republicar ${scaleId}: ${pub.error}`);
+    }
+    return {
+      success: falhas.length === 0,
+      data: { aplicados: aplicados.length, movimentos: aplicados, avisar, republicadas: aRepublicar.size },
+      error: falhas.length ? falhas.join(' · ') : undefined,
+    };
+  }
+
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });

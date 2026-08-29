@@ -146,5 +146,97 @@ const SE = require('../scale-engine.js');
   assert.ok((s4.historico || []).some(h => h.acao === 'tirada_do_lote'), 'ficou registrado');
   passou('removeFromBatch limpa a data e deixa rastro');
 
-  console.log(`\n${ok}/6 blocos OK`);
+  // ── aplicar rebalanceio ──
+  const slots2b = [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: null, startTime: '08:00', endTime: '12:00' },
+  ];
+  const idR = (await SS.createScale({ date: '2026-12-05', tipo: 'sabado', slots: slots2b }, d)).data.id;
+  await SS.reassignSlot(idR, 'cp_TOI', 'hel', d);
+  const aplRes = await SS.aplicarRebalanceamento({
+    pessoaId: 'hel',
+    movimentos: [{ scaleId: idR, date: '2026-12-05', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'car' }],
+    nomePorId: { hel: 'Heloísa', car: 'Carla' },
+    de: 1, para: 0,
+  }, d);
+  assert.ok(aplRes.success, 'aplicou');
+  assert.strictEqual(aplRes.data.aplicados, 1, 'um movimento aplicado');
+  const sR = (await SS.getScale(idR, d)).data;
+  assert.strictEqual(sR.slots[0].assignedPersonId, 'car', 'a vaga mudou de dono');
+  const hr = (sR.historico || []).filter(h => h.acao === 'rebalanceada');
+  assert.strictEqual(hr.length, 1, 'gravou uma linha de rebalanceio');
+  assert.ok(/Heloísa/.test(hr[0].detalhe) && /Carla/.test(hr[0].detalhe), 'com os dois nomes');
+  passou('aplicarRebalanceamento move a vaga e registra por nome');
+
+  // ── aplicarRebalanceamento: data PUBLICADA é republicada e entra no aviso ──
+  // Decisão do Rafael (28/08): mexer em data publicada é permitido, mas nunca
+  // em silêncio. Sem republicar, a agenda ficaria com a AULA do professor
+  // antigo enquanto a escala já mostra o novo dono — a mesma divergência
+  // silenciosa que o Reconsolidar tinha antes de 25/08.
+  const slotsPub = [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'ana', startTime: '08:00', endTime: '12:00' },
+  ];
+  const classesDoScale = async (scaleId) =>
+    (await db.collection('classes').where('specialScaleId', '==', scaleId).get()).docs.map(dd => dd.data());
+  const idPub = (await SS.createScale({ date: '2026-12-12', tipo: 'sabado', slots: slotsPub }, d)).data.id;
+  await SS.publishToAgenda(idPub, d);
+  const antesPub = await classesDoScale(idPub);
+  assert.strictEqual(antesPub.length, 1, 'publicou 1 aula');
+  assert.strictEqual(antesPub[0].teacherId, 'ana', 'a aula nasceu com a Ana');
+
+  const aplPub = await SS.aplicarRebalanceamento({
+    pessoaId: 'ana',
+    movimentos: [{ scaleId: idPub, date: '2026-12-12', published: true, slotId: 'cp_TOI', unitId: 'cp', saiId: 'ana', entraId: 'bru' }],
+    nomePorId: { ana: 'Ana', bru: 'Bruno' },
+    de: 1, para: 0,
+  }, d);
+  assert.ok(aplPub.success, 'aplicou em data publicada');
+  assert.strictEqual(aplPub.data.republicadas, 1, 'republicou a escala publicada');
+  assert.strictEqual(aplPub.data.avisar.length, 1, 'devolveu quem precisa ser avisado');
+  const depoisPub = await classesDoScale(idPub);
+  assert.strictEqual(depoisPub.length, 1, 'ainda 1 aula (republicar não duplica)');
+  assert.strictEqual(depoisPub[0].teacherId, 'bru', 'a agenda foi republicada com o novo dono — não fica divergente');
+  passou('data publicada é republicada na agenda e volta na lista de avisar');
+
+  // ── aplicarRebalanceamento: plano vazio não faz nada ──
+  const idVazio = (await SS.createScale({ date: '2026-12-19', tipo: 'sabado', slots: slots2b }, d)).data.id;
+  const aplVazio = await SS.aplicarRebalanceamento({ pessoaId: 'hel', movimentos: [], nomePorId: {}, de: 0, para: 0 }, d);
+  assert.ok(aplVazio.success && aplVazio.data.aplicados === 0, 'plano vazio não erra e não aplica nada');
+  const sVazio = (await SS.getScale(idVazio, d)).data;
+  assert.strictEqual((sVazio.historico || []).length, 0, 'nenhuma linha de histórico nasceu do nada');
+  passou('plano vazio não faz nada');
+
+  // ── aplicarRebalanceamento: erro no meio não deixa estado pela metade ──
+  // Duas escalas no mesmo lote: a 2ª tem um movimento IMPOSSÍVEL (entraId já
+  // ocupa outra vaga da mesma escala — a mesma trava que reassignSlot já
+  // aplica sozinho). A 1ª tem que aplicar normalmente; a 2ª tem que falhar
+  // SEM mudar a vaga dela, e a resposta tem que dizer que algo falhou.
+  const idOk = (await SS.createScale({ date: '2026-12-26', tipo: 'sabado', slots: slots2b }, d)).data.id;
+  await SS.reassignSlot(idOk, 'cp_TOI', 'hel', d);
+  const slotsConflito = [
+    { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'hel', startTime: '08:00', endTime: '12:00' },
+    { id: 'cp_HIIT', unitId: 'cp', requiredModalityId: 'HIIT', requiredModalityName: 'Hiit', assignedPersonId: 'car', startTime: '08:00', endTime: '12:00' },
+  ];
+  const idConflito = (await SS.createScale({ date: '2026-12-27', tipo: 'sabado', slots: slotsConflito }, d)).data.id;
+  const aplMisto = await SS.aplicarRebalanceamento({
+    pessoaId: 'hel',
+    movimentos: [
+      { scaleId: idOk, date: '2026-12-26', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'ana' },
+      // 'car' já está em cp_HIIT desta MESMA escala — reassignSlot recusa.
+      { scaleId: idConflito, date: '2026-12-27', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'car' },
+    ],
+    nomePorId: { hel: 'Heloísa', ana: 'Ana', car: 'Carla' },
+    de: 2, para: 0,
+  }, d);
+  assert.strictEqual(aplMisto.success, false, 'o lote com uma falha reporta falha, não sucesso silencioso');
+  assert.strictEqual(aplMisto.data.aplicados, 1, 'só o movimento válido foi aplicado');
+  assert.ok(/2026-12-27/.test(aplMisto.error || ''), 'o erro identifica a data que falhou');
+  const sOk = (await SS.getScale(idOk, d)).data;
+  assert.strictEqual(sOk.slots[0].assignedPersonId, 'ana', 'a escala válida foi mesmo alterada');
+  const sConflito = (await SS.getScale(idConflito, d)).data;
+  assert.strictEqual(sConflito.slots[0].assignedPersonId, 'hel', 'a escala que falhou NÃO mudou — sem estado pela metade');
+  assert.strictEqual((sConflito.historico || []).filter(h => h.acao === 'rebalanceada').length, 0,
+    'e não gravou histórico de uma troca que não aconteceu');
+  passou('erro no meio de um lote não deixa estado pela metade');
+
+  console.log(`\n${ok}/10 blocos OK`);
 })().catch(e => { console.error('❌', e.message); process.exit(1); });
