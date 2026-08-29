@@ -26,8 +26,8 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 
 # 🚦 ESTADO DA EXECUÇÃO — atualize esta seção a cada tarefa fechada
 
-> **Última atualização:** 28/08/2026, sessão 60. Branch: **`escala-rebalanceio-log`**, saída de
-> `main` (`e44b4a7`).
+> **Última atualização:** 28/08/2026, sessão 60 (Tasks 21+22 fechadas). Branch:
+> **`escala-rebalanceio-log`**, saída de `main` (`e44b4a7`).
 > **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada.**
 
 | Tarefa | Estado |
@@ -48,7 +48,10 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 16+17 · motor do rebalanceio (reduzir e aumentar) | ✅ fechadas — `583a2a4` + `165954e` + `f8329fa` · smoke **24/24** |
 | 18 · userIds da gestão | ✅ fechada — `182c883` (campo real é `profiles[]`/`role` legado, não `roles`/`perfil`/`supervisor`/`admin_gestao`) |
 | 19 · serviço aplica o rebalanceio | ✅ fechada — `547385a` · smoke-escala-historico **10/10** (3 blocos extras: republicar de verdade, plano vazio, erro no meio não deixa estado pela metade) |
-| 20 a 25 | ⬜ não começadas |
+| 20 · botão Ajustar na tela (prévia + aplicar + aviso) | ✅ fechada — `f5ac1e4` + `2876c80` (não posso por data) + `b1fe532` (cada cartão ajusta a própria fila) — já estava fechada no HEAD de partida desta sessão, tabela estava desatualizada |
+| 21 · `reassignSlot` colide por DIA, não por escala | ✅ fechada — `2af9d60` · teste novo em `smoke-trocar-pessoa-escala.js` (não em `smoke-scale-service.js`, que não tinha testes de `reassignSlot`) · regressão provada (revertido → falha exatamente no caso novo, caso de "mesmo dia" sábado continua passando) |
+| 22 · fim de ano — rebalanceio, botão de publicar e data | ✅ fechada — `af667be` · `smoke-escala-rebalanceio-tela` **18/18** (4 casos novos) · 2 desvios do texto do plano: guarda de cota alheia (fim de ano não tem janela) e reordenação de `datas`/`contagemLocal` pra ANTES do prompt (senão "Hoje: X" mostrava a contagem errada) |
+| 23 a 25 | ⬜ não começadas |
 
 ### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
 
