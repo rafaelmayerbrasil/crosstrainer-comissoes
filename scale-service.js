@@ -184,7 +184,10 @@
       // manual. Achado em 28/08/2026, estava em produção. Em sábado/feriado
       // `day` é undefined dos dois lados (uma escala = um dia só), então o
       // comportamento pra quem já usa é idêntico.
-      const mesmoDia = (s) => (s.day || null) === (slot.day || null);
+      // Se UM dos lados não tiver `day` (documento legado, ou editado na mão),
+      // o certo é presumir MESMO dia e recusar: errar recusando pede um clique
+      // a mais; errar permitindo põe a pessoa em dois lugares ao mesmo tempo.
+      const mesmoDia = (s) => !s.day || !slot.day || s.day === slot.day;
       if (depois && (scale.slots || []).some(s => s.id !== slotId && mesmoDia(s) && s.assignedPersonId === depois)) {
         return { success: false, error: 'Essa pessoa já está em outra vaga deste dia.' };
       }
@@ -1302,6 +1305,22 @@
         if (mv.published) aRepublicar.add(mv.scaleId);
       }
       for (const scaleId of aRepublicar) {
+        // 🚨 `publishToAgenda` APAGA e recria TODAS as aulas do documento, não
+        // só as do dia mexido. No fim de ano o período inteiro divide um único
+        // `scaleId`: ajustar uma pessoa num dia jogaria fora a aula já dada de
+        // outro dia — `realizada` voltaria a `prevista`, e presença/ocorrência
+        // iriam junto, porque a recriação é `.set()` em documento novo.
+        // A regra de operação de 25/08 ("só reconsolidar o que ainda não
+        // aconteceu") existia no papel; aqui ela vira trava.
+        const cls = await rdb(deps).collection('classes').where('specialScaleId', '==', scaleId).get();
+        const realizadas = cls.docs.filter(d => {
+          const c = d.data() || {};
+          return c.status === 'realizada' && !c.monthClosingId;
+        }).length;
+        if (realizadas > 0) {
+          falhas.push(`${scaleId}: ${realizadas} aula(s) já realizada(s) — republicar apagaria o registro delas. Ajuste apenas datas que ainda não aconteceram.`);
+          continue;
+        }
         const pub = await publishToAgenda(scaleId, deps);
         if (!pub.success) { falhas.push(`republicar ${scaleId}: ${pub.error}`); continue; }
         // 🚨 Aula em mês fechado NÃO é recriada — `publishToAgenda` a conta em

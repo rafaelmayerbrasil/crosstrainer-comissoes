@@ -280,5 +280,30 @@ const SE = require('../scale-engine.js');
     passou('replay do mesmo plano é no-op, e o histórico não vem duplicado');
   }
 
-  console.log(`\n${ok}/12 blocos OK`);
+  // ── aula já realizada trava a republicação ───────────────────────────────
+  // `publishToAgenda` apaga e recria TODAS as aulas do documento. No fim de ano
+  // o período inteiro divide um `scaleId`: ajustar uma pessoa num dia jogaria
+  // fora a aula já dada de OUTRO dia — 'realizada' voltaria a 'prevista', e a
+  // presença iria junto. A regra de operação de 25/08 virou trava aqui.
+  {
+    const idReal = (await SS.createScale({ date: '2027-04-03', tipo: 'sabado', slots: [
+      { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'hel', startTime: '08:00', endTime: '12:00' },
+    ] }, d)).data.id;
+    await SS.publishToAgenda(idReal, d);
+    const cls = await db.collection('classes').where('specialScaleId', '==', idReal).get();
+    for (const c of cls.docs) await db.collection('classes').doc(c.id).set({ status: 'realizada' }, { merge: true });
+
+    const r = await SS.aplicarRebalanceamento({
+      pessoaId: 'hel', de: 2, para: 1, nomePorId: { hel: 'Heloísa', car: 'Carla' },
+      movimentos: [{ scaleId: idReal, date: '2027-04-03', published: true, slotId: 'cp_TOI', saiId: 'hel', entraId: 'car', modalidade: 'TOI' }],
+    }, d);
+    assert.strictEqual(r.success, false, 'aula já dada não pode ser apagada por um rebalanceio');
+    assert.ok(/já realizada/.test(r.error || ''), 'e o erro diz o motivo em português');
+    const depois = await db.collection('classes').where('specialScaleId', '==', idReal).get();
+    assert.strictEqual(depois.docs[0].data().status, 'realizada', 'a aula continua realizada — não voltou pra prevista');
+    assert.deepStrictEqual(r.data.avisar, [], 'e ninguém é avisado de uma troca que não valeu');
+    passou('aula já realizada trava a republicação em vez de ser apagada em silêncio');
+  }
+
+  console.log(`\n${ok}/13 blocos OK`);
 })().catch(e => { console.error('❌', e.message); process.exit(1); });

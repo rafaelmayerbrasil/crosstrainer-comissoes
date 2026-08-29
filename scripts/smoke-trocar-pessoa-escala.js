@@ -115,5 +115,16 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
   assert.ok(/já está/.test(r7b.error) && /outra vaga/.test(r7b.error), `com mensagem clara: "${r7b.error}"`);
   console.log('✓ fim de ano: colisão de vaga é por dia, não pelo período inteiro');
 
+  // ── `day` só de um lado (documento legado / editado na mão) ───────────────
+  // Aqui o certo é RECUSAR: errar recusando custa um clique; errar permitindo
+  // põe a pessoa em duas vagas ao mesmo tempo, e ninguém percebe.
+  const misto = (await SS.createScale({ date: '2026-12-24', tipo: 'fim_de_ano', slots: [
+    { id: 'm_com', unitId: 'cp', day: '2026-12-24', requiredModalityId: 'TOI', assignedPersonId: 'p9' },
+    { id: 'm_sem', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null },
+  ] }, d)).data;
+  const rMisto = await SS.reassignSlot(misto.id, 'm_sem', 'p9', d);
+  assert.ok(!rMisto.success, 'slot sem `day` não pode furar a colisão de quem já está no dia');
+  console.log('✓ `day` faltando num dos lados recusa, em vez de permitir dupla escalação');
+
   console.log('\n✓ smoke-trocar-pessoa-escala: todos os casos passaram');
 })().catch(e => { console.error('✗ FALHOU:', e.message); process.exit(1); });
