@@ -177,9 +177,16 @@
       const depois = newPersonId || null;
       if (antes === depois) return { success: true, data: { changed: false } };
 
-      // Ninguém cobre duas vagas no mesmo dia — o motor já respeita isso.
-      if (depois && (scale.slots || []).some(s => s.id !== slotId && s.assignedPersonId === depois)) {
-        return { success: false, error: 'Essa pessoa já está em outra vaga desta escala.' };
+      // A colisão é por DIA: no fim de ano uma escala é o PERÍODO inteiro
+      // (vários dias no mesmo documento), e comparar contra a escala inteira
+      // proibia a mesma pessoa em dias DIFERENTES do mesmo período — nunca
+      // era possível pôr quem trabalhou 20/12 também em 27/12 pela troca
+      // manual. Achado em 28/08/2026, estava em produção. Em sábado/feriado
+      // `day` é undefined dos dois lados (uma escala = um dia só), então o
+      // comportamento pra quem já usa é idêntico.
+      const mesmoDia = (s) => (s.day || null) === (slot.day || null);
+      if (depois && (scale.slots || []).some(s => s.id !== slotId && mesmoDia(s) && s.assignedPersonId === depois)) {
+        return { success: false, error: 'Essa pessoa já está em outra vaga deste dia.' };
       }
 
       const slots = (scale.slots || []).map(s => s.id === slotId
