@@ -45,7 +45,41 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 12+13 · data legível + botão de publicar achável | ✅ fechadas — `70d1b55` + `d641b56` + `4d864e3` |
 | 14 · "Tirar do lote" | ✅ fechada — `66a3d04` |
 | 15 · Por pessoa mostra a janela | ✅ fechada — `9321fa7` (+ teste novo `smoke-escala-janela-pessoa.js`) |
-| 16 a 25 | ⬜ não começadas |
+| 16+17 · motor do rebalanceio (reduzir e aumentar) | ✅ fechadas — `583a2a4` + `165954e` + `f8329fa` · smoke **24/24** |
+| 18 a 25 | ⬜ não começadas |
+
+### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
+
+A revisão do motor achou uma divergência **real** entre o que foi construído e o design doc, e ela
+precisa da decisão dele.
+
+- `scale-engine.js` (consolidação) trata "não pega dois sábados seguidos" como **teto MACIO**:
+  manda pro fim da fila, **nunca exclui** — com o comentário do Rafael: *"vaga aberta vira aula que
+  não existe"*.
+- `scale-rebalance.js` (motor novo) implementou como **filtro DURO** nos dois ramos.
+- O design doc diz que a vizinhança "vale aqui **igual ao motor**" — ou seja, macia.
+
+**Não é inseguro:** o rebalanceio nunca deixa vaga aberta (não achando movimento, a pessoa fica
+onde estava e a gestão é avisada). A diferença é que o duro produz **"não consegui"** em casos que
+o macio resolveria tolerando a vizinhança como último recurso.
+
+**A favor de manter duro:** consolidar é obrigada a preencher a vaga; rebalancear é opcional. Um
+"não deu, e o motivo é este" é resposta honesta, e melhor do que furar em silêncio a regra de
+descanso que o próprio Rodrigo pediu em 25/08.
+**A favor de mudar para macio:** é o que o design doc aprovado diz, e a gestão pode achar irritante
+o sistema recusar um ajuste que ela sabe que quer fazer.
+
+**Ficou DURO**, e a pergunta subiu em vez de ser decidida sozinha — é regra de negócio, não detalhe
+técnico. Se a resposta for "macio", a mudança é localizada: trocar os dois filtros `!temVizinha(...)`
+por um peso no comparador `melhor(...)`, como `scale-engine.js` faz.
+
+### 🕳️ Lacunas declaradas do motor (não corrigidas, por orçamento)
+
+- Falta teste de "duas escalas distintas na mesma data" **no ramo de aumentar** (o comportamento foi
+  confirmado correto por execução direta na revisão; falta só o teste na suíte).
+- Falta teste de "pessoa escalada mas fora da lista de candidatos" nos dois ramos (idem).
+- `planejar` está com ~200 linhas somando setup + os dois ramos; a montagem do objeto `movimento` e
+  a contabilidade de `dias` estão duplicadas entre os ramos. Extrair quando alguém encostar ali.
 
 ### ⚠️ Duas lacunas DECLARADAS das Tasks 12+13 (não corrigidas, por orçamento)
 
