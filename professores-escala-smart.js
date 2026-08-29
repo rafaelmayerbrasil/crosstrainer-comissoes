@@ -381,8 +381,12 @@ function escalaNomePorId() {
  * montagem que possa divergir da que a gestão viu (é a garantia que o motor
  * `ScaleRebalance` promete: "devolve PLANO, não efeito").
  */
-async function abrirAjusteFrequencia(personId) {
-  const tipo = EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado';
+async function abrirAjusteFrequencia(personId, tipoExplicito) {
+  // `tipoExplicito` vem dos cartões da aba Por pessoa, onde `tab` não é
+  // 'sabado' nem 'feriado' e o default silencioso ajustaria a fila errada.
+  const tipo = tipoExplicito === 'feriado' || tipoExplicito === 'sabado'
+    ? tipoExplicito
+    : (EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado');
   const c = escalaContagens(tipo);
   if (!c.lote.id) { toast('Não há janela para ajustar. Abra uma janela primeiro.', 'error'); return; }
   const atual = c.janela[personId] || 0;
@@ -953,17 +957,21 @@ function renderTabPorPessoa() {
 
   const cSab = escalaContagens('sabado');
   const cFer = escalaContagens('feriado');
-  const cartao = (rot, jan, an) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
+  // Um botão POR cartão, com o tipo explícito. Um botão só entre os dois
+  // cartões era ambíguo — e pior: nesta aba `EscalaSmartState.tab` não vale
+  // 'sabado' nem 'feriado', então ele caía sempre no default e ajustava
+  // sábados mesmo quando a gestão estava olhando o cartão de feriados.
+  const cartao = (rot, jan, an, tipo) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;min-width:150px;">
       <div style="font-size:11px;color:var(--text3);text-transform:uppercase;">${rot}</div>
       <div style="font-size:20px;font-weight:600;">${jan}</div>
       <div style="font-size:12px;color:var(--text2);">${an} no ano de ${ano}</div>
+      <button class="btn-secondary" style="margin-top:8px;font-size:12px;" onclick="abrirAjusteFrequencia('${sel}', '${tipo}')">Ajustar</button>
     </div>`;
 
   return `<div style="margin-bottom:12px;">${seletor}${filtroHtml}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0)}
-      ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0)}
-      <button class="btn-secondary" style="align-self:center;" onclick="abrirAjusteFrequencia('${sel}')">Ajustar nesta janela</button>
+      ${cartao('Sábados nesta janela', cSab.janela[sel] || 0, cSab.ano[sel] || 0, 'sabado')}
+      ${cartao('Feriados nesta janela', cFer.janela[sel] || 0, cFer.ano[sel] || 0, 'feriado')}
     </div>
     ${escalaNotaMarcoHtml(cSab)}
     ${linhas.length

@@ -392,8 +392,12 @@ function baseState(sandbox, scales, loteId) {
 
     sandbox.EscalaSmartState.pessoaSel = 'hel';
     const htmlPessoa = sandbox.renderTabPorPessoa();
-    assert.ok(/onclick="abrirAjusteFrequencia\('hel'\)"/.test(htmlPessoa), 'a aba Por pessoa tem "Ajustar nesta janela" pra pessoa selecionada');
-    passou('renderTabPorPessoa pendura "Ajustar nesta janela" ao lado dos cartões');
+    // Um botão por cartão, com o tipo EXPLÍCITO: nesta aba `tab` não vale
+    // 'sabado' nem 'feriado', então um botão só cairia no default e ajustaria
+    // sábados mesmo quem estivesse olhando o cartão de feriados.
+    assert.ok(/onclick="abrirAjusteFrequencia\('hel', 'sabado'\)"/.test(htmlPessoa), 'o cartão de sábados ajusta SÁBADOS');
+    assert.ok(/onclick="abrirAjusteFrequencia\('hel', 'feriado'\)"/.test(htmlPessoa), 'o cartão de feriados ajusta FERIADOS');
+    passou('cada cartão da aba Por pessoa ajusta a sua própria fila');
   }
 
   console.log(`\n${ok} blocos OK`);
