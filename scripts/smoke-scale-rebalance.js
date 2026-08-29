@@ -101,6 +101,42 @@ const rngZero = () => 0;
   passou('respeita férias e a regra de não pegar dois sábados seguidos');
 }
 
+// ── vizinhança é PREFERÊNCIA, não proibição (Rafael, 28/08) ──────────────
+// "Preferencialmente não pegar dois sábados seguidos". Quando não sobra mais
+// ninguém, é melhor usar quem está no sábado vizinho do que devolver
+// "não consegui" e deixar a gestão travada — o dia continua com professor.
+{
+  const datas = [
+    data('2026-10-10', [vaga('v1', 'TOI', 'car')]),
+    data('2026-10-17', [vaga('v1', 'TOI', 'hel')]),
+  ];
+  // Só a car é elegível, e ela está no sábado vizinho (10/10).
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 10, dias: 1 },
+    { id: 'car', modalityIds: ['TOI'], merito: 9, dias: 1 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 0, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1, 'com regra dura isto devolveria zero movimento');
+  assert.strictEqual(p.movimentos[0].entraId, 'car', 'usa a vizinha quando ela é a única saída');
+  passou('vizinhança é preferência: sem alternativa, escala a vizinha em vez de recusar');
+}
+
+// ── e aumentar segue a mesma preferência ─────────────────────────────────
+{
+  const datas = [
+    data('2026-10-17', [vaga('v1', 'TOI', 'hel')]),   // ela já está aqui
+    data('2026-10-10', [vaga('v1', 'TOI', 'car')]),   // vizinha de 17/10, e é a ÚNICA outra
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 1, dias: 1 },
+    { id: 'car', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 2, datas, candidatos, rng: rngZero });
+  assert.strictEqual(p.movimentos.length, 1, 'com regra dura isto devolveria zero movimento');
+  assert.strictEqual(p.movimentos[0].date, '2026-10-10', 'sem outro dia livre, usa o vizinho');
+  passou('aumentar também trata a vizinhança como preferência, não como muro');
+}
+
 // ── nada a fazer ──
 {
   const datas = [data('2026-10-17', [vaga('v1', 'TOI', 'hel')])];
@@ -435,6 +471,6 @@ const rngZero = () => 0;
   passou('aumentar: planejar não muta a entrada');
 }
 
-const TOTAL = 24;
+const TOTAL = 26;
 assert.strictEqual(ok, TOTAL, `esperava ${TOTAL} blocos, rodaram ${ok}`);
 console.log(`\n${ok}/${TOTAL} blocos OK`);

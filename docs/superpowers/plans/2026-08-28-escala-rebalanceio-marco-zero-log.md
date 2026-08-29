@@ -77,7 +77,20 @@ As revisões reprovaram 3 vezes, e as 3 eram defeito real, provado por execuçã
 Rodados todos os `scripts/smoke-*.js`. Único que não roda aqui é `smoke-9.js`, que exige
 `--project staging` e rede — não é falha.
 
-### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
+### ✅ RESPONDIDA (28/08) — vizinhança no rebalanceio é PREFERÊNCIA
+
+**Rafael:** *"preferencialmente não pegar dois sábados seguidos, deve interpretar assim."*
+
+Implementado como **teto macio**, igual ao motor de consolidação: quem não tem sábado vizinho vem
+primeiro; quem tem só entra **quando não sobrou mais ninguém**. Nunca recusa o ajuste por causa da
+preferência, e nunca deixa o dia sem professor. Vale nos **dois** ramos (reduzir e aumentar).
+Testes novos provam a parte macia — com a regra dura os dois casos devolviam zero movimento.
+O manual foi corrigido junto: ele dizia "regra", agora diz "preferência", e separa isso de férias
+e "não posso", que continuam duros.
+
+O texto abaixo fica como registro da decisão.
+
+<details><summary>A pergunta original</summary>
 
 A revisão do motor achou uma divergência **real** entre o que foi construído e o design doc, e ela
 precisa da decisão dele.
@@ -101,6 +114,8 @@ o sistema recusar um ajuste que ela sabe que quer fazer.
 **Ficou DURO**, e a pergunta subiu em vez de ser decidida sozinha — é regra de negócio, não detalhe
 técnico. Se a resposta for "macio", a mudança é localizada: trocar os dois filtros `!temVizinha(...)`
 por um peso no comparador `melhor(...)`, como `scale-engine.js` faz.
+
+</details>
 
 ### 🕳️ Lacunas declaradas do motor (não corrigidas, por orçamento)
 

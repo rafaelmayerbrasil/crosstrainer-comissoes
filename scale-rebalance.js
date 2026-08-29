@@ -234,12 +234,18 @@
           c.pref !== 'nao_posso' &&                                  // dia que a pessoa bloqueou
           habilitado(c.id, slot.requiredModalityId) &&
           !noDia.has(c.id) &&                                        // ninguém em duas vagas do mesmo dia
-          !indisponivel(c.id, dt.date) &&                            // férias aprovadas
-          !temVizinha(estado, c.id, dt.date, viz));                  // dois sábados seguidos, não
-        // Quem bateu a cota vai pro fim da fila (teto MACIO, igual ao motor):
-        // melhor escalar acima da cota do que deixar sábado sem professor.
-        const preferidos = elegiveis.filter(c => !acimaDaCota(c.id));
-        const pool = (preferidos.length ? preferidos : elegiveis).map(c => ({
+          !indisponivel(c.id, dt.date));                             // férias aprovadas
+        // Cota e "dois sábados seguidos" são tetos MACIOS, iguais ao motor de
+        // consolidação: mandam pro fim da fila, nunca excluem. Rafael, 28/08:
+        // "PREFERENCIALMENTE não pegar dois sábados seguidos". Duro faria o
+        // ajuste ser recusado em caso que a gestão sabe que quer fazer; macio
+        // só usa a pessoa vizinha quando não sobrou mais ninguém.
+        const semVizinha = (c) => !temVizinha(estado, c.id, dt.date, viz);
+        const primeiraFila = elegiveis.filter(c => semVizinha(c) && !acimaDaCota(c.id));
+        const segundaFila = elegiveis.filter(c => semVizinha(c));
+        const pool = (primeiraFila.length ? primeiraFila
+          : segundaFila.length ? segundaFila
+          : elegiveis).map(c => ({
           id: c.id, merito: Number(c.merito) || 0, ordem: c.id,
         }));
         const r = melhor(pool, (c) => dias[c.id] || 0, (c) => c.merito, () => 0, rng);
@@ -293,10 +299,18 @@
       return { atual, alvo: alvoN, atingiu: false, movimentos, avisos };
     }
 
-    const datasElegiveis = () => estado
-      .filter(dt => !ocupantesDaData(estado, dt.date).has(pessoaId))   // ninguém em duas vagas do mesmo dia
-      .filter(dt => !indisponivel(pessoaId, dt.date))                 // férias aprovadas
-      .filter(dt => !temVizinha(estado, pessoaId, dt.date, viz));     // dois sábados seguidos, não
+    // "Dois sábados seguidos" é teto MACIO aqui também (Rafael, 28/08:
+    // "PREFERENCIALMENTE não pegar dois sábados seguidos"): os dias sem
+    // vizinhança vêm primeiro, e um dia vizinho só entra quando não sobrou
+    // nenhum outro — senão o sistema recusaria um ajuste que a gestão sabe
+    // que quer fazer, com a escala inteira parada por causa da preferência.
+    const datasElegiveis = () => {
+      const base = estado
+        .filter(dt => !ocupantesDaData(estado, dt.date).has(pessoaId))  // ninguém em duas vagas do mesmo dia
+        .filter(dt => !indisponivel(pessoaId, dt.date));                // férias e "não posso"
+      const semVizinha = base.filter(dt => !temVizinha(estado, pessoaId, dt.date, viz));
+      return semVizinha.length ? semVizinha : base;
+    };
 
     const jaAvisado = new Set();   // scaleId — não repete o mesmo aviso a cada volta do laço
     let faltamMais = alvoN - atual;
