@@ -46,7 +46,9 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 14 · "Tirar do lote" | ✅ fechada — `66a3d04` |
 | 15 · Por pessoa mostra a janela | ✅ fechada — `9321fa7` (+ teste novo `smoke-escala-janela-pessoa.js`) |
 | 16+17 · motor do rebalanceio (reduzir e aumentar) | ✅ fechadas — `583a2a4` + `165954e` + `f8329fa` · smoke **24/24** |
-| 18 a 25 | ⬜ não começadas |
+| 18 · userIds da gestão | ✅ fechada — `182c883` (campo real é `profiles[]`/`role` legado, não `roles`/`perfil`/`supervisor`/`admin_gestao`) |
+| 19 · serviço aplica o rebalanceio | ✅ fechada — `547385a` · smoke-escala-historico **10/10** (3 blocos extras: republicar de verdade, plano vazio, erro no meio não deixa estado pela metade) |
+| 20 a 25 | ⬜ não começadas |
 
 ### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
 
