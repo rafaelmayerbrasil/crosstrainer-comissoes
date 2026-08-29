@@ -388,13 +388,36 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
     ? tipoExplicito
     : (EscalaSmartState.tab === 'feriado' ? 'feriado' : 'sabado');
   const c = escalaContagens(tipo);
-  if (!c.lote.id) { toast('Não há janela para ajustar. Abra uma janela primeiro.', 'error'); return; }
-  const atual = c.janela[personId] || 0;
+
+  // Fim de ano é UM documento com muitos dias: cada dia vira uma "data" para o
+  // motor, todas apontando pro mesmo scaleId. A justiça do fim de ano é
+  // interna ao período (`consolidateByDay` começa do zero), então os dias
+  // contados aqui são os DESTE período, não os do rodízio de sábado. Calculado
+  // ANTES do prompt — `atual` (o "Hoje: X" que a gestão lê) precisa vir da
+  // contagem certa, e só se sabe qual é depois de saber se é fim de ano.
+  let datas, contagemLocal = null;
+  if (EscalaSmartState.tab === 'fim_de_ano') {
+    const fda = EscalaSmartState.scales.find(s => s.id === EscalaSmartState.selectedId && s.tipo === 'fim_de_ano');
+    if (!fda) { toast('Selecione o período de fim de ano primeiro.', 'error'); return; }
+    const porDia = {};
+    (fda.slots || []).forEach(sl => { (porDia[sl.day] = porDia[sl.day] || []).push(Object.assign({}, sl)); });
+    datas = Object.keys(porDia).sort().map(day => ({ scaleId: fda.id, date: day, published: !!fda.published, slots: porDia[day] }));
+    contagemLocal = {};
+    (fda.slots || []).forEach(sl => { if (sl.assignedPersonId) contagemLocal[sl.assignedPersonId] = (contagemLocal[sl.assignedPersonId] || 0) + 1; });
+  } else {
+    if (!c.lote.id) { toast('Não há janela para ajustar. Abra uma janela primeiro.', 'error'); return; }
+    datas = (EscalaSmartState.scales || [])
+      .filter(s => s.windowBatchId === c.lote.id)
+      .map(s => ({ scaleId: s.id, date: s.date, published: !!s.published, slots: (s.slots || []).map(x => Object.assign({}, x)) }));
+  }
+
+  const atual = contagemLocal ? (contagemLocal[personId] || 0) : (c.janela[personId] || 0);
   const nome = escalaPersonName(personId);
+  const rotuloAjuste = contagemLocal ? 'DIAS DESTE PERÍODO' : (tipo === 'feriado' ? 'FERIADOS NESTA JANELA' : 'SÁBADOS NESTA JANELA');
 
   const resp = prompt(
-    `AJUSTAR ${tipo === 'feriado' ? 'FERIADOS' : 'SÁBADOS'} NESTA JANELA — ${nome}\n\n`
-    + `Hoje: ${atual} nesta janela.\n\n`
+    `AJUSTAR ${rotuloAjuste} — ${nome}\n\n`
+    + `Hoje: ${atual}${contagemLocal ? ' neste período' : ' nesta janela'}.\n\n`
     + `Digite quantos ela deve ter. O sistema rebalanceia os outros: se você baixar, `
     + `chama quem tem MENOS dias; se subir, tira de quem tem MAIS.\n\n`
     + `Você vê o que vai acontecer antes de qualquer mudança.`,
@@ -409,10 +432,6 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
   if (!String(resp).trim()) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
   const alvo = Number(String(resp).trim().replace(',', '.'));
   if (!Number.isFinite(alvo) || alvo < 0) { toast('Informe um número igual ou maior que zero.', 'error'); return; }
-
-  const datas = (EscalaSmartState.scales || [])
-    .filter(s => s.windowBatchId === c.lote.id)
-    .map(s => ({ scaleId: s.id, date: s.date, published: !!s.published, slots: (s.slots || []).map(x => Object.assign({}, x)) }));
 
   const ctx = await escalaMontarCtx();
   const indisponivelPorPessoa = {};
@@ -440,7 +459,11 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
     (pr.data || []).forEach(p => { if (p && p.pref === 'nao_posso') bloquear(p.personId, dt.date); });
   }
 
-  const cotas = await ScaleService.listWindowQuotas(c.lote.id);
+  // Cota por pessoa é feature de JANELA (sábado/feriado) — fim de ano não tem
+  // lote, e `c.lote.id` aqui poderia ser o de uma janela de sábado aberta sem
+  // nenhuma relação com o período. Aplicar aquela cota ao rebalanceio do fim
+  // de ano seria travar por um motivo que não existe neste contexto.
+  const cotas = contagemLocal ? { success: true, data: {} } : await ScaleService.listWindowQuotas(c.lote.id);
   const cotaById = cotas.success ? cotas.data : {};
 
   const candidatos = Array.from(EscalaSmartState.teacherMap.values())
@@ -448,7 +471,7 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
     .map(t => ({
       id: t.id, modalityIds: t.modalityIds || [],
       merito: ctx.meritoById[t.id] || 0,
-      dias: c.janela[t.id] || 0,
+      dias: contagemLocal ? (contagemLocal[t.id] || 0) : (c.janela[t.id] || 0),
       cota: (cotaById[t.id] === 0 || cotaById[t.id] > 0) ? cotaById[t.id] : null,
       indisponivel: indisponivelPorPessoa[t.id] || [],
     }));
@@ -1263,11 +1286,19 @@ function renderFimDeAnoDetail(scale) {
       : `<div style="font-size:12px;color:var(--text2);margin-top:12px;">Todos os colaboradores foram escalados em algum dia.</div>`;
   }
 
-  const actions = `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
+  // Bar amarela "montado, não publicado" — mesmo padrão de sábado/feriado
+  // (Task 12+13): quem consolida o fim de ano precisa achar o botão de
+  // publicar sem procurar, e saber quantos dias estão esperando.
+  const naoPublicado = consolidated && !scale.published;
+  const actions = `
+    ${naoPublicado ? `<div style="background:#3a2f1a;border:1px solid #caa23a;border-radius:8px;padding:10px 12px;margin-top:12px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <span>Período montado para <b>${days.length} dia(s)</b> · <b style="color:#caa23a;">ainda não publicado</b></span>
+      <button class="btn-primary" onclick="publicarEscala('${scale.id}')">✅ Publicar os ${days.length} dias na agenda</button>
+    </div>` : ''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin-top:12px;">
     ${scale.published ? `<span style="font-size:12px;color:var(--green);margin-right:auto;">✓ publicada na agenda</span>` : ''}
     ${scale.status === 'rascunho' ? `<button class="btn-secondary" onclick="abrirJanelaEscala('${scale.id}')">📨 Abrir janela de preferências</button>` : ''}
     <button class="btn-primary" onclick="consolidarEscala('${scale.id}')">🧮 ${consolidated ? 'Reconsolidar' : 'Consolidar'}</button>
-    ${consolidated && !scale.published ? `<button class="btn-primary" onclick="publicarEscala('${scale.id}')">📅 Publicar na agenda</button>` : ''}
     ${scale.published ? `<button class="btn-secondary" onclick="despublicarEscala('${scale.id}')">↩️ Despublicar</button>` : ''}
   </div>`;
 

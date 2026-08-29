@@ -400,6 +400,91 @@ function baseState(sandbox, scales, loteId) {
     passou('cada cartão da aba Por pessoa ajusta a sua própria fila');
   }
 
+  // ── 9. Fim de ano: o rebalanceio enxerga o período (Task 22) ────────────
+  // Uma escala de fim de ano é UM documento com vários dias — nada de
+  // windowBatchId, nada de `c.janela`. `abrirAjusteFrequencia` precisa contar
+  // e montar `datas` a partir do PRÓPRIO documento quando `tab==='fim_de_ano'`.
+  {
+    const fda = {
+      id: 'fda1', tipo: 'fim_de_ano', status: 'consolidada', published: false,
+      slots: [
+        { id: 's_20_m', day: '2026-12-20', shift: 'manha', unitId: 'cp', requiredModalityId: null, assignedPersonId: 'hel' },
+        { id: 's_27_m', day: '2026-12-27', shift: 'manha', unitId: 'cp', requiredModalityId: null, assignedPersonId: 'hel' },
+      ],
+    };
+    // Lote de SÁBADO aberto, com cota pra Heloísa — sem nenhuma relação com o
+    // fim de ano. Prova que essa cota não vaza pro rebalanceio do período.
+    const { sandbox, state } = novoSandbox();
+    sandbox.ScaleService.listWindowQuotas = async () => ({ success: true, data: { hel: 0 } });
+    baseState(sandbox, [fda], 'lote_sabado_alheio');
+    sandbox.EscalaSmartState.tab = 'fim_de_ano';
+    sandbox.EscalaSmartState.selectedId = 'fda1';
+    state.promptReturn = '1';   // Heloísa tem 2 dias no período; alvo 1
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    assert.strictEqual(state.promptCalls[0].def, '2', 'o prompt mostra 2 (contado do PERÍODO, não de c.janela — que é 0)');
+    assert.strictEqual(state.planejarCalls.length, 1, 'planejar rodou com os dados do período');
+    const args = state.planejarCalls[0];
+    assert.strictEqual(args.datas.length, 2, 'as duas datas do período entraram, uma por dia');
+    assert.ok(args.datas.every(d => d.scaleId === 'fda1'), 'todas as datas apontam pro MESMO documento (o período)');
+    const helCand = args.candidatos.find(c => c.id === 'hel');
+    assert.strictEqual(helCand.dias, 2, 'a contagem de dias de Heloísa vem do período (2), não de c.janela (0)');
+    // A cota `hel: 0` só existe no mock de `listWindowQuotas` do lote de
+    // sábado alheio — se o guard da cota falhasse, ela vazaria pro fim de ano
+    // e barraria Heloísa (cota 0 = não pode mais nenhum dia).
+    assert.strictEqual(helCand.cota, null, 'a cota do lote de sábado alheio NÃO vaza pro fim de ano');
+
+    const st = sandbox.EscalaSmartState._planoAjuste;
+    assert.ok(st && st.plano.movimentos.length >= 1, 'achou pelo menos 1 movimento pra baixar Heloísa de 2 para 1');
+    assert.ok(st.plano.movimentos.every(mv => mv.scaleId === 'fda1'), 'o(s) movimento(s) ficam DENTRO do período de fim de ano');
+    passou('fim de ano: datas e contagem vêm do período inteiro, e a cota de um lote alheio não vaza');
+  }
+
+  // ── 9b. Fim de ano sem período selecionado: avisa e para ────────────────
+  {
+    const { sandbox, state } = novoSandbox();
+    baseState(sandbox, [], null);   // nem lote de sábado, nem escala de fim de ano nenhuma
+    sandbox.EscalaSmartState.tab = 'fim_de_ano';
+    sandbox.EscalaSmartState.selectedId = null;
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    assert.strictEqual(state.promptCalls.length, 0, 'sem período selecionado, nem chega a perguntar o alvo');
+    assert.strictEqual(state.planejarCalls.length, 0, 'planejar não roda');
+    const ultimo = state.toastCalls[state.toastCalls.length - 1];
+    assert.ok(ultimo && /período/i.test(ultimo.msg) && ultimo.type === 'error', 'toast pede pra selecionar o período primeiro');
+    passou('fim de ano sem período selecionado: avisa e para antes do prompt');
+  }
+
+  // ── 9c. renderFimDeAnoDetail: a barra "ainda não publicado" (Task 22) ────
+  {
+    const { sandbox } = novoSandbox();
+    const base = {
+      id: 'fda1', name: 'Fim de ano 2026',
+      slots: [{ id: 's1', day: '2026-12-20', shift: 'manha', unitId: 'cp', requiredModalityId: null, assignedPersonId: null }],
+    };
+    sandbox.EscalaSmartState.units = [{ id: 'cp', name: 'CrossTainer CP' }];
+    sandbox.EscalaSmartState.teacherMap = teachers3();
+
+    const rascunho = sandbox.renderFimDeAnoDetail(Object.assign({}, base, { status: 'rascunho', published: false }));
+    assert.ok(!/ainda não publicado/.test(rascunho), 'rascunho: sem barra amarela (nada foi consolidado ainda)');
+    assert.ok(!/Publicar/.test(rascunho), 'rascunho: sem botão de publicar nenhum');
+    passou('renderFimDeAnoDetail: rascunho não mostra barra nem botão de publicar');
+
+    const montado = sandbox.renderFimDeAnoDetail(Object.assign({}, base, { status: 'consolidada', published: false }));
+    assert.ok(/ainda não publicado/.test(montado), 'consolidada e não publicada: mostra a barra amarela');
+    assert.ok(/Publicar os 1 dias na agenda/.test(montado), 'a barra mostra a contagem certa de dias e o botão');
+    assert.ok(/onclick="publicarEscala\('fda1'\)"/.test(montado), 'o botão da barra chama publicarEscala com o id certo');
+    passou('renderFimDeAnoDetail: consolidada e não publicada mostra a barra com o número de dias');
+
+    const publicada = sandbox.renderFimDeAnoDetail(Object.assign({}, base, { status: 'consolidada', published: true }));
+    assert.ok(!/ainda não publicado/.test(publicada), 'já publicada: some a barra amarela');
+    assert.ok(/publicada na agenda/.test(publicada), 'já publicada: mostra o selo de publicada');
+    assert.ok(/onclick="despublicarEscala\('fda1'\)"/.test(publicada), 'já publicada: mostra o botão de despublicar');
+    passou('renderFimDeAnoDetail: já publicada esconde a barra e mostra despublicar');
+  }
+
   console.log(`\n${ok} blocos OK`);
   console.log('\n✓ smoke-escala-rebalanceio-tela: todas as seções OK');
 })().catch(e => { console.error('❌', e.message, '\n', e.stack); process.exit(1); });
