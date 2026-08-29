@@ -284,6 +284,15 @@
     // a data mais próxima (menor ordinal) vence — por isso o fator grande.
     const prefEntrada = (dt) => (dt.published ? 1 : 0) * 1e7 + dataOrdinal(dt.date);
 
+    // Ela mesma respondeu "não posso": no sistema inteiro isso é restrição
+    // DURA, nunca contornável — o ramo de reduzir já barra candidato assim
+    // (`c.pref !== 'nao_posso'`, acima). Aumentar por cima disso seria o
+    // sistema escalando alguém contra o que a própria pessoa respondeu.
+    if ((porId[pessoaId] || {}).pref === 'nao_posso') {
+      avisos.push('Ela respondeu "não posso" nesta janela — não dá para aumentar os dias dela.');
+      return { atual, alvo: alvoN, atingiu: false, movimentos, avisos };
+    }
+
     const datasElegiveis = () => estado
       .filter(dt => !ocupantesDaData(estado, dt.date).has(pessoaId))   // ninguém em duas vagas do mesmo dia
       .filter(dt => !indisponivel(pessoaId, dt.date))                 // férias aprovadas

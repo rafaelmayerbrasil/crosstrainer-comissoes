@@ -309,6 +309,26 @@ const rngZero = () => 0;
   passou('aumentar respeita férias — não entra em data que ela marcou indisponível');
 }
 
+// ── aumentar: "não posso" da PRÓPRIA pessoa é restrição dura ──────────────
+// O ramo de reduzir já barra candidato com `nao_posso`. Aumentar por cima do
+// "não posso" dela seria o sistema escalando alguém contra o que a própria
+// pessoa respondeu — e "não posso" nunca foi negociável neste sistema.
+{
+  const datas = [
+    data('2026-10-17', [vaga('v1', 'TOI', 'hel')]),
+    data('2026-10-31', [vaga('v1', 'TOI', 'edu')]),
+  ];
+  const candidatos = [
+    { id: 'hel', modalityIds: ['TOI'], merito: 1, dias: 1, pref: 'nao_posso' },
+    { id: 'edu', modalityIds: ['TOI'], merito: 9, dias: 5 },
+  ];
+  const p = RB.planejar({ pessoaId: 'hel', alvo: 2, datas, candidatos, rng: rngZero });
+  assert.deepStrictEqual(p.movimentos, [], 'quem disse "não posso" não ganha dia por rebalanceio');
+  assert.ok(p.avisos.some(a => /não posso/.test(a)), 'e a gestão fica sabendo por quê');
+  assert.strictEqual(p.atingiu, false, 'não finge que atingiu o alvo');
+  passou('aumentar não passa por cima do "não posso" da própria pessoa');
+}
+
 // ── aumentar: mesma pessoa não pega dois sábados seguidos (vizinhança) ──
 {
   const datas = [
@@ -415,6 +435,6 @@ const rngZero = () => 0;
   passou('aumentar: planejar não muta a entrada');
 }
 
-const TOTAL = 23;
+const TOTAL = 24;
 assert.strictEqual(ok, TOTAL, `esperava ${TOTAL} blocos, rodaram ${ok}`);
 console.log(`\n${ok}/${TOTAL} blocos OK`);
