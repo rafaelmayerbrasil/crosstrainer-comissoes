@@ -26,7 +26,7 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 
 # 🚦 ESTADO DA EXECUÇÃO — atualize esta seção a cada tarefa fechada
 
-> **Última atualização:** 28/08/2026, sessão 60 (Tasks 21+22 fechadas). Branch:
+> **Última atualização:** 28/08/2026, sessão 60 (Task 23 fechada). Branch:
 > **`escala-rebalanceio-log`**, saída de `main` (`e44b4a7`).
 > **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada.**
 
@@ -51,7 +51,8 @@ com `assert`, rodados um a um (`node scripts/smoke-*.js`).
 | 20 · botão Ajustar na tela (prévia + aplicar + aviso) | ✅ fechada — `f5ac1e4` + `2876c80` (não posso por data) + `b1fe532` (cada cartão ajusta a própria fila) — já estava fechada no HEAD de partida desta sessão, tabela estava desatualizada |
 | 21 · `reassignSlot` colide por DIA, não por escala | ✅ fechada — `2af9d60` · teste novo em `smoke-trocar-pessoa-escala.js` (não em `smoke-scale-service.js`, que não tinha testes de `reassignSlot`) · regressão provada (revertido → falha exatamente no caso novo, caso de "mesmo dia" sábado continua passando) |
 | 22 · fim de ano — rebalanceio, botão de publicar e data | ✅ fechada — `af667be` · `smoke-escala-rebalanceio-tela` **18/18** (4 casos novos) · 2 desvios do texto do plano: guarda de cota alheia (fim de ano não tem janela) e reordenação de `datas`/`contagemLocal` pra ANTES do prompt (senão "Hoje: X" mostrava a contagem errada) |
-| 23 a 25 | ⬜ não começadas |
+| 23 · manual e trava do manual | ✅ fechada — `c3105d2` · trava viu falhar (2 assuntos ausentes) antes de escrever, 12/12 depois · nenhuma afirmação da lista destoou do código (todas conferidas linha a linha em `professores-escala-smart.js`/`scale-service.js`) |
+| 24 a 25 | ⬜ não começadas |
 
 ### ❓ PERGUNTA PRO RAFAEL — vizinhança no rebalanceio: dura ou teto macio?
 
@@ -2860,7 +2861,7 @@ git commit -m "feat(escala): fim de ano ganha rebalanceio, botao de publicar com
 **Arquivos:**
 - Modificar: `manual-admin.html`, `scripts/smoke-manual-atualizado.js`
 
-- [ ] **Passo 1: escrever a trava primeiro**
+- [x] **Passo 1: escrever a trava primeiro**
 
 Em `scripts/smoke-manual-atualizado.js`, acrescentar aos assuntos obrigatórios do manual-admin:
 
@@ -2873,14 +2874,14 @@ Em `scripts/smoke-manual-atualizado.js`, acrescentar aos assuntos obrigatórios 
 
 (siga o formato exato dos pares já existentes no arquivo)
 
-- [ ] **Passo 2: rodar e ver falhar**
+- [x] **Passo 2: rodar e ver falhar**
 
 ```bash
 node scripts/smoke-manual-atualizado.js
 ```
 Esperado: falha listando os quatro assuntos ausentes.
 
-- [ ] **Passo 3: escrever os blocos no manual**
+- [x] **Passo 3: escrever os blocos no manual**
 
 Em `manual-admin.html`, na seção da Escala Inteligente, quatro blocos novos, no mesmo tom dos
 existentes (texto de gente, sem jargão):
@@ -2914,14 +2915,14 @@ E **remover** do manual qualquer menção ao "+ dias fora", que deixou de existi
 >
 > Ausência é o único fato que ler texto prova bem — e é justamente o que faltava aqui.
 
-- [ ] **Passo 4: rodar e ver passar**
+- [x] **Passo 4: rodar e ver passar**
 
 ```bash
 node scripts/smoke-manual-atualizado.js
 ```
 Esperado: passa, sem link morto.
 
-- [ ] **Passo 5: commit**
+- [x] **Passo 5: commit**
 
 ```bash
 git add manual-admin.html scripts/smoke-manual-atualizado.js
