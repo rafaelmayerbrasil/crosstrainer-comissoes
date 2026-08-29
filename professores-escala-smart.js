@@ -411,14 +411,30 @@ async function abrirAjusteFrequencia(personId) {
     .map(s => ({ scaleId: s.id, date: s.date, published: !!s.published, slots: (s.slots || []).map(x => Object.assign({}, x)) }));
 
   const ctx = await escalaMontarCtx();
-  const feriasPorPessoa = {};
+  const indisponivelPorPessoa = {};
+  const bloquear = (pid, date) => {
+    if (!pid) return;
+    (indisponivelPorPessoa[pid] = indisponivelPorPessoa[pid] || []).push(date);
+  };
   (ctx.vacations || []).forEach(v => {
     if (!v || v.status !== 'aprovada' || !v.teacherId) return;
-    feriasPorPessoa[v.teacherId] = feriasPorPessoa[v.teacherId] || [];
     datas.forEach(dt => {
-      if (ScaleService.personsOnVacation([v], dt.date).has(v.teacherId)) feriasPorPessoa[v.teacherId].push(dt.date);
+      if (ScaleService.personsOnVacation([v], dt.date).has(v.teacherId)) bloquear(v.teacherId, dt.date);
     });
   });
+  // "Não posso" da própria pessoa entra aqui, junto com férias: no sistema
+  // inteiro é restrição DURA, nunca contornável. Vai como indisponibilidade POR
+  // DATA (e não um `pref` único por pessoa) porque a resposta é por data — dizer
+  // "não posso no dia 12" não pode barrar alguém do dia 26.
+  for (const dt of datas) {
+    const pr = await ScaleService.listPreferences(dt.scaleId);
+    if (!pr.success) {
+      // Falhar aqui em silêncio escalaria gente que disse que não podia.
+      toast('Não consegui ler as respostas de ' + ScaleService.fmtDataLonga(dt.date) + '. Ajuste cancelado.', 'error');
+      return;
+    }
+    (pr.data || []).forEach(p => { if (p && p.pref === 'nao_posso') bloquear(p.personId, dt.date); });
+  }
 
   const cotas = await ScaleService.listWindowQuotas(c.lote.id);
   const cotaById = cotas.success ? cotas.data : {};
@@ -430,7 +446,7 @@ async function abrirAjusteFrequencia(personId) {
       merito: ctx.meritoById[t.id] || 0,
       dias: c.janela[t.id] || 0,
       cota: (cotaById[t.id] === 0 || cotaById[t.id] > 0) ? cotaById[t.id] : null,
-      indisponivel: feriasPorPessoa[t.id] || [],
+      indisponivel: indisponivelPorPessoa[t.id] || [],
     }));
 
   const plano = ScaleRebalance.planejar({ pessoaId: personId, alvo: Math.round(alvo), datas, candidatos });

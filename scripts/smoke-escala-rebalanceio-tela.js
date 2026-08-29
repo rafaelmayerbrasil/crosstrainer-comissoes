@@ -56,6 +56,12 @@ function novoSandbox() {
     consoleErrors: [], loadBaseCalls: 0, renderCalls: 0,
   };
 
+  // "Não posso" por data, e o interruptor pra simular a leitura falhando.
+  let prefsPorEscala = {};
+  let prefsFalham = false;
+  const setPrefs = (m) => { prefsPorEscala = m || {}; };
+  const setPrefsFalham = (v) => { prefsFalham = !!v; };
+
   const sandbox = {
     console: { log() {}, warn() {}, error: (...a) => { state.consoleErrors.push(a); } },
     document: {
@@ -77,6 +83,11 @@ function novoSandbox() {
       fmtDataLonga: SS.fmtDataLonga,
       personsOnVacation: () => new Set(),
       listWindowQuotas: async () => ({ success: true, data: {} }),
+      // Respostas "não posso" por data. O teste sobrescreve `prefsPorEscala`
+      // para provar que o rebalanceio respeita a recusa.
+      listPreferences: async (scaleId) => (prefsFalham
+        ? { success: false, error: 'boom' }
+        : { success: true, data: (prefsPorEscala[scaleId] || []) }),
       aplicarRebalanceamento: async (args, deps) => {
         state.aplicarCalls.push({ args, deps });
         if (state.aplicarRebalanceamentoReturn) return state.aplicarRebalanceamentoReturn(args);
@@ -106,7 +117,7 @@ function novoSandbox() {
   // são function-declarations e um espião posto ANTES seria clobbered.
   sandbox.escalaLoadBase = async () => { state.loadBaseCalls++; };
   sandbox.renderEscalaGestao = () => { state.renderCalls++; };
-  return { sandbox, state, modal };
+  return { sandbox, state, modal, setPrefs, setPrefsFalham };
 }
 
 // Vaga TOI numa unidade; slots de duas pessoas viram um cenário de rebalanceio.
@@ -320,6 +331,51 @@ function baseState(sandbox, scales, loteId) {
     const ultimo = state.toastCalls[state.toastCalls.length - 1];
     assert.ok(ultimo && /janela/i.test(ultimo.msg) && ultimo.type === 'error', 'toast explica que falta abrir uma janela');
     passou('sem janela aberta, avisa e para antes de perguntar o alvo');
+  }
+
+  // ── 7b. "não posso" é restrição DURA e chega ao motor ────────────────────
+  // O motor já tinha o filtro, mas a tela nunca preenchia o campo — a regra
+  // existia e não valia. Aqui a prova é ponta a ponta: quem respondeu
+  // "não posso" numa data entra como INDISPONÍVEL naquela data, junto com
+  // férias, e o motor não o escala.
+  {
+    const scales = [
+      escala('s1', '2026-09-05', 'hel', 'lote1', false),
+      escala('s2', '2026-09-19', 'car', 'lote1', false),
+      escala('s3', '2026-10-03', 'bru', 'lote1', false),
+    ];
+    const { sandbox, state, setPrefs } = novoSandbox();
+    baseState(sandbox, scales, 'lote1');
+    state.promptReturn = '2';
+    setPrefs({ [scales[0].id]: [{ personId: 'car', pref: 'nao_posso' }] });
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    const cands = state.planejarCalls[0].candidatos;
+    const car = cands.find(c => c.id === 'car');
+    assert.ok(car.indisponivel.indexOf(scales[0].date) !== -1,
+      'quem respondeu "não posso" naquela data vai como indisponível NELA');
+    const outra = scales[1] && scales[1].date;
+    if (outra) assert.ok(car.indisponivel.indexOf(outra) === -1,
+      'e continua disponível nas outras datas — "não posso no dia 12" não barra o dia 26');
+    passou('"não posso" chega ao motor como indisponibilidade por data');
+  }
+
+  // ── 7c. falha ao ler as respostas cancela, não escala às cegas ───────────
+  {
+    const scales = [escala('s1', '2026-09-05', 'hel', 'lote1', false)];
+    const { sandbox, state, setPrefsFalham } = novoSandbox();
+    baseState(sandbox, scales, 'lote1');
+    state.promptReturn = '2';
+    setPrefsFalham(true);
+
+    await sandbox.abrirAjusteFrequencia('hel');
+
+    assert.strictEqual(state.planejarCalls.length, 0,
+      'não dá pra montar plano sem saber quem disse que não podia');
+    const ultimo = state.toastCalls[state.toastCalls.length - 1];
+    assert.ok(ultimo && ultimo.type === 'error', 'e a gestão é avisada, em vez de receber uma escala silenciosamente errada');
+    passou('falha ao ler as respostas cancela o ajuste, não escala às cegas');
   }
 
   // ── 8. renderEquilibrioPainel e renderTabPorPessoa têm o botão pendurado ──
