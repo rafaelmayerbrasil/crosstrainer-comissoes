@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 61 (31/08/2026) — 🟢 DUAS DÚVIDAS DO GRUPO · 1 CORRIGIDA EM PRODUÇÃO, 1 HOMOLOGADA NO STAGING
+## 🔖 ONDE PARAMOS — sessão 61 (31/08/2026) — ✅ AS DUAS DÚVIDAS DO GRUPO · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
@@ -76,15 +76,29 @@ Console: só os 3 erros que **eu** provoquei nos testes negativos (409 e 403). N
 handler que o dedo dispara — e substituí `prompt`/`confirm` pelos valores que um admin digitaria,
 porque diálogo nativo não é preenchível daqui. **Ainda falta um clique humano de verdade.**
 
-### ⚠️ Falta (nesta ordem)
+### ✅ EM PRODUÇÃO (31/08, mesma sessão)
 
-1. **Seu OK no staging** (`https://crosstrainer-comissoes-staging.web.app/professores.html`).
-2. **Depois**, produção: `firebase deploy --only functions:changeLoginEmail --project production` +
-   `git push origin main` (é o push que entrega o front pelo GitHub Pages).
-3. A varredura de produção ainda mostra **2 fichas com e-mail de contato ≠ e-mail de acesso**
-   (LEONARDO SILVEIRA e HELENA MARIA BORGES). **Não é problema:** os dois **já entram** pelo endereço
-   de acesso. É só a ficha que guarda outro e-mail de contato — confirmar com a gestão qual é o certo,
-   sem pressa.
+**O Rafael dispensou o teste no staging e autorizou produção.** Registrado porque muda a natureza da
+garantia: o caminho foi exercitado por mim, **nunca por um dedo humano**.
+
+| Passo | Resultado |
+|---|---|
+| `git commit` | `04655bd` |
+| `firebase deploy --only functions:changeLoginEmail --project production` | ✅ criada em `us-central1` |
+| `git push origin main` | ✅ `0cc0df9..04655bd` (o 1º push travou em ~3 min; o 2º passou) |
+| GitHub Pages reconstruído | ✅ na 3ª verificação: `escalaEquipeHtml` e `pessoaTrocarEmailAcesso` sendo servidos, `professores.html` já em `?v=20260831` |
+| CF de produção respondendo | ✅ `POST` sem token → `UNAUTHENTICATED` ("É preciso estar autenticado") |
+| Varredura final de e-mails | ✅ o Bruno saiu da lista de pendências |
+
+### ⚠️ O que segue aberto
+
+1. **Ninguém clicou de verdade** — nem no staging, nem em produção. A gestão vai ser a primeira.
+   Se aparecer defeito, o mais provável é de layout, não de regra (as regras têm 20 verificações).
+2. **2 fichas com e-mail de contato ≠ e-mail de acesso** (LEONARDO SILVEIRA e HELENA MARIA BORGES).
+   **Não é problema:** os dois **já entram** pelo endereço de acesso — é só a ficha que guarda outro
+   e-mail de contato. Confirmar com a gestão qual é o certo, sem pressa.
+3. Continua valendo a pendência da sessão 60: o **aviso de ajuste em data já publicada** nunca rodou
+   contra o banco real (é `scale_confirmed`, vira e-mail de verdade).
 
 ### 🧭 Por que o botão, e não só o script
 
