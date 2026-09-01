@@ -2544,9 +2544,20 @@ async function renderEscalaPrefs() {
     <div class="loading"><div class="spinner"></div> Carregando…</div>`;
 
   const pid = escalaProfId();
-  const [scalesRes, teachersRes] = await Promise.all([ScaleService.listScales(), TeacherService.list()]);
+  // Unidades e modalidades entram aqui porque a linha do professor passou a
+  // dizer ONDE ele trabalha e COM QUEM (Rodrigo, 31/08/2026) — sem elas os slots
+  // só teriam ids. Se a leitura falhar, a tela cai pro texto de antes em vez de
+  // quebrar: é informação de apoio, não o motivo da tela existir.
+  const [scalesRes, teachersRes, unitsRes, modsRes] = await Promise.all([
+    ScaleService.listScales(),
+    TeacherService.list(),
+    (typeof UnitService === 'object' ? UnitService.list() : Promise.resolve({ success: false })),
+    (typeof ModalityService === 'object' ? ModalityService.list() : Promise.resolve({ success: false })),
+  ]);
   EscalaSmartState.scales = scalesRes.success ? scalesRes.data : [];
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
+  if (unitsRes.success) EscalaSmartState.units = unitsRes.data;
+  EscalaSmartState.modMap = new Map((modsRes.success ? modsRes.data : []).map(m => [m.id, m]));
   // A aba Sábados também precisa dos feriados: sábado que é feriado paga em
   // dobro, e a gestão tem que ver isso ANTES de montar a escala.
   if (EscalaSmartState.tab === 'feriado' || EscalaSmartState.tab === 'sabado') {
@@ -2658,15 +2669,63 @@ async function renderProfSabadosFeriados(pid, tab) {
     right = escalado
       ? `<span style="font-size:12px;color:var(--green);font-weight:600;">✓ Você está escalado</span>`
       : `<span style="font-size:12px;color:var(--text3);">Não escalado desta vez</span>`;
-    return profDateRow(s, `${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Escala definida`, right);
+    return profDateRow(
+      s,
+      `${ScaleService.fmtDataLonga(s.date)}${escalaHorario(s) ? ` · 🕗 ${escalaHorario(s)}` : ''} · Escala definida`,
+      right,
+      escalaEquipeHtml(s, pid)
+    );
   }).join('');
 }
 
-function profDateRow(s, sub, right) {
+function profDateRow(s, sub, right, extra) {
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;flex-wrap:wrap;">
     <div><div style="font-weight:600;font-size:14px;">${s.name || ScaleService.fmtDataLonga(s.date)}</div><div style="font-size:12px;color:var(--text2);">${sub}</div></div>
     ${right}
+    ${extra || ''}
   </div>`;
+}
+
+/**
+ * "Como faz pra saber a unidade e quem tá escalado junto com você?" (Rodrigo,
+ * 31/08/2026). Dava pra descobrir na Agenda Geral, mas ninguém procura ali: a
+ * pergunta nasce olhando a escala. Então a resposta vai na própria linha.
+ *
+ * Só aparece em escala PUBLICADA — antes disso o time ainda muda, e contar quem
+ * "vai trabalhar junto" com uma escala que a gestão ainda vai mexer é criar
+ * combinado que se desfaz (mesma regra que já vale pro resto desta tela).
+ */
+function escalaEquipeHtml(scale, pid, opts) {
+  if (!scale || !scale.published) return '';
+  const eq = ScaleService.equipeDoDia(scale, pid, opts);
+  if (!eq.meus.length && !eq.colegas.length) return '';
+
+  const uNome = (uid) => {
+    const u = (EscalaSmartState.units || []).find(x => x.id === uid);
+    return u ? (u.name || u.id) : (uid || '—');
+  };
+  const mNome = (slot) => slot.requiredModalityName
+    || ((EscalaSmartState.modMap && slot.requiredModalityId)
+        ? ((EscalaSmartState.modMap.get(slot.requiredModalityId) || {}).name || null) : null)
+    || (slot.shift === 'manha' ? 'Manhã' : slot.shift === 'tarde_noite' ? 'Tarde/Noite' : (slot.shift || null));
+  const curto = (id) => {
+    const n = escalaPersonName(id) || '—';
+    return (typeof shortenName === 'function') ? shortenName(n) : n;
+  };
+  const posto = (slot) => [uNome(slot.unitId), mNome(slot)].filter(Boolean).join(' · ');
+  const hora = (slot) => slot.startTime ? `${slot.startTime}–${slot.endTime || ''}` : '';
+
+  const meu = eq.meus.map(slot =>
+    `<div style="font-size:12px;color:var(--text);margin-top:2px;">📍 <strong>${escalaEsc(posto(slot))}</strong>${hora(slot) ? ` · 🕗 ${escalaEsc(hora(slot))}` : ''}</div>`
+  ).join('');
+
+  const colegas = eq.colegas.length
+    ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;">👥 ${eq.meus.length ? 'Com você' : 'Escalados'}: ${
+        eq.colegas.map(slot => `${escalaEsc(curto(slot.assignedPersonId))} <span style="color:var(--text3);">(${escalaEsc(posto(slot))})</span>`).join(' · ')
+      }</div>`
+    : `<div style="font-size:12px;color:var(--text3);margin-top:4px;">👥 Ninguém mais escalado neste dia.</div>`;
+
+  return `<div style="width:100%;border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">${meu}${colegas}</div>`;
 }
 
 async function renderProfFimDeAno(pid) {
@@ -2705,6 +2764,7 @@ async function renderProfFimDeAno(pid) {
           <div style="display:flex;gap:6px;">${pbtn('prefiro', 'Prefiro', 'var(--green)')}${pbtn('pode_ser', 'Pode ser', '#5EA8FF')}${pbtn('nao_posso', 'Não posso', 'var(--red)')}</div>
         </div>
         ${turnos ? `<div style="margin-top:8px;">${turnos}</div>` : ''}
+        ${escalaEquipeHtml(s, pid, { day })}
       </div>`;
     }).join('');
     html += cabecalho + diasHtml;

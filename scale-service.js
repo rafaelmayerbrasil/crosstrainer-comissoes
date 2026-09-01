@@ -566,6 +566,38 @@
   }
 
   /**
+   * PURO: onde a pessoa trabalha nesse dia e quem trabalha junto com ela.
+   *
+   * "Como faz pra saber a unidade e quem tá escalado junto com você?" — Rodrigo,
+   * 31/08/2026. A resposta sempre esteve nos slots (cada vaga tem unidade e
+   * modalidade); a visão do professor é que só dizia "✓ Você está escalado".
+   *
+   * Vaga aberta NÃO vira colega: quem lê "com Fulano" e não encontra ninguém
+   * conclui que o sistema errou. E quem está em duas vagas (acontece no fim de
+   * ano) não aparece como colega de si mesmo.
+   *
+   * @param {object} scale
+   * @param {string} personId
+   * @param {{day?: string}} [opts] fim de ano tem um slot por DIA dentro da mesma
+   *        escala — sem o filtro, a "equipe do dia" seria a do período inteiro.
+   * @returns {{escalado: boolean, meus: object[], colegas: object[]}}
+   */
+  function equipeDoDia(scale, personId, opts) {
+    const out = { escalado: false, meus: [], colegas: [] };
+    if (!scale || !Array.isArray(scale.slots)) return out;
+    const dia = (opts || {}).day || null;
+    scale.slots.forEach(s => {
+      if (!s) return;
+      if (dia && s.day && s.day !== dia) return;
+      if (!s.assignedPersonId) return;
+      if (personId && s.assignedPersonId === personId) out.meus.push(s);
+      else out.colegas.push(s);
+    });
+    out.escalado = out.meus.length > 0;
+    return out;
+  }
+
+  /**
    * PURO: quem está de férias/recesso APROVADO na data.
    *
    * O motor só excluía quem marcasse "Não posso" — quem estava de férias e não
@@ -1345,5 +1377,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });

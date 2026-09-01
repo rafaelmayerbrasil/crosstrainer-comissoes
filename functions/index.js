@@ -1929,6 +1929,119 @@ exports.setPersonAccess = onCall({
   }
 });
 
+// ─── Corrigir o e-mail de acesso de uma pessoa ────────────────────────
+//
+// O e-mail de LOGIN mora no Firebase Auth, e só o Admin SDK muda — não havia
+// caminho nenhum pela tela. Em 31/08/2026 o Benny mandou o caso: a ficha do
+// Bruno Claudino tinha `brunosilva@hotmail.com` como e-mail de acesso, endereço
+// que não é dele. Consequência prática: ele nunca conseguiria entrar nem
+// recuperar a senha, porque o "esqueci minha senha" só funciona pelo e-mail
+// cadastrado no Auth — e o Firebase responde "enviamos" mesmo quando não manda.
+// Pior, quem controlasse aquele endereço poderia redefinir a senha e entrar
+// como ele.
+//
+// Varredura na produção do mesmo dia: 3 fichas de 19 com e-mail de acesso
+// diferente do e-mail da ficha. Não é caso único — por isso vira botão, não
+// script.
+exports.changeLoginEmail = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 60,
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const callerUid = request.auth.uid;
+
+  const callerDoc = await db().collection('users').doc(callerUid).get();
+  if (!callerDoc.exists) {
+    throw new HttpsError('permission-denied', 'Usuário sem perfil cadastrado.');
+  }
+  const callerData = callerDoc.data();
+  const callerProfiles = callerData.profiles || (callerData.role ? [callerData.role] : []);
+  if (!callerProfiles.includes('admin')) {
+    throw new HttpsError('permission-denied', 'Apenas admin pode trocar o e-mail de acesso.');
+  }
+
+  const data = request.data || {};
+  const uid = typeof data.uid === 'string' ? data.uid.trim() : '';
+  const novoEmail = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+  if (!uid) throw new HttpsError('invalid-argument', 'Informe o uid da pessoa.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novoEmail)) {
+    throw new HttpsError('invalid-argument', 'E-mail inválido.');
+  }
+
+  let alvo;
+  try {
+    alvo = await admin.auth().getUser(uid);
+  } catch (e) {
+    throw new HttpsError('not-found', 'Essa pessoa não tem login no sistema de autenticação.');
+  }
+  const emailAtual = (alvo.email || '').toLowerCase();
+  if (emailAtual === novoEmail) {
+    throw new HttpsError('failed-precondition', 'Esse já é o e-mail de acesso atual.');
+  }
+  // A conta do dono é a única que não pode ficar sem acesso — mesma guarda de
+  // setPersonAccess, pelo mesmo motivo: errar aqui tranca quem conserta.
+  if (emailAtual === OWNER_EMAIL.toLowerCase()) {
+    throw new HttpsError('failed-precondition', 'O e-mail do dono do sistema não é editável por aqui.');
+  }
+
+  // Se o endereço já pertence a OUTRA conta, trocar quebraria o login das duas.
+  try {
+    const jaExiste = await admin.auth().getUserByEmail(novoEmail);
+    if (jaExiste.uid !== uid) {
+      throw new HttpsError('already-exists', 'Já existe outra pessoa usando esse e-mail de acesso.');
+    }
+  } catch (e) {
+    if (e instanceof HttpsError) throw e;
+    if (e.code !== 'auth/user-not-found') {
+      logger.warn('[changeLoginEmail] getUserByEmail falhou', e.code, e.message);
+    }
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  try {
+    // `emailVerified: false` de propósito: ninguém provou ainda que a pessoa é
+    // dona do endereço novo — quem verifica é o próprio Firebase, no primeiro uso.
+    await admin.auth().updateUser(uid, { email: novoEmail, emailVerified: false });
+    try {
+      await db().collection('users').doc(uid).update({ email: novoEmail, updatedAt: now });
+    } catch (e) {
+      // O login já mudou; deixar o doc velho faria a tela mentir sobre o e-mail.
+      logger.error('[changeLoginEmail] users.update falhou DEPOIS do Auth', uid, e.message);
+      throw new HttpsError('internal', 'O login mudou, mas a ficha não. Avise o desenvolvedor.');
+    }
+
+    await db().collection('audit_log').add({
+      type: 'person_login_email_changed',
+      details: `E-mail de acesso de "${alvo.displayName || callerData.name || uid}" alterado de ${emailAtual || '(sem e-mail)'} para ${novoEmail}`,
+      module: 'pessoas',
+      entityType: 'person',
+      entityId: uid,
+      before: { email: emailAtual || null },
+      after: { email: novoEmail },
+      userId: callerUid,
+      userName: callerData.name || callerData.email || callerUid,
+      role: callerProfiles.join(','),
+      unitId: null,
+      timestamp: now,
+    });
+
+    logger.info('[changeLoginEmail] OK', { uid, de: emailAtual, para: novoEmail });
+    return { success: true, email: novoEmail, anterior: emailAtual || null };
+  } catch (err) {
+    logger.error('[changeLoginEmail] FALHA', err);
+    if (err instanceof HttpsError) throw err;
+    if (err.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'Já existe outra pessoa usando esse e-mail de acesso.');
+    }
+    if (err.code === 'auth/invalid-email') {
+      throw new HttpsError('invalid-argument', 'E-mail inválido.');
+    }
+    throw new HttpsError('internal', err.message || 'Falha ao trocar o e-mail de acesso.');
+  }
+});
+
 // ─── Helpers de cálculo (server-side, replicam professores-shared.js) ──
 
 /**

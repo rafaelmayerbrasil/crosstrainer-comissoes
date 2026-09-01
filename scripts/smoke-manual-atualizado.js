@@ -109,6 +109,17 @@ function exige(txt, ondeNome, assuntos) {
   });
   ok('admin: pagamento da escala, "não recebe por aula" e desligar/religar');
 }
+{
+  // 31/08/2026: o Benny pediu a correção do e-mail de acesso do Bruno pelo
+  // WhatsApp porque a tela mostrava o problema e não oferecia conserto. Agora
+  // oferece — e o manual precisa dizer que o endereço errado não dá erro, só
+  // nunca chega.
+  exige(admin, 'manual-admin', {
+    'alterar e-mail de acesso': 'Alterar e-mail de acesso',
+    'trocar e-mail não mexe na senha': 'não muda a senha',
+  });
+  ok('admin: alterar o e-mail de acesso, e que isso não mexe na senha');
+}
 
 // ─── Manual do professor ───
 {
@@ -120,6 +131,16 @@ function exige(txt, ondeNome, assuntos) {
     'dois sábados seguidos': 'dois sábados seguidos',
   });
   ok('professor: cota, silêncio antes de publicar, aviso e a regra do rodízio');
+}
+{
+  // Pergunta do Rodrigo em 31/08/2026: "como faz pra saber a unidade e quem tá
+  // escalado junto com você?". A resposta agora está na tela — e no manual.
+  exige(prof, 'manual-professores', {
+    'unidade do dia': 'em qual unidade',
+    'quem mais está escalado': 'quem mais está escalado',
+    'senha só chega no e-mail de acesso': 'nada chega',
+  });
+  ok('professor: onde ele trabalha, quem está junto e por que a senha pode não chegar');
 }
 
 // ─── Integridade: âncoras que a Ajuda do app usa ───

@@ -283,6 +283,7 @@ function renderPessoaTabIdentidade(p) {
       <div class="info-callout" style="margin-top:12px;">
         <p><strong>⚠️ O e-mail de contato desta ficha é outro:</strong> ${escapeHtml(p.emailContato)}</p>
         <p style="margin-top:4px;">A senha só pode ser redefinida pelo <strong>e-mail de acesso</strong> acima. Se a pessoa tentar pelo de contato, o sistema responde "enviamos" e não manda nada — o Firebase não avisa quando o endereço não é cadastrado.</p>
+        ${isStrictAdmin() && p.uid ? `<div style="margin-top:8px;"><button class="btn btn-ghost btn-sm" onclick="pessoaTrocarEmailAcesso('${p.key}', '${escapeHtml(p.emailContato)}')">Usar ${escapeHtml(p.emailContato)} como e-mail de acesso</button></div>` : ''}
       </div>` : ''}
       ${canEdit ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="pessoasEditTeacher('${t.id}')">Editar dados</button></div>` : ''}`;
   }
@@ -401,7 +402,11 @@ function renderPessoaTabAcesso(p) {
   const dis = isOwnerPerson ? 'disabled' : '';
   return `
     <div class="info-grid">
-      <div><div class="info-field-label">E-mail de login</div><div class="info-field-value">${escapeHtml(u.email || '—')}</div></div>
+      <div>
+        <div class="info-field-label">E-mail de login</div>
+        <div class="info-field-value">${escapeHtml(u.email || '—')}</div>
+        ${isStrictAdmin() && !isOwnerPerson ? `<button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="pessoaTrocarEmailAcesso('${p.key}', '${escapeHtml(p.emailContato || u.email || '')}')">Alterar e-mail de acesso</button>` : ''}
+      </div>
       <div><div class="info-field-label">Módulos</div><div class="info-field-value">${moduleAccess.comissoes ? 'Comissões ' : ''}${moduleAccess.professores ? 'Professores' : ''}</div></div>
     </div>
     ${ownerNote}
@@ -617,6 +622,55 @@ async function _togglePessoaAccess(p, active) {
   } catch (err) {
     console.error('[togglePessoaAccess]', err);
     toast('Erro: ' + (err.message || 'falha ao atualizar acesso'), 'error');
+  }
+}
+
+// ── Corrigir o e-mail de acesso (via Cloud Function changeLoginEmail) ───
+//
+// O e-mail de LOGIN mora no Firebase Auth; até 31/08/2026 não havia caminho
+// nenhum pela tela — o Benny pediu a correção do Bruno Claudino pelo WhatsApp
+// justamente porque a ficha mostrava o problema e não oferecia conserto.
+//
+// Trocar o e-mail NÃO mexe na senha: quem já entrava continua entrando com a
+// mesma senha, só que pelo endereço novo. Quem nunca entrou usa o "esqueci
+// minha senha" — que só funciona pelo e-mail de ACESSO, e é exatamente por isso
+// que ele precisa estar certo.
+async function pessoaTrocarEmailAcesso(key, sugestao) {
+  if (!isStrictAdmin()) { toast('Apenas administradores podem trocar o e-mail de acesso.', 'error'); return; }
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid) { toast('Essa pessoa não tem login no sistema.', 'error'); return; }
+
+  const atual = (p.user && p.user.email) || p.email || '';
+  const novo = (prompt(
+    `E-mail de acesso de ${p.name}\n\n` +
+    `Atual: ${atual || '(sem e-mail)'}\n\n` +
+    `É por este endereço que a pessoa entra e recupera a senha.\n` +
+    `Digite o endereço correto:`,
+    sugestao || atual || ''
+  ) || '').trim().toLowerCase();
+
+  if (!novo) return;                                  // cancelou
+  if (novo === (atual || '').toLowerCase()) { toast('Esse já é o e-mail de acesso atual.', 'info'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novo)) { toast('E-mail inválido.', 'error'); return; }
+  if (!confirm(
+    `Trocar o e-mail de acesso de ${p.name}?\n\n` +
+    `De:   ${atual || '(sem e-mail)'}\n` +
+    `Para: ${novo}\n\n` +
+    `• A senha NÃO muda — só o endereço de entrada\n` +
+    `• Se a pessoa não sabe a senha, ela usa "Esqueci minha senha" com o endereço novo\n` +
+    `• A ficha (e-mail de contato) não é alterada por aqui`
+  )) return;
+
+  toast('Trocando o e-mail de acesso…', 'info');
+  try {
+    const callable = firebase.functions().httpsCallable('changeLoginEmail');
+    const res = await callable({ uid: p.uid, email: novo });
+    if (!(res.data && res.data.success)) throw new Error((res.data && res.data.error) || 'Falha desconhecida');
+    toast(`E-mail de acesso de ${p.name} agora é ${novo}.`, 'success', 6000);
+    await renderPessoasPage();
+  } catch (err) {
+    console.error('[pessoaTrocarEmailAcesso]', err);
+    toast('Erro: ' + (err.message || 'falha ao trocar o e-mail de acesso'), 'error', 7000);
   }
 }
 

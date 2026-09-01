@@ -3,6 +3,97 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 61 (31/08/2026) — 🟢 DUAS DÚVIDAS DO GRUPO · 1 CORRIGIDA EM PRODUÇÃO, 1 HOMOLOGADA NO STAGING
+
+### ▶️▶️ RETOMAR AQUI
+
+Duas perguntas chegaram pelo grupo. Uma virou correção de dado **já feita em produção**; a outra virou
+código **pronto e testado, ainda não deployado** — falta staging + homologação.
+
+**1. Rodrigo (08:58):** *"como faz pra saber a unidade e quem tá escalado junto com você?"*
+Resposta curta: **dava, mas no lugar errado** — só pela Agenda Geral, que ninguém abre pra isso; a
+pergunta nasce olhando a Escala. Na tela do professor a linha dizia apenas "✓ Você está escalado",
+sem unidade, sem modalidade e sem colega. A informação sempre existiu nos slots (cada vaga tem
+unidade e modalidade); era a visão do professor que não mostrava. **Corrigido no branch:** a linha da
+escala **publicada** passou a trazer `📍 Unidade · Modalidade · horário` e `👥 Com você: Fulano (unidade)`.
+Vale para sábados, feriados e fim de ano (neste, a equipe é a **do dia**, não a do período).
+Antes de publicar continua sem mostrar nada — a escala ainda muda.
+
+**2. Benny (19:04):** *"no cadastro do Bruno está um e-mail de acesso e ele não tem esse e-mail"*
+Confirmado no banco de **produção**: o Auth do BRUNO CLAUDINO estava em `brunosilva@hotmail.com`,
+enquanto a ficha trazia `bruno_claudinocl@hotmail.com`. Ele **nunca tinha entrado** (`lastSignIn` ==
+`creationTime`) e nunca conseguiria: o "esqueci minha senha" só funciona pelo endereço do Auth, e o
+Firebase responde "enviamos" mesmo quando o endereço não existe. Risco extra: quem controlasse o
+endereço errado poderia redefinir a senha e entrar no lugar dele.
+**✅ Corrigido em produção em 31/08** (Admin SDK): Auth + `users/{uid}.email` para
+`bruno_claudinocl@hotmail.com`, `emailVerified:false`, backup em `backups/backup-email-bruno-*.json`
+e entrada em `audit_log` (`person_login_email_changed`). A ficha (e-mail de contato) não foi tocada.
+**Ele agora entra pelo "Esqueci minha senha" com o endereço certo.**
+
+### O que ficou pronto no branch (NÃO deployado)
+
+| Arquivo | O quê |
+|---|---|
+| `scale-service.js` | `equipeDoDia(scale, personId, {day})` — puro: onde a pessoa está e quem trabalha junto |
+| `professores-escala-smart.js` | visão do professor mostra unidade/modalidade/horário + colegas (sábado, feriado e fim de ano); carrega units/modalidades |
+| `functions/index.js` | CF **`changeLoginEmail`** (admin-only): troca o e-mail no Auth + `users` + `audit_log`, recusa endereço já usado e a conta do dono |
+| `professores-pessoas.js` | botão **"Alterar e-mail de acesso"** na aba Acesso + atalho no aviso de e-mail divergente ("usar o e-mail da ficha") |
+| `professores.html` | `?v=20260831` nos 3 arquivos alterados |
+| `scripts/diag-emails-acesso.js` | varredura das 3 fontes de e-mail (ficha × users × Auth), somente leitura |
+| `scripts/smoke-escala-equipe-do-dia.js` · `smoke-escala-equipe-tela.js` · `smoke-email-acesso.js` | 5 + 7 + 8 verificações |
+
+**Testes:** 20 novas verificações verdes; suíte offline **57/57** (só `smoke-9.js` pede `--project`).
+Os smokes de tela **chamam as funções** dentro de um sandbox `vm` — não leem o arquivo (cicatriz da
+[[previa-nunca-rodou]]).
+
+### ✅ HOMOLOGADO NO STAGING (31/08, mesma sessão)
+
+Deploy: `firebase deploy --only functions:changeLoginEmail --project staging` (função criada em
+`us-central1`) + `--only hosting --project staging`.
+
+**Escala, logado como o professor** (`professor.teste@` = Marcos Estrela), dados reais do staging:
+
+- **12/09** (publicada, ele escalado) → `✓ Você está escalado` · `📍 CrossTainer PP · TOI · 🕗 08:00–12:00`
+  · `👥 Com você: Pedro L. (CrossTainer CP · TOI) · Bruna L. (CrossTainer CP · Hiit) · Nome t. (CrossTainer PP · Hiit)`
+- **05/09 e 19/09** (publicadas, ele fora) → `👥 Escalados: …` — ele vê o time sem ter posto próprio
+- **26/09 e 03/10** (consolidadas, **não** publicadas) → "A gestão está montando a escala", **zero**
+  nome e **zero** unidade. O sigilo antes da publicação continua valendo.
+- Conferido também em **viewport de celular (375px)**: as duas linhas quebram e continuam legíveis.
+
+**E-mail de acesso, logado como admin** (`dono.teste@`), na ficha da Bruna Lima:
+
+| Caminho | Resultado |
+|---|---|
+| Trocar `professor2.teste@` → `bruna.teste.tmp@` | ✅ Auth + `users` + `audit_log` ("por: Dono (Teste)") |
+| Trocar para um endereço que **já é login de outro** | ✅ recusado: *"Já existe outra pessoa usando esse e-mail de acesso"* (HTTP 409), e-mail intacto |
+| **Professor** chamando a Cloud Function na mão pelo console | ✅ `permission-denied` — *"Apenas admin pode trocar o e-mail de acesso"* (HTTP 403) |
+| Reverter para `professor2.teste@` | ✅ voltou; o endereço temporário não sobrou em conta nenhuma |
+
+Console: só os 3 erros que **eu** provoquei nos testes negativos (409 e 403). Nenhum espontâneo.
+
+⚠️ **Como os cliques foram dados:** neste ambiente as coordenadas do agente não acertam o elemento
+(limitação já vista na sessão 57). Naveguei chamando `.click()` no **elemento real** da tela — mesmo
+handler que o dedo dispara — e substituí `prompt`/`confirm` pelos valores que um admin digitaria,
+porque diálogo nativo não é preenchível daqui. **Ainda falta um clique humano de verdade.**
+
+### ⚠️ Falta (nesta ordem)
+
+1. **Seu OK no staging** (`https://crosstrainer-comissoes-staging.web.app/professores.html`).
+2. **Depois**, produção: `firebase deploy --only functions:changeLoginEmail --project production` +
+   `git push origin main` (é o push que entrega o front pelo GitHub Pages).
+3. A varredura de produção ainda mostra **2 fichas com e-mail de contato ≠ e-mail de acesso**
+   (LEONARDO SILVEIRA e HELENA MARIA BORGES). **Não é problema:** os dois **já entram** pelo endereço
+   de acesso. É só a ficha que guarda outro e-mail de contato — confirmar com a gestão qual é o certo,
+   sem pressa.
+
+### 🧭 Por que o botão, e não só o script
+
+Três de 19 fichas divergiam. Enquanto a correção só existisse no Console do Firebase ou em script,
+toda ocorrência ia parar no desenvolvedor — e a tela continuava **apontando o problema sem oferecer
+conserto**, que é o que o Benny encontrou.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 60 (29/08/2026) — ✅ ESCALA: REBALANCEIO, MARCO ZERO E LOG · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
