@@ -4165,8 +4165,18 @@
     // ═══════════════════════════════════════════════════════════════
     // UPLOAD & PROCESSING
     // ═══════════════════════════════════════════════════════════════
+    // O `<input type="file">` mora DENTRO da área de upload, e várias telas
+    // trocam o `innerHTML` dela (relatório errado, relatório de vendas). Isso
+    // apaga o input, e o `initUpload` seguinte morria com
+    // "Cannot set properties of null (setting 'onchange')" — a ação anterior
+    // tinha funcionado, mas a tela ficava quebrada até recarregar a página.
+    // Guardar o conteúdo original e repô-lo conserta todas essas telas de uma vez.
+    let uploadZoneHtmlOriginal = null;
+
     function initUpload() {
       const zone = document.getElementById('uploadZone');
+      if (uploadZoneHtmlOriginal === null) uploadZoneHtmlOriginal = zone.innerHTML;
+      else zone.innerHTML = uploadZoneHtmlOriginal;
       const input = document.getElementById('fileInput');
       const now = new Date();
       document.getElementById('periodMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;

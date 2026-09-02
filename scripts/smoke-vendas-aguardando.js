@@ -240,6 +240,20 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   ok('botão dentro da área de upload executa a ação, não abre o seletor de arquivo');
 }
 {
+  // 🚨 O <input type="file"> mora DENTRO da área de upload, e as telas que
+  // trocam o innerHTML dela apagam o input. O initUpload seguinte morria com
+  // "Cannot set properties of null (setting 'onchange')" — depois de a ação já
+  // ter funcionado, o que é pior: parecia que tinha falhado.
+  const iInput = html.indexOf('<input type="file" id="fileInput"');
+  const iZone = html.indexOf('id="uploadZone"');
+  const iFimZone = html.indexOf('</div>', iInput);
+  assert.ok(iInput > iZone && iFimZone > iInput, 'o input de arquivo está dentro da área de upload');
+  const init = html.slice(html.indexOf('function initUpload()'), html.indexOf('function initUpload()') + 900);
+  assert.ok(/uploadZoneHtmlOriginal/.test(init),
+    'o initUpload precisa repor o conteúdo original da área, senão o input não volta');
+  ok('trocar a tela da área de upload não deixa o seletor de arquivo para trás');
+}
+{
   // O valor é do contrato, não da comissão — a tela tem que dizer isso, senão
   // promete 12× o que a pessoa vai receber num anual parcelado.
   const i = html.indexOf('async function renderAReceberTab');
