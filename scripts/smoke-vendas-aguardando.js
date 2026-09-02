@@ -296,8 +296,13 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 {
   // O valor é do contrato, não da comissão — a tela tem que dizer isso, senão
   // promete 12× o que a pessoa vai receber num anual parcelado.
+  // Delimitado pela função seguinte, não por um número de caracteres: a janela
+  // fixa de 6000 quebrou assim que a função cresceu, e um teste que quebra ao
+  // crescer o código treina a gente a ignorá-lo.
   const i = html.indexOf('async function renderAReceberTab');
-  const bloco = html.slice(i, i + 6000);
+  const fim = html.indexOf('async function renderVendorDiferidosTab', i);
+  assert.ok(i > 0 && fim > i, 'renderAReceberTab localizada no index.html');
+  const bloco = html.slice(i, fim);
   assert.ok(/contrato inteiro/i.test(bloco) && /não o da comissão|não o valor da comissão/i.test(bloco),
     'a tela avisa que o valor é do contrato');
   ok('a tela avisa que o valor mostrado não é a comissão');
