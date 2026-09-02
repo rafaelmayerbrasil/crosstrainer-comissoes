@@ -4174,7 +4174,11 @@
       document.getElementById('uploadActions').style.display = 'none';
       pendingUpload = null;
 
-      zone.onclick = () => input.click();
+      // A área inteira abre o seletor de arquivo — menos quando o clique foi num
+      // BOTÃO desenhado dentro dela. Sem esta guarda, apertar "Registrar vendas"
+      // ou "Tentar novamente" abria o seletor por cima da própria ação, porque o
+      // clique borbulha até aqui. Pego pelo Rafael no staging em 01/09/2026.
+      zone.onclick = e => { if (e.target.closest('button')) return; input.click(); };
       zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
       zone.ondragleave = () => zone.classList.remove('drag');
       zone.ondrop = e => { e.preventDefault(); zone.classList.remove('drag'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); };

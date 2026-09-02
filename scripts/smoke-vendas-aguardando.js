@@ -230,6 +230,16 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   ok('gestão vê todas as vendas paradas; a vendedora, só as suas');
 }
 {
+  // 🚨 Os botões desenhados DENTRO da área de arrastar arquivo: o clique
+  // borbulha até `zone.onclick`, que abre o seletor de arquivo por cima da
+  // ação. "Registrar vendas" virava "escolher outro arquivo".
+  const i = html.indexOf('zone.onclick =');
+  const linha = html.slice(i, i + 200);
+  assert.ok(/closest\('button'\)/.test(linha),
+    'o clique num botão dentro da área não pode abrir o seletor: ' + linha.split('\n')[0]);
+  ok('botão dentro da área de upload executa a ação, não abre o seletor de arquivo');
+}
+{
   // O valor é do contrato, não da comissão — a tela tem que dizer isso, senão
   // promete 12× o que a pessoa vai receber num anual parcelado.
   const i = html.indexOf('async function renderAReceberTab');
