@@ -35,6 +35,31 @@ um anual de 19/08 no PP **sem pagamento identificado** — o exemplo perfeito da
 recíproca não vale: **72 contratos vendidos em agosto não estão na lista** (Francini 22 · Kali 15 ·
 Rodrigo Rojais 14 · Bárbara 11). **A lista do grupo não é o gabarito do mês.**
 
+### ✅ PUBLICADO EM PRODUÇÃO — 2ª leva (01/09, `6566d8a..a271549`): tela "A receber"
+
+A vendedora e a gestão passam a ver **o que foi vendido e ainda não teve pagamento identificado**.
+Precisou de um **segundo relatório** da Pacto (o de vendas): o `faturamento-recebido` só tem
+recebimentos, e venda não paga não existe nele. O de vendas continua **proibido no cálculo** —
+ganhou caminho próprio, guardado em `vendasDoMes` no doc do período.
+
+🚨 **O achado, depois de o Rafael desconfiar dos números:** cruzar por número de contrato **mente**.
+Quando o aluno renova, a Pacto cria contrato novo mas a cobrança continua caindo no antigo — a
+Cátia renovou no 7130 e o dinheiro entrou no 6867. São **três grupos** agora: já recebeu · conferir
+(o cliente pagou em outro contrato) · aguardando. Produção, agosto: **CP 62/2/5 · PP 35/0/16**.
+
+**Quatro bugs meus nesta leva, todos pegos pelo Rafael clicando, todos viraram teste:** `const` no
+topo do arquivo não vira `window.X` (o upload morria) · botão dentro da área de upload abria o
+seletor de arquivo · trocar o innerHTML da área apagava o `<input type=file>` · e o cruzamento
+acima. `smoke-modulos-no-browser.js` fecha a primeira classe inteira: roda os arquivos como
+`<script>` e **exercita** as funções, em vez de conferir que o objeto existe.
+
+⏳ **Falta do que o Rodrigo respondeu em 01/09 sobre o estorno:** (a) **botão de ajuste manual** do
+valor, para as exceções — ele disse que reembolso parcial não acontece na prática, mas exceções sim;
+(b) 🔴 **se a venda estornada fizer a unidade perder a meta, a diferença do P3 tem que ser descontada
+no mês seguinte** — este é trabalho de verdade, exige recalcular o rateio do mês sem aquela ativação.
+
+---
+
 ### ✅ PUBLICADO EM PRODUÇÃO (01/09/2026, `220cacd..4dcaa34`)
 
 A academia estava **sem dados em produção** desde que o TecnoFit acabou — foi essa a razão de
