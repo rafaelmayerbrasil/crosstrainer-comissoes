@@ -138,6 +138,15 @@ else {
     + v['Itens'].replace(' ' + PA.MARCA_PRESUMIDO, '').replace(/\s*\(.*\)$/, '')));
 }
 
+// A tela passa a lista de contratos já comissionados; rodando por linha de
+// comando não há banco, então este balde vem vazio — mas se um dia vier cheio,
+// tem que aparecer. Descarte que não aparece na tela é como o dinheiro some.
+if ((r.jaPagos || []).length) {
+  titulo('🔁 PARCELA SEGUINTE (' + r.jaPagos.length + ') — o contrato já pagou comissão antes');
+  r.jaPagos.forEach(j => console.log('  ' + String(j.cliente).slice(0, 34).padEnd(35)
+    + brl(j.valor).padStart(11) + '   contrato ' + j.contrato));
+}
+
 titulo('⚠️ CONTRATOS MIGRADOS DO TECNOFIT (' + r.migrados.length + ')'
   + (pagarMigrados ? ' — INCLUÍDOS por --pagar-migrados' : ' — FORA da planilha'));
 if (!r.migrados.length) console.log('  nenhum');

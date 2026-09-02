@@ -224,6 +224,28 @@ const PactoAdapter = {
     return !!inicio && inicio !== mes;
   },
 
+  /**
+   * Os números de contrato que uma lista de códigos já gravados representa.
+   *
+   * O `Código` de um item é `C<contrato>` (contrato) ou `A<matrícula>` (avulso),
+   * com sufixo `-2`, `-3`… quando o mesmo aparece mais de uma vez no export.
+   *
+   * ⚠️ Só `C` entra. O `A` é o número da MATRÍCULA DO CLIENTE, não da venda —
+   * incluí-lo bloquearia a segunda aula que a mesma pessoa comprasse, em
+   * silêncio. Avulso paga sempre: cada compra é uma venda.
+   *
+   * @param {Array<string>|Set<string>} codigos  códigos gravados nos períodos anteriores
+   * @returns {Set<string>} números de contrato ('7078'), sem prefixo nem sufixo
+   */
+  contratosDe(codigos) {
+    const out = new Set();
+    (codigos ? Array.from(codigos) : []).forEach(c => {
+      const m = String(c || '').trim().match(/^C(\d+)/i);
+      if (m) out.add(m[1]);
+    });
+    return out;
+  },
+
   /** Acerto de contrato cancelado — entra caixa, mas não é venda */
   ehQuitacaoCancelamento(l) {
     const p = this.campo(l, 'produto').toUpperCase();
@@ -392,8 +414,10 @@ const PactoAdapter = {
   // ─── Tradução ───
   /**
    * @param {Array<Array>} linhas  linhas cruas do export (célula por posição), cabeçalho incluído
-   * @param {Object} opts  { mes: 'AAAA-MM', pagarMigrados: false }
-   * @returns {{vendas, marcadas, descartadas, migrados, avisos, porUnidade, mes, meses, relatorio}}
+   * @param {Object} opts  { mes: 'AAAA-MM', pagarMigrados: false, codigosPagos: [] }
+   *   `codigosPagos` são os códigos já comissionados em períodos ANTERIORES
+   *   (array ou Set). Cada contrato paga uma vez só — ver o balde `jaPagos`.
+   * @returns {{vendas, marcadas, descartadas, migrados, jaPagos, avisos, porUnidade, mes, meses, relatorio}}
    */
   traduzir(linhas, opts) {
     const o = opts || {};
@@ -410,7 +434,13 @@ const PactoAdapter = {
 
     const doMes = dados.filter(l => this.mesDe(this.campo(l, 'lancamento')) === mes);
 
-    const descartadas = [], migrados = [], uteis = [];
+    // Contratos que JÁ receberam comissão em algum mês anterior. Sob regime de
+    // caixa o relatório traz uma linha por recebimento, então um anual
+    // parcelado reaparece todo mês — e sem esta lista pagaria de novo a cada
+    // parcela, sem erro nenhum na tela.
+    const jaComissionados = this.contratosDe(o.codigosPagos);
+
+    const descartadas = [], migrados = [], jaPagos = [], uteis = [];
     doMes.forEach(l => {
       const resumo = {
         cliente: this.campo(l, 'nome'), produto: this.campo(l, 'produto'),
@@ -427,6 +457,14 @@ const PactoAdapter = {
       if (this.ehMigrado(l, mes)) {
         migrados.push({ ...resumo, motivo: 'contrato migrado do TecnoFit — começou em ' + resumo.inicio + ', não é venda deste mês' });
         if (!o.pagarMigrados) return;
+      }
+      // Cada contrato paga UMA VEZ SÓ, no primeiro recebimento. Vale só para
+      // linha de contrato: avulso paga sempre, porque o código dele é a
+      // matrícula do cliente e barrá-lo mataria a segunda compra da pessoa.
+      if (this.ehLinhaDeContrato(l) && jaComissionados.has(this.campo(l, 'contrato'))) {
+        jaPagos.push({ ...resumo, contrato: this.campo(l, 'contrato'),
+          motivo: 'contrato ' + this.campo(l, 'contrato') + ' já pagou comissão em mês anterior — esta é parcela seguinte' });
+        return;
       }
       uteis.push(l);
     });
@@ -513,7 +551,7 @@ const PactoAdapter = {
     const porUnidade = { CP: [], PP: [], '': [] };
     vendas.forEach(v => (porUnidade[v._unidade] || porUnidade['']).push(v));
 
-    return { vendas, marcadas, descartadas, migrados, avisos, porUnidade, mes, meses,
+    return { vendas, marcadas, descartadas, migrados, jaPagos, avisos, porUnidade, mes, meses,
              relatorio: this.detectarRelatorio(linhas) };
   },
 

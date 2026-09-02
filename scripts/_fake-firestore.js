@@ -24,6 +24,9 @@ module.exports = function makeFakeDb() {
         col(name)[id] = Object.assign({}, col(name)[id], JSON.parse(JSON.stringify(obj)));
       },
       async delete() { delete col(name)[id]; },
+      // Subcoleção: guardada como coleção de nome composto ("periodos/cp_2026-08/itens").
+      // O caminho é o mesmo do Firestore de verdade, então a chave nunca colide.
+      collection(sub) { return api.collection(name + '/' + id + '/' + sub); },
     };
   }
 
@@ -35,12 +38,15 @@ module.exports = function makeFakeDb() {
         let rows = Object.keys(col(name)).map(id => ({ id, data: () => col(name)[id] }));
         filters.forEach(([f, op, v]) => { rows = rows.filter(r => r.data()[f] === v); });
         if (order) rows.sort((a, b) => (a.data()[order] > b.data()[order] ? 1 : a.data()[order] < b.data()[order] ? -1 : 0));
-        return { docs: rows };
+        // `docs` sempre existiu; `forEach`/`size`/`empty` acompanham o snapshot
+        // de verdade e evitam que o smoke passe por um fake mais pobre que o real.
+        return { docs: rows, size: rows.length, empty: rows.length === 0,
+                 forEach(fn) { rows.forEach(fn); } };
       },
     };
   }
 
-  return {
+  const api = {
     collection(name) {
       const q = query(name, [], null);
       return {
@@ -54,4 +60,5 @@ module.exports = function makeFakeDb() {
       return { set(ref, obj) { ops.push([ref, obj]); }, async commit() { for (const [ref, obj] of ops) await ref.set(obj); } };
     },
   };
+  return api;
 };

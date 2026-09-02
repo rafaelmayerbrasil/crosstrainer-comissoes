@@ -4177,6 +4177,7 @@
       const daUnidade = lista => (lista || []).filter(x => !x.unidade || x.unidade === sigla);
       const migrados = daUnidade(pacto.migrados);
       const descartadas = daUnidade(pacto.descartadas);
+      const jaPagos = daUnidade(pacto.jaPagos);
       const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
       const avisos = pacto.avisos || [];
       const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
@@ -4199,6 +4200,8 @@
           migrados.map(m => `<div>${m.cliente} — R$ ${fmt(m.valor)} · começou em ${m.inicio}</div>`).join(''))}
         ${bloco('🗂️', 'Recebimento de contrato antigo, fora do cálculo', descartadas,
           descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
+        ${bloco('🔁', 'Parcela seguinte — o contrato já pagou comissão antes', jaPagos,
+          jaPagos.map(j => `<div>${j.cliente} — R$ ${fmt(j.valor)} · contrato ${j.contrato}</div>`).join(''))}
         ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
           marcadas.map(v => `<div>${v['Cliente']} — R$ ${fmt(v['Valor Quitado/Recibo'])} · ${v['Itens'].replace(/\s*\(.*\)$/, '')}</div>`).join(''))}
         ${!avisos.length ? '' : `
@@ -4209,6 +4212,68 @@
           </div>
         </details>`}
       </div>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Comissão uma vez só por contrato (regime de caixa, desde setembro/2026)
+    // ═══════════════════════════════════════════════════════════════════
+    // O `faturamento-recebido` da Pacto traz uma linha por RECEBIMENTO. Um anual
+    // parcelado em 12× aparece doze vezes, uma por mês. Como a comissão é do mês
+    // em que o dinheiro entra, sem estas funções cada parcela pagaria de novo —
+    // ~R$ 155 em vez de R$ 12,95 num anual, sem erro nenhum na tela.
+    //
+    // ⚠️ Só código de CONTRATO (`C...`) entra. O `A...` é a matrícula do cliente:
+    //    guardá-lo bloquearia, em silêncio, a segunda aula que a pessoa comprasse.
+
+    /** Os códigos de contrato comissionados num conjunto de itens do período */
+    function codigosDeContrato(itens) {
+      const s = new Set();
+      (itens || []).forEach(d => {
+        if ((d.type || 'processed') !== 'processed') return;
+        const m = String(d.codigo || '').trim().match(/^C\d+/i);
+        if (m) s.add(m[0].toUpperCase());
+      });
+      return [...s].sort();
+    }
+
+    /** Grava no doc do período a lista derivada dos itens reais */
+    async function gravarCodigosPagos(periodId, itens) {
+      try {
+        const codigosPagos = codigosDeContrato(itens);
+        await db.collection('periodos').doc(periodId).set({ codigosPagos }, { merge: true });
+        console.log(`[codigosPagos] ${periodId}: ${codigosPagos.length} contratos comissionados.`);
+      } catch (e) {
+        // Não derruba o upload: o pior caso é a lista ficar velha, e
+        // `reconstruirCodigosPagos` refaz a partir dos itens.
+        console.error('[codigosPagos] falhou em ' + periodId + ':', e.message);
+      }
+    }
+
+    /** Refaz a lista de um período a partir dos itens — a fonte é sempre o item */
+    async function reconstruirCodigosPagos(periodId) {
+      const snap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const itens = []; snap.forEach(d => itens.push(d.data()));
+      await gravarCodigosPagos(periodId, itens);
+      return codigosDeContrato(itens);
+    }
+    window.reconstruirCodigosPagos = reconstruirCodigosPagos;
+
+    /**
+     * Todos os contratos que já pagaram comissão nesta unidade ANTES do mês do
+     * arquivo. O recorte por mês é o que permite re-subir o mesmo mês sem que
+     * ele barre as próprias linhas.
+     * @param {string} mesArquivo  'AAAA-MM'
+     */
+    async function carregarCodigosPagosAnteriores(unitId, mesArquivo) {
+      if (!mesArquivo) return [];
+      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+      const todos = new Set();
+      snap.forEach(doc => {
+        const m = String(doc.id).match(/(\d{4}-\d{2})$/);
+        if (!m || m[1] >= mesArquivo) return;          // só períodos anteriores
+        (doc.data().codigosPagos || []).forEach(c => todos.add(c));
+      });
+      return [...todos];
     }
 
     function handleFile(file) {
@@ -4225,7 +4290,13 @@
           // Se o arquivo for do formato antigo (TecnoFit), nada disto roda.
           let pacto = null;
           if (typeof PactoAdapter !== 'undefined' && PactoAdapter.ehExportPacto(json)) {
-            pacto = PactoAdapter.traduzir(json, {});
+            // Traduz duas vezes de propósito. A primeira só para descobrir de que
+            // MÊS é o arquivo — sem isso não dá para saber quais períodos são
+            // "anteriores", e um re-upload de agosto barraria as próprias linhas
+            // com os códigos que ele mesmo gravou. O tradutor é puro e barato.
+            const mesArquivo = PactoAdapter.traduzir(json, {}).mes;
+            const codigosPagos = await carregarCodigosPagosAnteriores(currentUnitId, mesArquivo);
+            pacto = PactoAdapter.traduzir(json, { codigosPagos });
             // O id da unidade no sistema (`unit-cp` no staging, `cp` em produção)
             // não é a sigla que vem no arquivo (`(CP)`) — traduzir antes de casar.
             const sigla = PactoAdapter.siglaDaUnidade(
@@ -5005,6 +5076,15 @@
             p2bonus: d.p2bonus || 0,
             total: Math.round(((d.p1valor || 0) + (d.p2bonus || 0)) * 100) / 100
           }));
+
+        // ── CÓDIGOS JÁ COMISSIONADOS: quem não pode pagar de novo no mês que vem ──
+        // Sob regime de caixa o relatório da Pacto traz UMA LINHA POR RECEBIMENTO,
+        // então um anual parcelado reaparece todo mês. A regra é pagar uma vez só,
+        // e quem lembra disso é esta lista.
+        // Derivada dos ITENS reais do período (não do arquivo), pelo mesmo motivo
+        // do contador da escala: resumo que ninguém recalcula vive errado — e este
+        // decide pagamento. `reconstruirCodigosPagos()` refaz a partir da fonte.
+        await gravarCodigosPagos(periodId, cachedPeriodItems);
 
         let afterVendorSummaryUpload = periodData.vendorSummary || {};
         try {
