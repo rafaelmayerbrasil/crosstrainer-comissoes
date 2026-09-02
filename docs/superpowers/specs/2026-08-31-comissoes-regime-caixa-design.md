@@ -287,6 +287,39 @@ regra que fica é a de caixa. A comparação sai de fora e é entregue como docu
 **Gabarito:** o Rodrigo vai gerar o relatório de vendas de agosto no modo antigo e enviar. Ele é
 a terceira fonte, junto com a lista da Erica e o export da Pacto.
 
+#### ✅ Rodada em 01/09 sobre o mês fechado — 619 linhas
+
+`scripts/comparar-regimes-agosto.js`, sobre o export de 01→31/08 das duas unidades:
+
+| agosto/2026 | competência (antiga) | caixa (nova) | diferença |
+|---|---:|---:|---:|
+| Erica | R$ 1.201,32 (38) | R$ 1.201,32 (38) | — |
+| Francini | R$ 557,31 (20) | R$ 607,25 (21) | **+R$ 49,94** |
+| Bárbara | R$ 399,79 (7) | R$ 399,79 (7) | — |
+| Kali | R$ 221,85 (5) | R$ 313,70 (7) | **+R$ 91,85** |
+| **total** | **R$ 2.380,27 (70)** | **R$ 2.522,06 (73)** | **+R$ 141,79 · +5,6%** |
+
+P1 + P2 apenas — P3 depende da meta do mês, que agosto não teve. **Ninguém recebe menos** no
+regime novo: a diferença é de vendas de julho cujo dinheiro caiu em agosto.
+
+**Conclusão que muda o discurso:** a troca de regime **quase não mexe no valor**. Ela não é sobre
+dinheiro — é sobre a conta parar de depender de uma data que a Pacto não fornece de forma
+confiável. É assim que deve ser apresentada ao time.
+
+#### O que a conferência contra a lista das vendedoras revelou
+
+`scripts/conferir-lista-ativacoes.js`:
+
+- **39 dos 40 nomes da lista estão na planilha.** O único ausente — um anual fechado em 19/08 no
+  Príncipe — **não aparece em lugar nenhum do export**: contrato vendido, pagamento não
+  identificado. É o exemplo perfeito da regra nova funcionando, e vale ouro na apresentação.
+- **A recíproca não vale:** 72 contratos vendidos em agosto, com vendedora identificada, **não
+  estão na lista** (Francini 22 · Kali 15 · Rodrigo Rojais 14 · Bárbara 11 · Erica 9). ⚠️ **A
+  lista do grupo não é o gabarito do mês** — é uma das três fontes, e cobre menos do que o título
+  dela sugere.
+- Dos contratos com plano legível, **só 10 começaram antes de agosto**. Confirma §3.2: a armadilha
+  da parcela seguinte ainda **não morde em agosto** e cresce a partir de setembro.
+
 ## 5. Casos de borda
 
 | caso | resposta |
@@ -367,9 +400,9 @@ espera a decisão de rumo.
 
 | # | o quê | com quem | estado |
 |---|---|---|---|
-| 1 | **export de agosto fechado** (01→31/08, as duas unidades) | Rafael | 01/09 |
+| 1 | ~~export de agosto fechado~~ | Rafael | ✅ 01/09 — 619 linhas, rodado |
 | 2 | **relatório de vendas de agosto no modo antigo** — gabarito da comparação | Rodrigo | prometido |
-| 3 | **meta fictícia de agosto** do CP e do PP (§4.8) | Rodrigo | a definir |
+| 3 | **meta fictícia de agosto** do CP e do PP (§4.8) | Rodrigo | a definir · referência CP 55 ativ, PP 18 |
 | 4 | os **R$ 1.107,47** pendentes: pagar por complemento em 15/09? | Rodrigo | a decidir |
 | 5 | avisar gestão e vendedoras | Rafael | ✅ feito |
 | 6 | destino do sistema (um só? em qual base?) — manda no multi-tenancy | Rodrigo | aberto desde 19/08 |
