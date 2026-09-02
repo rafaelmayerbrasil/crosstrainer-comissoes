@@ -3,226 +3,309 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 58 (26/08/2026) — ✅ UPLOAD PELA TELA HOMOLOGADO · ⏸️ ESPERANDO 3 RESPOSTAS DO RODRIGO
+## 🔖 ONDE PARAMOS — sessão 62 (01/09/2026) — 💰 COMISSÕES VIRARAM REGIME DE CAIXA
 
 ### ▶️▶️ RETOMAR AQUI
 
-**⏸️ Parado esperando o Rodrigo.** O Rafael **ENVIOU** o texto com os 3 itens em 27/08. Enquanto
-não responde, **não publicar Comissões**: duas das respostas mudam o fechamento de agosto, e a
-competência ainda vai ser construída — melhor publicar uma vez só.
+**O regime mudou:** a comissão deixou de ser do mês da VENDA e passou a ser do mês em que o
+DINHEIRO ENTROU. Autorizado pelo Rodrigo, leitura escolhida pelo Rafael: **uma vez só por
+contrato**, no primeiro pagamento. **Marco zero: setembro.** Agosto é pago pelas regras antigas.
 
-**Duas frentes, dois lugares:**
+Desenho completo: `docs/superpowers/specs/2026-08-31-comissoes-regime-caixa-design.md`.
 
-| | onde está | estado |
+**O que foi construído hoje (branch `comissoes-tradutor-pacto`):**
+
+| | o quê | estado |
 |---|---|---|
-| Botão da escala + manuais | `main` (`e44b4a7`) | **✅ EM PRODUÇÃO** (27/08) |
-| Tradutor da Pacto + upload pela tela | branch `comissoes-tradutor-pacto` | ⏸️ esperando Rodrigo + competência |
+| 1 | **Cada contrato paga uma vez só** (`540e106`) — o período guarda `codigosPagos` derivado dos itens, a tela lê os períodos anteriores | ✅ homologado no staging, 10/10 contra o banco real + upload pela tela feito pelo Rafael |
+| 2 | **Estorno vira crédito** (`3062892`) — botão em Pagamentos, calcula o que foi pago, abate no pagamento seguinte | ⚠️ sem clique humano; o Rafael quer confirmar a regra com o Rodrigo antes |
 
-⚠️ Se alguém subir o arquivo da Pacto **em produção** hoje, das 549 linhas **zero são aproveitadas**
-e a tela diz "Nenhum dado encontrado no arquivo". O tradutor só existe na branch.
+**🚨 POR QUE O ITEM 1 EXISTE:** o `faturamento-recebido` traz uma linha por RECEBIMENTO, então
+anual parcelado reaparece todo mês. Até agosto isso não mordia porque contrato antigo vinha como
+`IMPORTAÇÃO` e o filtro de migrados pegava; o contrato vendido na Pacto vem com plano legível e
+escapa. **Medido:** dos 112 contratos de agosto, 32 são parcelados → **R$ 1.656,36 de comissão
+indevida já em setembro**, contra uma folha inteira de R$ 2.522,06. E acumulando.
 
-**Quando ele responder:** construir a competência (`Data Início` + corte dia 15), homologar no
-staging com o Rafael clicando, e aí sim merge da branch pro `main`.
+**Números de agosto (mês fechado, 619 linhas):** caixa R$ 2.522,06 (73 ativações) × competência
+R$ 2.380,27 (70) — **diferença de só R$ 141,79**. Ninguém recebe menos. Erica e Bárbara não mudam.
+No sistema em staging, com P3: **CP R$ 2.185,34 · PP R$ 804,93**.
 
-### ✅ Subiu pra produção em 27/08 — escala e manuais (`e44b4a7`)
+**Conferência contra a lista das vendedoras:** 39 dos 40 nomes estão na planilha; o único ausente é
+um anual de 19/08 no PP **sem pagamento identificado** — o exemplo perfeito da regra nova. ⚠️ Mas a
+recíproca não vale: **72 contratos vendidos em agosto não estão na lista** (Francini 22 · Kali 15 ·
+Rodrigo Rojais 14 · Bárbara 11). **A lista do grupo não é o gabarito do mês.**
 
-**O botão de ajuste da escala enganou o Rodrigo.** No painel de Equilíbrio cada pessoa aparece como
-"4 nesta janela" com um ✏️ do lado. Ele quis baixar a Heloísa de 4 para 3, clicou, digitou 3 — e o
-campo **registra dias trabalhados FORA do sistema**. Ela foi de 4 para **4+3 = 7**, o contrário.
-Não deu estrago (ele clicou em Refazer logo depois), mas o dado de justiça ficou sujo.
+### ▶️ PRÓXIMO PASSO: PUBLICAR A IMPORTAÇÃO EM PRODUÇÃO
 
-Virou **"+ dias fora"** em vez do lápis mudo, o title avisa que **não muda a escala**, e a caixa
-passou a dizer: quanto já existe hoje, que o número **soma**, que **não tira ninguém de sábado
-nenhum**, e onde fica o que ele queria (trocar na vaga ou Refazer).
+Decisão do Rafael em 01/09: **a academia está sem dados em produção** e a importação do arquivo da
+Pacto precisa subir. Publicar = **`git push origin main`** (GitHub Pages), não `firebase deploy`.
 
-**Os manuais estavam três semanas atrasados.** Entre 13/08 e 26/08 foram pra produção a Grade de
-Horários, a prévia da escala, o publicar em lote, o inverter, a cota, o desligar pessoa — e o
-manual não falava de nada disso. Manual não quebra: só envelhece, e quem lê aprende errado.
+**⏳ Ainda com o Rodrigo, não bloqueiam a publicação:** a **meta de agosto** das duas unidades (ele
+configura pela tela) · os **R$ 1.107,47** pendentes (R$ 599,35 de julho + R$ 508,12 das vendas que o
+TecnoFit não pegou) · e **confirmar a regra do estorno**.
 
-- **manual-admin** ganhou 10 blocos: Grade de Horários com "Gerar agenda agora" e o cuidado com a
-  troca de dia da semana · prévia · publicar em lote · Refazer/Reconsolidar/Despublicar com a regra
-  de só reconsolidar sábado futuro · Inverter · como o rodízio decide · o painel de Equilíbrio e o
-  "+ dias fora" · cota · sábado-feriado em dobro e "não recebe por aula" · desligar/religar.
-- **manual-professores** ganhou 3: quantos dias quer · por que nada aparece antes de publicar · como
-  o sistema escolhe.
+**Não construído ainda:** tela "vendi, aguardando pagamento" para a vendedora · botão de complemento
+avulso · o caso dos **recorrentes re-vendidos na migração** (§4.6 do desenho — escapam das duas
+defesas e precisam de conferência assistida).
 
-Testes novos: `smoke-ajuste-contador-rotulo.js` (6, ancora o rótulo e o texto) e
-`smoke-manual-atualizado.js` (8, ancora os assuntos do manual + caça link morto).
-⚠️ **Ao entregar recurso que muda a rotina de alguém, acrescentar o assunto no segundo.**
+---
 
-Publicado por **cherry-pick** do commit da escala sobre o `main` — ele não encosta em nenhum arquivo
-de Comissões, então deu pra subir sem levar o tradutor junto. Verificado no `github.io`.
+## 🔖 ONDE PARAMOS — sessão 61 (31/08/2026) — ✅ AS DUAS DÚVIDAS DO GRUPO · NO AR EM PRODUÇÃO
 
-**A construir depois das respostas:** competência pela `Data Início` + corte fixo no dia 15 +
-lista do que ficou fora do corte. As decisões já foram tomadas (abaixo).
+### ▶️▶️ RETOMAR AQUI
 
-### 📨 O que o Rodrigo respondeu (27/08)
+Duas perguntas chegaram pelo grupo. Uma virou correção de dado **já feita em produção**; a outra virou
+código **pronto e testado, ainda não deployado** — falta staging + homologação.
 
-1. **Os R$ 599,35:** pediu **a lista dos 30 clientes** antes de decidir. Lista gerada e entregue
-   (cliente, início, recebimento, valor, vendedora, plano). ⚠️ Um deles, **GIAN GIAROLI**, é
-   quitação de cancelamento — não paga comissão de todo jeito.
-2. **Os contratos migrados:** *"não terei capacidade de verificar 157 contratos, então dessa vez vc
-   pode decidir por mim"* — mas entendeu errado, achou que eu estava dizendo que **ninguém vendeu em
-   agosto**. Corrigido no texto: agosto tem **80 ativações** (CP 53 · PP 27) e R$ 28 mil de caixa; os
-   migrados são **outro conjunto**, de contratos que começaram antes. **Decisão tomada: ficam fora**,
-   com o cruzamento como prova e a ressalva de que é reversível em minutos.
-3. **A meta de agosto:** vai **pedir às vendedoras a lista das vendas de agosto**. É a conferência
-   independente perfeita — quando chegar, cruzar com o que o sistema contou.
+**1. Rodrigo (08:58):** *"como faz pra saber a unidade e quem tá escalado junto com você?"*
+Resposta curta: **dava, mas no lugar errado** — só pela Agenda Geral, que ninguém abre pra isso; a
+pergunta nasce olhando a Escala. Na tela do professor a linha dizia apenas "✓ Você está escalado",
+sem unidade, sem modalidade e sem colega. A informação sempre existiu nos slots (cada vaga tem
+unidade e modalidade); era a visão do professor que não mostrava. **Corrigido no branch:** a linha da
+escala **publicada** passou a trazer `📍 Unidade · Modalidade · horário` e `👥 Com você: Fulano (unidade)`.
+Vale para sábados, feriados e fim de ano (neste, a equipe é a **do dia**, não a do período).
+Antes de publicar continua sem mostrar nada — a escala ainda muda.
 
-### 🔢 Números dos migrados, apurados de verdade
+**2. Benny (19:04):** *"no cadastro do Bruno está um e-mail de acesso e ele não tem esse e-mail"*
+Confirmado no banco de **produção**: o Auth do BRUNO CLAUDINO estava em `brunosilva@hotmail.com`,
+enquanto a ficha trazia `bruno_claudinocl@hotmail.com`. Ele **nunca tinha entrado** (`lastSignIn` ==
+`creationTime`) e nunca conseguiria: o "esqueci minha senha" só funciona pelo endereço do Auth, e o
+Firebase responde "enviamos" mesmo quando o endereço não existe. Risco extra: quem controlasse o
+endereço errado poderia redefinir a senha e entrar no lugar dele.
+**✅ Corrigido em produção em 31/08** (Admin SDK): Auth + `users/{uid}.email` para
+`bruno_claudinocl@hotmail.com`, `emailVerified:false`, backup em `backups/backup-email-bruno-*.json`
+e entrada em `audit_log` (`person_login_email_changed`). A ficha (e-mail de contato) não foi tocada.
+**Ele agora entra pelo "Esqueci minha senha" com o endereço certo.**
 
-⚠️ Eu tinha escrito "157 contratos" e "211 dos 157", que é impossível. Apurado:
+### O que ficou pronto no branch (NÃO deployado)
 
-| | linhas | contratos | valor |
-|---|---:|---:|---:|
-| CP | 161 | 158 | R$ 41.598,59 |
-| PP | 127 | 123 | R$ 36.753,64 |
-| **total** | **288** | **279** | **R$ 78.352,23** |
-
-Cruzando com o relatório de vendas: **211 não aparecem lá**. Os **70 que aparecem** são
-**10 quitações de cancelamento** e **60 ajustes de modalidade de R$ 0,00**. **Nenhum é venda.**
-
-O "157" da tela é só o balde "contratos migrados"; os outros 122 caem em "recebimento de contrato
-antigo". Mesmo fenômeno, dois rótulos.
-
-### ✅ Decisões do Rafael nesta sessão
-
-| decisão | valor |
+| Arquivo | O quê |
 |---|---|
-| competência da comissão | **`Data Início` do contrato** |
-| corte de pagamento | **dia 15, fixo** |
-| primeira competência sob a regra | **agosto/2026** |
-| julho | **fica como está** (⏸️ mas os R$ 599,35 do vão foram pro Rodrigo decidir) |
-| `Data Cadastro` como data da venda | **rejeitada** — ver abaixo |
+| `scale-service.js` | `equipeDoDia(scale, personId, {day})` — puro: onde a pessoa está e quem trabalha junto |
+| `professores-escala-smart.js` | visão do professor mostra unidade/modalidade/horário + colegas (sábado, feriado e fim de ano); carrega units/modalidades |
+| `functions/index.js` | CF **`changeLoginEmail`** (admin-only): troca o e-mail no Auth + `users` + `audit_log`, recusa endereço já usado e a conta do dono |
+| `professores-pessoas.js` | botão **"Alterar e-mail de acesso"** na aba Acesso + atalho no aviso de e-mail divergente ("usar o e-mail da ficha") |
+| `professores.html` | `?v=20260831` nos 3 arquivos alterados |
+| `scripts/diag-emails-acesso.js` | varredura das 3 fontes de e-mail (ficha × users × Auth), somente leitura |
+| `scripts/smoke-escala-equipe-do-dia.js` · `smoke-escala-equipe-tela.js` · `smoke-email-acesso.js` | 5 + 7 + 8 verificações |
 
-### 📐 A regra de competência — validada, e ela NUNCA esteve no código
+**Testes:** 20 novas verificações verdes; suíte offline **57/57** (só `smoke-9.js` pede `--project`).
+Os smokes de tela **chamam as funções** dentro de um sandbox `vm` — não leem o arquivo (cicatriz da
+[[previa-nunca-rodou]]).
 
-Regra (do Rafael, confirmada como a que já valia no TecnoFit): a comissão pertence ao **mês da
-venda**; paga-se o que o cliente **efetivamente pagou**; no **dia 15** olha-se o que entrou e paga;
-o que entra depois **acumula pro pagamento seguinte**.
+### ✅ HOMOLOGADO NO STAGING (31/08, mesma sessão)
 
-**Validado em duas frentes:**
+Deploy: `firebase deploy --only functions:changeLoginEmail --project staging` (função criada em
+`us-central1`) + `--only hosting --project staging`.
 
-1. **No código: não existe.** Sem corte de dia 15, sem conceito de competência. O único "adiar" é
-   por data de início do plano, para venda futura.
-2. **No histórico de produção: existe, e sempre foi manual.**
-   - **Competência confirmada:** todo período tem só vendas do próprio mês, sem exceção
-     (cp_2026-04 131 itens todos de 04; cp_2026-07 129 todos de 07; pp_2026-07 192 todos de 07…).
-   - **O "acumula" também:** a maioria dos meses foi subida **mais de uma vez** — `cp_2026-05`
-     teve **4 uploads** (166+7+3+2 itens), e os itens dos vários uploads **convivem** no período.
-     É o mecanismo da "Opção A operacional" escolhida em maio ([[comissao-entrada-atrasada]]).
+**Escala, logado como o professor** (`professor.teste@` = Marcos Estrela), dados reais do staging:
 
-> **O corte do dia 15 era o dia em que a pessoa exportava o arquivo.** A regra estava na rotina,
-> não no software. Por isso dá pra manter o mecanismo operacional e mexer pouco.
+- **12/09** (publicada, ele escalado) → `✓ Você está escalado` · `📍 CrossTainer PP · TOI · 🕗 08:00–12:00`
+  · `👥 Com você: Pedro L. (CrossTainer CP · TOI) · Bruna L. (CrossTainer CP · Hiit) · Nome t. (CrossTainer PP · Hiit)`
+- **05/09 e 19/09** (publicadas, ele fora) → `👥 Escalados: …` — ele vê o time sem ter posto próprio
+- **26/09 e 03/10** (consolidadas, **não** publicadas) → "A gestão está montando a escala", **zero**
+  nome e **zero** unidade. O sigilo antes da publicação continua valendo.
+- Conferido também em **viewport de celular (375px)**: as duas linhas quebram e continuam legíveis.
 
-### 🔧 O que a construção vai exigir (menor do que parecia)
+**E-mail de acesso, logado como admin** (`dono.teste@`), na ficha da Bruna Lima:
 
-O Rafael achou que teríamos que **tirar** a detecção automática de período. Não precisa — basta
-**trocar o que alimenta ela**: hoje a coluna `Data` leva o recebimento; passa a levar a
-competência. A detecção então acerta sozinha, e período/metas/fechamento/re-upload seguem iguais.
+| Caminho | Resultado |
+|---|---|
+| Trocar `professor2.teste@` → `bruna.teste.tmp@` | ✅ Auth + `users` + `audit_log` ("por: Dono (Teste)") |
+| Trocar para um endereço que **já é login de outro** | ✅ recusado: *"Já existe outra pessoa usando esse e-mail de acesso"* (HTTP 409), e-mail intacto |
+| **Professor** chamando a Cloud Function na mão pelo console | ✅ `permission-denied` — *"Apenas admin pode trocar o e-mail de acesso"* (HTTP 403) |
+| Reverter para `professor2.teste@` | ✅ voltou; o endereço temporário não sobrou em conta nenhuma |
 
-- **corte do dia 15:** continua sendo o recorte do export; o tradutor só lista o que ficou de fora
-- **acumulado:** nada a construir — re-sobe o mês com a janela maior, como já é feito
-- **avulso** (água, aula avulsa): sem contrato e sem início → competência = data do recebimento
+Console: só os 3 erros que **eu** provoquei nos testes negativos (409 e 403). Nenhum espontâneo.
 
-### ❌ `Data Cadastro` não serve como data da venda
+⚠️ **Como os cliques foram dados:** neste ambiente as coordenadas do agente não acertam o elemento
+(limitação já vista na sessão 57). Naveguei chamando `.click()` no **elemento real** da tela — mesmo
+handler que o dedo dispara — e substituí `prompt`/`confirm` pelos valores que um admin digitaria,
+porque diálogo nativo não é preenchível daqui. **Ainda falta um clique humano de verdade.**
 
-O Rafael propôs usá-la. O dado recusou, e o porquê importa:
+### ✅ EM PRODUÇÃO (31/08, mesma sessão)
 
-- **356 das 419 linhas de contrato (85%) têm cadastro `24/07/2026`** — o dia da carga da migração.
-- A Pacto tem **duas faixas de contrato**: os **`4xxx`** vieram na migração e todos carregam esse
-  carimbo mesmo começando em agosto; os **`7xxx`** são nativos e têm cadastro real.
-- Nos nativos funciona bem: **cadastro e início no mesmo mês em 93%** (72 linhas).
-- Mas **55 contratos que começam em agosto ainda carregam o `24/07`** (32 renovações, 17
-  rematrículas, 6 matrículas). Usá-la jogaria esses 55 em julho, que está fechado.
+**O Rafael dispensou o teste no staging e autorizou produção.** Registrado porque muda a natureza da
+garantia: o caminho foi exercitado por mim, **nunca por um dedo humano**.
 
-**Vai se resolver sozinho:** conforme os `4xxx` vencerem e renovarem, viram `7xxx` com cadastro de
-verdade. Aí o cadastro passa a ser a melhor âncora — inclusive para "vendeu em 28/08, começa em
-01/09" — e a troca é de uma linha. Por ora, `Data Início` (100% presente, mês certo nos migrados).
+| Passo | Resultado |
+|---|---|
+| `git commit` | `04655bd` |
+| `firebase deploy --only functions:changeLoginEmail --project production` | ✅ criada em `us-central1` |
+| `git push origin main` | ✅ `0cc0df9..04655bd` (o 1º push travou em ~3 min; o 2º passou) |
+| GitHub Pages reconstruído | ✅ na 3ª verificação: `escalaEquipeHtml` e `pessoaTrocarEmailAcesso` sendo servidos, `professores.html` já em `?v=20260831` |
+| CF de produção respondendo | ✅ `POST` sem token → `UNAUTHENTICATED` ("É preciso estar autenticado") |
+| Varredura final de e-mails | ✅ o Bruno saiu da lista de pendências |
 
-### 💰 O vão de julho — R$ 599,35, decisão do Rodrigo
+### ⚠️ O que segue aberto
 
-**30 contratos com início em julho cujo dinheiro entrou em agosto** (R$ 8.346,06 de caixa). Pela
-regra são competência julho, e julho já foi fechado e pago.
+1. **Ninguém clicou de verdade** — nem no staging, nem em produção. A gestão vai ser a primeira.
+   Se aparecer defeito, o mais provável é de layout, não de regra (as regras têm 20 verificações).
+2. **2 fichas com e-mail de contato ≠ e-mail de acesso** (LEONARDO SILVEIRA e HELENA MARIA BORGES).
+   **Não é problema:** os dois **já entram** pelo endereço de acesso — é só a ficha que guarda outro
+   e-mail de contato. Confirmar com a gestão qual é o certo, sem pressa.
+3. Continua valendo a pendência da sessão 60: o **aviso de ajuste em data já publicada** nunca rodou
+   contra o banco real (é `scale_confirmed`, vira e-mail de verdade).
 
-| | linhas | caixa | comissão |
-|---|---:|---:|---:|
-| recebidas **até 15/08** | 13 | R$ 3.553,00 | **R$ 301,88** |
-| recebidas **depois de 15/08** | 17 | R$ 4.793,06 | **R$ 297,47** |
-| **total** | **30** | **R$ 8.346,06** | **R$ 599,35** |
+### 🧭 Por que o botão, e não só o script
 
-Por pessoa: Kali R$ 273,45 · Bárbara R$ 163,57 · Francini R$ 90,40 · Erica R$ 71,93.
+Três de 19 fichas divergiam. Enquanto a correção só existisse no Console do Firebase ou em script,
+toda ocorrência ia parar no desenvolvedor — e a tela continuava **apontando o problema sem oferecer
+conserto**, que é o que o Benny encontrou.
 
-Três opções foram ao Rodrigo: **(a)** pagar junto com agosto como complemento (recomendada) ·
-**(b)** reabrir julho e pagar pela regra · **(c)** não pagar.
+---
 
-### 🔴 CORREÇÃO — o que eu disse sobre as metas estava ERRADO
+## 🔖 ONDE PARAMOS — sessão 60 (29/08/2026) — ✅ ESCALA: REBALANCEIO, MARCO ZERO E LOG · NO AR EM PRODUÇÃO
 
-Eu afirmei que "as metas foram calibradas na época do TecnoFit" e que "a Kali e a Bárbara perdem o
-P3 por causa da migração". **Errado.** A gestão **define meta mês a mês** (`metasMensais` no doc do
-período, botão "Configurar Metas do Mês"):
+### ▶️▶️ RETOMAR AQUI
 
-| período | meta | minRenov | minNovos |
-|---|---:|---:|---:|
-| pp_2026-07 | 45 | 15 | 18 |
-| pp_2026-06 | 32 | 11 | 15 |
-| cp_2026-07 | 50 | 13 | 18 |
-| cp_2026-06 | 55 | 15 | 20 |
+**As 25 tarefas fecharam e o código está em produção** — `git push origin main` (`e44b4a7..b432d8b`),
+GitHub Pages reconstruído, arquivos servidos em `?v=20260828`. Homologado no staging **clicando de
+verdade**, e um teste controlado rodou **contra a produção** e foi revertido.
 
-**O que houve é que agosto ainda não teve a meta configurada**, então o sistema caiu no padrão da
-unidade (50 / 25 / 18) e o P3 do Príncipe apareceu zerado. Não é meta velha — é meta do mês que
-ainda não foi definida. ⚠️ **Lição:** eu comparei contra o `units/{id}.config` sem olhar se o
-período tinha override. Sempre checar `metasMensais` antes de concluir qualquer coisa sobre meta.
+**O que a academia ganhou** (os 8 pedidos do Rodrigo de 28/08): marco zero configurável da contagem ·
+fim do "+ dias fora" · **histórico de quem mexeu** em cada escala (9 ações, com nome e hora local) ·
+botão **Ajustar** com prévia e **o porquê** de cada movimento · **Tirar do lote** · botão de publicar
+achável com o número real · datas por extenso · aba **Por pessoa** com filtro de janela · e a mesma
+lógica no **Fim de Ano**.
 
-**Contexto real que continua valendo:** o Príncipe fez 27 em agosto contra 49 em julho, porque a
-base migrada está no meio do contrato e não gera renovação. É efeito de transição e se corrige
-sozinho. Sugerido ao Rodrigo **esperar a competência** antes de definir a meta de agosto, porque o
-número vai mudar.
+### 🔴 A ÚNICA COISA QUE FALTA, E ELA IMPORTA
 
-### 🧰 O que foi construído e homologado hoje
+**O aviso de ajuste em data JÁ PUBLICADA nunca foi exercitado contra o banco real.** É o caminho
+"ajustar → quem sai, quem entra e a gestão são avisados", que é a condição que o Rafael pôs para
+permitir mexer em data publicada.
 
-3 pontos no `index.html`, **nada no `commission.js`**: carrega o `pacto-adapter.js` · o
-`handleFile` reconhece o arquivo da Pacto, traduz e filtra pela unidade aberta (formato antigo
-segue passando direto) · a prévia ganhou o **resumo do que ficou de fora**, por unidade. A tela
-**barra o "Faturamento por Período"** antes de calcular, e o texto parou de mandar subir "o Excel
-do TecnoFit".
+Por que ficou de fora: o aviso é do tipo `scale_confirmed`, que é **um dos 5 tipos que viram e-mail
+de verdade** — e a produção está com `meta/email_config` em `ativo:true, modoTeste:false`. Testar
+mandaria e-mail real para professores sobre uma mudança que eu reverteria em seguida. O Rafael
+escolheu (29/08) testar numa data **não publicada**, que cobre motor + serviço + agenda + histórico
+mas **não** o aviso.
 
-**Homologado pelo Rafael no navegador:**
+**Como fechar quando quiser:** ligar `modoTeste:true` em `meta/email_config` (o endereço de teste
+`rafael.brasil.investimentos@gmail.com` já está lá), ajustar alguém numa data publicada, conferir o
+aviso, reverter, e devolver `modoTeste:false`. O `email-config.js` foi construído exatamente para
+isso — em modo de teste **jamais cai no professor por engano**.
 
-| | linhas | processadas | ativações | comissão |
-|---|---:|---:|---:|---:|
-| CP | 109 | 102 | 53 | R$ 1.810,11 |
-| PP | 148 | 132 | 27 | R$ 722,89 |
+⚠️ **A gestão vai ser a primeira a usar esse caminho.**
 
-No CP o bloco mostrou: 53 migrados (R$ 13.471,97) · 111 recebimentos antigos (R$ 28.769,62) ·
-5 planos presumidos (R$ 1.150,00) · 5 avisos.
+### O que foi feito em produção (Task 25)
 
-### 🐛 Dois bugs meus, os dois pegos pelo Rafael no navegador
+| | |
+|---|---|
+| Código | `b432d8b` no `main`, GitHub Pages no ar |
+| Marco zero | `2026-09-01` (produção estava sem nenhum) |
+| Ajuste manual da Heloísa | **3 → 0**, backup em `backups/fairness-ajustes-production-2026-08-29.json` |
+| Feriados 02/11 e 20/11 | rascunho, vagas limpas — estavam consolidados, **não publicados, com 0 aulas** |
+| Conferido depois | 11 datas de set/out **intactas** (4 escalados cada) · 2.628 aulas de 29/08 em diante intactas · 0 ajuste manual restante |
 
-Mesma raiz: **o id da unidade no sistema não é a sigla do arquivo** (`unit-cp` × `CP`).
+### O teste controlado em produção (31/10, não publicada)
 
-1. **Nenhuma linha era encontrada.** Corrigido com `PactoAdapter.siglaDaUnidade()`, que compara só
-   as letras e pela ponta (cobre `cp`, `CP`, `unit-cp`, `unit_cp` sem regra por ambiente).
-2. **O resumo aparecia vazio** — corrigi o caminho dos dados e **esqueci o da tela**. R$ 42 mil de
-   descarte sumindo em silêncio, que é exatamente o que aquele bloco existe para impedir.
+`LOUISE 3 → 2` → entrou `THIAGO VALENTIM` (desempate por **sorteio**) →
+`success:true · aplicados:1 · avisar:0 · republicadas:0` → **0 notificação criada** →
+histórico gravou `rebalanceada` → **revertido**, as 4 vagas idênticas às originais.
 
-> **Lição:** teste que confere "a função é chamada" não basta — tem que conferir **com o quê** ela
-> é chamada. O smoke agora casa a chamada com `PactoAdapter.siglaDaUnidade(`.
+O rastro ficou no histórico assinado como **"Teste controlado (revertido)"** em vez de apagado — se
+alguém abrir o histórico daquele sábado, entende o que houve. Ressalva: passei mérito 0 para todos
+(não carreguei a pontuação real), por isso o desempate caiu no sorteio; o mecanismo foi provado, a
+escolha específica que a tela faria pode diferir.
 
-### 👤 Nomes das vendedoras conferidos contra PRODUÇÃO
+### 🐛 Os defeitos que as revisões e o clique pegaram — nenhum teria sido pego pelos testes verdes
 
-`scripts/conferir-vendedoras-pacto.js` (novo, somente leitura, roda em staging e produção). Dos 6
-nomes do arquivo de agosto: 4 já existiam; **`RODRIGO ROJAIS` da Pacto é o `RODRIGO` do cadastro**
-(140 linhas em 24 períodos) — entrou em `APELIDOS`, senão criava pessoa nova e rachava o histórico.
-⚠️ **`RAFAEL ROJAIS` é OUTRO sócio**, com 269 linhas próprias. `BÁRBARA VIEIRA CARDOSO` é nova de
-verdade. Sem impacto em dinheiro (ele já era não-comissionável dos dois jeitos).
+1. **Aula já REALIZADA seria apagada em silêncio.** Publicar apaga e recria **todas** as aulas do
+   documento; no Fim de Ano o período inteiro divide um `scaleId`, então ajustar uma pessoa num dia
+   jogaria fora a aula já dada de outro — `realizada` voltando a `prevista`, com presença junto.
+   A regra de 25/08 ("só reconsolidar o que ainda não aconteceu") **virou trava**.
+2. **O ajuste propunha reescrever sábado que já aconteceu.** Achado **clicando no staging**: a
+   janela aberta lá tem as 5 datas no passado, e a prévia ofereceu trocar o professor do sábado
+   15/08. Agora data passada não entra, e o "Hoje: X" conta as **mesmas** datas que o motor vê.
+3. **O "não posso" do professor nunca chegava ao rebalanceio.** O motor tinha o filtro; a tela nunca
+   preenchia o campo. A regra existia e não valia.
+4. **Duas injeções de HTML** no histórico (`acao` fora do mapa e `ts` inválido entravam crus).
+5. **Hora 3h adiantada** — `ts` é UTC e era mostrado cru.
+6. **Autor aparecia como uid cru** do Firebase em vez do nome.
+7. **`day` faltando de um lado** permitia a mesma pessoa em duas vagas do mesmo dia (falhava aberta).
+8. **As versões dos arquivos não subiam** — o deploy entregava código novo com etiqueta velha.
 
-### 🧪 Validação
+### 📋 Decisão do Rafael (29/08) — vizinhança é PREFERÊNCIA
 
-`smoke-upload-pacto-tela.js` **novo, 11 casos** (6 guardam a LIGAÇÃO na tela) · `smoke-pacto-adapter`
-em **41** · suíte do projeto verde · homologado no navegador pelo Rafael.
+*"preferencialmente não pegar dois sábados seguidos, deve interpretar assim."* Implementado como
+**teto macio**, igual ao motor de consolidação: quem não tem sábado vizinho vem primeiro, quem tem
+só entra **quando não sobrou mais ninguém**. Nunca recusa o ajuste pela preferência e nunca deixa o
+dia sem professor. O manual foi corrigido junto — dizia "regra", agora diz "preferência", e separa
+isso de férias e "não posso", que continuam duros.
 
-Commits em `comissoes-tradutor-pacto`: `6fc06fe` `25875a5` `6c6a4c4` `bbddfff` `2737c70` `8f6c569`.
+### 🧭 Por que data passada não entra no ajuste (raciocínio, se alguém perguntar)
+
+O contador de justiça é contado **das escalas**. Pôr alguém retroativamente num sábado que já passou
+diz ao rodízio que a pessoa trabalhou num dia em que não trabalhou, e ela é empurrada para o fim da
+fila por um dia que não deu — o mesmo defeito que torceu set/out, por outra porta. Para *"quem
+realmente deu a aula?"* existe a ferramenta certa: a **Troca de professor da aula** (22/08), com
+cadeia de confirmação e pagamento acompanhando.
+
+Continua permitido **trocar uma vaga na mão** em data passada: manual e deliberado tem saída,
+automático e em lote não. Como o ajuste manual do contador foi apagado, essa é a única forma de
+corrigir uma escala antiga errada.
+
+### Como foi executado
+
+Skill `superpowers:subagent-driven-development`. Começou com 3 subagentes por tarefa (implementador
++ revisão de spec + revisão de qualidade); a partir da Task 12, por limite de uso, virou **uma
+revisão só**, tarefas agrupadas, e o coordenador aplicando as correções pequenas direto.
+**As revisões reprovaram 4 vezes, e as 4 eram defeito real provado por execução.** Vale manter.
+
+Detalhe completo: `docs/superpowers/plans/2026-08-28-escala-rebalanceio-marco-zero-log.md`.
+
+---
+
+## 🔖 ONDE PARAMOS — sessão 59 (28/08/2026) — 🚧 ESCALA: REBALANCEIO, MARCO ZERO E LOG · 4 DE 25 TAREFAS
+
+### ▶️▶️ RETOMAR AQUI
+
+**Frente nova, em construção.** Os 8 pedidos que o Rodrigo mandou em 28/08 e as 7 respostas do
+Rafael no mesmo dia viraram especificação + plano, e a execução começou. **A sessão acabou por
+limite de uso, não por ter terminado.**
+
+| | onde |
+|---|---|
+| **O que construir e por quê** | `docs/superpowers/specs/2026-08-28-escala-rebalanceio-marco-zero-log-design.md` |
+| **Passo a passo, com código e testes** | `docs/superpowers/plans/2026-08-28-escala-rebalanceio-marco-zero-log.md` |
+| **Onde a execução parou** | a seção **🚦 ESTADO DA EXECUÇÃO**, no topo do plano — **leia essa primeiro** |
+
+**Branch: `escala-rebalanceio-log`** (saiu de `main` `e44b4a7`). ⚠️ **Não** saiu de
+`comissoes-tradutor-pacto` — Comissões continua esperando o Rodrigo e não pode subir junto.
+
+🔴 **Nada foi para o staging. Nada foi para produção. Nenhuma escala foi tocada** — setembro e
+outubro seguem publicados com as mesmas pessoas, como o Rafael pediu ("não mexa em nada").
+
+**Estado:** Tasks 1 e 2 fechadas (marco zero no motor, com blindagem contra valor corrompido na
+config). Tasks 3+4 (marco zero na tela + tela de configuração) commitadas em `67f973a`, e os 6
+achados da revisão de qualidade **corrigidos em `566da32`** — árvore limpa, testes verdes,
+verificado rodando na mão. **Falta só a re-revisão de qualidade dessa correção**
+(`git diff 67f973a 566da32`), que é onde retomar. Tasks 5 a 25 nem começaram.
+
+A tela ganhou teste que **chama** as funções em sandbox `vm` (9 verificações) — é o modelo a
+copiar nas próximas tarefas de tela. ⚠️ Um buraco declarado: a prova de "o teste falha quando
+deve" cobriu só a validação de formato; a nota do marco na tela não tem essa prova.
+
+**Como estava sendo executado:** skill `superpowers:subagent-driven-development` — um implementador
+por tarefa, depois revisão de especificação, depois revisão de qualidade, cada uma por subagente
+novo. **3 das 4 tarefas voltaram com achado real**, nenhum deles pego pelos testes. Vale manter o
+processo. `sonnet` deu conta de tudo até aqui; guardar o modelo mais capaz para as Tasks 16, 17 e
+20 (motor do rebalanceio e a tela dele).
+
+**As decisões do Rafael que regem tudo** (28/08): rebalanceio tira de quem tem mais dias, empate
+desempata pela pontuação, empate de novo sorteia · **data já publicada pode ser mexida**, avisando
+envolvidos e gestão · **não mexer em nenhuma escala já montada** · marco zero **01/09/2026**,
+configurável para zerar na virada do ano · feriados 02/11 e 20/11 **limpar e zerar** · sábado 29/08
+acontece no papel · **e toda essa lógica vale também para a Escala de Fim de Ano**.
+
+**Duas emendas ao plano, decididas durante a execução e que valem para o que falta:**
+1. **Nunca passar `ctx.marcoZero`** — deixar `consolidate` ler a config sozinha, porque a blindagem
+   de formato só existe nesse caminho.
+2. **Teste de tela tem que CHAMAR a função**, em sandbox `vm`, quando ela tiver efeito colateral ou
+   for gate de permissão. Eu supus que aqui só se testava tela por regex no texto do arquivo —
+   errado: `vm.createContext` já é padrão, 9 arquivos em `scripts/` usam, e o
+   `smoke-escala-contagem.js` já chama `gerarPreviaLote` de verdade desde o conserto da prévia.
 
 ---
 

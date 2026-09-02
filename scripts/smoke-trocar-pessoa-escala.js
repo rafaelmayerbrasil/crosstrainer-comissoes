@@ -91,5 +91,40 @@ const ctx = { teachers, meritoById: { p1: 100, p2: 0 }, opts: { minMes: 1 } };
   assert.ok(!r6.success && /vaga não encontrada/i.test(r6.error), 'slot inválido tratado');
   console.log('✓ vaga inexistente tratada');
 
+  /* ── 7. Fim de ano: a colisão é por DIA, não pela escala inteira ── */
+  // Achado em 28/08/2026: pra sábado/feriado, uma escala = um dia, então
+  // "outra vaga da escala" e "outra vaga do dia" sempre deram o mesmo
+  // resultado. Fim de ano é um documento com o PERÍODO inteiro (vários
+  // dias) — antes disto, quem trabalhava 20/12 nunca podia ser posto em
+  // 27/12 pela troca manual. Estava em produção.
+  d = deps(makeFakeDb());
+  const fda = await (async () => (await SS.createScale({
+    date: '2026-12-20', tipo: 'fim_de_ano', name: 'Fim de ano 2026',
+    slots: [
+      { id: 's_20_m', day: '2026-12-20', shift: 'manha',       unitId: 'cp', requiredModalityId: null, assignedPersonId: 'p1' },
+      { id: 's_20_t', day: '2026-12-20', shift: 'tarde_noite', unitId: 'cp', requiredModalityId: null, assignedPersonId: null },
+      { id: 's_27_m', day: '2026-12-27', shift: 'manha',       unitId: 'cp', requiredModalityId: null, assignedPersonId: null },
+    ],
+  }, d)).data)();
+
+  const r7a = await SS.reassignSlot(fda.id, 's_27_m', 'p1', d);
+  assert.ok(r7a.success && r7a.data.changed, 'a mesma pessoa pode trabalhar em outro DIA do período');
+
+  const r7b = await SS.reassignSlot(fda.id, 's_20_t', 'p1', d);
+  assert.ok(!r7b.success, 'mas não em dois turnos do MESMO dia');
+  assert.ok(/já está/.test(r7b.error) && /outra vaga/.test(r7b.error), `com mensagem clara: "${r7b.error}"`);
+  console.log('✓ fim de ano: colisão de vaga é por dia, não pelo período inteiro');
+
+  // ── `day` só de um lado (documento legado / editado na mão) ───────────────
+  // Aqui o certo é RECUSAR: errar recusando custa um clique; errar permitindo
+  // põe a pessoa em duas vagas ao mesmo tempo, e ninguém percebe.
+  const misto = (await SS.createScale({ date: '2026-12-24', tipo: 'fim_de_ano', slots: [
+    { id: 'm_com', unitId: 'cp', day: '2026-12-24', requiredModalityId: 'TOI', assignedPersonId: 'p9' },
+    { id: 'm_sem', unitId: 'cp', requiredModalityId: 'TOI', assignedPersonId: null },
+  ] }, d)).data;
+  const rMisto = await SS.reassignSlot(misto.id, 'm_sem', 'p9', d);
+  assert.ok(!rMisto.success, 'slot sem `day` não pode furar a colisão de quem já está no dia');
+  console.log('✓ `day` faltando num dos lados recusa, em vez de permitir dupla escalação');
+
   console.log('\n✓ smoke-trocar-pessoa-escala: todos os casos passaram');
 })().catch(e => { console.error('✗ FALHOU:', e.message); process.exit(1); });

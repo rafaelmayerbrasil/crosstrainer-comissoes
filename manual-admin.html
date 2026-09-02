@@ -130,6 +130,12 @@
   <div class="tip">💡 Cadastrou o professor mas o login falhou ou foi pulado? Sem problema: a ficha mostra o aviso "sem acesso" com o botão <strong>Criar acesso</strong> — nada se perde.</div>
 
   <div class="card">
+    <h3>✉️ Alterar o e-mail de acesso</h3>
+    <p>O <strong>e-mail de acesso</strong> é por onde a pessoa entra e por onde ela recupera a senha. Se estiver errado, ela <strong>nunca consegue entrar</strong> — e o pior: ao pedir "esqueci minha senha", o sistema responde "enviamos" e nada chega, porque o Firebase não avisa quando o endereço não existe.</p>
+    <p>Na ficha, abra a aba <strong>🔑 Acesso</strong> e clique em <strong>Alterar e-mail de acesso</strong> (só admin). Se a ficha tiver um e-mail de contato diferente, o aviso na aba Identidade já oferece usar aquele endereço num clique.</p>
+    <div class="tip">💡 Trocar o e-mail <strong>não muda a senha</strong>. Quem já entrava continua com a mesma senha, só pelo endereço novo. Quem nunca entrou usa <strong>"Esqueci minha senha"</strong> com o endereço novo.</div>
+  </div>
+  <div class="card">
     <h3>🚪 Desligar e religar alguém</h3>
     <p>Quando uma pessoa sai, use <strong>Desligar</strong> na ficha dela. Isso <strong>corta o acesso na hora</strong> e tira ela das listas de escala, substituição e avisos — mas <strong>preserva todo o histórico</strong>: aulas dadas, pagamentos, férias.</p>
     <div class="tip">💡 <strong>Nunca apague uma pessoa que já trabalhou.</strong> Apagar quebra o histórico e os fechamentos antigos. Desligar é o caminho certo — e o botão <strong>Religar</strong> traz de volta se ela voltar.</div>
@@ -291,12 +297,38 @@
   </div>
 
   <div class="card">
-    <h3>📊 Equilíbrio da janela — e o botão "+ dias fora"</h3>
+    <h3>📊 Equilíbrio da janela</h3>
     <p>Acima da escala você vê como está a divisão, <strong>com os nomes</strong>: quem ainda não pegou nenhum, quem está na média e quem está acima. Serve pra bater o olho antes de publicar.</p>
-    <p>Ao lado de cada pessoa há o botão <strong>"+ dias fora"</strong>. Ele serve pra <strong>uma coisa só</strong>: registrar dias que a pessoa trabalhou e que o <strong>sistema não viu</strong> — agosto, por exemplo, que rodou pela grade antiga.</p>
-    <div class="warn">⚠️ <strong>Esse botão NÃO muda a escala.</strong> Ninguém entra nem sai de sábado nenhum por causa dele, e o número que você digita <strong>soma</strong> ao total da pessoa no ano. Se você digitar 3 em quem tem 4, ela fica com <strong>7</strong>, não com 3.<br><br>
-    <strong>Pra tirar alguém de um sábado</strong>, abra o sábado e troque a pessoa na vaga, ou clique em <strong>Refazer</strong> pra o sistema redistribuir a janela inteira.</div>
     <div class="tip">💡 Se aparecer alguém "abaixo do mínimo" que nunca é escalado, confira as modalidades dela: quem <strong>não dá TOI nem Hiit</strong> fica fora do rodízio de sábado por definição, e o sistema mostra esses nomes no rodapé do painel.</div>
+  </div>
+
+  <div class="card">
+    <h3>🔧 Ajustar quantos dias uma pessoa tem</h3>
+    <p>Ao lado de cada nome no painel de Equilíbrio — e também nos cartões da aba <strong>Por pessoa</strong> — tem o botão <strong>Ajustar</strong>. É o jeito certo de corrigir quanto alguém pegou: você diz o número que ela deveria ter, e o sistema monta um plano pra chegar lá.</p>
+    <ul>
+      <li>Baixar chama quem tem menos dias pra entrar no lugar dela; subir tira ela de quem tem mais dias.</li>
+      <li>Antes de gravar qualquer coisa, você vê a <strong>prévia</strong>: cada troca, com o dia, quem sai, quem entra e <strong>o porquê</strong> (rodízio, mérito, sorteio…). Só depois de conferir é que você confirma.</li>
+      <li>O sistema respeita <strong>férias</strong> e o <strong>"não posso"</strong> de cada um — nessas duas ele não passa por cima de jeito nenhum. Já <strong>não pegar dois sábados seguidos</strong> é uma <strong>preferência</strong>: ele evita ao máximo, mas se não sobrar mais ninguém, prefere repetir a pessoa a deixar o dia sem professor.</li>
+    </ul>
+    <div class="warn">⚠️ <strong>Data já publicada</strong> também pode ser ajustada. A prévia avisa quando uma troca mexe numa data que já está na agenda; se você confirmar, a aula muda de nome de verdade e <strong>quem sai, quem entra e você (a gestão) recebem aviso</strong>.</div>
+  </div>
+
+  <div class="card">
+    <h3>🗓️ De quando a contagem começa (marco zero)</h3>
+    <p>Por padrão, a "justiça" de cada sábado ou feriado conta os <strong>últimos 12 meses</strong>. Se precisar que a contagem valha só a partir de uma data — depois de uma reorganização da escala, por exemplo — dá pra fixar esse início em <strong>⚙️ Configurações da escala</strong> (só Admin vê essa opção).</p>
+    <p>Com o marco zero definido, uma nota <strong>"Contando a partir de…"</strong> aparece em três lugares: no painel de Equilíbrio, no histórico do ano e nos cartões da aba Por pessoa — pra ninguém estranhar um número que mudou. O botão <strong>"Voltar aos 12 meses"</strong> desfaz e volta ao padrão.</p>
+  </div>
+
+  <div class="card">
+    <h3>🚫 Tirar uma data do lote</h3>
+    <p>Quando uma data entrou errada — feriado que não devia ter sido escalado, sábado duplicado — use <strong>🚫 Tirar do lote</strong>, dentro da data. Ele limpa as vagas e volta a data pra <strong>rascunho</strong>; se ela já estava publicada, sai da agenda também.</p>
+    <div class="warn">⚠️ Quem já foi avisado não é desavisado. Se o professor já recebeu a notificação de que estava escalado, tirar do lote não manda um segundo aviso desfazendo aquilo — fale com a pessoa direto.</div>
+  </div>
+
+  <div class="card">
+    <h3>🕐 Quem mexeu na escala</h3>
+    <p>Dentro de cada data tem <strong>🕐 Histórico desta escala</strong>: a lista de tudo que aconteceu ali — janela aberta, montada, refeita, publicada, despublicada, vaga trocada, invertida, ajustada, tirada do lote — sempre com <strong>o nome de quem fez</strong> e o horário.</p>
+    <p>No rodapé da tela de gestão tem <strong>📜 Últimas alterações carregadas nesta tela</strong>, que junta o histórico de todas as datas que você está vendo — útil quando você não lembra em qual data mexeu.</p>
   </div>
 
   <div class="card">

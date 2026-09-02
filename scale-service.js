@@ -9,6 +9,10 @@
   function rdb(deps)  { if (deps && deps.db) return deps.db; return (typeof db !== 'undefined') ? db : null; }
   function rts(deps)  { if (deps && deps.ts) return deps.ts(); return (typeof serverTs === 'function') ? serverTs() : new Date().toISOString(); }
   function ruid(deps) { if (deps && deps.uid) return deps.uid(); return (typeof currentUserId === 'function') ? currentUserId() : null; }
+  // Mesma fonte que o `AuditService.log` usa. Sem isto o histórico mostra o uid
+  // cru do Firebase como autor — e "log de alteração por usuário" com um
+  // `AbCdEf123456` no lugar do nome não responde a pergunta de ninguém.
+  function rnome(deps) { if (deps && deps.nome) return deps.nome(); return (typeof currentUserName === 'function') ? currentUserName() : null; }
   function rSE(deps)  { if (deps && deps.SE) return deps.SE; return ScaleEngine; }
 
   function templateSlots(tipo, units, times) {
@@ -173,9 +177,19 @@
       const depois = newPersonId || null;
       if (antes === depois) return { success: true, data: { changed: false } };
 
-      // Ninguém cobre duas vagas no mesmo dia — o motor já respeita isso.
-      if (depois && (scale.slots || []).some(s => s.id !== slotId && s.assignedPersonId === depois)) {
-        return { success: false, error: 'Essa pessoa já está em outra vaga desta escala.' };
+      // A colisão é por DIA: no fim de ano uma escala é o PERÍODO inteiro
+      // (vários dias no mesmo documento), e comparar contra a escala inteira
+      // proibia a mesma pessoa em dias DIFERENTES do mesmo período — nunca
+      // era possível pôr quem trabalhou 20/12 também em 27/12 pela troca
+      // manual. Achado em 28/08/2026, estava em produção. Em sábado/feriado
+      // `day` é undefined dos dois lados (uma escala = um dia só), então o
+      // comportamento pra quem já usa é idêntico.
+      // Se UM dos lados não tiver `day` (documento legado, ou editado na mão),
+      // o certo é presumir MESMO dia e recusar: errar recusando pede um clique
+      // a mais; errar permitindo põe a pessoa em dois lugares ao mesmo tempo.
+      const mesmoDia = (s) => !s.day || !slot.day || s.day === slot.day;
+      if (depois && (scale.slots || []).some(s => s.id !== slotId && mesmoDia(s) && s.assignedPersonId === depois)) {
+        return { success: false, error: 'Essa pessoa já está em outra vaga deste dia.' };
       }
 
       const slots = (scale.slots || []).map(s => s.id === slotId
@@ -185,6 +199,17 @@
         : s);
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `deps.nomePorId` (não `ctx` — esta função não recebe um) é quem a tela
+      // manda pra virar id em nome no `detalhe`. Faltando, cai no id cru sem
+      // erro nenhum — pegadinha silenciosa pra quem for ligar a tela.
+      // O rebalanceio passa `semHistoricoDeVaga`: ele grava a própria linha
+      // ('rebalanceada'), que já diz "saiu X, entrou Y". Duas linhas seriam a
+      // mesma informação duas vezes, e o histórico tem teto de 50 entradas.
+      if (deps && deps.semHistoricoDeVaga) return { success: true, data: { changed: true, from: antes, to: depois, published: !!scale.published } };
+      await registrarHistorico(scaleId, {
+        acao: 'vaga_trocada',
+        detalhe: diffEscalados([slot], slots.filter(s => s.id === slotId), (deps && deps.nomePorId) || {}),
+      }, deps);
 
       // Não há contador pra acertar: quem conta é `contarPorPessoa`, e ela lê
       // esta escala que acabou de ser gravada. A troca manual entra na conta
@@ -229,6 +254,16 @@
 
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: novos, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // Reaproveita `diffEscalados` em vez de montar "A ⇄ B" na mão: a versão
+      // manual perdia a modalidade de cada vaga e, quando só UMA das duas
+      // vagas tinha gente (o guard-clause acima só barra as DUAS vazias),
+      // produzia um "— ⇄ Nome" sem explicação nenhuma.
+      // `deps.nomePorId` (mesma regra de `reassignSlot`: sem `ctx` aqui) —
+      // faltando, o histórico cai no id cru, sem quebrar nada.
+      await registrarHistorico(scaleId, {
+        acao: 'invertida',
+        detalhe: diffEscalados([a, b], novos.filter(s => s.id === slotAId || s.id === slotBId), (deps && deps.nomePorId) || {}),
+      }, deps);
 
       return { success: true, data: { published: !!scale.published, from: a.assignedPersonId || null, to: b.assignedPersonId || null } };
     } catch (err) { console.error('[ScaleService.swapSlots]', err); return { success: false, error: err.message }; }
@@ -362,6 +397,10 @@
       if (opts && opts.closesAt) patch.windowClosesAt = opts.closesAt;
       if (opts && opts.batchId) patch.windowBatchId = opts.batchId;
       await rdb(deps).collection('special_scales').doc(id).set(patch, { merge: true });
+      await registrarHistorico(id, {
+        acao: 'janela_aberta',
+        detalhe: (opts && opts.closesAt) ? `janela até ${opts.closesAt}` : 'sem prazo definido',
+      }, deps);
       return { success: true };
     } catch (err) { console.error('[ScaleService.openElection]', err); return { success: false, error: err.message }; }
   }
@@ -496,46 +535,6 @@
     } catch (err) { console.error('[ScaleService.setRsvp]', err); return { success: false, error: err.message }; }
   }
 
-  /**
-   * O que sobrou do antigo contador: um AJUSTE DE PARTIDA por pessoa.
-   *
-   * Até 25/08/2026 este documento guardava `diasTrabalhados` e `divida` e era o
-   * contador de justiça — que vivia errado, porque só se mexia na primeira
-   * montagem de cada data. Quem conta agora é `contarPorPessoa`, direto das
-   * escalas. Sobrou o ajuste porque agosto aconteceu pela grade antiga e não
-   * existe em `special_scales`: não há o que contar, só o que lançar.
-   * (`divida` nunca foi incrementada por nada — era código morto desde a origem.)
-   */
-  async function getFairness(personId, deps) {
-    try {
-      const doc = await rdb(deps).collection('fairness_counter').doc(personId).get();
-      const dados = doc.exists ? (doc.data() || {}) : {};
-      return { success: true, data: { personId, ajuste: Math.max(0, Number(dados.ajuste) || 0) } };
-    } catch (err) { console.error('[ScaleService.getFairness]', err); return { success: false, error: err.message }; }
-  }
-
-  async function saveAjustePartida(personId, ajuste, deps) {
-    try {
-      const n = Math.max(0, Math.round(Number(ajuste) || 0));
-      await rdb(deps).collection('fairness_counter').doc(personId)
-        .set({ personId, ajuste: n, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
-      return { success: true, data: { ajuste: n } };
-    } catch (err) { console.error('[ScaleService.saveAjustePartida]', err); return { success: false, error: err.message }; }
-  }
-
-  /** Todos os ajustes de uma vez — a tela lia um por pessoa, 16 leituras por render. */
-  async function listAjustes(deps) {
-    try {
-      const snap = await rdb(deps).collection('fairness_counter').get();
-      const out = {};
-      snap.docs.forEach(doc => {
-        const v = doc.data() || {};
-        out[v.personId || doc.id] = Math.max(0, Number(v.ajuste) || 0);
-      });
-      return { success: true, data: out };
-    } catch (err) { console.error('[ScaleService.listAjustes]', err); return { success: false, error: err.message, data: {} }; }
-  }
-
   // PURO: [{personId,date,pref,excludedShifts}] → map[personId][date] = {pref, excludedShifts}
   function dayPrefsToAvailability(dayPrefs) {
     const out = {};
@@ -564,6 +563,38 @@
   function isPersonAssigned(scale, personId) {
     if (!scale || !personId) return false;
     return (scale.slots || []).some(s => s.assignedPersonId === personId);
+  }
+
+  /**
+   * PURO: onde a pessoa trabalha nesse dia e quem trabalha junto com ela.
+   *
+   * "Como faz pra saber a unidade e quem tá escalado junto com você?" — Rodrigo,
+   * 31/08/2026. A resposta sempre esteve nos slots (cada vaga tem unidade e
+   * modalidade); a visão do professor é que só dizia "✓ Você está escalado".
+   *
+   * Vaga aberta NÃO vira colega: quem lê "com Fulano" e não encontra ninguém
+   * conclui que o sistema errou. E quem está em duas vagas (acontece no fim de
+   * ano) não aparece como colega de si mesmo.
+   *
+   * @param {object} scale
+   * @param {string} personId
+   * @param {{day?: string}} [opts] fim de ano tem um slot por DIA dentro da mesma
+   *        escala — sem o filtro, a "equipe do dia" seria a do período inteiro.
+   * @returns {{escalado: boolean, meus: object[], colegas: object[]}}
+   */
+  function equipeDoDia(scale, personId, opts) {
+    const out = { escalado: false, meus: [], colegas: [] };
+    if (!scale || !Array.isArray(scale.slots)) return out;
+    const dia = (opts || {}).day || null;
+    scale.slots.forEach(s => {
+      if (!s) return;
+      if (dia && s.day && s.day !== dia) return;
+      if (!s.assignedPersonId) return;
+      if (personId && s.assignedPersonId === personId) out.meus.push(s);
+      else out.colegas.push(s);
+    });
+    out.escalado = out.meus.length > 0;
+    return out;
   }
 
   /**
@@ -610,6 +641,28 @@
       : [tipo];
   }
 
+  // Dia da semana em array fixo: `Intl`/`toLocaleDateString` dependem do locale
+  // do navegador, e a mesma tela mostraria "Friday" em quem estiver com o
+  // sistema em inglês. Isto é texto de produto, não de sistema.
+  const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+  /**
+   * PURO: '2026-11-20' → 'sexta-feira, 20/11/2026'.
+   *
+   * O cartão da escala imprimia a data crua (Rodrigo, 28/08/2026). Mora no
+   * serviço, e não na tela, pra que o teste CHAME a função em vez de ler o texto
+   * do arquivo — a lição de 26/08. `T12:00:00` pelo mesmo motivo de
+   * `dozeMesesAntes`: não escorregar de dia por fuso.
+   */
+  function fmtDataLonga(iso) {
+    const s = String(iso == null ? '' : iso);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const d = new Date(s + 'T12:00:00');
+    if (isNaN(d)) return s;
+    const [y, m, dd] = s.split('-');
+    return `${DIAS_SEMANA[d.getDay()]}, ${dd}/${m}/${y}`;
+  }
+
   /**
    * PURO: mesma data, 12 meses (1 ano) antes — a janela móvel do rodízio.
    * `T12:00:00` local pra não escorregar de dia em fuso horário (mesma
@@ -622,6 +675,22 @@
     if (isNaN(d)) return null;
     d.setFullYear(d.getFullYear() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /**
+   * PURO: de que data a contagem do rodízio começa a valer.
+   *
+   * Dois cortes, vence o mais recente: a janela de 12 meses móveis (que já
+   * existia) e o MARCO ZERO configurável (Rafael, 28/08/2026 — "a contagem
+   * começa em 01/09, e dá pra zerar na virada do ano"). O marco é um PISO, não
+   * um substituto: passado um ano dele, os 12 meses voltam a mandar sozinhos e
+   * ninguém precisa lembrar de mexer em nada.
+   */
+  function dataDeCorte(dataISO, marcoZero) {
+    const doze = dozeMesesAntes(dataISO);
+    if (!marcoZero) return doze;
+    if (!doze) return marcoZero;
+    return doze > marcoZero ? doze : marcoZero;
   }
 
   /**
@@ -747,14 +816,83 @@
     } catch (err) { console.error('[ScaleService.listWindowQuotas]', err); return { success: false, error: err.message, data: {} }; }
   }
 
+  // ── Histórico da escala (pedido 6, 28/08/2026) ──────────────────────
+  // Mora DENTRO do documento da escala, e não em `audit_log`, por um motivo
+  // duro: `audit_log` é `allow read: if isAdmin()`. A Supervisão, que é gestão
+  // para todo o resto da escala, não conseguiria ler — a tela nasceria invisível
+  // para metade de quem precisa dela. `special_scales` já é legível pelo módulo.
+  // 50 é teto de TAMANHO DE DOCUMENTO (Firestore, 1 MiB por doc), não política
+  // de retenção — não é "guardamos 50 dias" nem "50 ações", é só o que cabe
+  // folgado sem disputar espaço com `slots`.
+  const HISTORICO_MAX = 50;
+
+  /** PURO: acrescenta uma entrada e corta as mais velhas. */
+  function appendHistorico(lista, entrada, max) {
+    const cap = max || HISTORICO_MAX;
+    const out = (Array.isArray(lista) ? lista.slice() : []).concat([entrada]);
+    return out.length > cap ? out.slice(out.length - cap) : out;
+  }
+
+  /** PURO: o que mudou entre dois conjuntos de vagas, por NOME. */
+  function diffEscalados(antes, depois, nomePorId) {
+    const nome = (id) => (nomePorId && nomePorId[id]) || id;
+    const mapa = {};
+    (antes || []).forEach(s => { mapa[s.id] = s.assignedPersonId || null; });
+    const partes = [];
+    (depois || []).forEach(s => {
+      const a = mapa[s.id] || null;
+      const b = s.assignedPersonId || null;
+      if (a === b) return;
+      const rot = s.requiredModalityName ? ` (${s.requiredModalityName})` : '';
+      if (a && b) partes.push(`saiu ${nome(a)}, entrou ${nome(b)}${rot}`);
+      else if (b) partes.push(`entrou ${nome(b)}${rot}`);
+      else partes.push(`saiu ${nome(a)}${rot}`);
+    });
+    return partes.length ? partes.join(' · ') : 'nada mudou';
+  }
+
+  /**
+   * Grava uma linha no histórico da escala. Efeito colateral: se falhar, NÃO
+   * derruba a ação que estava sendo registrada — log perdido é ruim, ação
+   * perdida pela metade é pior.
+   *
+   * `ts` é string ISO do cliente de propósito: o Firestore recusa
+   * `serverTimestamp()` dentro de array.
+   *
+   * Isto é read-modify-write sem transação: duas ações simultâneas na MESMA
+   * escala podem perder uma linha. Aceito de propósito — é log de auditoria,
+   * não insumo do motor (diferente do contador de justiça, que era, e por isso
+   * torceu escala real). `arrayUnion` não resolveria: ele soma, não corta, e o
+   * cap de 50 deixaria de valer.
+   */
+  async function registrarHistorico(scaleId, { acao, detalhe, nome }, deps) {
+    try {
+      const ref = rdb(deps).collection('special_scales').doc(scaleId);
+      const doc = await ref.get();
+      if (!doc.exists) {
+        console.error('[ScaleService.registrarHistorico] escala não encontrada', scaleId);
+        return { success: false, error: 'Escala não encontrada' };
+      }
+      const entrada = {
+        ts: new Date().toISOString(), uid: ruid(deps) || null,
+        nome: nome || rnome(deps) || null, acao: acao || 'alterada', detalhe: detalhe || '',
+      };
+      await ref.set({ historico: appendHistorico((doc.data() || {}).historico, entrada) }, { merge: true });
+      return { success: true, data: entrada };
+    } catch (err) {
+      console.error('[ScaleService.registrarHistorico] log perdido, ação mantida', err);
+      return { success: false, error: err.message };
+    }
+  }
+
   /**
    * Monta uma escala especial: pega os candidatos elegíveis, chama o motor
    * puro (`scale-engine.js`) e grava as vagas escolhidas.
    *
    * @param {string} scaleId id do documento em `special_scales`
-   * @param {Object} ctx contrato de entrada. Nove chaves — três delas, se
+   * @param {Object} ctx contrato de entrada. Onze chaves — duas delas, se
    *   faltarem, DEGRADAM o rodízio pra "decide só por mérito" SEM ERRO
-   *   NENHUM (`teachers`, `scalesDoAno`, `ajusteById` indiretamente):
+   *   NENHUM (`teachers`, `scalesDoAno`):
    *   - {Array} teachers — candidatos (elegibilidade por modalidade é feita
    *     pelo motor, a partir de `requiredModalityId` de cada slot).
    *   - {Object<string,number>} meritoById — desempate do rodízio (fixo,
@@ -787,10 +925,16 @@
    *          cuja janela cruze a virada do ano.
    *   - {Set<string>|Array<string>} excluirDatas — datas extras a tirar da
    *     contagem, além da própria data da escala (que sai sempre).
-   *   - {Object<string,number>} ajusteById — ajuste de partida por pessoa
-   *     (ver `saveAjustePartida`/`listAjustes`); soma direto na contagem.
-   *     Lido de forma blindada aqui dentro — um chamador que não passe por
-   *     `listAjustes` pode mandar negativo ou string.
+   *   - {string|null} marcoZero — data a partir da qual a contagem vale
+   *     (`YYYY-MM-DD`). Se a chave NÃO vier, a função lê de `scale_config`;
+   *     passar `null` explicitamente desliga o marco.
+   *   - {string} [acaoHistorico] — rótulo da ação gravada no histórico da
+   *     escala (Task 9). Sem ela, vale 'consolidada'; a tela manda 'refeita'
+   *     quando o chamador é o botão 🔄 Refazer, pra não se confundir com uma
+   *     montagem qualquer no histórico.
+   *   - {Object<string,string>} [nomePorId] — nome de exibição por id, usado
+   *     só para compor o `detalhe` do histórico (quem entrou/saiu). Sem ela,
+   *     o histórico mostra o id cru — feio, mas nunca quebra.
    * @param {Object} deps
    * @returns {Promise<{success:boolean, data?:{assignments:Array}, error?:string}>}
    */
@@ -826,7 +970,35 @@
       // ano. Também resolve o lote que atravessa o ano: com ano civil, cada
       // data do lote contava num universo diferente.
       const ate = scale.date;
-      const de = dozeMesesAntes(scale.date);
+      // Marco zero: o ctx manda (é como os testes injetam), senão vale a config.
+      // Ler AQUI DENTRO e não confiar no chamador é de propósito: chamador que
+      // esquecesse de passar faria o rodízio decidir num universo diferente sem
+      // erro nenhum — a falha silenciosa clássica desta base.
+      let marcoZero = ctx.marcoZero;
+      if (marcoZero === undefined) {
+        const cfg = await ScaleConfigService.get(deps);
+        if (!cfg.success) {
+          // Mesma lógica do warn de `scalesDoAno` vazio, logo abaixo: a
+          // consolidação segue (12 meses móveis é comportamento válido), mas
+          // ninguém pode achar que o marco foi aplicado sem checar o console.
+          console.warn(`[ScaleService.consolidate] não deu pra ler scale_config para aplicar o marco zero de ${scale.date} — consolidando sem marco.`);
+          marcoZero = null;
+        } else {
+          const bruto = cfg.data && cfg.data.marcoZero;
+          // Blindado: um doc corrompido em `scale_config` (Timestamp do
+          // Firestore, string fora do formato) não pode virar corte de
+          // janela sem sentido em silêncio — mesma classe de bug que a
+          // checagem de `scale.date`, duas linhas acima, existe pra matar.
+          // Aqui o fallback (12 meses) é válido; só não pode ser mudo.
+          if (bruto && !/^\d{4}-\d{2}-\d{2}$/.test(String(bruto))) {
+            console.warn(`[ScaleService.consolidate] marco zero configurado ("${bruto}") não é uma data YYYY-MM-DD válida — ignorando e consolidando sem marco.`);
+            marcoZero = null;
+          } else {
+            marcoZero = bruto || null;
+          }
+        }
+      }
+      const de = dataDeCorte(scale.date, marcoZero);
       // `excluirDatas` tira do bolo as datas que estão sendo remontadas nesta
       // rodada e ainda carregam a escala ANTIGA — contá-las empurraria as
       // pessoas erradas. A própria data sempre sai, pelo mesmo motivo. (A
@@ -849,18 +1021,13 @@
         de, ate,
         excluirDatas: excluir,
       });
-      const ajustes = ctx.ajusteById || {};
+      // A contagem vem SÓ das escalas. O "ajuste de partida" lançado na mão foi
+      // aposentado em 28/08/2026 (pedido 1 do Rodrigo, aprovado pelo Rafael):
+      // era um segundo caminho para o mesmo número, e foi por ele que a Heloísa
+      // saiu de 4 para 7. Um caminho só não tem como divergir.
       const fairnessById = {};
       teachers.forEach(t => {
-        // Blindado: Math.max(0, Number(...)||0) do mesmo jeito que
-        // `listAjustes`/`getFairness` já fazem — um chamador que não venha
-        // por eles pode mandar negativo ou string, e NaN ordena de forma
-        // imprevisível no comparador do motor.
-        const ajuste = Math.max(0, Number(ajustes[t.id]) || 0);
-        fairnessById[t.id] = {
-          diasTrabalhados: (contagem[t.id] || 0) + ajuste,
-          divida: 0,
-        };
+        fairnessById[t.id] = { diasTrabalhados: contagem[t.id] || 0, divida: 0 };
       });
       // Quem pegou uma data vizinha (sábado ou feriado, ±7 dias) vai pro fim da
       // fila. Escola Interna e evento ficam de fora ("só pra sábado mesmo",
@@ -888,6 +1055,14 @@
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `ctx.acaoHistorico` deixa o REFAZER se identificar como tal. Sem isso,
+      // refazer a janela gravaria "consolidada" de novo e a pergunta do Rodrigo
+      // — "alguém mexeu?" — continuaria sem resposta, porque montar e REMONTAR
+      // ficariam indistinguíveis no histórico.
+      await registrarHistorico(scaleId, {
+        acao: ctx.acaoHistorico || 'consolidada',
+        detalhe: diffEscalados(scale.slots || [], newSlots, ctx.nomePorId || {}),
+      }, deps);
       return { success: true, data: { assignments: result.assignments } };
     } catch (err) { console.error('[ScaleService.consolidate]', err); return { success: false, error: err.message }; }
   }
@@ -985,6 +1160,16 @@
       }));
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ slots: newSlots, status: 'consolidada', updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      // `diffEscalados` (mesma usada em `consolidate`) responde "quem mexeu, e
+      // o quê" — a pergunta que a Task 9 existe pra responder — em vez de só
+      // "quantas vagas mexeram". Sem isso a mesma ação 'consolidada' falava
+      // duas línguas dependendo de qual das duas funções gravou.
+      // `ctx.nomePorId` (esta função recebe `ctx`, diferente de reassignSlot/
+      // swapSlots) — sem ela, o histórico cai no id cru, sem quebrar nada.
+      await registrarHistorico(scaleId, {
+        acao: 'consolidada',
+        detalhe: diffEscalados(slots, newSlots, ctx.nomePorId || {}),
+      }, deps);
       const escalados = new Set(Object.values(bySlot).filter(Boolean));
       const naoEscalados = teachers.filter(t => !escalados.has(t.id)).map(t => t.id);
       return { success: true, data: { naoEscalados, totalSlots: slots.length, diasTrabalhadosPorPessoa: working } };
@@ -1065,6 +1250,10 @@
       }
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'publicada',
+        detalhe: `${created} aula(s) na agenda${vagasAbertas.length ? ` · ${vagasAbertas.length} vaga(s) aberta(s)` : ''}`,
+      }, deps);
       return { success: true, data: { created, vagasAbertas, jaCongelados } };
     } catch (err) { console.error('[ScaleService.publishToAgenda]', err); return { success: false, error: err.message }; }
   }
@@ -1075,9 +1264,118 @@
       if (res.blocked) return { success: false, error: 'Há aulas em mês fechado; não é possível despublicar.' };
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: false, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
+      await registrarHistorico(scaleId, { acao: 'despublicada', detalhe: `${res.removed} aula(s) removida(s) da agenda` }, deps);
       return { success: true, data: { removed: res.removed } };
     } catch (err) { console.error('[ScaleService.unpublishFromAgenda]', err); return { success: false, error: err.message }; }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, getFairness, saveAjustePartida, listAjustes, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda };
+  /**
+   * Tira uma data do lote: sai da janela, as vagas são limpas e ela volta pro
+   * rascunho. Pedido 7 do Rodrigo (28/08/2026) — nasceu de 02/11 e 20/11, que
+   * foram consolidados fora de qualquer janela e ficaram com gente escalada numa
+   * escala que ninguém abriu.
+   *
+   * Se estiver publicada, despublica ANTES: deixar aula na agenda de uma escala
+   * que voltou pro rascunho é o pior dos dois mundos.
+   */
+  async function removeFromBatch(scaleId, deps) {
+    try {
+      const scaleRes = await getScale(scaleId, deps);
+      if (!scaleRes.success) return scaleRes;
+      const scale = scaleRes.data;
+      if (scale.published) {
+        const un = await unpublishFromAgenda(scaleId, deps);
+        if (!un.success) return un;   // mês fechado: erro claro, não silêncio
+      }
+      const slots = (scale.slots || []).map(s => Object.assign({}, s, {
+        assignedPersonId: null, reason: null, explain: [],
+      }));
+      await rdb(deps).collection('special_scales').doc(scaleId).set({
+        slots, status: 'rascunho', windowBatchId: null, windowClosesAt: null,
+        updatedAt: rts(deps), updatedBy: ruid(deps),
+      }, { merge: true });
+      await registrarHistorico(scaleId, {
+        acao: 'tirada_do_lote',
+        detalhe: `saiu do lote ${scale.windowBatchId || '—'}; ${(scale.slots || []).filter(s => s.assignedPersonId).length} vaga(s) limpa(s)`,
+      }, deps);
+      return { success: true, data: { erasBatchId: scale.windowBatchId || null } };
+    } catch (err) { console.error('[ScaleService.removeFromBatch]', err); return { success: false, error: err.message }; }
+  }
+
+  /**
+   * Aplica um plano vindo de `ScaleRebalance.planejar`.
+   *
+   * Data publicada É mexida (Rafael, 28/08/2026: "por erros que podem acontecer
+   * no futuro pelos gestores, deve ser possível alterar a data já publicada") —
+   * mas nunca em silêncio: republica a agenda e devolve a lista de quem precisa
+   * ser avisado. Quem avisa é a tela, que é quem tem NotifyService.
+   *
+   * Data NÃO publicada não gera aviso nenhum: o professor não enxerga escala não
+   * publicada desde 26/08, e avisar seria contar o que ele não pode ver.
+   */
+  async function aplicarRebalanceamento({ pessoaId, movimentos, nomePorId, de, para }, deps) {
+    try {
+      const nome = (id) => (nomePorId && nomePorId[id]) || id;
+      const aplicados = [], falhas = [], aRepublicar = new Set(), avisar = [];
+      for (const mv of (movimentos || [])) {
+        // `semHistoricoDeVaga`: `reassignSlot` grava 'vaga_trocada' sozinho. Aqui
+        // isso seria a MESMA informação duas vezes — 'rebalanceada' já diz
+        // "saiu X, entrou Y". E o histórico tem teto de 50: duplicar gastaria
+        // metade da janela por evento.
+        const res = await reassignSlot(mv.scaleId, mv.slotId, mv.entraId,
+          Object.assign({}, deps, { semHistoricoDeVaga: true }));
+        if (!res.success) { falhas.push(`${mv.date}: ${res.error}`); continue; }
+        // Replay do mesmo plano não é evento: sem isto, reaplicar gravaria
+        // histórico e avisaria as pessoas de uma troca que não aconteceu.
+        if (res.data && res.data.changed === false) continue;
+        aplicados.push(mv);
+        await registrarHistorico(mv.scaleId, {
+          acao: 'rebalanceada',
+          detalhe: `${nome(pessoaId)} ${de} → ${para}: saiu ${nome(mv.saiId)}, entrou ${nome(mv.entraId)}`
+                 + (mv.modalidade ? ` (${mv.modalidade})` : ''),
+        }, deps);
+        if (mv.published) aRepublicar.add(mv.scaleId);
+      }
+      for (const scaleId of aRepublicar) {
+        // 🚨 `publishToAgenda` APAGA e recria TODAS as aulas do documento, não
+        // só as do dia mexido. No fim de ano o período inteiro divide um único
+        // `scaleId`: ajustar uma pessoa num dia jogaria fora a aula já dada de
+        // outro dia — `realizada` voltaria a `prevista`, e presença/ocorrência
+        // iriam junto, porque a recriação é `.set()` em documento novo.
+        // A regra de operação de 25/08 ("só reconsolidar o que ainda não
+        // aconteceu") existia no papel; aqui ela vira trava.
+        const cls = await rdb(deps).collection('classes').where('specialScaleId', '==', scaleId).get();
+        const realizadas = cls.docs.filter(d => {
+          const c = d.data() || {};
+          return c.status === 'realizada' && !c.monthClosingId;
+        }).length;
+        if (realizadas > 0) {
+          falhas.push(`${scaleId}: ${realizadas} aula(s) já realizada(s) — republicar apagaria o registro delas. Ajuste apenas datas que ainda não aconteceram.`);
+          continue;
+        }
+        const pub = await publishToAgenda(scaleId, deps);
+        if (!pub.success) { falhas.push(`republicar ${scaleId}: ${pub.error}`); continue; }
+        // 🚨 Aula em mês fechado NÃO é recriada — `publishToAgenda` a conta em
+        // `jaCongelados` e segue como sucesso. Sem esta checagem a escala mudava,
+        // a agenda ficava com o professor ANTIGO, e ainda avisávamos as duas
+        // pessoas de uma troca que não existe na prática. É o mesmo defeito do
+        // Reconsolidar (25/08): divergência silenciosa entre escala e agenda.
+        if (pub.data && pub.data.jaCongelados > 0) {
+          falhas.push(`${scaleId}: ${pub.data.jaCongelados} aula(s) em mês fechado — a agenda NÃO foi atualizada`);
+          continue;
+        }
+        aplicados.filter(mv => mv.scaleId === scaleId && mv.published).forEach(mv => avisar.push(mv));
+      }
+      return {
+        success: falhas.length === 0,
+        data: { aplicados: aplicados.length, movimentos: aplicados, avisar, republicadas: aRepublicar.size },
+        error: falhas.length ? falhas.join(' · ') : undefined,
+      };
+    } catch (err) {
+      console.error('[ScaleService.aplicarRebalanceamento]', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });
