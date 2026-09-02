@@ -106,9 +106,21 @@ function letraColuna(i) {
 const ehNumero = v => typeof v === 'number' && isFinite(v);
 
 function montarAba(linhas) {
+  // ⚠️ `<dimension>` NÃO é enfeite. Célula vazia não é escrita (ver abaixo), então
+  // sem declarar o retângulo o SheetJS deduz o range pelas células existentes: se
+  // a coluna A estiver vazia na planilha inteira, ele começa a contar em B e
+  // DESLOCA TODAS AS COLUNAS uma casa à esquerda.
+  //
+  // O export da Pacto tem exatamente isso — uma coluna A vazia — e o adapter lê
+  // por posição. Sem esta linha, um arquivo regravado por aqui chega à tela com
+  // o nome do cliente na posição errada e o upload responde "Nenhum dado
+  // encontrado no arquivo", sem dizer por quê. Pego no staging em 01/09/2026.
+  const largura = linhas.reduce((m, l) => Math.max(m, (l || []).length), 0);
+  const ref = 'A1:' + letraColuna(Math.max(0, largura - 1)) + Math.max(1, linhas.length);
   const xml = [
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+    '<dimension ref="' + ref + '"/>',
     '<sheetData>',
   ];
   linhas.forEach((linha, li) => {
