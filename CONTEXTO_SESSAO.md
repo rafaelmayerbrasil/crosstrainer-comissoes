@@ -3,9 +3,29 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 62 (01/09/2026) — 💰 COMISSÕES VIRARAM REGIME DE CAIXA
+## 🔖 ONDE PARAMOS — sessão 62 (01/09/2026) — 💰 COMISSÕES NO REGIME DE CAIXA · ⏸️ ESPERANDO O RODRIGO
 
 ### ▶️▶️ RETOMAR AQUI
+
+**⏸️ PARADO ESPERANDO O RODRIGO.** Tudo o que estava em construção **foi publicado em produção
+hoje** — não há nada pela metade. O texto com o resumo e as perguntas foi entregue ao Rafael para
+enviar. **Não começar nada novo antes da resposta dele.**
+
+**As 6 coisas que estão com ele:**
+
+| # | o quê | tamanho |
+|---|---|---|
+| 1 | **Validar os números de agosto** — CP R$ 2.185,34 (59 ativ) · PP R$ 804,93 (29 ativ) | — |
+| 2 | **A meta de agosto** das duas unidades — sem ela o P3 do PP sai zerado; ele configura pela tela | — |
+| 3 | **Os R$ 1.107,47 de julho** — confirmar se paga junto com agosto | precisa do complemento avulso, **não construído** |
+| 4 | **`TESTE ENDEREÇO TECNOFIT`** (contrato 7117, CP) — lixo de teste poluindo a tela "A receber"; pode apagar? | — |
+| 5 | **Botão de ajuste manual do valor do estorno** — ele já pediu, para as exceções | pequeno |
+| 6 | 🔴 **Estorno que derruba a meta:** descontar a diferença do P3 no mês seguinte — ele já pediu | **o maior da lista** — exige refazer o rateio do mês sem aquela venda e comparar |
+
+**Sobre o item 6:** é a única coisa que ele pediu e o sistema ainda não faz. Enquanto não existir, um
+estorno deixa o bônus de meta errado — e ninguém vai lembrar disso na hora. Foi perguntado a ele se
+faz agora ou no primeiro caso que aparecer.
+
 
 **O regime mudou:** a comissão deixou de ser do mês da VENDA e passou a ser do mês em que o
 DINHEIRO ENTROU. Autorizado pelo Rodrigo, leitura escolhida pelo Rafael: **uma vez só por

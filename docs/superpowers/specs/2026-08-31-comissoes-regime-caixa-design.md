@@ -1,7 +1,23 @@
 # Comissões — do regime de competência para o regime de caixa
 
 **Data:** 31/08/2026 · **revisado 01/09/2026** com a resposta do Rodrigo
-**Estado:** desenho aprovado · **§4.2 construída em 01/09** (`540e106`) · resto a construir
+**Estado:** ✅ **construído e NO AR EM PRODUÇÃO em 01/09/2026** (`220cacd..d7f56a9`), exceto o que
+está marcado abaixo. ⏸️ Parado esperando o Rodrigo — ver `CONTEXTO_SESSAO.md` → sessão 62.
+
+| seção | o quê | estado |
+|---|---|---|
+| §4.1–4.3 | regra do que paga · memória de contratos · estreia | ✅ produção |
+| §4.4 | pagar o que ficou pendente (complemento avulso) | ❌ **não construído** — trava os R$ 1.107,47 |
+| §4.5 | conferência + tela "A receber" | ✅ produção, com um grupo a mais (ver nota) |
+| §4.6 | recorrentes re-vendidos | ✅ parcialmente — viraram o grupo "conferir" da tela |
+| §4.7 | estorno | ✅ produção · ❌ **falta o efeito na meta**, que o Rodrigo pediu |
+| §4.8 | meta fictícia de agosto | ⏸️ com o Rodrigo, é configuração |
+| §4.9 | comparação antigo × novo | ✅ rodada: diferença de R$ 141,79 |
+
+> 🚨 **Nota que corrige §4.5 e §4.6:** cruzar venda com pagamento **por número de contrato mente**.
+> Quando o aluno renova, a Pacto cria contrato novo e a cobrança continua caindo no antigo — a Cátia
+> renovou no 7130 e o dinheiro entrou no 6867. A tela tem **três** grupos, não dois: já recebeu ·
+> **conferir** (o cliente pagou, em outro contrato) · aguardando. Isso resolve boa parte do §4.6.
 **Substitui:** a seção "📐 A CONSTRUIR — competência e o corte do dia 15" de
 `2026-08-19-tradutor-pacto-comissoes-design.md`, que **deixa de valer**.
 
