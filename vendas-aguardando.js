@@ -23,9 +23,14 @@
 //    paga em setembro sai da lista sozinha, sem ninguém mexer.
 // ═══════════════════════════════════════════════════════════════════════
 (function (root, factory) {
+  // ⚠️ `pacto-adapter.js` declara `const PactoAdapter = {...}` no topo do
+  // arquivo — e `const` em script clássico NÃO vira `window.PactoAdapter`.
+  // Ele existe só no escopo global léxico. Procurar em `root` devolvia
+  // undefined e o upload morria com "Cannot read properties of undefined
+  // (reading 'campo')". No Node não aparecia, porque lá é `require`.
   const PA = (typeof module !== 'undefined' && module.exports)
     ? require('./pacto-adapter.js')
-    : root.PactoAdapter;
+    : (root.PactoAdapter || (typeof PactoAdapter !== 'undefined' ? PactoAdapter : null));
   const api = factory(PA);
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VendasAguardando = api;
