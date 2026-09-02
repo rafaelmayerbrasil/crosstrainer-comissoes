@@ -3170,6 +3170,12 @@
           <div style="margin-top:16px">
             <button class="btn btn-ghost btn-sm" onclick="loadPagamentos()">🔄 Atualizar</button>
           </div>
+          <div style="margin-top:16px">
+            <button class="btn btn-ghost btn-sm" onclick="openEstornoModal()"
+              title="Cliente cancelou dentro dos 30 dias e foi reembolsado: devolve a comissão daquela venda">
+              ↩️ Registrar estorno
+            </button>
+          </div>
         </div>
 
         <!-- Resumo cards -->
@@ -3233,6 +3239,7 @@
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js"></script>
+  <script src="estorno-comissao.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -10595,6 +10602,137 @@
         await imprimirReciboPagamento(vendedor, periodId, pagRef.id);
 
       } catch(e) { document.getElementById('pagModalError').textContent = 'Erro: ' + e.message; }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Estorno: cliente cancelou dentro dos 30 dias e foi reembolsado
+    // ═══════════════════════════════════════════════════════════════════
+    // A comissão daquela venda volta como CRÉDITO, que o próximo pagamento da
+    // vendedora já sabe abater sozinho. Nada é recalculado e nenhum mês fechado
+    // é tocado — a mesma razão pela qual mês pago se corrige por complemento.
+    //
+    // ⚠️ É registro da gestão, não detecção: o estorno não aparece no relatório
+    //    da Pacto (só mostra dinheiro entrando), e "cancelou dentro dos 30 dias
+    //    e foi reembolsado" é decisão de quem atendeu, não dado de arquivo.
+    //    O que o sistema faz é calcular QUANTO foi pago, para ninguém digitar
+    //    valor de cabeça.
+
+    // A política é de 30 dias, então a venda estornada é sempre recente.
+    // Seis meses é folga larga e evita varrer o histórico inteiro.
+    const ESTORNO_MESES_BUSCA = 6;
+
+    async function openEstornoModal() {
+      document.getElementById('pagModalTitle').textContent = '↩️ Registrar estorno';
+      document.getElementById('pagModalBody').innerHTML = `
+        <p style="font-size:12.5px;color:var(--text2);margin-bottom:14px">
+          Para cliente que <strong>cancelou dentro dos 30 dias e foi reembolsado</strong>.
+          A comissão daquela venda é devolvida, abatendo do próximo pagamento da vendedora.
+        </p>
+        <div class="form-group">
+          <label>Cliente ou número do contrato</label>
+          <input type="text" id="estornoBusca" placeholder="Ex.: Julia Del Fabro  ·  7078"
+            onkeydown="if(event.key==='Enter')buscarParaEstorno()"
+            style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:13px">
+        </div>
+        <button class="btn btn-sm" onclick="buscarParaEstorno()">🔍 Procurar</button>
+        <div id="estornoResultado" style="margin-top:16px"></div>
+        <div class="error-msg" id="pagModalError"></div>`;
+      document.getElementById('pagModal').classList.add('open');
+      setTimeout(() => document.getElementById('estornoBusca')?.focus(), 60);
+    }
+
+    /** Procura o contrato nos últimos meses desta unidade */
+    async function buscarParaEstorno() {
+      const termo = (document.getElementById('estornoBusca')?.value || '').trim();
+      const alvo = document.getElementById('estornoResultado');
+      if (termo.length < 3) { alvo.innerHTML = `<div style="font-size:12px;color:var(--yellow)">Digite ao menos 3 letras ou o número do contrato.</div>`; return; }
+      alvo.innerHTML = `<div class="loading"><div class="spinner"></div>Procurando…</div>`;
+
+      const snap = await db.collection('periodos').where('unitId', '==', currentUnitId).get();
+      const periodos = snap.docs
+        .map(d => ({ id: d.id, label: d.data().periodLabel || d.id, mes: (String(d.id).match(/(\d{4}-\d{2})$/) || [])[1] || '' }))
+        .sort((a, b) => b.mes.localeCompare(a.mes))
+        .slice(0, ESTORNO_MESES_BUSCA);
+
+      // Escapado de propósito: acento literal dentro de classe de caractere é
+      // exatamente o tipo de coisa que um editor "conserta" e ninguém percebe.
+      const norm = s => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const busca = norm(termo);
+      const achados = [];   // um por contrato
+      for (const p of periodos) {
+        const itensSnap = await db.collection('periodos').doc(p.id).collection('itens').get();
+        const itens = []; itensSnap.forEach(d => itens.push(d.data()));
+        const contratos = new Set();
+        itens.forEach(d => {
+          if ((d.type || 'processed') !== 'processed') return;
+          const cod = EstornoComissao.base(d.codigo);
+          if (!cod || !cod.startsWith('C')) return;          // avulso não tem contrato para estornar
+          if (norm(d.cliente).includes(busca) || cod.includes(busca.replace(/^C/, ''))) contratos.add(cod);
+        });
+        contratos.forEach(cod => {
+          const r = EstornoComissao.comissaoDoContrato(itens, cod);
+          if (r.total > 0) achados.push({ contrato: cod, periodo: p, r });
+        });
+      }
+
+      if (!achados.length) {
+        alvo.innerHTML = `<div style="font-size:12.5px;color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:14px">
+          Nada encontrado nos últimos ${ESTORNO_MESES_BUSCA} meses desta unidade.<br>
+          <span style="font-size:11.5px;color:var(--text3)">Confira a unidade no topo — a venda pode ser da outra. Venda avulsa (aula, produto) não tem contrato para estornar.</span>
+        </div>`;
+        return;
+      }
+
+      alvo.innerHTML = achados.map((a, i) => `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+          <div style="font-weight:700;font-size:13px">${a.r.itens[0].cliente || '(sem nome)'}</div>
+          <div style="font-size:11.5px;color:var(--text3);margin:2px 0 8px">
+            Contrato ${a.contrato} · ${a.periodo.label} · ${a.r.itens.length} lançamento(s)
+          </div>
+          ${Object.entries(a.r.porVendedora).map(([v, val]) =>
+            `<div style="font-size:12.5px">${v} — devolve <strong>R$ ${fmt(val)}</strong></div>`).join('')}
+          <div class="form-group" style="margin:10px 0 8px">
+            <input type="text" id="estornoMotivo${i}" placeholder="Motivo (obrigatório) — ex.: cancelou em 12/09, reembolso pago"
+              style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:12.5px">
+          </div>
+          <button class="btn btn-sm" onclick="confirmarEstorno(${i})">↩️ Estornar R$ ${fmt(a.r.total)}</button>
+        </div>`).join('');
+      window._estornoAchados = achados;
+    }
+
+    async function confirmarEstorno(i) {
+      const a = (window._estornoAchados || [])[i];
+      const errEl = document.getElementById('pagModalError');
+      if (!a) { errEl.textContent = 'Resultado expirado — procure de novo.'; return; }
+      const motivo = (document.getElementById('estornoMotivo' + i)?.value || '').trim();
+      if (!motivo) { errEl.textContent = 'Escreva o motivo — é o que explica o desconto no recibo dela.'; return; }
+
+      try {
+        const creditos = EstornoComissao.creditosDoEstorno({
+          itens: a.r.itens, contrato: a.contrato, unitId: currentUnitId,
+          periodoLabel: a.periodo.label, periodoId: a.periodo.id, motivo,
+        });
+        for (const c of creditos) {
+          await db.collection('creditos').add({
+            ...c, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: currentUser.uid,
+          });
+        }
+
+        // Sai da memória de já-comissionados: se o aluno voltar, é venda nova e
+        // paga de novo. Ficar na lista o bloquearia para sempre, em silêncio.
+        const pDoc = await db.collection('periodos').doc(a.periodo.id).get();
+        const atual = (pDoc.data() || {}).codigosPagos || [];
+        const novo = EstornoComissao.removerDaMemoria(atual, a.contrato);
+        if (novo.length !== atual.length) {
+          await db.collection('periodos').doc(a.periodo.id).set({ codigosPagos: novo }, { merge: true });
+        }
+
+        const quem = creditos.map(c => `${c.vendedor} R$ ${fmt(c.valor)}`).join(' · ');
+        toast(`Estorno registrado: ${quem}. Abate no próximo pagamento.`, 'success');
+        logAudit('pagamento_ajuste', `Estorno contrato ${a.contrato} (${a.r.itens[0].cliente || ''}) · ${a.periodo.label} · ${quem} · ${motivo}`);
+        closePagModal();
+        loadPagamentos();
+      } catch (e) { errEl.textContent = 'Erro: ' + e.message; }
     }
 
     function openComplementar(vendedor, periodId, periodLabel, diff) {
