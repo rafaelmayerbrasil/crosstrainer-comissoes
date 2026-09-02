@@ -35,10 +35,23 @@ um anual de 19/08 no PP **sem pagamento identificado** — o exemplo perfeito da
 recíproca não vale: **72 contratos vendidos em agosto não estão na lista** (Francini 22 · Kali 15 ·
 Rodrigo Rojais 14 · Bárbara 11). **A lista do grupo não é o gabarito do mês.**
 
-### ▶️ PRÓXIMO PASSO: PUBLICAR A IMPORTAÇÃO EM PRODUÇÃO
+### ✅ PUBLICADO EM PRODUÇÃO (01/09/2026, `220cacd..4dcaa34`)
 
-Decisão do Rafael em 01/09: **a academia está sem dados em produção** e a importação do arquivo da
-Pacto precisa subir. Publicar = **`git push origin main`** (GitHub Pages), não `firebase deploy`.
+A academia estava **sem dados em produção** desde que o TecnoFit acabou — foi essa a razão de
+publicar antes das respostas do Rodrigo. Subiu tudo: importação, regra "uma vez só" e estorno.
+`commission.js` **não foi tocado**. Sem colisão com a escala das sessões 59–61 (eles em
+`professores-*`, nós em `index.html`). **63 smokes verdes.**
+
+Provado no código servido pelo GitHub Pages (`projectId: crosstrainer-comissoes`): parcela seguinte
+barrada com o motivo escrito · avulso continua pagando · relatório gêmeo recusado · estorno
+calculando R$ 27,95 · zero erro de console.
+
+⚠️ **Em produção nenhum período tem `codigosPagos` ainda** — a lista nasce no primeiro upload que a
+gestão fizer. Então o comportamento imediato é idêntico ao de antes, e a regra só passa a morder em
+**outubro**, quando voltarem as parcelas dos anuais de setembro. É o esperado, não um defeito.
+
+⚠️ **O estorno subiu sem clique humano.** É inerte até alguém apertar o botão, e o Rafael quer
+confirmar a regra com o Rodrigo (reembolso parcial devolve integral? divisão? P3 não recalcula).
 
 **⏳ Ainda com o Rodrigo, não bloqueiam a publicação:** a **meta de agosto** das duas unidades (ele
 configura pela tela) · os **R$ 1.107,47** pendentes (R$ 599,35 de julho + R$ 508,12 das vendas que o
