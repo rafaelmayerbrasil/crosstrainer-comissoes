@@ -3204,6 +3204,7 @@
           <button class="tab-btn active" onclick="switchVendorTab('vtabResumo',this)">Resumo</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabComissoes',this)">Comissões</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabAtivacoes',this)">Ativações</button>
+          <button class="tab-btn" onclick="switchVendorTab('vtabAReceber',this)">💰 A receber</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabDiferidos',this)">⏳ Diferidos</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabHistorico',this)">📋 Histórico</button>
         </div>
@@ -3217,6 +3218,9 @@
         </div>
         <div id="vtabAtivacoes" style="display:none">
           <div id="vendorAtivacoesContent"></div>
+        </div>
+        <div id="vtabAReceber" style="display:none">
+          <div id="vendorAReceberContent"></div>
         </div>
         <div id="vtabDiferidos" style="display:none">
           <div id="vendorDiferidosContent"></div>
@@ -3240,6 +3244,7 @@
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js"></script>
   <script src="estorno-comissao.js"></script>
+  <script src="vendas-aguardando.js"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -4283,6 +4288,50 @@
       return [...todos];
     }
 
+    /**
+     * Guarda as vendas do relatório de vendas no doc de cada período.
+     *
+     * Vai no PRÓPRIO documento do período (campo `vendasDoMes`), não em uma
+     * subcoleção: regra de subcoleção não herda do pai, e uma coleção nova
+     * exigiria deploy de Security Rules — que já derrubou Comissões uma vez.
+     * São ~70 vendas por mês, alguns KB num limite de 1 MB.
+     */
+    async function registrarVendasDoPeriodo() {
+      const grupos = window._vendasParaRegistrar || {};
+      const chaves = Object.keys(grupos);
+      if (!chaves.length) { toast('Nada para registrar.', 'error'); return; }
+      try {
+        let gravados = 0, total = 0;
+        for (const chave of chaves) {
+          const [sigla, mes] = chave.split('|');
+          // A sigla do arquivo (CP) não é o id da unidade no sistema (unit-cp/cp)
+          const unitId = (await unitIdDaSigla(sigla));
+          if (!unitId) continue;
+          const periodId = `${unitId}_${mes}`;
+          const [ano, m] = mes.split('-');
+          await db.collection('periodos').doc(periodId).set({
+            unitId, year: Number(ano), month: Number(m),
+            vendasDoMes: grupos[chave],
+            vendasAtualizadasEm: firebase.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          gravados++; total += grupos[chave].length;
+        }
+        toast(`${total} venda(s) registradas em ${gravados} período(s). Veja em "A receber".`, 'success');
+        logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`);
+        window._vendasParaRegistrar = null;
+        initUpload();
+      } catch (e) { toast('Erro ao registrar: ' + e.message, 'error'); }
+    }
+
+    /** 'CP' → o id da unidade neste ambiente (`cp` em produção, `unit-cp` no staging) */
+    async function unitIdDaSigla(sigla) {
+      const snap = await db.collection('units').get();
+      const ids = snap.docs.map(d => d.id);
+      return PactoAdapter.siglaDaUnidade(currentUnitId, [sigla]) === sigla
+        ? currentUnitId
+        : ids.find(id => String(id).toUpperCase().replace(/[^A-Z]/g, '').endsWith(sigla)) || '';
+    }
+
     function handleFile(file) {
       const reader = new FileReader();
       reader.onload = async e => {
@@ -4312,18 +4361,41 @@
             // A Pacto tem DOIS relatórios com as MESMAS colunas nas mesmas
             // posições. O "Faturamento por Período" traz o contrato inteiro em
             // vez da parcela — 12× num anual — e a comissão é 5% desse valor.
+            // O "Faturamento por Período" (relatório de VENDAS) continua PROIBIDO
+            // no cálculo: ele traz o contrato inteiro em vez da parcela, e pagaria
+            // 12× a mais num anual. Mas ele é a única fonte do que foi VENDIDO —
+            // venda sem pagamento não existe no relatório de recebimentos. Então
+            // aqui ele ganha um caminho próprio, que só alimenta a conferência.
             if (pacto.relatorio !== 'recebido') {
+              const vendasPorGrupo = VendasAguardando.extrair(json);
+              const totalVendas = Object.values(vendasPorGrupo).reduce((s, v) => s + v.length, 0);
+              window._vendasParaRegistrar = vendasPorGrupo;
+              const resumo = Object.entries(vendasPorGrupo)
+                .sort((a, b) => a[0].localeCompare(b[0]))
+                .map(([k, v]) => `<div>${k.replace('|', ' · ')} — <strong>${v.length}</strong> venda(s)</div>`).join('');
+
               document.getElementById('uploadPreview').style.display = 'none';
               document.getElementById('uploadActions').style.display = 'none';
               document.getElementById('uploadZone').innerHTML = `
-                <div style="color:var(--red);padding:20px">
-                  <div style="font-size:40px;margin-bottom:10px">🛑</div>
-                  <h3 style="margin-bottom:8px">Este é o relatório errado da Pacto</h3>
-                  <p style="font-size:13px;margin-bottom:16px">Parece o <strong>"Faturamento por Período"</strong>. Ele tem as mesmas colunas do certo, mas traz o <strong>valor do contrato inteiro</strong> em vez da parcela que entrou — num plano anual dá 12× a mais.</p>
-                  <p style="font-size:12px;color:var(--text3)">Use o relatório <strong>"Faturamento Recebido"</strong> (o arquivo começa com <code>faturamento-recebido_</code>).</p>
-                  <button class="btn btn-sm" style="margin-top:20px" onclick="initUpload()">Tentar novamente</button>
+                <div style="padding:20px;text-align:left;max-width:560px;margin:0 auto">
+                  <div style="font-size:40px;margin-bottom:10px;text-align:center">📋</div>
+                  <h3 style="margin-bottom:8px;text-align:center">Este é o relatório de <u>vendas</u></h3>
+                  <p style="font-size:13px;margin-bottom:14px">
+                    Ele <strong>não entra no cálculo da comissão</strong> — traz o valor do contrato inteiro
+                    em vez da parcela que entrou, e num plano anual daria 12× a mais.
+                  </p>
+                  <p style="font-size:13px;margin-bottom:14px">
+                    Mas ele é a única fonte do que foi <strong>vendido</strong>. Registrando aqui, cada vendedora
+                    passa a ver o que fechou e <strong>ainda não teve pagamento identificado</strong>.
+                  </p>
+                  ${totalVendas ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
+                  <div style="font-size:12.5px;color:var(--yellow);margin-bottom:16px">Nenhuma venda reconhecida neste arquivo.</div>`}
+                  <div style="display:flex;gap:8px;justify-content:center">
+                    <button class="btn btn-ghost btn-sm" onclick="initUpload()">Cancelar</button>
+                    ${totalVendas ? `<button class="btn btn-sm" onclick="registrarVendasDoPeriodo()">📋 Registrar ${totalVendas} venda(s) para conferência</button>` : ''}
+                  </div>
                 </div>`;
-              toast('Relatório errado: use o "Faturamento Recebido".', 'error');
+              toast('Relatório de vendas: não entra no cálculo, só na conferência.', 'info');
               return;
             }
 
@@ -6012,6 +6084,7 @@
         <button class="tab-btn" onclick="switchDashTab('tabAtivacoes',this)">Ativações</button>
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
         <button class="tab-btn" onclick="switchDashTab('tabDivisoes',this)">🔀 Divisões</button>
+        <button class="tab-btn" onclick="switchDashTab('tabAReceber',this)">💰 A Receber</button>
         <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
         <button class="tab-btn" onclick="switchDashTab('tabHistorico',this)">📋 Histórico</button>
       </div>
@@ -6187,6 +6260,10 @@
       <div id="tabRelatorio" style="display:none">
         <div id="relatorioContent"></div>
       </div> <!-- END tabRelatorio -->
+
+      <div id="tabAReceber" style="display:none">
+        <div id="aReceberContent"></div>
+      </div> <!-- END tabAReceber -->
 
       <div id="tabDiferidos" style="display:none">
         <div id="diferidosContent"></div>
@@ -6603,7 +6680,7 @@
       const tabs = document.getElementById('vendorTabs');
       if (tabs) tabs.style.display = '';
       // Reset to Resumo tab
-      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos','vtabHistorico'].forEach(id => {
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabAReceber','vtabDiferidos','vtabHistorico'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = id === 'vtabResumo' ? '' : 'none';
       });
@@ -7186,7 +7263,7 @@
     // VENDOR TABS SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchVendorTab(tabId, btn) {
-      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabDiferidos','vtabHistorico'].forEach(id => {
+      ['vtabResumo','vtabComissoes','vtabAtivacoes','vtabAReceber','vtabDiferidos','vtabHistorico'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
@@ -7203,6 +7280,7 @@
         const data = window.currentVendorPeriodData;
         if (tabId === 'vtabComissoes') renderVendorComissoesTab(periodId, myName, data);
         else if (tabId === 'vtabAtivacoes') renderVendorAtivacoesTab(periodId, myName);
+        else if (tabId === 'vtabAReceber') renderAReceberTab('vendorAReceberContent', periodId, myName);
         else if (tabId === 'vtabDiferidos') renderVendorDiferidosTab(data, periodId, myName);
         else if (tabId === 'vtabHistorico') renderVendorHistoricoTab(periodId, myName);
         window._vendorLoadedTabs.add(tabId);
@@ -7418,6 +7496,111 @@
 
         el.innerHTML = html;
       } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Aba "A receber" — vendi e o dinheiro ainda não entrou
+    // ══════════════════════════════════════════════════════════════════
+    // Sob regime de caixa a comissão só nasce quando o cliente paga. Sem esta
+    // tela a vendedora compara a lista dela com o pagamento, não bate, e conclui
+    // que o sistema errou. Aqui ela vê onde está o que vendeu.
+    //
+    // A fonte é o relatório de VENDAS, registrado à parte (`vendasDoMes`) —
+    // venda sem pagamento não existe no relatório de recebimentos. E o que faz
+    // uma venda sair daqui é a MESMA lista que impede pagar duas vezes:
+    // apareceu em `codigosPagos` de qualquer mês, o dinheiro entrou.
+    //
+    // @param {string} elId    onde desenhar
+    // @param {string} periodId
+    // @param {string} soDe    nome da vendedora; vazio = visão da gestão
+    async function renderAReceberTab(elId, periodId, soDe) {
+      const el = document.getElementById(elId);
+      if (!el || !periodId) return;
+      el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+      try {
+        const pDoc = await db.collection('periodos').doc(periodId).get();
+        const pData = pDoc.exists ? pDoc.data() : {};
+        const vendas = pData.vendasDoMes || [];
+
+        if (!vendas.length) {
+          el.innerHTML = `
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center">
+              <div style="font-size:32px;margin-bottom:8px">📋</div>
+              <div style="font-weight:700;margin-bottom:6px">Sem a lista de vendas deste mês</div>
+              <div style="font-size:12.5px;color:var(--text2);max-width:420px;margin:0 auto">
+                Esta tela mostra o que foi <strong>vendido</strong> e ainda não teve pagamento identificado.
+                Para isso a gestão precisa subir, em <strong>Upload</strong>, o relatório
+                <strong>"Faturamento por Período"</strong> da Pacto — o de vendas, além do de recebimentos.
+              </div>
+            </div>`;
+          return;
+        }
+
+        // Um contrato deixa de aguardar quando aparece na memória de QUALQUER
+        // mês desta unidade: venda de agosto paga em setembro já entrou.
+        const unitId = pData.unitId || currentUnitId;
+        const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+        const pagos = [];
+        snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
+
+        const r = VendasAguardando.cruzar(vendas, pagos);
+        const lista = soDe ? VendasAguardando.daVendedora(r.aguardando, soDe) : r.aguardando;
+        const totalContratos = lista.reduce((s, v) => s + (v.valorContrato || 0), 0);
+
+        if (!lista.length) {
+          el.innerHTML = `
+            <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:24px;text-align:center">
+              <div style="font-size:32px;margin-bottom:8px">✅</div>
+              <div style="font-weight:700">Tudo que ${soDe ? 'você vendeu' : 'foi vendido'} neste mês já teve pagamento identificado.</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:6px">${r.pagas.length} venda(s) conferida(s).</div>
+            </div>`;
+          return;
+        }
+
+        const porVend = {};
+        if (!soDe) lista.forEach(v => (v.vendedores.length ? v.vendedores : ['(sem vendedora)'])
+          .forEach(nm => porVend[nm] = (porVend[nm] || 0) + 1));
+
+        el.innerHTML = `
+          <div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:10px;padding:16px;margin-bottom:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">
+              ⏳ ${lista.length} venda(s) fechada(s) sem pagamento identificado
+            </div>
+            <div style="font-size:12px;color:var(--text2)">
+              A comissão nasce quando o cliente paga. Estas continuam ${soDe ? 'suas' : 'na fila'} — quando o dinheiro entrar,
+              elas caem no fechamento daquele mês, sem ninguém precisar avisar.
+            </div>
+            ${Object.keys(porVend).length ? `<div style="font-size:12px;margin-top:10px">${
+              Object.entries(porVend).sort((a,b)=>b[1]-a[1])
+                .map(([n,q]) => `<span style="display:inline-block;margin-right:12px"><strong>${n}</strong>: ${q}</span>`).join('')
+            }</div>` : ''}
+          </div>
+          <div class="table-wrap">
+            <table style="width:100%">
+              <thead><tr>
+                <th>Cliente</th><th>Fechada em</th><th>Tipo</th>
+                ${soDe ? '' : '<th>Vendedora</th>'}
+                <th style="text-align:right">Valor do contrato</th>
+              </tr></thead>
+              <tbody>
+                ${lista.sort((a,b)=>String(a.data).split('/').reverse().join('').localeCompare(String(b.data).split('/').reverse().join('')))
+                  .map(v => `<tr>
+                    <td style="font-weight:600">${v.cliente}<br><span style="font-size:10.5px;color:var(--text3)">contrato ${v.contrato}${v.inicio && /\d/.test(v.inicio) ? ' · início ' + v.inicio : ''}</span></td>
+                    <td>${v.data}</td>
+                    <td>${v.situacao || '—'}</td>
+                    ${soDe ? '' : `<td style="font-size:12px">${v.vendedores.join(', ') || '—'}</td>`}
+                    <td class="currency">R$ ${fmt(v.valorContrato)}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:10px">
+            ⚠️ O valor mostrado é o do <strong>contrato inteiro</strong>, não o da comissão. A comissão sai sobre
+            o que o cliente efetivamente pagar — num plano anual parcelado, sobre a primeira parcela.
+          </div>`;
+      } catch (e) {
+        el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`;
+      }
     }
 
     // ── Aba Diferidos (vendedora) ──
@@ -7772,7 +7955,7 @@
     // DASHBOARD TAB SWITCHER
     // ═══════════════════════════════════════════════════════════════
     function switchDashTab(tabId, btn) {
-      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDivisoes', 'tabDiferidos', 'tabHistorico'];
+      const allTabs = ['tabResumo', 'tabRegistros', 'tabComissoes', 'tabAtivacoes', 'tabRelatorio', 'tabDivisoes', 'tabAReceber', 'tabDiferidos', 'tabHistorico'];
       allTabs.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       document.querySelectorAll('.admin-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       const target = document.getElementById(tabId);
@@ -7785,7 +7968,8 @@
         const data = window.currentPeriodData;
         const periodId = currentPeriodId;
 
-        if (tabId === 'tabRegistros') renderRecordsTable(periodId);
+        if (tabId === 'tabAReceber') renderAReceberTab('aReceberContent', periodId, '');
+        else if (tabId === 'tabRegistros') renderRecordsTable(periodId);
         else if (tabId === 'tabComissoes') renderComissoesTab(data, periodId);
         else if (tabId === 'tabAtivacoes') renderAtivacoesTab(periodId);
         else if (tabId === 'tabRelatorio') renderRelatorioTab(data, periodId);
