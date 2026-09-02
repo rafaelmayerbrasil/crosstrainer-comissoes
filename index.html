@@ -7557,11 +7557,25 @@
         const pagos = [];
         snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
 
-        const r = VendasAguardando.cruzar(vendas, pagos);
+        // Quem PAGOU alguma coisa de CONTRATO no mês. Serve para separar a
+        // renovação que trocou de número de contrato (o dinheiro entrou, mas no
+        // contrato antigo) de quem realmente não pagou nada. Bar e loja não
+        // contam: pagar uma água não paga o plano.
+        const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+        const clientesPagantes = [];
+        itensSnap.forEach(d => {
+          const it = d.data();
+          if ((it.type || 'processed') !== 'processed') return;
+          if (!/^C\d+/i.test(String(it.codigo || ''))) return;
+          if (it.cliente) clientesPagantes.push(it.cliente);
+        });
+
+        const r = VendasAguardando.cruzar(vendas, pagos, clientesPagantes);
         const lista = soDe ? VendasAguardando.daVendedora(r.aguardando, soDe) : r.aguardando;
+        const conferir = soDe ? VendasAguardando.daVendedora(r.conferir, soDe) : r.conferir;
         const totalContratos = lista.reduce((s, v) => s + (v.valorContrato || 0), 0);
 
-        if (!lista.length) {
+        if (!lista.length && !conferir.length) {
           el.innerHTML = `
             <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:24px;text-align:center">
               <div style="font-size:32px;margin-bottom:8px">✅</div>
@@ -7575,7 +7589,24 @@
         if (!soDe) lista.forEach(v => (v.vendedores.length ? v.vendedores : ['(sem vendedora)'])
           .forEach(nm => porVend[nm] = (porVend[nm] || 0) + 1));
 
+        const blocoConferir = !conferir.length ? '' : `
+          <div style="background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:10px;padding:16px;margin:18px 0 8px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:4px">
+              ❓ ${conferir.length} venda(s) para conferir
+            </div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
+              Estes clientes <strong>pagaram no mês, mas em outro número de contrato</strong> — o caso típico é a
+              renovação: a Pacto cria um contrato novo e a cobrança continua caindo no antigo. Provavelmente a
+              comissão já foi paga; vale conferir antes de cobrar de novo.
+            </div>
+            <div style="font-size:12px">
+              ${conferir.map(v => `<div style="padding:3px 0">• <strong>${v.cliente}</strong> — contrato ${v.contrato} · ${v.situacao || ''} · fechada em ${v.data}${v.vendedores.length ? ' · ' + v.vendedores.join(', ') : ''}</div>`).join('')}
+            </div>
+          </div>`;
+
         el.innerHTML = `
+          ${!lista.length ? blocoConferir : ''}
+          ${!lista.length ? '' : `
           <div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:10px;padding:16px;margin-bottom:16px">
             <div style="font-size:13px;font-weight:700;margin-bottom:4px">
               ⏳ ${lista.length} venda(s) fechada(s) sem pagamento identificado
@@ -7611,7 +7642,8 @@
           <div style="font-size:11.5px;color:var(--text3);margin-top:10px">
             ⚠️ O valor mostrado é o do <strong>contrato inteiro</strong>, não o da comissão. A comissão sai sobre
             o que o cliente efetivamente pagar — num plano anual parcelado, sobre a primeira parcela.
-          </div>`;
+          </div>`}
+          ${lista.length ? blocoConferir : ''}`;
       } catch (e) {
         el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`;
       }

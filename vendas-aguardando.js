@@ -37,7 +37,11 @@
 })(typeof window !== 'undefined' ? window : globalThis, function (PA) {
   'use strict';
 
-  const norm = s => String(s || '').trim().toUpperCase();
+  // Tira acento também: o mesmo cliente vem "CÁTIA" num relatório e "CATIA" no
+  // outro, e sem isso a mesma pessoa vira duas.
+  const norm = s => String(s || '').trim().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
 
   return {
     /** Só o relatório de VENDAS entra por aqui — o de recebimentos é o outro caminho */
@@ -102,15 +106,35 @@
     /**
      * Separa o que ainda espera pagamento do que já recebeu.
      *
-     * @param {Array} vendas         saída de `extrair`, de um mês/unidade
-     * @param {Array<string>} pagos  códigos já comissionados, de QUALQUER mês
+     * ⚠️ SÓ O NÚMERO DO CONTRATO NÃO BASTA — medido no dado real de agosto/2026.
+     * Quando o aluno renova, a Pacto cria um contrato NOVO, mas a cobrança do mês
+     * pode continuar caindo no contrato ANTIGO (o migrado do TecnoFit, que segue
+     * vivo). A Cátia é o caso: renovação no contrato 7130 em 27/08, e o dinheiro
+     * dela entrou no contrato 6867 em 12/08. Cruzando só por número, a venda dela
+     * parecia parada — e a comissão já tinha sido paga.
+     *
+     * Por isso o resultado tem TRÊS grupos, e não dois. O do meio não é chute: é
+     * a pergunta que só a gestão responde, mostrada em vez de escondida.
+     *
+     * @param {Array} vendas          saída de `extrair`, de um mês/unidade
+     * @param {Array<string>} pagos   códigos já comissionados, de QUALQUER mês
+     * @param {Array<string>} clientesPagantes  clientes com recebimento DE CONTRATO
+     *        no período (bar e loja não contam — pagar uma água não paga o plano)
+     * @returns {{aguardando, conferir, pagas, porVendedora}}
      */
-    cruzar(vendas, pagos) {
+    cruzar(vendas, pagos, clientesPagantes) {
       const jaPagou = PA.contratosDe(pagos);
-      const aguardando = [], pagas = [];
+      const pagante = new Set((clientesPagantes || []).map(norm));
+      const aguardando = [], conferir = [], pagas = [];
+
       (vendas || []).forEach(v => {
         const num = String(v.contrato).replace(/^C/i, '');
-        (jaPagou.has(num) ? pagas : aguardando).push(v);
+        if (jaPagou.has(num)) { pagas.push(v); return; }
+        if (pagante.has(norm(v.cliente))) {
+          conferir.push({ ...v, motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número' });
+          return;
+        }
+        aguardando.push(v);
       });
 
       const porVendedora = {};
@@ -121,7 +145,7 @@
           x.valorContratos = Math.round((x.valorContratos + v.valorContrato) * 100) / 100;
         });
       });
-      return { aguardando, pagas, porVendedora };
+      return { aguardando, conferir, pagas, porVendedora };
     },
 
     /** As vendas de uma pessoa — a dividida conta para as duas */

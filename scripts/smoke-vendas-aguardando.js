@@ -89,7 +89,47 @@ const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 3. O que NÃO é venda esperando dinheiro
+// 3. 🚨 Renovação que trocou de número de contrato
+// ════════════════════════════════════════════════════════════════════
+{
+  // Medido no dado real de agosto/2026: quando o aluno renova, a Pacto cria um
+  // contrato NOVO, mas a cobrança do mês continua caindo no ANTIGO. A Cátia
+  // renovou no 7130 em 27/08 e o dinheiro dela entrou no 6867 em 12/08.
+  // Cruzando só por número, a venda parecia parada e a comissão já tinha sido paga.
+  const vendas = VA.extrair([cab(),
+    linha({ contrato: '7130', nome: 'CÁTIA TEREZINHA' }),
+    linha({ contrato: '7999', nome: 'NINGUEM PAGOU' }),
+  ])['CP|2026-08'];
+
+  const semCliente = VA.cruzar(vendas, []);
+  assert.strictEqual(semCliente.aguardando.length, 2, 'sem a lista de clientes, as duas ficam paradas');
+
+  const comCliente = VA.cruzar(vendas, [], ['CÁTIA TEREZINHA']);
+  assert.strictEqual(comCliente.aguardando.length, 1, 'só a que não pagou nada continua parada');
+  assert.strictEqual(comCliente.aguardando[0].cliente, 'NINGUEM PAGOU');
+  assert.strictEqual(comCliente.conferir.length, 1, 'a outra vai para conferência, não some');
+  assert.ok(/outro contrato/.test(comCliente.conferir[0].motivoConferir));
+  ok('renovação cujo pagamento caiu no contrato antigo vai para conferência, não para "parada"');
+}
+{
+  // ⚠️ Pagar uma água não paga o plano: só recebimento DE CONTRATO conta.
+  // Chris Mitchell tinha R$ 28 de bar no mês e a venda dele seguia sem pagamento.
+  const vendas = VA.extrair([cab(), linha({ contrato: '4614', nome: 'CHRIS MITCHELL' })])['CP|2026-08'];
+  const r = VA.cruzar(vendas, [], []);   // quem só comprou no bar não entra na lista
+  assert.strictEqual(r.aguardando.length, 1, 'continua aguardando');
+  assert.strictEqual(r.conferir.length, 0);
+  ok('compra no bar não conta como pagamento do contrato');
+}
+{
+  // O nome vem com acento e caixa diferentes entre os dois relatórios
+  const vendas = VA.extrair([cab(), linha({ contrato: '7130', nome: 'CÁTIA TEREZINHA PEREIRA TORRES' })])['CP|2026-08'];
+  const r = VA.cruzar(vendas, [], ['catia terezinha pereira torres']);
+  assert.strictEqual(r.conferir.length, 1, 'acento e caixa não podem separar a mesma pessoa');
+  ok('o casamento por cliente ignora acento e maiúscula');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 4. O que NÃO é venda esperando dinheiro
 // ════════════════════════════════════════════════════════════════════
 {
   const linhas = [cab(),
