@@ -1,7 +1,7 @@
 # Comissões — do regime de competência para o regime de caixa
 
 **Data:** 31/08/2026 · **revisado 01/09/2026** com a resposta do Rodrigo
-**Estado:** desenho aprovado pelo Rafael e pelo Rodrigo · a construir
+**Estado:** desenho aprovado · **§4.2 construída em 01/09** (`540e106`) · resto a construir
 **Substitui:** a seção "📐 A CONSTRUIR — competência e o corte do dia 15" de
 `2026-08-19-tradutor-pacto-comissoes-design.md`, que **deixa de valer**.
 
@@ -80,6 +80,26 @@ mês seguinte. E no seguinte.
 fundos: distribuída no tempo, crescendo a cada mês, **sem nenhum erro na tela**. É por isso que a
 regra "uma vez só por contrato" precisa deixar de ser efeito colateral e virar regra escrita.
 
+#### 💸 Quanto custaria — medido no export de agosto (01/09)
+
+Agosto vendeu **112 contratos com plano legível**, e destes **32 são parcelados** (44 linhas "EM 12
+VEZES" e 1 "EM 24 VEZES", agrupadas por contrato). Só eles, reaparecendo em setembro:
+
+| | |
+|---|---:|
+| soma das parcelas de um mês | R$ 11.927,16 |
+| P1 indevido (5%) | R$ 596,36 |
+| P2 indevido (bônus de anual/bianual) | R$ 1.060,00 |
+| **comissão indevida em setembro** | **R$ 1.656,36** |
+
+Para comparar: **a folha inteira de comissão de agosto foi R$ 2.522,06.** O erro no primeiro mês
+já seria **65% maior que tudo o que se pagou**, e **acumula** — em outubro entram também os
+parcelados de setembro, e assim por diante.
+
+Os planos **mensais recorrentes** (88 contratos, duração 1) têm uma segunda defesa: a cobrança
+automática do mês seguinte vem com `RECORRENCIA` no `Responsável`#2 e o motor já a exclui. A
+memória de contratos é a rede embaixo dessa, para quando o sinal falhar.
+
 ### 3.3 O mecanismo de pagar valor pendente já existe — e re-subir mês fechado não serve
 
 O módulo já tem **recibo complementar** (`tipo: 'complementar'`, com banner próprio e referência
@@ -113,7 +133,7 @@ cliente, não da venda**. Se a regra valesse para avulso, a segunda aula que a m
 comprasse seria bloqueada em silêncio como "já pago". Avulso (aula, água, loja, avaliação) **paga
 sempre**: cada compra é uma venda.
 
-### 4.2 A memória de contratos comissionados
+### 4.2 A memória de contratos comissionados ✅ CONSTRUÍDA em 01/09
 
 Para saber se é o primeiro recebimento, o sistema precisa lembrar quais contratos já pagaram.
 
