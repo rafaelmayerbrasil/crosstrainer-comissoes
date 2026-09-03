@@ -368,7 +368,11 @@ const VIZINHAS = [
     const fs = require('fs');
     const path = require('path');
     const ui = fs.readFileSync(path.join(__dirname, '..', 'professores-escala-smart.js'), 'utf8');
-    assert.ok(/id: 'pessoa'/.test(ui), 'existe a aba pessoa');
+    // A lista de abas virou função pura em 03/09/2026 (ScaleService.abasDaEscala),
+    // porque passou a mudar de conteúdo por público. Então aqui se CHAMA a
+    // função, em vez de procurar o texto no arquivo da tela.
+    const abasGestao = require('../scale-service.js').abasDaEscala({ gestao: true });
+    assert.ok(abasGestao.some(t => t.id === 'pessoa'), 'existe a aba pessoa');
     assert.ok(/function renderTabPorPessoa/.test(ui), 'existe a tela da aba');
     assert.ok(/window\.escalaSetPessoa\s*=/.test(ui), 'o seletor de pessoa está registrado no window');
     assert.ok(/function escalaHistoricoAnoHtml/.test(ui), 'existe o histórico do ano');

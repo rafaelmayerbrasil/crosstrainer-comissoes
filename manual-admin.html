@@ -141,6 +141,13 @@
     <div class="tip">💡 <strong>Nunca apague uma pessoa que já trabalhou.</strong> Apagar quebra o histórico e os fechamentos antigos. Desligar é o caminho certo — e o botão <strong>Religar</strong> traz de volta se ela voltar.</div>
   </div>
   <div class="card">
+    <h3>🎓 Dar ficha de professor a quem já tem login</h3>
+    <p>Ter o perfil <strong>professor</strong> no login <strong>não basta</strong> pra pessoa entrar na escala. Quem entra no sorteio são as <strong>fichas de professor</strong> — sem ficha, a pessoa simplesmente não é candidata, e ninguém avisa.</p>
+    <p>Isso acontece com quem entrou no sistema por outro caminho: um admin ou alguém da supervisão que também dá aula. O assistente <strong>"Nova pessoa"</strong> não serve pra eles, porque cria ficha <em>e</em> login juntos — e o login já existe.</p>
+    <p>O caminho é a ficha: <strong>Cadastros → Pessoas → a pessoa → aba Professor → "Criar ficha de professor"</strong>. Preencha tipo, unidades e modalidades como em qualquer professor. Só admin faz isso.</p>
+    <div class="tip">💡 Se a ficha existir mas o <strong>login não tiver o perfil de professor</strong>, a aba Professor avisa. Nesse estado a pessoa até entra no sorteio, mas não consegue abrir a tela da Escala pra se candidatar — marque o perfil na aba <strong>🔑 Acesso</strong>.</div>
+  </div>
+  <div class="card">
     <h3>💸 "Não recebe por aula"</h3>
     <p>É a marca pro sócio ou parceiro que <strong>dá aula mas não é pago por ela</strong>. A pessoa entra na escala, aparece na agenda e conta pro rodízio normalmente — só <strong>não gera pagamento</strong> no fechamento.</p>
   </div>
@@ -232,6 +239,17 @@
       <li>Na <strong>Revisão de fechamento</strong> você vê a matriz pessoas × datas: quem se candidatou, quem não, e as vagas em aberto.</li>
       <li><strong>Confirmar e avisar</strong> consolida por preferência + justiça (quem já pegou mais ou menos) e notifica o time. As aulas entram na agenda automaticamente.</li>
     </ol>
+  </div>
+  <div class="card">
+    <h3>🚫 Domingo não entra na escala</h3>
+    <p>A academia não abre no domingo, então <strong>não existe escala em domingo</strong> — e, com isso, não existe feriado em domingo. Quando um feriado nacional cai num domingo (a Páscoa, e a Proclamação da República em 2026), ele <strong>não aparece</strong> na lista de sugestões da aba Feriados. Uma nota abaixo da lista diz quais ficaram de fora, pra você não procurar em vão.</p>
+    <p>O sistema também <strong>recusa</strong> criar ou mover qualquer escala de sábado, feriado ou Escola Interna pra um domingo, e a escala de <strong>fim de ano pula os domingos sozinha</strong> — você não precisa marcá-los como dia fechado.</p>
+    <div class="tip">💡 <strong>Evento</strong> continua livre em domingo: trilha, beach games e campeonato não são aula e não dependem da academia estar aberta.</div>
+  </div>
+  <div class="card">
+    <h3>🙋 Quem é da gestão e também dá aula</h3>
+    <p>Se você é admin ou supervisão <strong>e tem ficha de professor</strong>, a Escala Inteligente ganha uma aba a mais: <strong>🙋 Minhas datas</strong>. É a mesma tela que o professor vê — você se candidata com <em>Prefiro / Pode ser / Não posso</em> e diz quantos dias quer na janela, sem sair da visão de gestão.</p>
+    <div class="tip">💡 A aba só aparece pra quem tem <strong>ficha de professor</strong>. Se ela não estiver aí, o caminho é <strong>Pessoas → sua ficha → aba Professor → "Criar ficha de professor"</strong>.</div>
   </div>
   <div class="card">
     <h3>📣 Eventos: reunião, treinamento, trilha, beach games</h3>

@@ -216,20 +216,20 @@ const SE = require('../scale-engine.js');
     { id: 'cp_TOI', unitId: 'cp', requiredModalityId: 'TOI', requiredModalityName: 'TOI', assignedPersonId: 'hel', startTime: '08:00', endTime: '12:00' },
     { id: 'cp_HIIT', unitId: 'cp', requiredModalityId: 'HIIT', requiredModalityName: 'Hiit', assignedPersonId: 'car', startTime: '08:00', endTime: '12:00' },
   ];
-  const idConflito = (await SS.createScale({ date: '2026-12-27', tipo: 'sabado', slots: slotsConflito }, d)).data.id;
+  const idConflito = (await SS.createScale({ date: '2027-01-02', tipo: 'sabado', slots: slotsConflito }, d)).data.id;
   const aplMisto = await SS.aplicarRebalanceamento({
     pessoaId: 'hel',
     movimentos: [
       { scaleId: idOk, date: '2026-12-26', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'ana' },
       // 'car' já está em cp_HIIT desta MESMA escala — reassignSlot recusa.
-      { scaleId: idConflito, date: '2026-12-27', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'car' },
+      { scaleId: idConflito, date: '2027-01-02', published: false, slotId: 'cp_TOI', unitId: 'cp', saiId: 'hel', entraId: 'car' },
     ],
     nomePorId: { hel: 'Heloísa', ana: 'Ana', car: 'Carla' },
     de: 2, para: 0,
   }, d);
   assert.strictEqual(aplMisto.success, false, 'o lote com uma falha reporta falha, não sucesso silencioso');
   assert.strictEqual(aplMisto.data.aplicados, 1, 'só o movimento válido foi aplicado');
-  assert.ok(/2026-12-27/.test(aplMisto.error || ''), 'o erro identifica a data que falhou');
+  assert.ok(/2027-01-02/.test(aplMisto.error || ''), 'o erro identifica a data que falhou');
   const sOk = (await SS.getScale(idOk, d)).data;
   assert.strictEqual(sOk.slots[0].assignedPersonId, 'ana', 'a escala válida foi mesmo alterada');
   const sConflito = (await SS.getScale(idConflito, d)).data;

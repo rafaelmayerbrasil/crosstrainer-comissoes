@@ -146,6 +146,23 @@ function exige(txt, ondeNome, assuntos) {
 // ─── Integridade: âncoras que a Ajuda do app usa ───
 {
   // O item ❓ do menu abre o manual numa âncora. Âncora que some vira link morto.
+  // 03/09/2026 — domingo fora da escala, "Minhas datas" pra gestão que dá aula,
+  // e criar ficha de professor pra quem já tem login.
+  exige(admin, 'manual-admin', {
+    'domingo não tem escala': 'não abre no domingo',
+    'evento em domingo continua valendo': 'Evento</strong> continua livre em domingo',
+    'a aba da gestão que dá aula': 'Minhas datas',
+    'criar ficha pra quem já tem login': 'Criar ficha de professor',
+  });
+  ok('admin: domingo fora da escala, "Minhas datas" e criar ficha de professor');
+}
+{
+  exige(prof, 'manual-professores', {
+    'domingo não tem escala': 'Domingo não tem escala',
+  });
+  ok('professor: domingo não tem escala');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>

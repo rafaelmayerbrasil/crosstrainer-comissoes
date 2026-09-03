@@ -168,11 +168,7 @@ function setPessoasProfileFilter(value) {
 
 // ── Ficha — 4 abas gated (D4/D5): Identidade · Professor · 🔒 Salário · 🔑 Acesso
 function pessoaTabsFor(p) {
-  const tabs = [{ id: 'identidade', label: 'Identidade' }];
-  if (p.teacher) tabs.push({ id: 'professor', label: 'Professor' });
-  if (p.teacher && canSeeSalary()) tabs.push({ id: 'salarial', label: '🔒 Salário' });
-  if (isStrictAdmin()) tabs.push({ id: 'acesso', label: '🔑 Acesso' });
-  return tabs;
+  return PessoasModel.tabsFor(p, { admin: isStrictAdmin(), salario: canSeeSalary() });
 }
 
 // "Desligada" = professor inativo (se houver entidade) ou, quando é só login,
@@ -331,12 +327,40 @@ function pessoasEditTeacher(teacherId) {
 
 // ── Aba Professor ───────────────────────────────────────────────────────
 function renderPessoaTabProfessor(p) {
+  // Pessoa com login e sem ficha. Antes desta tela não havia caminho nenhum
+  // pra criar a ficha de quem já tem login: o assistente "Nova pessoa" cria
+  // ficha E login juntos, e o login já existe. Foi o que deixou o Rafael
+  // Rojais e o Will fora da escala (03/09/2026).
+  if (!p.teacher) {
+    if (!isStrictAdmin()) return '<div class="empty-state-small">Esta pessoa não tem ficha de professor.</div>';
+    return `
+      <div class="empty-state-small">
+        Esta pessoa <strong>não tem ficha de professor</strong> — por isso não aparece na agenda
+        nem no sorteio da escala. Ter o perfil "professor" no login <em>não</em> basta: quem entra
+        na escala são as fichas.
+      </div>
+      <div style="margin-top:12px;"><button class="btn" onclick="pessoaCriarFichaProfessor('${p.key}')">Criar ficha de professor</button></div>
+      <p style="font-size:12px;color:var(--text3);margin-top:10px;">
+        Quem dá aula mas não recebe por aula (sócio) tem uma marca própria no formulário —
+        com ela a pessoa entra na escala e fica fora do fechamento.
+      </p>`;
+  }
   const t = p.teacher;
   const modNames = (t.modalityIds || [])
     .map(id => ProfessoresState.modalitiesMap.get(id)).filter(Boolean).map(m => m.name);
   const unitNames = (t.unitIds || [])
     .map(id => ProfessoresState.unitsMap.get(id)).filter(Boolean).map(u => u.name || u.id);
   const canEdit = isStrictAdmin() || isSupervisao();
+  // Ficha sem o perfil no login = a pessoa entra no sorteio mas não consegue
+  // abrir a tela da Escala pra se candidatar. Meio caminho é pior que nenhum,
+  // então a ficha diz o que falta e onde se resolve.
+  const semPerfil = p.uid && !(p.profiles || []).some(x => x === 'professor' || x === 'professor_estagiario');
+  const avisoPerfil = semPerfil ? `
+    <div class="info-callout" style="margin-top:12px;">
+      <p><strong>⚠️ O login desta pessoa não tem o perfil de professor.</strong> A ficha já entra no
+      sorteio da escala, mas ela não consegue abrir a tela pra se candidatar. Marque o perfil na
+      aba <strong>🔑 Acesso</strong>.</p>
+    </div>` : '';
   return `
     <div class="info-grid">
       <div><div class="info-field-label">Tipo</div><div class="info-field-value">${escapeHtml(TYPE_LABEL[t.type] || t.type)}</div></div>
@@ -344,7 +368,57 @@ function renderPessoaTabProfessor(p) {
       <div><div class="info-field-label">Modalidades</div><div class="info-field-value">${escapeHtml(modNames.join(', ') || '—')}</div></div>
       <div><div class="info-field-label">Unidades</div><div class="info-field-value">${escapeHtml(unitNames.join(', ') || '—')}</div></div>
     </div>
+    ${avisoPerfil}
     ${canEdit ? `<div style="margin-top:12px;"><button class="btn btn-ghost btn-sm" onclick="pessoasEditTeacher('${t.id}')">Editar dados de professor</button></div>` : ''}`;
+}
+
+/**
+ * Cria a ficha de professor de alguém que JÁ tem login, e amarra os dois lados.
+ *
+ * O vínculo é gravado nas duas pontas de propósito: `/users` só é legível pelo
+ * dono ou por admin, então é `teachers.userId` que permite um professor
+ * descobrir o colega — é disso que o pedido de substituição depende, e sem ele
+ * o pedido nasce órfão (achado em 2026). E é `users.professorId` que faz a
+ * tela saber que ESTE login é aquele professor.
+ */
+async function pessoaCriarFichaProfessor(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid || p.teacher) return;
+  if (!isStrictAdmin()) { toast('Só administrador cria ficha de professor.', 'error'); return; }
+
+  openTeacherModal(null);
+  // openTeacherModal desiste calado quando faltam modalidades/unidades. Sem esta
+  // checagem o hook abaixo ficaria pendurado e dispararia no próximo professor
+  // que alguém salvasse.
+  const modal = document.getElementById('teacherModal');
+  if (!modal || !modal.classList.contains('open')) return;
+
+  const $ = id => document.getElementById(id);
+  if ($('teacherName'))  $('teacherName').value = p.name || '';
+  if ($('teacherEmail')) $('teacherEmail').value = p.email || '';
+
+  TeacherFormState.onSaved = async (teacher) => {
+    try {
+      await Promise.all([
+        db.collection('users').doc(p.uid).update({
+          professorId: teacher.id,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+        db.collection('teachers').doc(teacher.id).update({
+          userId: p.uid,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        }),
+      ]);
+      toast('Ficha criada e ligada ao login.', 'success');
+    } catch (e) {
+      // A ficha existe, mas solta. Dizer isso é obrigatório: calado, a pessoa
+      // apareceria duplicada no hub e continuaria fora da escala.
+      toast('A ficha foi criada, mas não consegui ligá-la ao login: ' + e.message, 'error', 8000);
+    }
+    PessoasState.activeTab = 'professor';
+    PessoasState.selectedKey = 'T:' + teacher.id;
+    await renderPessoasPage();
+  };
 }
 
 // ── Aba 🔒 Salário (render próprio — evita ficar stale após salvar) ──────

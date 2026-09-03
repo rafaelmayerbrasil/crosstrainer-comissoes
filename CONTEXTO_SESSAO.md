@@ -3,6 +3,92 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 63 (03/09/2026) — 🗓️ DOMINGO FORA DA ESCALA + A GESTÃO QUE DÁ AULA ENTRA
+
+### ▶️▶️ RETOMAR AQUI
+
+**Branch `escala-domingo-e-ficha-gestao`, homologada no staging (13/13 contra o banco real).
+NÃO está em produção — falta o OK do Rafael.** A única coisa que já foi mexida em produção é o
+**dado**: apagado o rascunho de escala em **15/11/2026 (domingo)**, backup em
+`backups/escala-domingo-production-2026-09-03.json`.
+
+**Para publicar:** `git checkout main && git merge escala-domingo-e-ficha-gestao && git push origin main`
+(o site dos usuários é o GitHub Pages servindo o `main` — `firebase deploy --only hosting` não entrega).
+
+**⚠️ NINGUÉM CLICOU DE VERDADE.** A validação foi por chamada: os smokes renderizam as telas num
+sandbox `vm` (não leem texto de arquivo) e a homologação roda as mesmas funções dos botões contra o
+Firestore do staging. Não digito senha em formulário de login, então o teste com o dedo depende do
+Rafael — staging no ar em `https://crosstrainer-comissoes-staging.web.app`.
+
+**🔴 DEPOIS DO DEPLOY, a gestão precisa criar duas fichas pela tela** (Pessoas → a pessoa → aba
+Professor → "Criar ficha de professor"):
+- **Rafael Rojais** — marcar **"dá aula mas não recebe por aula"**; unidades CP + PP; TOI e Hiit.
+- **Will Souza** — normal. **Tipo e valor da hora-aula são dados que eu não tenho** — é com a gestão.
+
+Sem as fichas, os dois continuam fora do sorteio: **é a ficha que entra na escala, não o perfil**.
+
+### O pedido (Rafael Rojais no grupo, 03/09, 09h43 e 09h44)
+
+> "O Will e nem eu ainda podemos entrar na escala dos professores"
+> "Outra coisa, ele esta abrindo escala de feriados aos domingos, pode tirar os domingos da escala"
+
+Régua dada pelo Rafael na sequência: **domingo a academia não abre — e com isso não existe feriado
+em domingo.** Não é avisar, é não existir.
+
+### 🚨 O primeiro pedido tinha TRÊS causas empilhadas, não uma
+
+Conferido na base de **produção** antes de escrever código. Rafael (`admin`+`professor`) e Will
+(`supervisao`+`professor`) já tinham o perfil — e o perfil não faz nada:
+
+1. **Sem ficha em `teachers` não existe candidato.** A escala sorteia entre as fichas.
+2. **Não havia como criar essa ficha pela tela.** A ficha só nascia pelo assistente "Nova pessoa",
+   que cria ficha **e login juntos** — e os dois já tinham login. Na ficha deles a aba "Professor"
+   nem aparecia. **A pendência registrada em 25/08 ("criar a ficha pela tela Pessoas") era
+   impossível de cumprir** — e ficou 9 dias parada por isso.
+3. **A tela nunca mostraria a visão de professor pra eles:** admin e supervisão caem sempre na visão
+   de gestão, então os botões *Prefiro / Pode ser / Não posso* não tinham como aparecer.
+
+### O que foi construído
+
+| | o quê | onde |
+|---|---|---|
+| A | **Criar ficha de professor pra quem já tem login** — aba Professor com o botão, amarrando `users.professorId` **e** `teachers.userId`. Ficha sem o perfil no login avisa o que falta e aponta a aba Acesso | `professores-pessoas.js` · `PessoasModel.tabsFor` |
+| B | **Aba 🙋 "Minhas datas"** pra gestão **com ficha** — cota, Prefiro/Pode ser/Não posso, equipe do dia. Gestão sem ficha não vê nada de novo | `ScaleService.abasDaEscala` |
+| C | **Domingo fora da escala** — recusa no serviço, aba Feriados sem domingo (e explicando), fim de ano pulando domingo, "Domingo especial" fora do formulário | `scale-service.js` · `professores-escala-smart.js` |
+
+**🚨 Segundo vazamento da mesma regra, achado ao conferir o primeiro:** o **fim de ano** fechava só
+24, 25, 31/12 e 01/01 — **os domingos do período viravam vaga normal**. Ninguém tinha percebido
+porque o período de 2026 ainda não foi montado.
+
+**Duas exceções de propósito:** `fim_de_ano` (a `date` é o começo do PERÍODO, um marco, não dia de
+trabalho) e `evento` (trilha, beach games, campeonato não são aula e não precisam da academia
+aberta). A regra alcança `sabado`, `feriado`, `domingo_especial` e `escola_interna`.
+
+**De brinde:** a aba **"Por pessoa" saiu da barra do professor**. É painel de gestão, e clicar
+levava **calado** pra Escola Interna — a rota nem existe do lado dele.
+
+### 🐛 Dois defeitos meus, os dois pegos por teste
+
+1. **A regra do domingo nasceu larga demais** — barrava o fim de ano. Quebrou 4 smokes que já
+   existiam. Foram eles que me obrigaram a separar "o que vira aula" do resto.
+2. **`renderEscalaSmartPage` não devolvia a promessa** — quem dava `await` voltava antes de a tela
+   existir. Só apareceu porque o smoke novo **renderiza a tela de verdade**; nenhuma leitura de
+   arquivo pegaria isso.
+
+E uma **fixture impossível** que estava lá desde sempre: `smoke-escala-historico.js` criava uma
+escala `tipo: 'sabado'` em **27/12/2026, que é domingo**.
+
+### Testes
+
+`smoke-domingo-fora-da-escala.js` (7, comportamentais) · `smoke-gestao-na-escala.js` (8, puros) ·
+`smoke-domingo-e-minhas-datas-tela.js` (8, **chamando o render num sandbox `vm`**) ·
+`homologar-domingo-e-minhas-datas.js` (13, contra o Firestore real). **Suíte 68/68.**
+Manuais e `DOCUMENTACAO.md` atualizados; `smoke-manual-atualizado.js` ancora os assuntos novos.
+
+Desenho: `docs/superpowers/specs/2026-09-03-escala-domingo-e-ficha-gestao-design.md`.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 62 (01/09/2026) — 💰 COMISSÕES NO REGIME DE CAIXA · ⏸️ ESPERANDO O RODRIGO
 
 ### ▶️▶️ RETOMAR AQUI
