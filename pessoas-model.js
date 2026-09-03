@@ -96,6 +96,32 @@
     return people;
   }
 
+  /**
+   * PURA: as abas da ficha de uma pessoa.
+   *
+   * A aba "Professor" passou a aparecer também para quem tem LOGIN e nenhuma
+   * ficha — é por ela que a ficha nasce. Antes não havia caminho nenhum na
+   * tela: a ficha só vinha do assistente "Nova pessoa", que cria ficha e login
+   * juntos, e não serve pra quem já tem login. Foi o que travou o Rafael
+   * Rojais e o Will fora da escala (03/09/2026) — e o que fez a pendência
+   * registrada em 25/08 ("criar a ficha pela tela Pessoas") ser impossível de
+   * cumprir.
+   *
+   * Criar ficha é só de admin: a ficha é o que põe a pessoa na agenda, na
+   * escala e — se tiver cadastro salarial — na folha.
+   *
+   * ctx: { admin, salario }
+   */
+  function tabsFor(pessoa, ctx) {
+    ctx = ctx || {};
+    const temFicha = !!(pessoa && pessoa.teacher);
+    const tabs = [{ id: 'identidade', label: 'Identidade' }];
+    if (temFicha || ctx.admin) tabs.push({ id: 'professor', label: 'Professor' });
+    if (temFicha && ctx.salario) tabs.push({ id: 'salarial', label: '🔒 Salário' });
+    if (ctx.admin) tabs.push({ id: 'acesso', label: '🔑 Acesso' });
+    return tabs;
+  }
+
   function filterPeople(people, filters) {
     const q = ((filters && filters.search) || '').trim().toLowerCase();
     const prof = (filters && filters.profile) || 'all';
@@ -116,5 +142,5 @@
     });
   }
 
-  return { buildPeople, filterPeople, profilesOf, implicitProfiles, temLoginReal };
+  return { buildPeople, filterPeople, tabsFor, profilesOf, implicitProfiles, temLoginReal };
 });

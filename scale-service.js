@@ -33,6 +33,32 @@
   // ── Helpers puros das abas (sábados virtuais / feriados / legado) ──
   function pad2(n) { return String(n).padStart(2, '0'); }
 
+  /**
+   * A data 'YYYY-MM-DD' cai em domingo?
+   *
+   * Lida ao MEIO-DIA de propósito: 'YYYY-MM-DD' sozinho é interpretado como
+   * UTC, e num fuso negativo (o nosso) isso volta um dia — 2026-11-15 viraria
+   * sábado. Meio-dia sobra folga pros dois lados.
+   */
+  function isDomingo(dateISO) {
+    if (typeof dateISO !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return false;
+    return new Date(dateISO + 'T12:00:00').getDay() === 0;
+  }
+
+  /**
+   * PURA: parte a lista de feriados do ano em duas.
+   *
+   * A academia não abre no domingo, então feriado que cai em domingo não vira
+   * escala (Rafael Rojais, 03/09/2026). Mas sumir calado é pior: a gestão
+   * procura o 15/11 na lista e não entende. Por isso os domingos voltam à
+   * parte, pra tela poder dizer quantos ficaram de fora e por quê.
+   */
+  function separarFeriadosPorDomingo(feriados) {
+    const uteis = [], domingos = [];
+    (feriados || []).forEach(f => { (isDomingo(f && f.date) ? domingos : uteis).push(f); });
+    return { uteis, domingos };
+  }
+
   // Todos os sábados de um ano, em ISO local (sem UTC pra não escorregar de dia)
   function saturdaysOfYear(year) {
     const out = [];
@@ -58,6 +84,39 @@
     return json
       .filter(f => f && typeof f.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(f.date) && typeof f.name === 'string')
       .map(f => ({ date: f.date, name: f.name }));
+  }
+
+  /**
+   * PURA: as abas da tela de Escala, por público.
+   *
+   * Existe por dois motivos, os dois relatados:
+   *
+   * 1. Quem é gestão E dá aula não tinha onde se candidatar. A tela manda todo
+   *    admin/supervisão pra visão de gestão, então os botões "Prefiro / Pode
+   *    ser / Não posso" nunca apareciam pro Rafael Rojais nem pro Will
+   *    (03/09/2026). A aba `minhas` abre a mesma visão do professor, e só
+   *    aparece pra quem tem ficha — sem ficha a pessoa nem entra no sorteio, e
+   *    a aba prometeria algo que não acontece.
+   *
+   * 2. "Por pessoa" é o painel de equilíbrio da gestão, mas aparecia também na
+   *    barra do professor, onde a rota não existe: clicar levava pra Escola
+   *    Interna, calado.
+   */
+  const ABAS_BASE = [
+    { id: 'sabado',         label: 'Sábados' },
+    { id: 'feriado',        label: 'Feriados' },
+    { id: 'evento',         label: 'Eventos' },
+    { id: 'fim_de_ano',     label: 'Fim de ano' },
+    { id: 'escola_interna', label: 'Escola Interna' },
+  ];
+
+  function abasDaEscala(ctx) {
+    ctx = ctx || {};
+    const abas = ABAS_BASE.map(t => ({ id: t.id, label: t.label }));
+    if (!ctx.gestao) return abas;
+    abas.push({ id: 'pessoa', label: 'Por pessoa' });
+    if (ctx.temFicha) abas.push({ id: 'minhas', label: '🙋 Minhas datas' });
+    return abas;
   }
 
   // Docs pré-Escala Inteligente (tela legada): date Timestamp e/ou sem tipo
@@ -297,8 +356,29 @@
     },
   };
 
+  // Recusa amigável e única pra qualquer caminho que tente domingo. Fica no
+  // serviço, e não na tela, porque são cinco portas de entrada hoje (aba
+  // Feriados, aba Sábados, "+ Data especial", Escola Interna de um dia, fim de
+  // ano) e as próximas nasceriam sem a regra.
+  const ERRO_DOMINGO = 'A academia não abre no domingo — escala em domingo não é criada.';
+
+  // A regra alcança o que vira AULA. Duas exceções, e as duas são de propósito:
+  //
+  //  · `fim_de_ano`: a `date` da escala é o começo do PERÍODO, um marco — não um
+  //    dia de trabalho. Os domingos de dentro já saem em templateSlotsFimDeAno.
+  //  · `evento`: não é aula e não precisa da academia aberta. Trilha, beach
+  //    games e campeonato em domingo são o normal, não a exceção.
+  const TIPOS_QUE_VIRAM_AULA = ['sabado', 'feriado', 'domingo_especial', 'escola_interna'];
+
+  function recusaPorDomingo(scale) {
+    if (!scale || TIPOS_QUE_VIRAM_AULA.indexOf(scale.tipo) === -1) return null;
+    return isDomingo(scale.date) ? ERRO_DOMINGO : null;
+  }
+
   async function createScale(scale, deps) {
     try {
+      const barrado = recusaPorDomingo(scale);
+      if (barrado) return { success: false, error: barrado };
       const database = rdb(deps);
       const ref = database.collection('special_scales').doc();
       const doc = {
@@ -331,6 +411,11 @@
       const doc = await ref.get();
       if (!doc.exists) return { success: false, error: 'Escala não encontrada' };
       const before = doc.data();
+
+      // Sem isto a regra do domingo tem porta dos fundos: cria no sábado,
+      // arrasta pro domingo. O tipo vem do doc — é ele que diz se vira aula.
+      const barrado = recusaPorDomingo({ tipo: before.tipo, date });
+      if (barrado) return { success: false, error: barrado };
 
       const patch = { updatedAt: rts(deps), updatedBy: ruid(deps) };
       if (date) {
@@ -1090,7 +1175,11 @@
     const sh = (shifts && shifts.length) ? shifts : DEFAULT_FE_SHIFTS;
     const ppl = peoplePerShift || 1;
     const closed = new Set(period.closedDays || []);
-    const days = datesInRange(period.start, period.end).filter(d => !closed.has(d));
+    // Domingo sai sozinho: closedDays cobria só 24, 25, 31/12 e 01/01, então os
+    // domingos do período viravam vaga normal — o segundo vazamento da mesma
+    // regra, achado ao conferir o primeiro em 03/09/2026.
+    const days = datesInRange(period.start, period.end)
+      .filter(d => !closed.has(d) && !isDomingo(d));
     const out = [];
     days.forEach(day => {
       (units || []).forEach(u => {
@@ -1377,5 +1466,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });

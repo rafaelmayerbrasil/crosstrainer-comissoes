@@ -11,20 +11,12 @@ const EscalaSmartState = { scales: [], units: [], modToi: null, modHiit: null, s
 const ESCALA_TIPOS = [
   { id: 'sabado',           label: 'Sábado' },
   { id: 'feriado',          label: 'Feriado' },
-  { id: 'domingo_especial', label: 'Domingo especial' },
   { id: 'evento',           label: 'Evento' },
   { id: 'fim_de_ano',       label: 'Fim de ano' },
   { id: 'escola_interna',   label: 'Escola Interna' },
 ];
 const ESCALA_STATUS_LABEL = { rascunho: 'Rascunho', janela_aberta: 'Janela aberta', consolidada: 'Consolidada' };
-const ESCALA_TABS = [
-  { id: 'sabado',         label: 'Sábados' },
-  { id: 'feriado',        label: 'Feriados' },
-  { id: 'evento',         label: 'Eventos' },
-  { id: 'fim_de_ano',     label: 'Fim de ano' },
-  { id: 'escola_interna', label: 'Escola Interna' },
-  { id: 'pessoa',         label: 'Por pessoa' },
-];
+// As abas da tela moram em ScaleService.abasDaEscala — a lista muda por público.
 
 function escalaIsManagement() {
   return (typeof isAdminGestao === 'function' && isAdminGestao()) ||
@@ -94,9 +86,11 @@ function escalaConsumirPendingNew() {
 function escalaSetYear(y) { EscalaSmartState.year = parseInt(y, 10); renderEscalaSmartPage(); }
 function escalaSetTimeframe(tf) { EscalaSmartState.timeframe = tf; renderEscalaSmartPage(); }
 
+// Devolve a promessa das duas: as dois lados são async, e quem chama daqui
+// (navigateTo, marcar preferência) precisa poder esperar o desenho terminar.
+// Sem o `return`, um `await` nesta função voltava antes da tela existir.
 function renderEscalaSmartPage() {
-  if (escalaIsManagement()) renderEscalaGestao();
-  else renderEscalaPrefs();
+  return escalaIsManagement() ? renderEscalaGestao() : renderEscalaPrefs();
 }
 
 /* ─── Carga comum ──────────────────────────────────────────────────── */
@@ -114,6 +108,7 @@ async function escalaLoadBase() {
   const mods = modsRes.success ? modsRes.data : [];
   EscalaSmartState.modToi = mods.find(m => /toi/i.test(m.name)) || null;
   EscalaSmartState.modHiit = mods.find(m => /hi+t|maromb/i.test(m.name)) || null;
+  EscalaSmartState.modMap = new Map(mods.map(m => [m.id, m]));
   EscalaSmartState.teacherMap = new Map((teachersRes.success ? teachersRes.data : []).map(t => [t.id, t]));
 
   // Qual é "a janela" de cada tipo (sábados e feriados correm em lotes
@@ -831,8 +826,12 @@ async function renderEscalaGestao() {
 
   const scales = EscalaSmartState.scales;
   const tab = EscalaSmartState.tab;
+  // A gestão que TEM ficha de professor ganha a aba "Minhas datas" — sem ela,
+  // admin e supervisão não tinham onde se candidatar (Rafael Rojais e Will,
+  // 03/09/2026). Quem é gestão sem ficha não vê nada de novo.
+  const meuPid = escalaProfId();
   const tabsHtml = `<div style="display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px;">` +
-    ESCALA_TABS.map(t => {
+    ScaleService.abasDaEscala({ gestao: true, temFicha: !!meuPid }).map(t => {
       const on = t.id === tab;
       return `<button onclick="escalaSetTab('${t.id}')" style="background:none;border:none;border-bottom:2px solid ${on ? 'var(--blue)' : 'transparent'};color:${on ? 'var(--text)' : 'var(--text2)'};font-weight:${on ? '600' : '400'};font-size:14px;padding:8px 14px;cursor:pointer;">${t.label}</button>`;
     }).join('') + `</div>`;
@@ -845,8 +844,12 @@ async function renderEscalaGestao() {
       ${['futuros', 'todos', 'passados'].map(v => `<button onclick="escalaSetTimeframe('${v}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid ${EscalaSmartState.timeframe === v ? 'var(--blue)' : 'var(--border)'};background:${EscalaSmartState.timeframe === v ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${EscalaSmartState.timeframe === v ? '#5EA8FF' : 'var(--text2)'};">${v === 'futuros' ? 'Próximos' : v === 'passados' ? 'Passados' : 'Todos'}</button>`).join('')}
     </div>`;
 
+  // 'minhas' e 'pessoa' são lista sozinha: não têm escala selecionada à direita.
+  const soLista = (tab === 'pessoa' || tab === 'minhas');
+
   let listHtml;
-  if (tab === 'sabado')                listHtml = renderTabSabados(scales);
+  if (tab === 'minhas')                listHtml = await renderMinhasDatas(meuPid);
+  else if (tab === 'sabado')           listHtml = renderTabSabados(scales);
   else if (tab === 'feriado')          listHtml = renderTabFeriados(scales);
   else if (tab === 'evento')           listHtml = renderTabEventos(scales);
   else if (tab === 'escola_interna')   listHtml = renderTabEscolaInterna(scales);
@@ -897,17 +900,17 @@ async function renderEscalaGestao() {
   container.innerHTML = `
     <div class="page-hdr"><h1>🗓️ Escala Inteligente${ajudaBtn("escala-smart")}</h1><p>Sábados/feriados: o sistema sugere por justiça + mérito; você ajusta e publica.</p></div>
     ${renderConfigEscalaHtml()}
-    ${tab === 'pessoa' ? '' : renderEquilibrioPainel()}
+    ${soLista ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
-    ${revisaoBar}${refazerBar}
+    ${tab === 'minhas' ? '' : revisaoBar + refazerBar}
     <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
-    ${EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+    ${tab === 'minhas' || !EscalaSmartState.selected.size ? '' : (EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
       <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
-    </div>` : ''}
-    <div style="display:grid;grid-template-columns:${tab === 'pessoa' ? '1fr' : 'minmax(220px,1fr) 2fr'};gap:16px;align-items:start;">
+    </div>` : '')}
+    <div style="display:grid;grid-template-columns:${soLista ? '1fr' : 'minmax(220px,1fr) 2fr'};gap:16px;align-items:start;">
       <div>${listHtml}</div>
-      ${tab === 'pessoa' ? '' : `<div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>`}
+      ${soLista ? '' : `<div>${detail || '<p style="padding:20px;color:var(--text2);">Selecione uma escala à esquerda.</p>'}</div>`}
     </div>
     ${escalaHistoricoGeralHtml()}
     <div id="escalaModalOverlay" class="modal-overlay" style="display:none;"></div>
@@ -1215,7 +1218,13 @@ function renderTabFeriados(scales) {
   const feriados = EscalaSmartState.feriadosByYear[y] || [];
   const docs = scales.filter(s => (s.tipo === 'feriado' || s.tipo === 'domingo_especial') && s.date.startsWith(String(y)));
   const datasComDoc = new Set(docs.map(dd => dd.date));
-  const sugestoes = feriados.filter(f => !datasComDoc.has(f.date));
+  // A academia não abre no domingo, então feriado em domingo não vira escala
+  // (Rafael Rojais, 03/09/2026). Sumir calado seria pior — a gestão procuraria
+  // o 15/11 na lista e não entenderia —, então os domingos voltam à parte só
+  // pra virar a nota lá embaixo.
+  const porDomingo = ScaleService.separarFeriadosPorDomingo(feriados);
+  const sugestoes = porDomingo.uteis.filter(f => !datasComDoc.has(f.date));
+  const domingosDoAno = porDomingo.domingos;
 
   const tf = EscalaSmartState.timeframe, today = escalaTodayISO();
   const docsF = ScaleService.filterByTimeframe(docs, today, tf);
@@ -1226,12 +1235,15 @@ function renderTabFeriados(scales) {
     <button class="btn-secondary" onclick="openDataEspecial()">+ Data especial</button></div>`;
   const aviso = feriados.length ? '' :
     `<p style="font-size:12px;color:#caa23a;margin:0 0 8px;">Não consegui carregar os feriados nacionais (API/cache indisponível) — adicione pelo "+ Data especial".</p>`;
+  const notaDomingo = domingosDoAno.length
+    ? `<p style="font-size:12px;color:var(--text3);margin:0 0 8px;">${domingosDoAno.length === 1 ? 'Um feriado de' : domingosDoAno.length + ' feriados de'} ${y} ${domingosDoAno.length === 1 ? 'cai' : 'caem'} em domingo e ${domingosDoAno.length === 1 ? 'não aparece' : 'não aparecem'} aqui — a academia não abre no domingo: ${domingosDoAno.map(f => escalaEsc(f.name) + ' (' + escalaFmtBR(f.date) + ')').join(' · ')}.</p>`
+    : '';
   const docsHtml = docsF.map(dd => `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(dd.date)}<div style="flex:1;">${escalaCardDoc(dd)}</div></div>`).join('');
   const sugHtml = sugF.map(f => `<div style="display:flex;align-items:center;gap:0;margin-bottom:6px;">${escalaSelCb(f.date)}<div style="flex:1;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px dashed var(--border);border-radius:10px;padding:10px 12px;">
       <div><div style="font-size:14px;color:var(--text2);">${f.name}</div><div style="font-size:12px;color:var(--text3);">${escalaFmtBR(f.date)} · nacional</div></div>
       <button class="btn-secondary" style="font-size:12px;" onclick="criarEscalaData('feriado','${f.date}','${(f.name || '').replace(/'/g, '')}')">Criar escala</button>
     </div></div>`).join('');
-  return topo + aviso + docsHtml + sugHtml;
+  return topo + aviso + notaDomingo + docsHtml + sugHtml;
 }
 
 function renderTabSabados(scales) {
@@ -1800,10 +1812,7 @@ function openDataEspecial() {
     <h2>Data especial</h2>
     <div class="form-group"><label>Nome <span style="color:var(--red);">*</span></label><input type="text" id="deNome" class="input" placeholder="Ex.: Aniversário da cidade"></div>
     <div class="form-group"><label>Data <span style="color:var(--red);">*</span></label><input type="date" id="deData" class="input" value="${escalaTodayISO()}"></div>
-    <div class="form-group"><label>Tipo</label><select id="deTipo" class="input">
-      <option value="feriado">Feriado (municipal/estadual)</option>
-      <option value="domingo_especial">Domingo especial</option>
-    </select></div>
+    <p style="font-size:12px;color:var(--text3);margin:-4px 0 12px;">Vale como feriado (municipal ou estadual). Domingo não é aceito — a academia não abre.</p>
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn-secondary" onclick="closeEscalaModal()">Cancelar</button>
       <button class="btn-primary" onclick="criarDataEspecial()">Criar</button>
@@ -1813,9 +1822,11 @@ function openDataEspecial() {
 async function criarDataEspecial() {
   const nome = (document.getElementById('deNome').value || '').trim();
   const date = document.getElementById('deData').value;
-  const tipo = document.getElementById('deTipo').value;
   if (!nome || !date) { toast('Informe nome e data.', 'error'); return; }
-  await criarEscalaData(tipo, date, `${nome} ${escalaFmtBR(date)}`);
+  // O tipo 'domingo_especial' saiu daqui em 03/09/2026: era o único caminho que
+  // restava pra criar escala em domingo. O serviço recusa a data de qualquer
+  // jeito; tirar a opção evita a gestão tentar e levar erro.
+  await criarEscalaData('feriado', date, `${nome} ${escalaFmtBR(date)}`);
 }
 
 function openNovoEvento(dateISO) {
@@ -2564,17 +2575,14 @@ async function renderEscalaPrefs() {
     await escalaLoadFeriados(EscalaSmartState.year);
   }
 
-  // Quantos dias ele já disse que quer nesta janela (pra o select vir marcado).
-  EscalaSmartState._minhaCota = undefined;
-  const batchAberto = (EscalaSmartState.scales.find(s => s.status === 'janela_aberta' && s.windowBatchId) || {}).windowBatchId;
-  if (batchAberto && pid) {
-    const q = await ScaleService.listWindowQuotas(batchAberto);
-    if (q.success && Object.prototype.hasOwnProperty.call(q.data, pid)) EscalaSmartState._minhaCota = q.data[pid];
-  }
+  await escalaCarregarMinhaCota(pid);
 
-  const tab = EscalaSmartState.tab;
+  // "Por pessoa" é o painel de equilíbrio da GESTÃO. Aparecia aqui também, e
+  // clicar levava calado pra Escola Interna — a rota nem existe deste lado.
+  const abas = ScaleService.abasDaEscala({ gestao: false });
+  const tab = abas.some(t => t.id === EscalaSmartState.tab) ? EscalaSmartState.tab : 'sabado';
   const tabsHtml = `<div class="escala-tabs">` +
-    ESCALA_TABS.map(t =>
+    abas.map(t =>
       `<button class="escala-tab${t.id === tab ? ' active' : ''}" onclick="escalaSetTab('${t.id}')">${t.label}</button>`
     ).join('') + `</div>`;
 
@@ -2587,6 +2595,40 @@ async function renderEscalaPrefs() {
   container.innerHTML = `<div class="page-hdr"><h1>🗓️ Escala — minhas datas${ajudaBtn("escala-smart")}</h1><p>Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p></div>
     ${tabsHtml}
     ${body}`;
+}
+
+/** Quantos dias a pessoa já disse que quer na janela aberta (pro select vir marcado). */
+async function escalaCarregarMinhaCota(pid) {
+  EscalaSmartState._minhaCota = undefined;
+  const batchAberto = (EscalaSmartState.scales.find(s => s.status === 'janela_aberta' && s.windowBatchId) || {}).windowBatchId;
+  if (!batchAberto || !pid) return;
+  const q = await ScaleService.listWindowQuotas(batchAberto);
+  if (q.success && Object.prototype.hasOwnProperty.call(q.data, pid)) EscalaSmartState._minhaCota = q.data[pid];
+}
+
+/**
+ * Aba "Minhas datas" da GESTÃO que dá aula (Rafael Rojais e Will, 03/09/2026).
+ *
+ * Reusa a visão do professor inteira — os mesmos botões, a mesma cota, a mesma
+ * regra de só mostrar escala publicada. A única diferença é que sábados e
+ * feriados vêm um embaixo do outro, porque aqui é uma aba só e não duas: são
+ * lotes separados, cada um com a sua janela e a sua cota.
+ */
+async function renderMinhasDatas(pid) {
+  if (!pid) {
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;color:var(--text2);font-size:13px;">
+      Você ainda não tem ficha de professor, então não entra no sorteio da escala.
+      Um administrador cria a ficha em <b>Pessoas → sua ficha → aba Professor</b>.</div>`;
+  }
+  await escalaCarregarMinhaCota(pid);
+  const [sab, fer] = await Promise.all([
+    renderProfSabadosFeriados(pid, 'sabado'),
+    renderProfSabadosFeriados(pid, 'feriado'),
+  ]);
+  const bloco = (titulo, html) =>
+    `<h3 style="font-size:14px;margin:16px 0 8px;color:var(--text2);">${titulo}</h3>${html}`;
+  return `<p style="font-size:13px;color:var(--text2);margin:0 0 4px;">Candidate-se onde a janela estiver aberta; consulte onde você está escalado.</p>
+    ${bloco('Sábados', sab)}${bloco('Feriados', fer)}`;
 }
 
 async function renderProfSabadosFeriados(pid, tab) {
@@ -2780,7 +2822,7 @@ async function marcarDiaFdA(scaleId, date, pref) {
   const cur = (dpRes.success ? dpRes.data : []).find(p => p.personId === pid && p.date === date);
   const excluded = pref === 'nao_posso' ? [] : (cur ? cur.excludedShifts || [] : []);
   const res = await ScaleService.setDayPreference(scaleId, pid, date, pref, excluded);
-  if (res.success) { toast('Preferência registrada!', 'success'); renderEscalaPrefs(); }
+  if (res.success) { toast('Preferência registrada!', 'success'); renderEscalaSmartPage(); }
   else toast('Erro: ' + (res.error || 'falha'), 'error');
 }
 
@@ -2861,7 +2903,10 @@ async function marcarPodeSerTodas() {
   if (!abertas.length) { toast('Nenhuma janela aberta.', 'info'); return; }
   for (const s of abertas) { await ScaleService.setPreference(s.id, pid, 'pode_ser'); }
   toast(`"Pode ser" marcado em ${abertas.length} escala(s).`, 'success');
-  renderEscalaPrefs();
+  // renderEscalaSmartPage e não renderEscalaPrefs: quem marca daqui pode ser a
+  // gestão, na aba "Minhas datas". Chamar a tela do professor direto trocaria a
+  // página inteira debaixo dela.
+  renderEscalaSmartPage();
 }
 
 /** Professor diz quantos dias da janela quer trabalhar. Vazio = sem preferência. */
