@@ -3,29 +3,37 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 63 (03/09/2026) — 🗓️ DOMINGO FORA DA ESCALA + A GESTÃO QUE DÁ AULA ENTRA
+## 🔖 ONDE PARAMOS — sessão 63 (03/09/2026) — ✅ DOMINGO FORA DA ESCALA + A GESTÃO QUE DÁ AULA ENTRA · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
-**Branch `escala-domingo-e-ficha-gestao`, homologada no staging (13/13 contra o banco real).
-NÃO está em produção — falta o OK do Rafael.** A única coisa que já foi mexida em produção é o
-**dado**: apagado o rascunho de escala em **15/11/2026 (domingo)**, backup em
+**✅ NO AR EM PRODUÇÃO (03/09/2026, `a11f991..14b02d8`).** Merge no `main` + push; o GitHub Pages
+reconstruiu e os 5 arquivos foram conferidos servidos com `?v=20260903`, junto com os dois manuais.
+Também já feito em produção: apagado o rascunho de escala em **15/11/2026 (domingo)**, backup em
 `backups/escala-domingo-production-2026-09-03.json`.
 
-**Para publicar:** `git checkout main && git merge escala-domingo-e-ficha-gestao && git push origin main`
-(o site dos usuários é o GitHub Pages servindo o `main` — `firebase deploy --only hosting` não entrega).
+**Autorização do Rafael:** *"pode publicar, se der ruim em produção eles me falam e corrigimos."*
 
-**⚠️ NINGUÉM CLICOU DE VERDADE.** A validação foi por chamada: os smokes renderizam as telas num
-sandbox `vm` (não leem texto de arquivo) e a homologação roda as mesmas funções dos botões contra o
-Firestore do staging. Não digito senha em formulário de login, então o teste com o dedo depende do
-Rafael — staging no ar em `https://crosstrainer-comissoes-staging.web.app`.
+**⚠️ NINGUÉM CLICOU DE VERDADE — a gestão será a primeira a usar.** A validação foi por chamada, em
+três camadas: os smokes **renderizam as telas** num sandbox `vm` (não leem texto de arquivo), a
+homologação roda as mesmas funções dos botões contra o Firestore do staging (13/13), e a
+**simulação de ponta a ponta** (`simular-domingo-e-minhas-datas.js`) faz o percurso inteiro no
+staging com os dados reais — cria a ficha de um gestor que só tinha login, vê a aba aparecer, se
+candidata numa janela aberta, lê a preferência de volta do banco, e desfaz tudo. Não digito senha em
+formulário de login, então o clique humano nunca aconteceu.
 
-**🔴 DEPOIS DO DEPLOY, a gestão precisa criar duas fichas pela tela** (Pessoas → a pessoa → aba
-Professor → "Criar ficha de professor"):
+**🔴 O QUE FALTA, E É COM A GESTÃO: criar duas fichas pela tela** (Pessoas → a pessoa → aba
+Professor → "Criar ficha de professor"). **Enquanto não fizerem, o Rafael e o Will continuam fora
+do sorteio** — o pedido deles só fica resolvido aí:
 - **Rafael Rojais** — marcar **"dá aula mas não recebe por aula"**; unidades CP + PP; TOI e Hiit.
 - **Will Souza** — normal. **Tipo e valor da hora-aula são dados que eu não tenho** — é com a gestão.
 
-Sem as fichas, os dois continuam fora do sorteio: **é a ficha que entra na escala, não o perfil**.
+**É a ficha que entra na escala, não o perfil** — os dois já têm `profiles: [..., 'professor']` desde
+antes, e isso nunca fez nada.
+
+⚠️ **Detalhe do deploy que quase passou batido:** o `?v=` dos arquivos em `professores.html` precisa
+subir junto, senão o navegador de quem já usa serve o JS antigo e **nada do que foi entregue
+aparece**. Não há teste guardando isso — é passo manual de todo deploy de frontend.
 
 ### O pedido (Rafael Rojais no grupo, 03/09, 09h43 e 09h44)
 
