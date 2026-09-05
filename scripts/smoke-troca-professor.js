@@ -193,8 +193,14 @@ const p = SF.pendenciasDoFechamento([
   { id: 'd', status: 'rejected' },
   null,
 ]);
-assert.deepStrictEqual(p.travam.map(x => x.id), ['a'], 'o que espera a gestão trava o fechamento');
-assert.deepStrictEqual(p.avisam.map(x => x.id), ['b'], 'o que espera professor só avisa');
+// Desde 05/09/2026 TODA troca aberta trava o fechamento. Antes, a que esperava
+// resposta de professor só avisava — porque a gestão não tinha como resolvê-la.
+// Agora tem o botão "Confirmar mesmo assim", e fechar é irreversível: deixar
+// passar significa pagar o professor errado sem volta.
+assert.deepStrictEqual(p.travam.map(x => x.id), ['a', 'b'], 'toda troca aberta trava o fechamento');
+assert.deepStrictEqual(p.esperandoGestao.map(x => x.id), ['a'], 'o colega já confirmou, falta a gestão');
+assert.deepStrictEqual(p.semRespostaDoProfessor.map(x => x.id), ['b'],
+  'e as sem resposta do professor ficam separadas — o texto da tela muda');
 console.log('✓ pendências do fechamento (elemento nulo não quebra)');
 
 /* ── 5. motivoSemBotao ────────────────────────────────────────────── */

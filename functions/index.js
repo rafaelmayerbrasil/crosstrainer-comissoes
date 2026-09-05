@@ -25,6 +25,7 @@ const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/
 const logger = require('firebase-functions/logger');
 const remindersUtil = require('./reminders-util.js');
 const internBank = require('./intern-hour-bank.js');
+const payroll = require('./closing-payroll.js');
 const classPropagation = require('./class-propagation.js');
 const emailConfig = require('./email-config.js');
 
@@ -1203,7 +1204,7 @@ exports.processCoveragePick = onDocumentUpdated({
  * closeMonth — callable. Consolida e congela um mês.
  *
  * Permissão: apenas admin (não admin_gestao). D1.
- * Idempotente: se monthly_closings/{unitId}_{year}-{month} já existe, retorna erro.
+ * Idempotente: se monthly_closings/{year}-{month} já existe, retorna erro.
  *
  * Transação: cria o doc de fechamento via runTransaction (previne race condition).
  * Classes são atualizadas em batches de 400 após a transação.
@@ -1232,10 +1233,15 @@ exports.closeMonth = onCall({
 
   // ── Params ────────────────────────────────────────────────────────
   const reqData = request.data || {};
-  const { unitId, year, month } = reqData;
+  const { year, month } = reqData;
 
-  if (!unitId || !year || !month) {
-    throw new HttpsError('invalid-argument', 'unitId, year e month são obrigatórios.');
+  // `unitId` não existe mais: o fechamento é do MÊS, todas as unidades juntas.
+  // Era por unidade, e quem dava aula na CP e na PP entrava nos dois — bolsa de
+  // estágio, VR, VT e Outros saíam inteiros em cada fechamento (R$ 7.580,84 a
+  // mais só em agosto/2026, medido antes de qualquer mês ter sido fechado).
+  // Uma tela velha em cache ainda pode mandar unitId; é ignorado de propósito.
+  if (!year || !month) {
+    throw new HttpsError('invalid-argument', 'year e month são obrigatórios.');
   }
 
   if (!Number.isInteger(year) || year < 2020 || year > 2100) {
@@ -1245,10 +1251,10 @@ exports.closeMonth = onCall({
     throw new HttpsError('invalid-argument', 'Mês inválido (1-12).');
   }
 
-  const closingId = `${unitId}_${year}-${String(month).padStart(2, '0')}`;
+  const closingId = `${year}-${String(month).padStart(2, '0')}`;
   const closingRef = firestore.collection('monthly_closings').doc(closingId);
 
-  logger.info('[closeMonth] Iniciado por', request.auth.uid, { unitId, year, month, closingId });
+  logger.info('[closeMonth] Iniciado por', request.auth.uid, { year, month, closingId });
 
   try {
     // ── 1) Define intervalo do mês em BR (Bug D) ──────────────────
@@ -1263,9 +1269,8 @@ exports.closeMonth = onCall({
     // lastDayOfMonth movido pra cá (Sprint 6b precisa antes do bloco de férias)
     const lastDayOfMonth = new Date(Date.UTC(year, month, 0, 23 + BR_OFFSET_HOURS, 59, 59, 999));
 
-    // ── 2) Query classes da unidade no intervalo ───────────────────
+    // ── 2) Query classes do mês, em TODAS as unidades ──────────────
     const classesSnap = await firestore.collection('classes')
-      .where('unitId', '==', unitId)
       .where('scheduledDate', '>=', startDate)
       .where('scheduledDate', '<=', endDate)
       .get();
@@ -1301,8 +1306,14 @@ exports.closeMonth = onCall({
     }));
 
     // ── 7) Agrupa classes por teacher ───────────────────────────────
+    // Quem dá aula sem receber fica fora da folha. A PRÉVIA já pulava desde
+    // 25/08/2026 e o FECHAMENTO não — a ficha do sócio entraria no mês fechado
+    // com "Sem cadastro salarial", pendência falsa que convida alguém a
+    // "consertar" pagando. Achado revisando o diff em 05/09/2026.
     const grouped = {};
     for (const c of validClasses) {
+      const tDoc = teacherMap[c.teacherId];
+      if (tDoc && tDoc.naoRemunerado === true) continue;
       if (!grouped[c.teacherId]) grouped[c.teacherId] = [];
       grouped[c.teacherId].push(c);
     }
@@ -1322,7 +1333,8 @@ exports.closeMonth = onCall({
       .map(d => ({ id: d.id, ...d.data() }))
       .filter(v =>
            v.lastPeriodEnd && v.lastPeriodEnd.toDate() >= monthStart
-        && v.unitId === unitId
+        // sem filtro de unidade: as férias da pessoa são pagas uma vez no mês,
+        // e o fechamento agora é do mês inteiro
         && v.payment
         && v.payment.value > 0
         && v.payment.mode !== 'deferred'
@@ -1387,6 +1399,9 @@ exports.closeMonth = onCall({
         vacationDaysInMonth: 0,
         vacationValue: 0,
         vacationDetails: [],
+        // sem aula no mês: nenhuma unidade e nada a avisar
+        porUnidade: [],
+        avisos: [],
       });
     }
 
@@ -1397,7 +1412,29 @@ exports.closeMonth = onCall({
       const hours = calculateTeacherHoursCF(classes, scaleTypesMap);
       const value = calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth);
 
+      // O pagamento é um só, mas o custo por unidade não pode se perder: a
+      // gestão precisa saber quanto de hora cada unidade consumiu.
+      const mapaUn = new Map();
+      for (const c of classes) {
+        const u = c.unitId || '(sem unidade)';
+        if (!mapaUn.has(u)) mapaUn.set(u, []);
+        mapaUn.get(u).push(c);
+      }
+      const porUnidade = [...mapaUn.entries()].map(([unitId, cs]) => ({
+        unitId,
+        classesCount: cs.length,
+        horas: Math.round(calculateTeacherHoursCF(cs, scaleTypesMap) * 100) / 100,
+      })).sort((a, b) => b.horas - a.horas);
+
       teacherResults.push({
+        porUnidade,
+        // mesma regra da prévia — o mês fechado tem que mostrar os mesmos avisos
+        avisos: payroll.avisosDaLinha({
+          temSalario: !!salary, isIntern: value.isIntern === true,
+          hourlyRate: value.hourlyRate, horas: hours,
+          semContrato: value.isIntern === true && !(value.internLimitHours > 0),
+          qtdUnidades: porUnidade.length,
+        }),
         teacherId: tid,
         teacherName: teacher.name || '(desconhecido)',
         teacherType: teacher.type || 'efetivo',
@@ -1546,7 +1583,9 @@ exports.closeMonth = onCall({
       const finalTotals = buildTotals(finalResults);
 
       closingData = {
-        unitId,
+        // `unitIds` no lugar do antigo `unitId`: o fechamento cobre a academia
+        // inteira, e cada pessoa traz a própria divisão em `porUnidade`.
+        unitIds: [...new Set(validClasses.map(c => c.unitId).filter(Boolean))].sort(),
         year,
         month,
         status: 'fechado',
@@ -1584,7 +1623,7 @@ exports.closeMonth = onCall({
           saldoFinal: conta.saldoFinal,
           diasAfastado: (finalResults.find(x => x.teacherId === b.teacherId) || {}).vacationDaysInMonth || 0,
           closingIds: admin.firestore.FieldValue.arrayUnion(closingId),
-          unitIds: admin.firestore.FieldValue.arrayUnion(unitId),
+          unitIds: closingData ? closingData.unitIds : [],
           updatedAt: now,
         }, { merge: true });
       }
@@ -1648,7 +1687,7 @@ exports.closeMonth = onCall({
       userId: request.auth.uid,
       userName: userData.name || userData.email || request.auth.uid,
       role: profiles.join(','),
-      unitId,
+      unitIds: closingData.unitIds,
       timestamp: now,
     });
 
@@ -2058,148 +2097,17 @@ exports.changeLoginEmail = onCall({
  * Checa a marca `remunerada` (gravada na publicação a partir de 07/08/2026) E o
  * tipo da escala, pra pegar também o que foi publicado antes da marca existir.
  */
-function classCountsForPayCF(c) {
-  if (!c) return false;
-  if (c.remunerada === false) return false;
-  if (c.specialScaleType === 'escola_interna') return false;
-  return true;
-}
-
-/**
- * Minutos que a aula realmente vale, depois das ocorrências.
- * Gêmeo de classEffectiveMinutes em professores-shared.js — manter iguais.
- *
- *   duração − atraso − saída antecipada + hora extra
- *
- * Falta zera: se não deu a aula, não recebe por ela (decisão do Rodrigo, 07/08).
- * Nunca devolve negativo.
- */
-function classEffectiveMinutesCF(c) {
-  if (!c) return 0;
-  if (c.faltaTipo) return 0;
-  const base = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
-  const n = v => (typeof v === 'number' && v > 0) ? v : 0;
-  return Math.max(0, base - n(c.atrasoMinutos) - n(c.saidaAntecipadaMinutos) + n(c.horaExtraMinutos));
-}
-
-function calculateTeacherHoursCF(classes, scaleTypesMap = null) {
-  if (!Array.isArray(classes) || classes.length === 0) return 0;
-  let totalMinutes = 0;
-  for (const c of classes) {
-    if (!classCountsForPayCF(c)) continue;
-    const mins = classEffectiveMinutesCF(c);
-    let weight = 1;
-    // Peso variável por tipo de escala (Sprint 5a)
-    if (c.specialScaleType && scaleTypesMap && scaleTypesMap.has(c.specialScaleType)) {
-      weight = scaleTypesMap.get(c.specialScaleType).weight || 1;
-    } else if (c.isHoliday === true) {
-      weight = 2;  // fallback retrocompat (P02)
-    }
-    totalMinutes += mins * weight;
-  }
-  return totalMinutes / 60;
-}
-
-/**
- * Encontra snapshot salarial efetivo no último dia do mês.
- * Mesma lógica do client-side getEffectiveSalaryAt.
- */
-function getEffectiveSalaryAtCF(salary, date) {
-  if (!salary) return {};
-  const result = { ...salary };
-  const targetMs = date.getTime();
-
-  if (!Array.isArray(salary.salaryHistory) || salary.salaryHistory.length === 0) {
-    return result;
-  }
-
-  const sorted = [...salary.salaryHistory].sort((a, b) => {
-    const ta = (a.effectiveDate && a.effectiveDate.toMillis) ? a.effectiveDate.toMillis() : 0;
-    const tb = (b.effectiveDate && b.effectiveDate.toMillis) ? b.effectiveDate.toMillis() : 0;
-    return tb - ta;
-  });
-
-  for (const entry of sorted) {
-    const entryMs = (entry.effectiveDate && entry.effectiveDate.toMillis) ? entry.effectiveDate.toMillis() : 0;
-    if (entryMs > targetMs) {
-      result[entry.field] = entry.previousValue;
-    }
-  }
-
-  return result;
-}
-
-/**
- * Calcula valor a pagar para um professor (server-side).
- * Replica calculateTeacherValue do client.
- */
-function calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth) {
-  if (!salary) {
-    return {
-      total: 0, valorHoras: 0, mealAllowance: 0, transportAllowance: 0,
-      otherBenefits: [], totalOutros: 0, hourlyRate: 0,
-      isInternProportional: false, internStipendUsed: null,
-      internExcessHours: null, internExcessValue: null,
-      // null e não undefined: o Firestore recusa undefined
-      isIntern: false, internLimitHours: null, internPropRate: null,
-    };
-  }
-
-  const effective = getEffectiveSalaryAtCF(salary, lastDayOfMonth);
-
-  const hourlyRate = (typeof effective.hourlyRate === 'number' && effective.hourlyRate > 0)
-    ? effective.hourlyRate : 0;
-  const meal = (typeof effective.mealAllowance === 'number') ? effective.mealAllowance : 0;
-  const transport = (typeof effective.transportAllowance === 'number') ? effective.transportAllowance : 0;
-  const otherBenefits = Array.isArray(effective.otherBenefits) ? effective.otherBenefits : [];
-  const totalOutros = otherBenefits.reduce((sum, b) => sum + ((typeof b.valor === 'number') ? b.valor : 0), 0);
-
-  let valorHoras = 0;
-  let isInternProportional = false;
-  let internStipendUsed = null;
-  let internExcessHours = null;
-  let internExcessValue = null;
-  // Dados que o banco de horas precisa pra refazer a conta do mês (bloco 2, 07/08)
-  let internLimitHours = null;
-  let internPropRate = null;
-
-  const isIntern = teacher.type === 'estagiario' && salary.remunerationType !== 'hora_aula';
-
-  if (isIntern) {
-    const limitMinutes = (typeof effective.internMonthlyLimitMinutes === 'number' && effective.internMonthlyLimitMinutes > 0)
-      ? effective.internMonthlyLimitMinutes
-      : ((typeof effective.internMonthlyLimitHours === 'number') ? effective.internMonthlyLimitHours * 60 : 0);
-    const limitHours = limitMinutes / 60;
-    const stipend = (typeof effective.internMonthlyStipend === 'number') ? effective.internMonthlyStipend : 0;
-    const propRate = (typeof effective.internProportionalHourlyRate === 'number') ? effective.internProportionalHourlyRate : 0;
-    internLimitHours = limitHours;
-    internPropRate = propRate;
-
-    if (hours <= limitHours) {
-      valorHoras = stipend;
-      internStipendUsed = stipend;
-    } else {
-      const excessHours = hours - limitHours;
-      const excessValue = excessHours * propRate;
-      valorHoras = stipend + excessValue;
-      isInternProportional = true;
-      internStipendUsed = stipend;
-      internExcessHours = excessHours;
-      internExcessValue = excessValue;
-    }
-  } else {
-    valorHoras = hours * hourlyRate;
-  }
-
-  const total = valorHoras + meal + transport + totalOutros;
-
-  return {
-    total, valorHoras, mealAllowance: meal, transportAllowance: transport,
-    otherBenefits, totalOutros, hourlyRate,
-    isInternProportional, internStipendUsed, internExcessHours, internExcessValue,
-    isIntern, internLimitHours, internPropRate,
-  };
-}
+// ── A conta da folha mora em closing-payroll.js ──────────────────────
+// Estas funções eram uma CÓPIA das de professores-shared.js, e foi entre as duas
+// cópias que a duplicação de bolsa/VR/VT passou (05/09/2026). Agora são fachada:
+// os nomes continuam pra não mexer em quem já chama, a conta é uma só.
+const classCountsForPayCF    = (c) => payroll.contaParaPagamento(c);
+const classEffectiveMinutesCF = (c) => payroll.minutosEfetivos(c);
+const calculateTeacherHoursCF = (classes, scaleTypesMap = null) =>
+  payroll.horasDasAulas(classes, scaleTypesMap || new Map());
+const getEffectiveSalaryAtCF  = (salary, date) => payroll.salarioVigenteEm(salary, date);
+const calculateTeacherValueCF = (teacher, salary, hours, lastDayOfMonth) =>
+  payroll.valorDoProfessor(teacher, salary, hours, lastDayOfMonth);
 
 /** Formata valor monetário pra log (server-side). */
 function fmtCF(val) {

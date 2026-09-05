@@ -174,15 +174,24 @@
 
   /**
    * Separa as trocas abertas de um mês para a tela de fechamento.
-   * Trava o que depende da gestão (é ação dela, e passar reto paga o professor
-   * errado). Só avisa o que depende de um professor responder — senão a folha
-   * inteira fica refém de quem não abre o app.
+   *
+   * TODA troca aberta trava o fechamento (decisão do Rafael, 05/09/2026).
+   *
+   * Antes, a que esperava resposta de um professor só avisava, "senão a folha
+   * fica refém de quem não abre o app" — e a razão era boa: a gestão não tinha
+   * como resolvê-la. Agora tem ("Confirmar mesmo assim"), então não travar
+   * significa deixar fechar irreversivelmente pagando o professor errado. Em
+   * agosto/2026 eram 20 aulas nessa situação, e a gestão via só um aviso.
+   *
+   * Os dois grupos continuam separados porque o texto da tela muda: uma espera
+   * ação da gestão, a outra espera alguém que talvez nunca responda.
    */
   function pendenciasDoFechamento(subs) {
-    const lista = subs || [];
+    const lista = (subs || []).filter(s => s && STATUS_ABERTO.indexOf(s.status) !== -1);
     return {
-      travam: lista.filter(s => s && s.status === STATUS.AGUARDANDO_GESTAO),
-      avisam: lista.filter(s => s && s.status === STATUS.PENDING),
+      travam: lista,
+      esperandoGestao: lista.filter(s => s.status === STATUS.AGUARDANDO_GESTAO),
+      semRespostaDoProfessor: lista.filter(s => s.status === STATUS.PENDING),
     };
   }
 

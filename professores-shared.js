@@ -2445,82 +2445,17 @@ function mergeClassesById(...listas) {
     ms(a) - ms(b) || String(a.startTime || '').localeCompare(String(b.startTime || '')));
 }
 
-function classCountsForPay(c) {
-  if (!c) return false;
-  if (c.remunerada === false) return false;
-  if (c.specialScaleType === 'escola_interna') return false;
-  return true;
-}
-
-/**
- * Minutos que a aula realmente vale, depois das ocorrências.
- *
- *   duração − atraso − saída antecipada + hora extra
- *
- * Falta zera: se não deu a aula, não recebe por ela (decisão do Rodrigo, 07/08).
- * Nunca devolve negativo — atraso maior que a aula não vira desconto de outra.
- */
-function classEffectiveMinutes(c) {
-  if (!c) return 0;
-  if (c.faltaTipo) return 0;
-  const base = (typeof c.durationMinutes === 'number' && c.durationMinutes > 0) ? c.durationMinutes : 0;
-  const n = v => (typeof v === 'number' && v > 0) ? v : 0;
-  return Math.max(0, base - n(c.atrasoMinutos) - n(c.saidaAntecipadaMinutos) + n(c.horaExtraMinutos));
-}
-
-function calculateTeacherHours(classes, scaleTypesMap = null) {
-  if (!Array.isArray(classes) || classes.length === 0) return 0;
-  let totalMinutes = 0;
-  for (const c of classes) {
-    if (!classCountsForPay(c)) continue;
-    const mins = classEffectiveMinutes(c);
-    let weight = 1;
-    // Peso variável por tipo de escala (Sprint 5a)
-    if (c.specialScaleType && scaleTypesMap && scaleTypesMap.has(c.specialScaleType)) {
-      weight = scaleTypesMap.get(c.specialScaleType).weight || 1;
-    } else if (c.isHoliday === true) {
-      weight = 2;  // fallback retrocompat (P02)
-    }
-    totalMinutes += mins * weight;
-  }
-  return totalMinutes / 60;
-}
-
-/**
- * Encontra os valores salariais efetivos no último dia do mês.
- * Percorre o salaryHistory de trás pra frente: começa com valores atuais
- * e "rebobina" mudanças com effectiveDate > targetDate.
- *
- * @param {Object} salary — doc de teacher_salaries
- * @param {Date} date — data-alvo (último dia do mês)
- * @returns {Object} snapshot dos campos salariais válidos na data
- */
-function getEffectiveSalaryAt(salary, date) {
-  if (!salary) return {};
-  const result = { ...salary };
-  const targetMs = date.getTime();
-
-  if (!Array.isArray(salary.salaryHistory) || salary.salaryHistory.length === 0) {
-    return result;
-  }
-
-  // Ordena por effectiveDate decrescente (mais recente primeiro)
-  const sorted = [...salary.salaryHistory].sort((a, b) => {
-    const ta = (a.effectiveDate && a.effectiveDate.toMillis) ? a.effectiveDate.toMillis() : 0;
-    const tb = (b.effectiveDate && b.effectiveDate.toMillis) ? b.effectiveDate.toMillis() : 0;
-    return tb - ta;
-  });
-
-  // Rebobina mudanças que ocorreram depois da data-alvo
-  for (const entry of sorted) {
-    const entryMs = (entry.effectiveDate && entry.effectiveDate.toMillis) ? entry.effectiveDate.toMillis() : 0;
-    if (entryMs > targetMs) {
-      result[entry.field] = entry.previousValue;
-    }
-  }
-
-  return result;
-}
+// ── A conta da folha mora em closing-payroll.js ──────────────────────
+// Estas funções eram COPIADAS aqui e em functions/index.js, e foi entre as duas
+// cópias que a duplicação de bolsa/VR/VT passou (05/09/2026). Agora são fachada:
+// os nomes continuam pra não quebrar quem já chama, a conta é uma só.
+const classCountsForPay   = (c) => ClosingPayroll.contaParaPagamento(c);
+const classEffectiveMinutes = (c) => ClosingPayroll.minutosEfetivos(c);
+const calculateTeacherHours = (classes, scaleTypesMap = null) =>
+  ClosingPayroll.horasDasAulas(classes, scaleTypesMap || new Map());
+const getEffectiveSalaryAt  = (salary, date) => ClosingPayroll.salarioVigenteEm(salary, date);
+const calculateTeacherValue = (teacher, salary, hours, lastDayOfMonth) =>
+  ClosingPayroll.valorDoProfessor(teacher, salary, hours, lastDayOfMonth);
 
 /**
  * Retorna o internMonthlyStipend vigente em uma data específica.
@@ -2550,107 +2485,6 @@ function getEffectiveStipendAt(salaryData, date) {
   }
 
   return stipend;
-}
-
-/**
- * Calcula valor a pagar para um professor.
- * Branch:
- *   - Efetivo/Eventual: horas × hourlyRate + VR + VT + Outros
- *   - Estagiário (bolsa): bolsa fixa (até limite) + proporcional do excedente + VR + VT + Outros
- *
- * @param {Object} teacher — doc de teachers
- * @param {Object} salary — doc de teacher_salaries (pode ser null)
- * @param {number} hours — horas calculadas por calculateTeacherHours()
- * @param {Date} lastDayOfMonth — último dia do mês para snapshot salarial
- * @returns {Object} { total, valorHoras, mealAllowance, transportAllowance, totalOutros, ...internDetails }
- */
-function calculateTeacherValue(teacher, salary, hours, lastDayOfMonth) {
-  if (!salary) {
-    return {
-      total: 0,
-      valorHoras: 0,
-      mealAllowance: 0,
-      transportAllowance: 0,
-      otherBenefits: [],
-      totalOutros: 0,
-      isInternProportional: false,
-      internStipendUsed: null,
-      internExcessHours: null,
-      internExcessValue: null,
-      hourlyRate: 0,
-      // null e não undefined: o Firestore recusa undefined
-      isIntern: false,
-      internLimitHours: null,
-      internPropRate: null,
-    };
-  }
-
-  const effective = getEffectiveSalaryAt(salary, lastDayOfMonth);
-
-  const hourlyRate = (typeof effective.hourlyRate === 'number' && effective.hourlyRate > 0)
-    ? effective.hourlyRate : 0;
-  const meal = (typeof effective.mealAllowance === 'number') ? effective.mealAllowance : 0;
-  const transport = (typeof effective.transportAllowance === 'number') ? effective.transportAllowance : 0;
-  const otherBenefits = Array.isArray(effective.otherBenefits) ? effective.otherBenefits : [];
-  const totalOutros = otherBenefits.reduce((sum, b) => sum + ((typeof b.valor === 'number') ? b.valor : 0), 0);
-
-  let valorHoras = 0;
-  let isInternProportional = false;
-  let internStipendUsed = null;
-  let internExcessHours = null;
-  let internExcessValue = null;
-  // Dados que o banco de horas precisa pra refazer a conta do mês (bloco 2, 07/08)
-  let internLimitHours = null;
-  let internPropRate = null;
-
-  const isIntern = teacher.type === 'estagiario' && salary.remunerationType !== 'hora_aula';
-
-  if (isIntern) {
-    // Estagiário com bolsa — D6: usa internMonthlyLimitMinutes como threshold
-    const limitMinutes = (typeof effective.internMonthlyLimitMinutes === 'number' && effective.internMonthlyLimitMinutes > 0)
-      ? effective.internMonthlyLimitMinutes
-      : ((typeof effective.internMonthlyLimitHours === 'number') ? effective.internMonthlyLimitHours * 60 : 0);
-    const limitHours = limitMinutes / 60;
-    const stipend = (typeof effective.internMonthlyStipend === 'number') ? effective.internMonthlyStipend : 0;
-    const propRate = (typeof effective.internProportionalHourlyRate === 'number') ? effective.internProportionalHourlyRate : 0;
-    internLimitHours = limitHours;
-    internPropRate = propRate;
-
-    if (hours <= limitHours) {
-      valorHoras = stipend;
-      internStipendUsed = stipend;
-    } else {
-      const excessHours = hours - limitHours;
-      const excessValue = excessHours * propRate;
-      valorHoras = stipend + excessValue;
-      isInternProportional = true;
-      internStipendUsed = stipend;
-      internExcessHours = excessHours;
-      internExcessValue = excessValue;
-    }
-  } else {
-    // Efetivo ou eventual: horas × R$/h
-    valorHoras = hours * hourlyRate;
-  }
-
-  const total = valorHoras + meal + transport + totalOutros;
-
-  return {
-    total,
-    valorHoras,
-    mealAllowance: meal,
-    transportAllowance: transport,
-    otherBenefits,
-    totalOutros,
-    hourlyRate,
-    isInternProportional,
-    internStipendUsed,
-    internExcessHours,
-    internExcessValue,
-    isIntern,
-    internLimitHours,
-    internPropRate,
-  };
 }
 
 /**
@@ -2712,185 +2546,159 @@ const InternHourBankService = {
 
 const ClosingService = {
   /**
-   * Retorna o ID composto do fechamento.
-   * Formato: `${unitId}_${year}-${month}` (ex: unit-cp_2026-05)
+   * ID do fechamento: `${ano}-${mes}` — do MÊS, não da unidade.
+   *
+   * Era `${unitId}_${ano-mes}`. O fechamento por unidade fazia quem dá aula na
+   * CP e na PP entrar nos dois, e o valor MENSAL (bolsa, VR, VT, Outros) saía
+   * inteiro em cada um: R$ 7.580,84 a mais só em agosto/2026. Trocar o id foi
+   * de graça — nenhum mês jamais tinha sido fechado em produção.
    */
-  getClosingId(unitId, year, month) {
-    return `${unitId}_${year}-${String(month).padStart(2, '0')}`;
+  getClosingId(year, month) {
+    return `${year}-${String(month).padStart(2, '0')}`;
   },
 
   /**
-   * Preview do fechamento — consolida classes do mês sem gravar nada.
-   * Busca classes (realizada + substituida), agrupa por teacherId,
-   * busca dados de teacher + salary, calcula horas e valores.
+   * Prévia do fechamento — o mês inteiro, TODAS as unidades, uma linha por
+   * pessoa. Não grava nada.
    *
-   * @param {string} unitId
-   * @param {number} year
-   * @param {number} month — 1-12
-   * @returns {{success, data: {unitId, year, month, teachers[], totals{}}}}
+   * A conta é a mesma função pura que a Cloud Function usa
+   * (`ClosingPayroll.montarFolha`); se cada uma fizesse a sua, o admin veria um
+   * valor na prévia e pagaria outro no fechamento.
    */
-  async preview(unitId, year, month) {
-    if (!unitId) return { success: false, error: 'unitId obrigatório' };
+  async preview(year, month) {
     if (!year || !month) return { success: false, error: 'year e month obrigatórios' };
 
     try {
-      // 1) Define intervalo do mês em horário BR (Bug D — usar boundaries locais)
-      //    Janeiro: new Date(2026, 0, 1, 0, 0, 0) a new Date(2026, 0, 31, 23, 59, 59, 999)
+      // Intervalo do mês em horário BR (Bug D — boundaries locais)
       const startDate = new Date(year, month - 1, 1, 0, 0, 0);
-      const endDate = new Date(year, month, 0, 23, 59, 59, 999);  // day 0 do mês seguinte = último dia
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-      // 2) Query classes da unidade no intervalo
-      const snap = await db.collection('classes')
-        .where('unitId', '==', unitId)
-        .where('scheduledDate', '>=', startDate)
-        .where('scheduledDate', '<=', endDate)
-        .get();
+      const [snap, stSnap, unitsRes] = await Promise.all([
+        db.collection('classes')
+          .where('scheduledDate', '>=', startDate)
+          .where('scheduledDate', '<=', endDate)
+          .get(),
+        db.collection('special_scale_types').get(),
+        UnitService.list(),
+      ]);
 
-      const allClasses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const validas = classes.filter(c => ClosingPayroll.STATUS_QUE_PAGAM.indexOf(c.status) !== -1);
 
-      // 3) Filtra apenas status que contam pro fechamento (D9)
-      const validClasses = allClasses.filter(c =>
-        c.status === 'realizada' || c.status === 'substituida'
-      );
-
-      if (validClasses.length === 0) {
+      if (validas.length === 0) {
         return {
           success: true,
           data: {
-            unitId, year, month,
-            teachers: [],
-            totals: { classesRealizadas: 0, totalHoras: 0, totalValor: 0 },
+            year, month, teachers: [],
+            totals: { classesRealizadas: 0, totalHoras: 0, totalValor: 0, unitIds: [] },
             isEmpty: true,
           },
         };
       }
 
-      // 4) Extrai teacherIds únicos
-      const teacherIds = [...new Set(validClasses.map(c => c.teacherId).filter(Boolean))];
+      const teacherIds = [...new Set(validas.map(c => c.teacherId).filter(Boolean))];
 
-      // 5) Busca docs de teachers
-      const teacherMap = {};
-      const teacherPromises = teacherIds.map(async (tid) => {
-        const doc = await db.collection('teachers').doc(tid).get();
-        if (doc.exists) teacherMap[tid] = { id: doc.id, ...doc.data() };
-      });
-      await Promise.all(teacherPromises);
-
-      // 6) Busca docs de salary
-      const salaryMap = {};
-      const salaryPromises = teacherIds.map(async (tid) => {
-        try {
-          const doc = await db.collection('teacher_salaries').doc(tid).get();
-          if (doc.exists) salaryMap[tid] = { id: doc.id, ...doc.data() };
-        } catch (_) { /* permission-denied pra não-admin — ignora */ }
-      });
-      await Promise.all(salaryPromises);
-
-      // 6b) Busca special_scale_types pra cálculo de peso (Sprint 5a)
-      const stSnap = await db.collection('special_scale_types').get();
-      const scaleTypesMap = new Map(stSnap.docs.map(d => [d.id, d.data()]));
-
-      // 7) Agrupa classes por teacherId
-      const grouped = {};
-      for (const c of validClasses) {
-        // Quem não recebe por aula fica fora da folha. Sem isto a ficha do
-        // sócio apareceria com as horas e o aviso "Sem cadastro salarial" todo
-        // mês — pendência falsa que convida alguém a "consertar" pagando.
-        const tDoc = teacherMap[c.teacherId];
-        if (tDoc && tDoc.naoRemunerado === true) continue;
-        if (!grouped[c.teacherId]) grouped[c.teacherId] = [];
-        grouped[c.teacherId].push(c);
-      }
-
-      // 8) Calcula por professor
-      const teacherResults = [];
-      let totalHoras = 0, totalValor = 0, totalClasses = 0;
-
-      for (const [tid, classes] of Object.entries(grouped)) {
-        const teacher = teacherMap[tid] || { id: tid, name: '(desconhecido)', type: 'efetivo' };
-        const salary = salaryMap[tid] || null;
-
-        const hours = calculateTeacherHours(classes, scaleTypesMap);
-        const value = calculateTeacherValue(teacher, salary, hours, endDate);
-
-        teacherResults.push({
-          teacherId: tid,
-          teacherName: teacher.name || '(desconhecido)',
-          teacherType: teacher.type || 'efetivo',
-          classesCount: classes.length,
-          totalHoras: hours,
-          hourlyRate: value.hourlyRate || 0,
-          valorHoras: value.valorHoras,
-          mealAllowance: value.mealAllowance,
-          transportAllowance: value.transportAllowance,
-          otherBenefits: value.otherBenefits,
-          totalOutros: value.totalOutros,
-          valorTotal: value.total,
-          isInternProportional: value.isInternProportional,
-          internStipendUsed: value.internStipendUsed,
-          internExcessHours: value.internExcessHours,
-          internExcessValue: value.internExcessValue,
-          isIntern: value.isIntern === true,
-          internLimitHours: value.internLimitHours,
-          internPropRate: value.internPropRate,
-        });
-
-        totalHoras += hours;
-        totalClasses += classes.length;
-      }
-
-      // 8b) Banco de horas do estagiário (bloco 2) — a prévia TEM que mostrar o
-      // mesmo número que o fechamento vai pagar, senão o admin aprova um valor e
-      // paga outro. Mesma função pura que a Cloud Function usa.
-      const diasNoMes = new Date(year, month, 0).getDate();
-      await Promise.all(teacherResults.filter(t => t.isIntern).map(async (t) => {
-        const [saldoRes, movRes] = await Promise.all([
-          InternHourBankService.getSaldo(t.teacherId),
-          InternHourBankService.getMovimento(t.teacherId, year, month),
+      const teachers = new Map();
+      const salaries = new Map();
+      await Promise.all(teacherIds.map(async (tid) => {
+        const [tDoc, sDoc] = await Promise.all([
+          db.collection('teachers').doc(tid).get(),
+          // permission-denied pra não-admin — a tela já é só de admin
+          db.collection('teacher_salaries').doc(tid).get().catch(() => null),
         ]);
-        const conta = InternHourBank.calcularMesEstagiario({
-          horas: t.totalHoras,
-          limiteHoras: t.internLimitHours,
-          stipend: t.internStipendUsed || 0,
-          propRate: t.internPropRate,
-          diasNoMes,
-          // A prévia não desconta férias do contrato (o fechamento desconta) —
-          // quem estiver de férias aparece devendo mais horas aqui do que lá.
-          diasAfastado: 0,
-          movimento: movRes.success ? movRes.data : null,
-          saldoAtual: saldoRes.success ? (saldoRes.data.saldoHoras || 0) : 0,
-        });
-        t.valorHoras = conta.valorHoras;
-        t.valorTotal = Math.round((conta.valorHoras + (t.mealAllowance || 0)
-          + (t.transportAllowance || 0) + (t.totalOutros || 0)) * 100) / 100;
-        t.isInternProportional = conta.valorExtra > 0;
-        t.internExcessHours = conta.horasPagasAgora;
-        t.internExcessValue = conta.valorExtra;
-        t.internContratoMes = conta.contratoMes;
-        t.internHorasNoMes = conta.horasTrabalhadas;
-        t.internSaldoAnterior = conta.saldoAnterior;
-        t.internHorasQuitadas = conta.horasQuitadas;
-        t.internSaldoFinal = conta.saldoFinal;
-        t.internSemContrato = conta.semContrato;
-        t.internExplicacao = conta.explicacao;
+        if (tDoc.exists) teachers.set(tid, { id: tDoc.id, ...tDoc.data() });
+        if (sDoc && sDoc.exists) salaries.set(tid, { id: sDoc.id, ...sDoc.data() });
       }));
 
-      totalValor = teacherResults.reduce((s, t) => s + (t.valorTotal || 0), 0);
+      // Saldo e movimento do banco de horas, pra prévia mostrar o mesmo número
+      // que o fechamento vai pagar.
+      const bancos = {};
+      await Promise.all(teacherIds
+        .filter(tid => {
+          // quem recebe pela regra da bolsa — a mesma pergunta que a folha faz
+          return ClosingPayroll.ehBolsista(teachers.get(tid), salaries.get(tid));
+        })
+        .map(async (tid) => {
+          const [saldoRes, movRes] = await Promise.all([
+            InternHourBankService.getSaldo(tid),
+            InternHourBankService.getMovimento(tid, year, month),
+          ]);
+          bancos[tid] = {
+            saldo: saldoRes.success ? (saldoRes.data.saldoHoras || 0) : 0,
+            movimento: movRes.success ? movRes.data : null,
+            // A prévia não desconta férias do contrato (o fechamento desconta) —
+            // quem estiver de férias aparece devendo mais horas aqui do que lá.
+            diasAfastado: 0,
+          };
+        }));
 
-      // Ordena por nome
-      teacherResults.sort((a, b) => a.teacherName.localeCompare(b.teacherName, 'pt-BR'));
+      // ── material da conferência ─────────────────────────────────────
+      // Tudo o que a tela precisa perguntar antes de fechar, medido aqui e não
+      // na tela: se o número muda de lugar pra lugar, ninguém confia em nenhum.
+      const statusAulas = {};
+      for (const c of classes) {
+        const st = c.status || '(sem status)';
+        statusAulas[st] = (statusAulas[st] || 0) + 1;
+      }
+      const ocorrencias = classes.filter(c =>
+        c.faltaTipo || c.atrasoMinutos > 0 || c.saidaAntecipadaMinutos > 0 || c.horaExtraMinutos > 0);
+
+      // Férias aprovadas que encostam no mês — o fechamento paga por elas.
+      let ferias = [];
+      try {
+        const vacSnap = await db.collection('vacation_requests')
+          .where('status', '==', 'aprovada')
+          .where('firstPeriodStart', '<=', endDate)
+          .get();
+        ferias = vacSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(v => v.lastPeriodEnd && v.lastPeriodEnd.toDate() >= startDate);
+      } catch (err) {
+        // Não trava a prévia: o bloco da tela avisa que não deu pra conferir.
+        console.error('[ClosingService.preview] férias', err);
+        ferias = null;
+      }
+
+      const folha = ClosingPayroll.montarFolha({
+        classes: validas,
+        teachers, salaries,
+        scaleTypes: new Map(stSnap.docs.map(d => [d.id, d.data()])),
+        units: new Map((unitsRes.success ? unitsRes.data : []).map(u => [u.id, u])),
+        ano: year, mes: month, ultimoDiaDoMes: endDate,
+        bancos,
+      });
+
+      // Custo por unidade: derivado das MESMAS linhas da folha, pra não existir
+      // um segundo caminho de cálculo que possa divergir.
+      const mapaUn = new Map();
+      for (const p of folha.pessoas) {
+        for (const u of p.porUnidade) {
+          if (!mapaUn.has(u.unitId)) mapaUn.set(u.unitId, { unitId: u.unitId, classesCount: 0, horas: 0, pessoas: 0 });
+          const acc = mapaUn.get(u.unitId);
+          acc.classesCount += u.classesCount;
+          acc.horas += u.horas;
+          acc.pessoas += 1;
+        }
+      }
+      const unidades = [...mapaUn.values()]
+        .map(u => ({ ...u, horas: Math.round(u.horas * 100) / 100,
+          unitName: ((unitsRes.success ? unitsRes.data : []).find(x => x.id === u.unitId) || {}).name || u.unitId }))
+        .sort((a, b) => b.horas - a.horas);
 
       return {
         success: true,
         data: {
-          unitId, year, month,
-          teachers: teacherResults,
-          totals: {
-            classesRealizadas: totalClasses,
-            totalHoras: Math.round(totalHoras * 100) / 100,
-            totalValor: Math.round(totalValor * 100) / 100,
-          },
+          year, month,
+          teachers: folha.pessoas,
+          totals: folha.totais,
           isEmpty: false,
+          conferencia: {
+            statusAulas,
+            aulasNoMes: classes.length,
+            aulasQuePagam: validas.length,
+            ocorrencias: ocorrencias.length,
+            ferias,   // null = não deu pra conferir
+            unidades,
+          },
         },
       };
     } catch (err) {
@@ -2899,23 +2707,12 @@ const ClosingService = {
     }
   },
 
-  /**
-   * Lista fechamentos de uma unidade, ordenados por ano/mês decrescente.
-   */
-  async list(unitId) {
-    if (!unitId) return { success: false, error: 'unitId obrigatório' };
+  /** Lista os fechamentos, do mais novo pro mais velho. */
+  async list() {
     try {
-      const snap = await db.collection('monthly_closings')
-        .where('unitId', '==', unitId)
-        .get();
-
+      const snap = await db.collection('monthly_closings').get();
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Ordena client-side: ano desc, mês desc
-      data.sort((a, b) => {
-        if (a.year !== b.year) return b.year - a.year;
-        return b.month - a.month;
-      });
-
+      data.sort((a, b) => (b.year - a.year) || (b.month - a.month));
       return { success: true, data };
     } catch (err) {
       console.error('[ClosingService.list]', err);
@@ -4416,12 +4213,14 @@ const ReportService = {
   /** R1: Fechamentos Mensais */
   async getFechamentosReport(filters) {
     const { unitId, yearMin, monthMin, yearMax, monthMax } = filters;
-    if (!unitId) return { success: false, error: 'Unidade obrigatória.' };
 
-    let q = db.collection('monthly_closings').where('unitId', '==', unitId);
-    const snap = await q.get();
+    // O fechamento é do MÊS, não da unidade (05/09/2026): a unidade vira filtro
+    // opcional de leitura — mostra os meses em que aquela unidade teve aula.
+    const snap = await db.collection('monthly_closings').get();
     const closings = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
+      .filter(c => !unitId
+        || (Array.isArray(c.unitIds) ? c.unitIds.indexOf(unitId) !== -1 : c.unitId === unitId))
       .filter(c => isInRange(c.year, c.month, yearMin, monthMin, yearMax, monthMax))
       .sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month));
 
@@ -4453,8 +4252,8 @@ const ReportService = {
       success: true,
       data: {
         title: closings.length === 1
-          ? `Fechamento — Unidade ${unitId} — ${String(closings[0].month).padStart(2, '0')}/${closings[0].year}`
-          : `Fechamentos — Unidade ${unitId} — ${rows.length} linhas (${closings.length} meses)`,
+          ? `Fechamento — ${String(closings[0].month).padStart(2, '0')}/${closings[0].year}`
+          : `Fechamentos — ${rows.length} linhas (${closings.length} meses)`,
         generatedAt: new Date(),
         filters,
         columns: [

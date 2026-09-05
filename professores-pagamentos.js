@@ -55,16 +55,15 @@ async function renderPagamentosPage() {
     return;
   }
 
-  // ClosingService.list exige unitId — busca por unidade e agrega.
-  // (Bug pego no check geral 11/06: chamada sem arg quebrava a tela desde a 4b.)
-  const closingResults = await Promise.all((unitRes.data || []).map(u => ClosingService.list(u.id)));
-  const closingFail = closingResults.find(r => !r.success);
-  if (closingFail) {
-    page.innerHTML = `<div class="empty-state"><p class="subtitle">Erro ao carregar: ${closingFail.error}</p></div>`;
+  // Um fechamento por MÊS (desde 05/09/2026), não mais por unidade — cada
+  // pessoa aparece uma vez só, e recebe uma vez só.
+  const closingRes = await ClosingService.list();
+  if (!closingRes.success) {
+    page.innerHTML = `<div class="empty-state"><p class="subtitle">Erro ao carregar: ${closingRes.error}</p></div>`;
     return;
   }
 
-  PagState.closings = closingResults.flatMap(r => r.data || []);
+  PagState.closings = closingRes.data || [];
   PagState.units = unitRes.data || [];
   applyPagFilters();
   renderPagamentosHTML(page);
@@ -73,7 +72,11 @@ async function renderPagamentosPage() {
 function applyPagFilters() {
   let filtered = [...PagState.closings];
   if (PagState.filterUnitIds.length > 0) {
-    filtered = filtered.filter(c => PagState.filterUnitIds.includes(c.unitId));
+    // O fechamento cobre várias unidades: basta tocar numa das selecionadas.
+    filtered = filtered.filter(c => {
+      const ids = Array.isArray(c.unitIds) ? c.unitIds : [c.unitId].filter(Boolean);
+      return ids.some(u => PagState.filterUnitIds.includes(u));
+    });
   }
   if (PagState.filterYear) {
     filtered = filtered.filter(c => c.year === PagState.filterYear);
@@ -160,7 +163,11 @@ function renderClosingCard(closing) {
 
   let card = `<div class="pag-closing-card ${isExpanded ? 'expanded' : ''}">`;
   card += `<div class="pag-closing-header" onclick="pagToggleCard('${closing.id}')" style="cursor:pointer;">`;
-  card += `<div><strong>${closing.unitName || closing.unitId} · ${closing.year}-${String(closing.month).padStart(2,'0')}</strong>`;
+  const nomesUn = (Array.isArray(closing.unitIds) ? closing.unitIds : [closing.unitId].filter(Boolean))
+    .map(id => (PagState.units.find(u => u.id === id) || {}).name || id)
+    .map(n => String(n).replace(/^CrossTainer\s*/i, ''))
+    .join(' + ') || 'academia';
+  card += `<div><strong>${closing.year}-${String(closing.month).padStart(2,'0')} · ${nomesUn}</strong>`;
   card += `<span class="badge" style="margin-left:8px;background:${statusBg};color:${statusColor};padding:2px 8px;border-radius:4px;font-size:11px;">${closing.status || ''}</span></div>`;
   card += `<div style="display:flex;align-items:center;gap:12px;">`;
   card += `<span style="font-size:12px;color:var(--text2);">${teachers.length} prof. · ${fmt(totalValor)}</span>`;

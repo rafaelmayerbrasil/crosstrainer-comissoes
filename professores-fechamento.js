@@ -11,7 +11,10 @@
 //
 // Regras de negócio aplicadas:
 //   - D1: apenas admin (não admin_gestao) pode fechar
-//   - D2: fecha o mês inteiro de uma vez (sem parcial)
+//   - D2: fecha o mês inteiro de uma vez (sem parcial) — e, desde 05/09/2026,
+//         TODAS as unidades juntas: o fechamento é por PESSOA/mês. Era por
+//         unidade, e quem dava aula na CP e na PP levava bolsa, VR e VT em
+//         dobro (R$ 7.580,84 a mais só em agosto, medido antes de fechar).
 //   - D9: status que contam = realizada + substituida
 //   - P02: feriado conta em dobro (calculateTeacherHours)
 //   - D6: estagiário com limite via internMonthlyLimitMinutes
@@ -27,10 +30,14 @@ const MONTH_NAMES = [
 // ─── Estado local ──────────────────────────────────────────────────────
 const FechamentoState = {
   units: [],
-  selectedUnitId: null,
+  // Unidade não é mais ESCOPO do fechamento — vira só lente de leitura da
+  // tabela ('' = todas). O que se fecha é o mês inteiro da academia.
+  filtroUnitId: '',
   selectedYear: null,
   selectedMonth: null,
   previewData: null,    // resultado de ClosingService.preview()
+  trocasAbertas: null,  // null = ainda não checado · [] = nenhuma · [..] = travam
+  trocasErro: null,     // mensagem, quando não deu pra checar
   closingDoc: null,     // doc de monthly_closings (se já fechado)
   mode: 'select',       // 'select' | 'preview' | 'closed' | 'history'
   history: [],
@@ -41,15 +48,27 @@ async function renderFechamentoPage() {
   const page = document.getElementById('page-fechamento');
   if (!page) return;
 
+  // ⛔ Só Admin. A tela mostra bolsa, VR, VT e o total de cada colega — é dado
+  // salarial (regra inviolável nº 6). O menu já não oferece a tela pra
+  // supervisão, mas deep-link existe, e as rules do Firestore recusariam a
+  // leitura: sem esta trava, quem entrasse por link veria "erro ao carregar" em
+  // vez de saber que a tela não é dele.
+  if (typeof canSeeSalary === 'function' && !canSeeSalary()) {
+    page.innerHTML = `
+      <div class="page-hdr"><h1>💰 Fechamento Mensal</h1></div>
+      <div class="empty-state">
+        <div class="icon">🔒</div>
+        <h3>Esta tela é só do Administrador</h3>
+        <p>O fechamento mostra o quanto cada pessoa recebe — bolsa, benefícios e total.
+           Por isso fica restrito ao Administrador, mesmo para a supervisão.</p>
+      </div>`;
+    return;
+  }
+
   // Carrega unidades (fresco)
   const unitRes = await UnitService.list();
   if (unitRes.success) {
     FechamentoState.units = unitRes.data.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }
-
-  // Default: mantém seleção anterior ou primeiro da lista
-  if (!FechamentoState.selectedUnitId && FechamentoState.units.length > 0) {
-    FechamentoState.selectedUnitId = FechamentoState.units[0].id;
   }
 
   // Default ano/mês: mês corrente
@@ -115,8 +134,8 @@ function renderFechamentoUI() {
     document.getElementById('fechamentoContent').innerHTML = `
       <div class="empty-state">
         <div class="icon">💰</div>
-        <h3>Selecione unidade e mês</h3>
-        <p>Escolha a unidade e o período acima e clique em "Carregar preview".</p>
+        <h3>Selecione o mês</h3>
+        <p>Escolha o período acima e clique em "Carregar preview". O fechamento é sempre do mês inteiro, com as duas unidades juntas.</p>
       </div>
     `;
   }
@@ -137,9 +156,9 @@ function renderFechamentoToolbar() {
     years.push(`<option value="${y}" ${y === FechamentoState.selectedYear ? 'selected' : ''}>${y}</option>`);
   }
 
-  // Unidades carregadas
-  const unitOptions = FechamentoState.units.map(u =>
-    `<option value="${u.id}" ${u.id === FechamentoState.selectedUnitId ? 'selected' : ''}>${escapeHtml(u.name || u.id)}</option>`
+  // Unidade é filtro de leitura, não escopo: o fechamento é sempre do mês todo.
+  const unitOptions = `<option value="">Todas as unidades</option>` + FechamentoState.units.map(u =>
+    `<option value="${u.id}" ${u.id === FechamentoState.filtroUnitId ? 'selected' : ''}>${escapeHtml(u.name || u.id)}</option>`
   ).join('');
 
   toolbar.innerHTML = `
@@ -149,7 +168,7 @@ function renderFechamentoToolbar() {
     </div>
     <div class="rhs" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div class="agenda-unit-select">
-        <span class="filter-label">Unidade</span>
+        <span class="filter-label">Ver aulas de</span>
         <select id="fechamentoUnitSelect" onchange="onFechamentoUnitChange(this.value)">
           ${unitOptions}
         </select>
@@ -178,11 +197,8 @@ function renderFechamentoToolbar() {
 
 // ─── Handlers dos selects ──────────────────────────────────────────────
 function onFechamentoUnitChange(val) {
-  FechamentoState.selectedUnitId = val;
-  FechamentoState.mode = 'select';
-  FechamentoState.previewData = null;
-  FechamentoState.closingDoc = null;
-  // Atualiza toolbar sem perder seleção
+  // Só muda a lente: a folha continua a mesma, o filtro é de leitura.
+  FechamentoState.filtroUnitId = val;
   renderFechamentoUI();
 }
 
@@ -198,19 +214,15 @@ async function loadFechamentoPreview() {
   // Atualiza seleções
   onFechamentoPeriodChange();
 
-  const { selectedUnitId, selectedYear, selectedMonth } = FechamentoState;
-  if (!selectedUnitId) {
-    toast('Selecione uma unidade.', 'error');
-    return;
-  }
+  const { selectedYear, selectedMonth } = FechamentoState;
 
   // Mostra loading
   document.getElementById('fechamentoContent').innerHTML = `
-    <div class="loading"><div class="spinner"></div> Consolidando aulas...</div>
+    <div class="loading"><div class="spinner"></div> Consolidando aulas das duas unidades...</div>
   `;
 
   // 1) Verifica se já existe fechamento
-  const closingId = ClosingService.getClosingId(selectedUnitId, selectedYear, selectedMonth);
+  const closingId = ClosingService.getClosingId(selectedYear, selectedMonth);
   const closingRes = await ClosingService.getById(closingId);
 
   if (closingRes.success) {
@@ -223,7 +235,7 @@ async function loadFechamentoPreview() {
   }
 
   // 2) Não fechado — faz preview
-  const res = await ClosingService.preview(selectedUnitId, selectedYear, selectedMonth);
+  const res = await ClosingService.preview(selectedYear, selectedMonth);
 
   if (!res.success) {
     document.getElementById('fechamentoContent').innerHTML = `
@@ -240,24 +252,52 @@ async function loadFechamentoPreview() {
   FechamentoState.previewData = res.data;
   FechamentoState.mode = 'preview';
   FechamentoState.closingDoc = null;
+
+  // As trocas em aberto entram na conferência, não só no modal de confirmação:
+  // eram 20 aulas em agosto/2026 e a gestão só descobria ao clicar em fechar.
+  await carregarTrocasAbertas();
   renderFechamentoUI();
 }
 
-// ─── Preview content ───────────────────────────────────────────────────
+/** Trocas de professor ainda abertas no mês que está sendo conferido. */
+async function carregarTrocasAbertas() {
+  const y = FechamentoState.selectedYear;
+  const m = FechamentoState.selectedMonth;
+  const de = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0));
+  const ate = new Date(Date.UTC(y, m, 0, 26, 59, 59));
+  try {
+    const r = await SubstitutionService.listAbertasNoPeriodo(de, ate);
+    if (!r.success) throw new Error(r.error || 'erro desconhecido');
+    FechamentoState.trocasAbertas = r.data || [];
+    FechamentoState.trocasErro = null;
+  } catch (err) {
+    // Falha FECHADA: sem saber das trocas, não se fecha o mês.
+    FechamentoState.trocasAbertas = null;
+    FechamentoState.trocasErro = (err && err.message) || 'erro desconhecido';
+  }
+}
+
+/// ─── Preview content — a conferência do fechamento ─────────────────────
+//
+// Seis blocos, todos tabela. Nasceu do relatório que a gestão pediu em
+// 05/09/2026 ("queria que o sistema fizesse tipo esse relatório"): a Benny
+// tinha que juntar à mão o que estava espalhado em quatro telas, e nenhuma
+// delas somava as unidades. Aqui tudo sai do MESMO cálculo que o fechamento
+// vai gravar — se divergisse, o número da conferência não valeria nada.
 function renderPreviewContent() {
   const container = document.getElementById('fechamentoContent');
   const data = FechamentoState.previewData;
   if (!data) return;
 
   const { teachers, totals, isEmpty } = data;
+  const monthName = MONTH_NAMES[FechamentoState.selectedMonth - 1];
 
   if (isEmpty || teachers.length === 0) {
-    const monthName = MONTH_NAMES[FechamentoState.selectedMonth - 1];
     container.innerHTML = `
       <div class="empty-state">
         <div class="icon">📭</div>
         <h3>Nenhuma aula encontrada</h3>
-        <p>Não há aulas realizadas ou substituídas em ${monthName}/${FechamentoState.selectedYear} nesta unidade.</p>
+        <p>Não há aulas realizadas ou substituídas em ${monthName}/${FechamentoState.selectedYear}.</p>
         <p style="font-size:12px;color:var(--text3);margin-top:8px;">
           Apenas aulas com status "Realizada" ou "Substituída" entram no fechamento.
         </p>
@@ -267,26 +307,333 @@ function renderPreviewContent() {
     return;
   }
 
+  const checklist = montarChecklist(data);
+  const bloqueios = checklist.filter(i => i.nivel === 'bloqueia');
   const canClose = typeof isStrictAdmin === 'function' && isStrictAdmin();
 
+  const botao = !canClose
+    ? `<div class="info-callout" style="max-width:420px;">
+         ℹ️ Apenas <strong>Administrador</strong> pode executar o fechamento.
+       </div>`
+    : `<button class="btn" onclick="showCloseConfirmModal()" style="width:auto;"
+         ${bloqueios.length ? 'disabled title="Resolva as pendências do bloco 1 primeiro"' : ''}>
+         ${bloqueios.length ? '🔒 Resolva as pendências primeiro' : '🔒 Fechar mês'}
+       </button>`;
+
   container.innerHTML = `
-    <div style="margin-bottom:16px;">
-      ${renderTeacherTable(teachers, totals, false)}
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
-      ${canClose ? `
-        <button class="btn" onclick="showCloseConfirmModal()" style="width:auto;">
-          🔒 Fechar mês
-        </button>
-      ` : `
-        <div class="info-callout" style="max-width:400px;">
-          ℹ️ Apenas <strong>Administrador</strong> pode executar o fechamento.
-        </div>
-      `}
-    </div>
+    ${renderKpis(data, bloqueios.length)}
+    ${renderBlocoChecklist(checklist)}
+    ${renderBlocoFolha(teachers, totals)}
+    ${renderBlocoEstagiarios(teachers)}
+    ${renderBlocoTrocas()}
+    ${renderBlocoCadastro(teachers)}
+    ${renderBlocoUnidades(data)}
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">${botao}</div>
   `;
 
   updateFechamentoSubtitle(totals.classesRealizadas, totals.totalValor);
+}
+
+/** Cartões de número grande — o que a gestão olha primeiro. */
+function renderKpis(data, qtdBloqueios) {
+  const t = data.totals || {};
+  const c = data.conferencia || {};
+  const card = (valor, rotulo, alerta) => `
+    <div class="report-card" style="padding:12px 14px;${alerta ? 'border-color:var(--orange);' : ''}">
+      <div style="font-size:22px;font-weight:700;${alerta ? 'color:var(--orange);' : ''}">${valor}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px;">${rotulo}</div>
+    </div>`;
+  return `
+    <div class="report-grid" style="margin-bottom:16px;">
+      ${card(fmt(t.totalValor || 0), 'Total da folha')}
+      ${card((data.teachers || []).length, 'Pessoas')}
+      ${card((c.aulasQuePagam || 0).toLocaleString('pt-BR'), 'Aulas · ' + (t.totalHoras || 0).toFixed(2).replace('.', ',') + 'h')}
+      ${card(qtdBloqueios || '0', 'Pendências antes de fechar', qtdBloqueios > 0)}
+    </div>`;
+}
+
+/**
+ * O checklist do bloco 1 — separado do HTML porque é ele quem decide se o botão
+ * de fechar libera. Só entra aqui pergunta que se responde com o dado da prévia.
+ */
+function montarChecklist(data) {
+  const c = data.conferencia || {};
+  const itens = [];
+
+  // 1. Trocas de professor — desde 05/09/2026 TODA troca aberta trava.
+  if (FechamentoState.trocasErro) {
+    itens.push({ nivel: 'bloqueia', titulo: 'Trocas de professor',
+      situacao: 'Não consegui verificar (' + escapeHtml(FechamentoState.trocasErro)
+        + '). Fechar é irreversível — sem essa checagem, não dá.',
+      acao: null });
+  } else {
+    const abertas = FechamentoState.trocasAbertas || [];
+    itens.push(abertas.length
+      ? { nivel: 'bloqueia', titulo: 'Trocas de professor em aberto',
+          situacao: '<b>' + abertas.length + '</b> aula(s) ainda no nome de quem não deu',
+          acao: { rotulo: 'Resolver', pagina: 'substituicoes' } }
+      : { nivel: 'ok', titulo: 'Trocas de professor', situacao: 'nenhuma em aberto', acao: null });
+  }
+
+  // 2. Cadastro que faz a pessoa receber errado.
+  const semValor = (data.teachers || []).filter(t =>
+    (t.avisos || []).some(a => a === 'sem_salario' || a === 'sem_valor_hora'));
+  itens.push(semValor.length
+    ? { nivel: 'bloqueia', titulo: 'Cadastro com problema',
+        situacao: '<b>' + semValor.length + '</b> pessoa(s) com aula valendo R$ 0,00',
+        acao: { rotulo: 'Ver', pagina: 'pessoas' } }
+    : { nivel: 'ok', titulo: 'Cadastro salarial', situacao: 'todo mundo com valor cadastrado', acao: null });
+
+  // 3. Aulas que não entram na folha — ninguém recebe por elas.
+  const naoContam = (c.aulasNoMes || 0) - (c.aulasQuePagam || 0);
+  itens.push(naoContam > 0
+    ? { nivel: 'avisa', titulo: 'Aulas fora da folha',
+        situacao: naoContam + ' de ' + c.aulasNoMes + ' não entram — ' + resumoStatus(c.statusAulas),
+        acao: { rotulo: 'Ver', pagina: 'agenda-geral' } }
+    : { nivel: 'ok', titulo: 'Aulas marcadas',
+        situacao: c.aulasQuePagam + ' de ' + c.aulasNoMes + ' · nenhuma pendente', acao: null });
+
+  // 4. Ocorrências: nenhuma no mês inteiro costuma ser "ninguém lançou", não
+  //    "não houve" — a aula vira 'realizada' sozinha às 3h da manhã.
+  itens.push({ nivel: 'ok', titulo: 'Ocorrências lançadas',
+    situacao: c.ocorrencias
+      ? c.ocorrencias + ' aula(s) com falta, atraso, saída antecipada ou hora extra'
+      : 'nenhuma no mês — confira se é isso mesmo, a aula é confirmada automaticamente',
+    acao: { rotulo: 'Ver', pagina: 'relatorios' } });
+
+  // 5. Férias — o fechamento paga por elas.
+  itens.push(c.ferias === null
+    ? { nivel: 'avisa', titulo: 'Férias no mês', situacao: 'não consegui conferir', acao: null }
+    : { nivel: 'ok', titulo: 'Férias no mês',
+        situacao: (c.ferias || []).length
+          ? (c.ferias || []).length + ' aprovada(s) tocam este mês' : 'nenhuma aprovada',
+        acao: (c.ferias || []).length ? { rotulo: 'Ver', pagina: 'ferias' } : null });
+
+  // 6. As duas unidades — o motivo de o fechamento ter deixado de ser por unidade.
+  const duas = (data.teachers || []).filter(t => (t.porUnidade || []).length > 1);
+  itens.push({ nivel: 'ok', titulo: 'Quem dá aula nas duas unidades',
+    situacao: duas.length
+      ? duas.length + ' pessoa(s) · bolsa e VR/VT contados uma vez só'
+      : 'ninguém neste mês', acao: null });
+
+  return itens;
+}
+
+function resumoStatus(statusAulas) {
+  const rotulo = { prevista: 'ainda previstas', cancelada: 'canceladas', nao_realizada: 'não realizadas' };
+  return Object.keys(statusAulas || {})
+    .filter(k => k !== 'realizada' && k !== 'substituida')
+    .map(k => statusAulas[k] + ' ' + (rotulo[k] || k))
+    .join(' · ') || '—';
+}
+
+function renderBlocoChecklist(itens) {
+  const icone = { bloqueia: '<span style="color:var(--red)">⛔</span>',
+                  avisa: '<span style="color:var(--orange)">⚠️</span>',
+                  ok: '<span style="color:var(--green)">✅</span>' };
+  const pedem = itens.filter(i => i.nivel !== 'ok').length;
+  const linhas = itens.map(i => `
+    <tr>
+      <td style="width:30px;text-align:center;">${icone[i.nivel]}</td>
+      <td>${escapeHtml(i.titulo)}</td>
+      <td style="color:var(--text2);">${i.situacao}</td>
+      <td style="text-align:right;">${i.acao
+        ? '<button class="btn btn-sm ' + (i.nivel === 'bloqueia' ? '' : 'btn-ghost')
+          + '" style="width:auto;" onclick="navigateTo(\'' + i.acao.pagina + '\')">'
+          + escapeHtml(i.acao.rotulo) + '</button>'
+        : ''}</td>
+    </tr>`).join('');
+  return blocoTabela('1 · Antes de fechar',
+    pedem ? pedem + ' de ' + itens.length + ' itens pedem ação' : 'tudo conferido',
+    '<thead><tr><th></th><th>Item</th><th>Situação</th><th></th></tr></thead><tbody>' + linhas + '</tbody>',
+    'O botão “Fechar mês” só libera quando não houver item em ⛔.');
+}
+
+function renderBlocoFolha(teachers, totals) {
+  return blocoTabela('2 · A folha do mês', teachers.length + ' pessoas · uma linha cada',
+    null, null, renderTeacherTable(teachers, totals, false));
+}
+
+function renderBlocoEstagiarios(teachers) {
+  const est = teachers.filter(t => t.isIntern && !t.internSemContrato);
+  if (!est.length) return '';
+  const h2 = n => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',') + 'h';
+  const ordenado = est.slice().sort((a, b) =>
+    (b.totalHoras - (b.internLimitHours || 0)) - (a.totalHoras - (a.internLimitHours || 0)));
+
+  let somaContrato = 0, somaHoras = 0, somaExtra = 0, somaExc = 0, somaDev = 0;
+  const linhas = ordenado.map(t => {
+    const contrato = t.internContratoMes != null ? t.internContratoMes : (t.internLimitHours || 0);
+    const diff = t.totalHoras - contrato;
+    const pct = contrato > 0 ? Math.round((t.totalHoras / contrato) * 100) : 0;
+    somaContrato += contrato; somaHoras += t.totalHoras;
+    somaExtra += (t.internExcessValue || 0);
+    if (diff > 0) somaExc += diff; else somaDev += -diff;
+    return `
+      <tr>
+        <td style="font-weight:600;">${escapeHtml(t.teacherName)}</td>
+        <td class="mono" style="text-align:right;">${h2(contrato)}</td>
+        <td class="mono" style="text-align:right;">${h2(t.totalHoras)}</td>
+        <td style="width:130px;">
+          <div style="height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;">
+            <div style="height:100%;width:${Math.min(100, pct)}%;background:${diff > 0 ? 'var(--orange)' : 'var(--green)'};"></div>
+          </div>
+          <span style="font-size:11px;color:var(--text2);">${pct}%</span>
+        </td>
+        <td class="mono" style="text-align:right;${diff > 0 ? 'color:var(--orange);font-weight:600;' : ''}">
+          ${diff > 0 ? '+' : ''}${h2(diff)}</td>
+        <td class="mono" style="text-align:right;${(t.internExcessValue || 0) > 0 ? 'color:var(--orange);font-weight:700;' : ''}">
+          ${(t.internExcessValue || 0) > 0 ? fmt(t.internExcessValue) : '—'}</td>
+        <td class="mono" style="text-align:right;">${(t.internSaldoFinal || 0) < 0 ? h2(-t.internSaldoFinal) : '—'}</td>
+      </tr>`;
+  }).join('');
+
+  const acima = ordenado.filter(t => (t.internExcessValue || 0) > 0).length;
+  return blocoTabela('3 · Bolsistas — contrato × horas',
+    somaExtra > 0 ? acima + ' acima do contrato · ' + fmt(somaExtra) + ' de hora extra'
+                  : 'ninguém passou do contrato',
+    '<thead><tr>'
+    + '<th>Bolsista</th><th style="text-align:right;">Contrato</th><th style="text-align:right;">Horas</th>'
+    + '<th>Uso do contrato</th><th style="text-align:right;">Excedente</th>'
+    + '<th style="text-align:right;">R$ extra</th><th style="text-align:right;">Saldo a compensar</th>'
+    + '</tr></thead><tbody>' + linhas + '</tbody>'
+    + '<tfoot><tr style="background:var(--surface2);font-weight:700;">'
+    + '<td>TOTAL</td>'
+    + '<td class="mono" style="text-align:right;">' + h2(somaContrato) + '</td>'
+    + '<td class="mono" style="text-align:right;">' + h2(somaHoras) + '</td>'
+    + '<td></td>'
+    + '<td class="mono" style="text-align:right;">+' + h2(somaExc) + '</td>'
+    + '<td class="mono" style="text-align:right;">' + fmt(somaExtra) + '</td>'
+    + '<td class="mono" style="text-align:right;">' + h2(somaDev) + '</td>'
+    + '</tr></tfoot>',
+    'Bolsa é sempre cheia. Quem ficou abaixo do contrato não perde nada — as horas viram saldo a compensar, e o saldo só se mexe quando o mês fecha.');
+}
+
+/** Bloco 4 — as trocas que travam, agrupadas por quem precisa confirmar. */
+function renderBlocoTrocas() {
+  if (FechamentoState.trocasErro) {
+    return blocoTabela('4 · Trocas em aberto', 'não consegui verificar', null, null,
+      '<div class="alert-overdue-card" style="margin:12px;">'
+      + '<div class="alert-overdue-title">⛔ Não consegui verificar as trocas de professor</div>'
+      + '<div class="alert-overdue-note">Detalhe: ' + escapeHtml(FechamentoState.trocasErro)
+      + '. Tente carregar a prévia de novo.</div></div>');
+  }
+  const abertas = FechamentoState.trocasAbertas || [];
+  if (!abertas.length) return '';
+
+  const nome = (id) => {
+    const t = (FechamentoState.previewData.teachers || []).find(x => x.teacherId === id);
+    if (t) return t.teacherName;
+    if (typeof AgendaState === 'object' && AgendaState.teachersMap && AgendaState.teachersMap.get(id)) {
+      return AgendaState.teachersMap.get(id).name;
+    }
+    return '—';
+  };
+
+  // Uma linha por pessoa que precisa confirmar — é assim que a gestão cobra.
+  const porAlvo = new Map();
+  for (const s of abertas) {
+    const alvo = SubstitutionFlow.quemConfirma(s) || '(gestão)';
+    if (!porAlvo.has(alvo)) porAlvo.set(alvo, []);
+    porAlvo.get(alvo).push(s);
+  }
+  const linhas = [...porAlvo.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(function (par) {
+      const alvo = par[0], lista = par[1];
+      const cobriram = new Map();
+      lista.forEach(s => cobriram.set(s.substituteTeacherId, (cobriram.get(s.substituteTeacherId) || 0) + 1));
+      const naGestao = lista.filter(s => s.status === 'aguardando_gestao').length;
+      return `
+        <tr>
+          <td style="font-weight:600;">${escapeHtml(nome(alvo))}</td>
+          <td class="mono" style="text-align:center;">${lista.length}</td>
+          <td style="font-size:12px;">${[...cobriram.entries()]
+            .map(e => escapeHtml(nome(e[0])) + ' (' + e[1] + ')').join(' · ')}</td>
+          <td style="font-size:12px;color:var(--text2);">${naGestao
+            ? naGestao + ' já confirmada(s) pelo colega, esperando você'
+            : 'ainda sem resposta do professor'}</td>
+        </tr>`;
+    }).join('');
+
+  return blocoTabela('4 · Trocas em aberto',
+    abertas.length + ' aula(s) travando o fechamento',
+    '<thead><tr><th>Esperando confirmar</th><th style="text-align:center;">Aulas</th>'
+    + '<th>Quem cobriu</th><th>Situação</th></tr></thead><tbody>' + linhas + '</tbody>',
+    'Enquanto não confirmadas, as aulas ficam no nome de quem estava antes e a folha paga essa pessoa. '
+    + 'Você pode confirmar sem esperar o professor — em <strong>Substituições</strong>, botão “Confirmar mesmo assim”.',
+    null,
+    '<button class="btn btn-sm" style="width:auto;" onclick="navigateTo(\'substituicoes\')">Ir para Substituições</button>');
+}
+
+function renderBlocoCadastro(teachers) {
+  const ROTULO = {
+    sem_salario: 'Sem cadastro salarial',
+    sem_valor_hora: 'Cadastro salarial sem valor por hora — e a ficha não é de bolsista',
+    sem_contrato_horas: 'Bolsa sem contrato de horas cadastrado — fica sem banco de horas',
+  };
+  const alvo = teachers.filter(t => (t.avisos || []).some(a => ROTULO[a]));
+  if (!alvo.length) return '';
+  const linhas = alvo.map(t => `
+    <tr>
+      <td style="font-weight:600;">${escapeHtml(t.teacherName)}</td>
+      <td style="font-size:12px;">${(t.avisos || []).filter(a => ROTULO[a]).map(a => ROTULO[a]).join('<br>')}</td>
+      <td class="mono" style="text-align:right;">${t.classesCount} · ${t.totalHoras.toFixed(2).replace('.', ',')}h</td>
+      <td class="mono" style="text-align:right;${t.valorHoras <= 0 ? 'color:var(--red);font-weight:700;' : ''}">${fmt(t.valorHoras)}</td>
+    </tr>`).join('');
+  return blocoTabela('5 · Cadastro com problema', alvo.length + ' pessoa(s)',
+    '<thead><tr><th>Pessoa</th><th>O que está errado</th><th style="text-align:right;">Aulas</th>'
+    + '<th style="text-align:right;">Pagaria de horas</th></tr></thead><tbody>' + linhas + '</tbody>',
+    'Corrigir é na ficha da pessoa, aba Salarial. Depois recarregue a prévia.',
+    null,
+    '<button class="btn btn-sm" style="width:auto;" onclick="navigateTo(\'pessoas\')">Ir para Pessoas</button>');
+}
+
+function renderBlocoUnidades(data) {
+  const un = ((data.conferencia || {}).unidades) || [];
+  if (un.length < 2) return '';
+  const h2 = n => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',') + 'h';
+  const totalHoras = un.reduce((s, u) => s + u.horas, 0);
+  const linhas = un.map(u => `
+    <tr>
+      <td style="font-weight:600;">${escapeHtml(u.unitName)}</td>
+      <td class="mono" style="text-align:right;">${u.classesCount}</td>
+      <td class="mono" style="text-align:right;">${h2(u.horas)}</td>
+      <td class="mono" style="text-align:right;">${totalHoras > 0 ? ((u.horas / totalHoras) * 100).toFixed(1).replace('.', ',') : '0'}%</td>
+      <td class="mono" style="text-align:right;">${u.pessoas}</td>
+    </tr>`).join('');
+  const somaPessoas = un.reduce((s, u) => s + u.pessoas, 0);
+  const reais = (data.teachers || []).length;
+  return blocoTabela('6 · Custo por unidade', 'só leitura — o pagamento é por pessoa',
+    '<thead><tr><th>Unidade</th><th style="text-align:right;">Aulas</th><th style="text-align:right;">Horas</th>'
+    + '<th style="text-align:right;">% das horas</th><th style="text-align:right;">Pessoas</th></tr></thead>'
+    + '<tbody>' + linhas + '</tbody>'
+    + '<tfoot><tr style="background:var(--surface2);font-weight:700;">'
+    + '<td>TOTAL</td>'
+    + '<td class="mono" style="text-align:right;">' + un.reduce((s, u) => s + u.classesCount, 0) + '</td>'
+    + '<td class="mono" style="text-align:right;">' + h2(totalHoras) + '</td>'
+    + '<td class="mono" style="text-align:right;">100%</td>'
+    + '<td class="mono" style="text-align:right;">' + reais + ' pessoas</td>'
+    + '</tr></tfoot>',
+    somaPessoas > reais
+      ? (somaPessoas - reais) + ' pessoa(s) dão aula nas duas unidades — por isso a soma da coluna “Pessoas” passa de ' + reais + '.'
+      : null);
+}
+
+/** Casca comum dos blocos: título, contagem, tabela e a nota de rodapé. */
+function blocoTabela(titulo, contagem, tabelaInterna, nota, htmlPronto, acaoTopo) {
+  const corpo = htmlPronto || ('<div class="table-wrap"><table>' + tabelaInterna + '</table></div>');
+  return `
+    <section class="report-card" style="padding:0;margin-bottom:16px;">
+      <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h3 style="font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(titulo)}</h3>
+        <span style="font-size:11px;color:var(--text2);">${contagem || ''}</span>
+        <span style="flex:1;"></span>
+        ${acaoTopo || ''}
+      </div>
+      ${corpo}
+      ${nota ? '<div style="color:var(--text3);font-size:11px;padding:10px 14px;">' + nota + '</div>' : ''}
+    </section>`;
 }
 
 // ─── Closed content ────────────────────────────────────────────────────
@@ -299,8 +646,13 @@ function renderClosedContent() {
   const closedDate = doc.closedAt && doc.closedAt.toDate ? doc.closedAt.toDate() : new Date();
   const dateStr = closedDate.toLocaleDateString('pt-BR');
 
-  const unit = FechamentoState.units.find(u => u.id === doc.unitId);
-  const unitName = unit ? unit.name : doc.unitId;
+  const nomeUn = id => {
+    const u = FechamentoState.units.find(x => x.id === id);
+    return u ? (u.name || id) : id;
+  };
+  const unitName = Array.isArray(doc.unitIds) && doc.unitIds.length
+    ? doc.unitIds.map(nomeUn).join(' + ')
+    : nomeUn(doc.unitId);
 
   const teachers = Array.isArray(doc.teachers) ? doc.teachers : [];
   const totals = doc.totals || { classesRealizadas: 0, totalHoras: 0, totalValor: 0 };
@@ -325,16 +677,53 @@ function renderTeacherTable(teachers, totals, readOnly) {
     return `<div class="empty-state-small">Nenhum professor com aulas no período.</div>`;
   }
 
-  const rows = teachers.map(t => {
+  const nomeUn = id => {
+    const u = FechamentoState.units.find(x => x.id === id);
+    return u ? (u.name || id) : id;
+  };
+  // Sem unidade no nome, "CP 12h" não diz nada pra quem lê. Encurta pro que a
+  // academia fala: "CP", "PP". O nome vem da própria linha da folha quando ela
+  // traz (é a mesma fonte do cálculo); a lista da tela é só o reforço.
+  const curto = (u) => {
+    const nome = (u && u.unitName) || nomeUn(u && u.unitId);
+    return String(nome).replace(/^CrossTainer\s*/i, '') || (u && u.unitId) || '—';
+  };
+
+  // O filtro é lente de leitura: some com quem não deu aula na unidade, mas os
+  // VALORES continuam sendo os do MÊS INTEIRO — é assim que o dinheiro sai.
+  const filtro = FechamentoState.filtroUnitId;
+  const visiveis = filtro
+    ? teachers.filter(t => (t.porUnidade || []).some(u => u.unitId === filtro))
+    : teachers;
+
+  if (!visiveis.length) {
+    return `<div class="empty-state-small">Ninguém deu aula em ${escapeHtml(nomeUn(filtro))} neste mês.</div>`;
+  }
+
+  const AVISO_TEXTO = {
+    sem_salario: '⚠️ <b>Sem cadastro salarial</b> — vai receber R$ 0,00 pelas horas.',
+    sem_valor_hora: '⚠️ <b>Sem valor por hora cadastrado</b> — as aulas do mês estão valendo R$ 0,00. Confira o tipo da ficha e o cadastro salarial.',
+    sem_contrato_horas: '⚠️ <b>Contrato de horas não cadastrado</b> — pago só a bolsa, sem banco de horas.',
+  };
+
+  const rows = visiveis.map(t => {
     const typeLabel = { efetivo: 'Efetivo', estagiario: 'Estagiário', eventual: 'Eventual' }[t.teacherType] || t.teacherType;
     const outrosList = Array.isArray(t.otherBenefits) && t.otherBenefits.length > 0
       ? t.otherBenefits.map(b => `${escapeHtml(b.nome || '?')}: ${fmt(b.valor || 0)}`).join('<br>')
       : '—';
 
+    // Onde a pessoa deu aula. Quem dá aula nas duas unidades era exatamente
+    // quem levava bolsa e VT em dobro — agora aparece de cara, numa linha só.
+    const unidades = (t.porUnidade || []).length
+      ? (t.porUnidade || []).map(u =>
+          `<span ${u.unitId === filtro ? 'style="font-weight:700;"' : ''}>${escapeHtml(curto(u))} ${u.horas.toFixed(1).replace('.', ',')}h</span>`
+        ).join(' · ')
+      : '—';
+
     const hasVacation = t.vacationValue > 0;
     const vacRow = hasVacation ? `
       <tr class="${t.isVacationOnly ? 'row-vacation-only' : 'row-vacation'}">
-        <td colspan="8" style="text-align:right;font-size:12px;padding:6px 12px;">
+        <td colspan="9" style="text-align:right;font-size:12px;padding:6px 12px;">
           🏖️ Férias: ${(t.vacationDetails || []).map(vd =>
             `${vd.daysInMonth} dia(s) · ${vd.paymentMode === 'auto' ? 'Automático' : vd.paymentMode === 'manual' ? 'Manual' : vd.paymentMode} · ${fmt(vd.proportionalValue)}`
           ).join(' | ')}
@@ -343,15 +732,22 @@ function renderTeacherTable(teachers, totals, readOnly) {
       </tr>
     ` : '';
 
+    // Erro de cadastro que hoje passava calado: 88 aulas valendo R$ 0,00 sem
+    // uma palavra na tela (o caso do Thiago Valentim, agosto/2026).
+    const avisoRow = (t.avisos || []).filter(a => AVISO_TEXTO[a]).map(a => `
+      <tr class="row-banco-horas">
+        <td colspan="9" style="text-align:right;font-size:12px;padding:6px 12px;color:var(--orange);">
+          ${AVISO_TEXTO[a]}
+        </td>
+      </tr>`).join('');
+
     // Banco de horas do estagiário (bloco 2) — a conta aberta. Sem ver de onde
     // saiu o número, ninguém confia nele: a bolsa é cheia mesmo trabalhando a
     // menos, e o que "faltou" vira saldo de horas, não desconto.
-    const bancoRow = (t.isIntern && (t.internExplicacao || t.internSemContrato)) ? `
+    const bancoRow = (t.isIntern && t.internExplicacao && !t.internSemContrato) ? `
       <tr class="row-banco-horas">
-        <td colspan="8" style="text-align:right;font-size:12px;padding:6px 12px;color:var(--text2);">
-          ${t.internSemContrato
-            ? '⚠️ <b>Contrato de horas não cadastrado</b> — pago só a bolsa, sem banco de horas.'
-            : `🕒 Banco de horas: ${escapeHtml(t.internExplicacao || '')}`}
+        <td colspan="9" style="text-align:right;font-size:12px;padding:6px 12px;color:var(--text2);">
+          🕒 Banco de horas de ${escapeHtml(t.teacherName)}: ${escapeHtml(t.internExplicacao)}
         </td>
       </tr>
     ` : '';
@@ -362,25 +758,36 @@ function renderTeacherTable(teachers, totals, readOnly) {
           <div style="font-weight:600;">${escapeHtml(t.teacherName)}</div>
           <div style="font-size:10px;color:var(--text3);">${typeLabel}${t.isInternProportional ? ' · Excedente' : ''}</div>
         </td>
+        <td style="font-size:11px;">${unidades}</td>
         <td class="mono" style="text-align:center;">${t.classesCount}</td>
         <td class="mono" style="text-align:right;">${t.totalHoras.toFixed(1)}h</td>
         <td class="mono" style="text-align:right;">${fmt(t.valorHoras)}</td>
-        <td class="mono" style="text-align:right;">${fmt(t.mealAllowance)}</td>
-        <td class="mono" style="text-align:right;">${fmt(t.transportAllowance)}</td>
+        <td class="mono" style="text-align:right;">${t.mealAllowance ? fmt(t.mealAllowance) : '—'}</td>
+        <td class="mono" style="text-align:right;">${t.transportAllowance ? fmt(t.transportAllowance) : '—'}</td>
         <td style="text-align:right;font-size:12px;">${outrosList}</td>
         <td class="mono" style="text-align:right;font-weight:700;">${fmt(t.valorTotal)}</td>
       </tr>
+      ${avisoRow}
       ${bancoRow}
       ${vacRow}
     `;
   }).join('');
 
+  const notaFiltro = filtro ? `
+    <div class="info-callout" style="margin-bottom:8px;">
+      Mostrando quem deu aula em <strong>${escapeHtml(nomeUn(filtro))}</strong>.
+      Os valores são do <strong>mês inteiro</strong>, das duas unidades — é uma pessoa,
+      um pagamento.
+    </div>` : '';
+
   return `
+    ${notaFiltro}
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Professor</th>
+            <th style="width:150px;">Unidades</th>
             <th style="text-align:center;width:60px;">Aulas</th>
             <th style="text-align:right;width:70px;">Horas</th>
             <th style="text-align:right;width:110px;">R$ Horas</th>
@@ -395,7 +802,8 @@ function renderTeacherTable(teachers, totals, readOnly) {
         </tbody>
         <tfoot>
           <tr style="background:var(--surface2);font-weight:700;">
-            <td>TOTAL</td>
+            <td>TOTAL${filtro ? ' (mês inteiro)' : ''}</td>
+            <td></td>
             <td class="mono" style="text-align:center;">${totals.classesRealizadas}</td>
             <td class="mono" style="text-align:right;">${(totals.totalHoras || 0).toFixed(1)}h</td>
             <td></td>
@@ -406,11 +814,11 @@ function renderTeacherTable(teachers, totals, readOnly) {
           </tr>
           ${(totals.totalVacationValue || 0) > 0 ? `
           <tr>
-            <td colspan="7" style="text-align:right;font-weight:600;">🏖️ Total Férias</td>
+            <td colspan="8" style="text-align:right;font-weight:600;">🏖️ Total Férias</td>
             <td class="mono" style="text-align:right;font-weight:700;">${fmt(totals.totalVacationValue)}</td>
           </tr>
           <tr>
-            <td colspan="7" style="text-align:right;font-weight:700;font-size:14px;">💵 TOTAL GERAL</td>
+            <td colspan="8" style="text-align:right;font-weight:700;font-size:14px;">💵 TOTAL GERAL</td>
             <td class="mono" style="text-align:right;font-weight:700;font-size:14px;">${fmt(totals.totalGeral)}</td>
           </tr>
           ` : ''}
@@ -424,15 +832,13 @@ function updateFechamentoSubtitle(classCount, totalValue) {
   const el = document.getElementById('fechamentoSubtitle');
   if (!el) return;
   const monthName = MONTH_NAMES[FechamentoState.selectedMonth - 1];
-  const unit = FechamentoState.units.find(u => u.id === FechamentoState.selectedUnitId);
-  const unitName = unit ? unit.name : FechamentoState.selectedUnitId;
 
   if (FechamentoState.mode === 'closed') {
-    el.textContent = `${monthName}/${FechamentoState.selectedYear} · ${unitName} · FECHADO`;
+    el.textContent = `${monthName}/${FechamentoState.selectedYear} · academia inteira · FECHADO`;
   } else if (classCount > 0) {
-    el.textContent = `${monthName}/${FechamentoState.selectedYear} · ${unitName} · ${classCount} aulas · ${fmt(totalValue)}`;
+    el.textContent = `${monthName}/${FechamentoState.selectedYear} · academia inteira · ${classCount} aulas · ${fmt(totalValue)}`;
   } else {
-    el.textContent = `${monthName}/${FechamentoState.selectedYear} · ${unitName}`;
+    el.textContent = `${monthName}/${FechamentoState.selectedYear}`;
   }
 }
 
@@ -517,19 +923,22 @@ async function showCloseConfirmModal() {
       ⚠️ Não consegui carregar os nomes dos professores — os travessões abaixo são por isso, não porque falta informação.
     </p>` : '';
 
+  // Toda troca aberta trava (05/09/2026). Os dois grupos continuam separados
+  // porque a saída é diferente: uma espera um clique da gestão, a outra espera
+  // alguém que talvez nunca responda — e é aí que entra "Confirmar mesmo assim".
   const bloqueio = p.travam.length > 0 ? `
     <div class="alert-overdue-card">
-      <div class="alert-overdue-title">⛔ ${p.travam.length} troca(s) esperando a gestão confirmar</div>
-      <div class="alert-overdue-note">Confirme ou recuse em <strong>Substituições</strong> antes de fechar — depois de fechado o mês, a aula não muda mais de nome.</div>
-      <ul class="alert-overdue-list" style="margin-top:8px;">${p.travam.map(linhaTroca).join('')}</ul>
+      <div class="alert-overdue-title">⛔ ${p.travam.length} troca(s) de professor em aberto</div>
+      <div class="alert-overdue-note">Resolva em <strong>Substituições</strong> antes de fechar — depois de fechado o mês, a aula não muda mais de nome e a folha paga quem está no nome dela hoje.</div>
+      ${p.esperandoGestao.length > 0 ? `
+        <div class="alert-overdue-note" style="margin-top:8px;"><strong>${p.esperandoGestao.length} esperando você confirmar</strong> (o colega já respondeu):</div>
+        <ul class="alert-overdue-list" style="margin-top:4px;">${p.esperandoGestao.map(linhaTroca).join('')}</ul>` : ''}
+      ${p.semRespostaDoProfessor.length > 0 ? `
+        <div class="alert-overdue-note" style="margin-top:8px;"><strong>${p.semRespostaDoProfessor.length} sem resposta do professor</strong> — use o botão <strong>"Confirmar mesmo assim"</strong>, fica registrado que foi sem a resposta dele:</div>
+        <ul class="alert-overdue-list" style="margin-top:4px;">${p.semRespostaDoProfessor.map(linhaTroca).join('')}</ul>` : ''}
     </div>` : '';
 
-  const alerta = p.avisam.length > 0 ? `
-    <div class="alert-warning-card">
-      <strong>⚠️ ${p.avisam.length} troca(s) esperando um professor confirmar</strong>
-      <div style="margin-top:4px;">Se fechar assim, essas aulas ficam no nome de quem está hoje.</div>
-      <ul style="margin-top:8px;">${p.avisam.map(linhaTroca).join('')}</ul>
-    </div>` : '';
+  const alerta = '';
 
   document.getElementById('closeMonthConfirmBody').innerHTML = `
     ${nomesIndisponiveis}
@@ -566,11 +975,12 @@ async function executeCloseMonth() {
   btn.innerHTML = '<div class="spinner"></div> Fechando...';
   errEl.textContent = '';
 
-  const { selectedUnitId, selectedYear, selectedMonth } = FechamentoState;
+  const { selectedYear, selectedMonth } = FechamentoState;
 
   try {
     const callable = firebase.functions().httpsCallable('closeMonth');
-    const result = await callable({ unitId: selectedUnitId, year: selectedYear, month: selectedMonth });
+    // sem unitId: fecha o mês da academia inteira, uma linha por pessoa
+    const result = await callable({ year: selectedYear, month: selectedMonth });
 
     const data = result.data;
     if (data && data.success) {
@@ -593,12 +1003,6 @@ async function executeCloseMonth() {
 
 // ─── Histórico ─────────────────────────────────────────────────────────
 async function showFechamentoHistory() {
-  const { selectedUnitId } = FechamentoState;
-  if (!selectedUnitId) {
-    toast('Selecione uma unidade primeiro.', 'error');
-    return;
-  }
-
   FechamentoState.mode = 'history';
   renderFechamentoUI();
 
@@ -608,7 +1012,7 @@ async function showFechamentoHistory() {
     <div class="loading"><div class="spinner"></div> Carregando histórico...</div>
   `;
 
-  const res = await ClosingService.list(selectedUnitId);
+  const res = await ClosingService.list();
 
   if (!res.success) {
     container.innerHTML = `
@@ -630,13 +1034,11 @@ function renderHistoryContent() {
   const items = FechamentoState.history;
 
   if (!items || items.length === 0) {
-    const unit = FechamentoState.units.find(u => u.id === FechamentoState.selectedUnitId);
-    const unitName = unit ? unit.name : FechamentoState.selectedUnitId;
     container.innerHTML = `
       <div class="empty-state">
         <div class="icon">📜</div>
         <h3>Nenhum fechamento encontrado</h3>
-        <p>${unitName} ainda não tem nenhum mês fechado.</p>
+        <p>Nenhum mês foi fechado ainda.</p>
         <button class="btn btn-sm btn-ghost" onclick="backToFechamento()" style="width:auto;margin-top:16px;">← Voltar</button>
       </div>
     `;
@@ -708,7 +1110,6 @@ async function viewClosingDetail(closingId) {
   FechamentoState.closingDoc = res.data;
   FechamentoState.selectedMonth = res.data.month || FechamentoState.selectedMonth;
   FechamentoState.selectedYear = res.data.year || FechamentoState.selectedYear;
-  FechamentoState.selectedUnitId = res.data.unitId || FechamentoState.selectedUnitId;
   FechamentoState.mode = 'closed';
   renderFechamentoUI();
 }

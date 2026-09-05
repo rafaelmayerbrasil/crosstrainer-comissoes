@@ -274,15 +274,15 @@ async function plrHorasNoCiclo(cycle) {
   const horasById = {};
   const startYM = (cycle.inicio || '').slice(0, 7);
   const endYM = (cycle.fim || '').slice(0, 7);
-  for (const u of PlrState.units) {
-    const res = await ClosingService.list(u.id);
-    (res.success ? res.data : []).forEach(cl => {
-      const ym = `${cl.year}-${String(cl.month).padStart(2, '0')}`;
-      if (ym >= startYM && ym <= endYM) {
-        (cl.teachers || []).forEach(tr => { horasById[tr.teacherId] = (horasById[tr.teacherId] || 0) + (tr.totalHoras || 0); });
-      }
-    });
-  }
+  // Um fechamento por mês (05/09/2026) — antes era um por unidade, e somar os
+  // dois duplicava as horas de quem dava aula nas duas.
+  const res = await ClosingService.list();
+  (res.success ? res.data : []).forEach(cl => {
+    const ym = `${cl.year}-${String(cl.month).padStart(2, '0')}`;
+    if (ym >= startYM && ym <= endYM) {
+      (cl.teachers || []).forEach(tr => { horasById[tr.teacherId] = (horasById[tr.teacherId] || 0) + (tr.totalHoras || 0); });
+    }
+  });
   return horasById;
 }
 

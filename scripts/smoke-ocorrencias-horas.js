@@ -24,6 +24,15 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'substitution-flow.js
 // SubstitutionFlow entra pendurado em window (estilo UMD/browser); professores-shared.js
 // lê o identificador solto — precisa estar no escopo do contexto antes de carregar.
 sandbox.SubstitutionFlow = sandbox.window.SubstitutionFlow;
+// A conta da folha saiu de professores-shared.js pra closing-payroll.js
+// (05/09/2026) — que por sua vez usa o banco de horas. Mesma ordem do
+// professores.html: quem depende vem depois.
+['intern-hour-bank.js', 'closing-payroll.js'].forEach(f =>
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), sandbox, { filename: f }));
+// Mesmo caso do SubstitutionFlow: os dois se penduram em window, e
+// professores-shared.js lê o identificador solto.
+sandbox.InternHourBank = sandbox.window.InternHourBank;
+sandbox.ClosingPayroll = sandbox.window.ClosingPayroll;
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'professores-shared.js'), 'utf8'), sandbox, { filename: 'professores-shared.js' });
 
 const minutos = vm.runInContext('classEffectiveMinutes', sandbox);
