@@ -28,7 +28,14 @@
       "functions/**",
       "scripts/**",
       "*.md",
-      "AgendaWireframes_design.html"
+      "AgendaWireframes_design.html",
+      "backups/**",
+      "scratchpad/**",
+      "relatorios pacto/**",
+      "carga nova comissoes/**",
+      "carga professores agenda/**",
+      "*.xls",
+      "*.xlsx"
     ],
     "rewrites": [
       {
