@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 64 (05/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · CORRIGIDO NO BRANCH, NADA DEPLOYADO
+## 🔖 ONDE PARAMOS — sessão 64 (05/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · HOMOLOGADO NO STAGING, ESPERANDO OK PRA PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
@@ -69,13 +69,34 @@ MESMO cálculo que o fechamento grava.
 - Um teste pegou um defeito de verdade: `renderTeacherTable` lia o nome da unidade do estado da tela
   em vez de usar o que a própria folha já traz.
 
+### ✅ Homologado no staging (05/09/2026)
+
+Branch **`fechamento-por-pessoa-mes`**, 3 commits (`9edbc47`, `4bddce5`, `d5dadde`). No staging:
+**Cloud Function `closeMonth` deployada** e **hosting publicado** (`?v=20260905`).
+
+**`scripts/e2e-fechamento-por-pessoa-staging.js` — 21/21.** Fecha um mês **de verdade** (HTTP na CF,
+token de admin real) e compara o documento gravado com o que o módulo puro diz. Inclui a fixture que
+o staging não tinha — **um bolsista com aula nas DUAS unidades** — e prova o que importava:
+**uma linha só, bolsa R$ 500,00 uma vez, não R$ 1.000,00**. Faz e desfaz tudo.
+
+⚠️ **Dois tropeços meus no próprio teste, os dois já corrigidos e comentados no script:** comparar a
+conta pura contra um snapshot ANTERIOR à fixture (dá diferença que não existe), e apagar a aula de
+fixture ANTES de devolver o `monthClosingId` das outras — o batch estoura no meio e **as 43 aulas
+reais do staging ficaram congeladas apontando pra um fechamento apagado**. Tive que desfazer à mão.
+
+**Achado de segurança, corrigido junto (`4bddce5`):** o hosting publica a pasta do **disco**
+(`public: "."`), e `.gitignore` não protege o Firebase — `backups/` e `scratchpad/` têm dado real de
+produção e subiriam no deploy. Entraram na lista de ignorados. Conferido que **não estavam no ar**:
+o 200 em `/backups/<arquivo>` era o rewrite devolvendo o index, não o arquivo.
+
 ### 🔴 O que falta
 
-1. **Deploy** — nada foi commitado nem publicado. Precisa: homologar no **staging** (regra nº 7),
-   deploy da **Cloud Function** (`closeMonth` + `functions/closing-payroll.js`), e o **bump do `?v=`**
-   já feito em `professores.html` (7 arquivos). **Rules não mudaram.**
-2. **Fechar agosto** — depois do deploy, resolver as 20 trocas e fechar. Folha de agosto com a regra
-   nova: **R$ 25.748,35** (19 pessoas, 1.641 aulas, 1.565,75h).
+1. **Produção** — esperando o OK. Precisa: merge no `main` + `git push origin main` (GitHub Pages),
+   e `firebase deploy --only functions:closeMonth --project production`. **Rules não mudaram.**
+2. **Fechar agosto é da GESTÃO — nós não fazemos** (decisão do Rafael, 05/09). Confirmar troca é
+   decisão de gestão e agora existe botão. A Benny confirma as 20 pela tela e clica em fechar; é
+   também o primeiro uso real do fluxo inteiro. Folha de agosto com a regra nova: **R$ 25.748,35**
+   (19 pessoas, 1.641 aulas, 1.565,75h).
 3. **As 23 trocas em aberto** — 20 de agosto, 3 de setembro. Esperando **Thaynara (16), João Vitor
    (6), Karin (1)**; as 31 notificações estão todas não lidas e o e-mail desse tipo cai no spam.
 4. **A reunião presencial que a Benny pediu** sobre agenda/horas continua de pé.
