@@ -626,6 +626,7 @@ function renderBlocoUnidades(data) {
   if (un.length < 2) return '';
   const h2 = n => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',') + 'h';
   const totalHoras = un.reduce((s, u) => s + u.horas, 0);
+  const totalCusto = un.reduce((s, u) => s + (u.custo || 0), 0);
   const linhas = un.map(u => `
     <tr>
       <td style="font-weight:600;">${escapeHtml(u.unitName)}</td>
@@ -633,12 +634,17 @@ function renderBlocoUnidades(data) {
       <td class="mono" style="text-align:right;">${h2(u.horas)}</td>
       <td class="mono" style="text-align:right;">${totalHoras > 0 ? ((u.horas / totalHoras) * 100).toFixed(1).replace('.', ',') : '0'}%</td>
       <td class="mono" style="text-align:right;">${u.pessoas}</td>
+      <td class="mono" style="text-align:right;font-weight:700;">${fmt(u.custo || 0)}</td>
     </tr>`).join('');
   const somaPessoas = un.reduce((s, u) => s + u.pessoas, 0);
   const reais = (data.teachers || []).length;
-  return blocoTabela('6 · Custo por unidade', 'só leitura — o pagamento é por pessoa',
+  const notaDuasUnidades = somaPessoas > reais
+    ? ` ${somaPessoas - reais} pessoa(s) dão aula nas duas unidades — por isso a soma da coluna “Pessoas” passa de ${reais}.`
+    : '';
+  return blocoTabela('6 · Custo por unidade', 'rateado — o pagamento é por pessoa',
     '<thead><tr><th>Unidade</th><th style="text-align:right;">Aulas</th><th style="text-align:right;">Horas</th>'
-    + '<th style="text-align:right;">% das horas</th><th style="text-align:right;">Pessoas</th></tr></thead>'
+    + '<th style="text-align:right;">% das horas</th><th style="text-align:right;">Pessoas</th>'
+    + '<th style="text-align:right;">Custo</th></tr></thead>'
     + '<tbody>' + linhas + '</tbody>'
     + '<tfoot><tr style="background:var(--surface2);font-weight:700;">'
     + '<td>TOTAL</td>'
@@ -646,10 +652,14 @@ function renderBlocoUnidades(data) {
     + '<td class="mono" style="text-align:right;">' + h2(totalHoras) + '</td>'
     + '<td class="mono" style="text-align:right;">100%</td>'
     + '<td class="mono" style="text-align:right;">' + reais + ' pessoas</td>'
+    + '<td class="mono" style="text-align:right;">' + fmt(totalCusto) + '</td>'
     + '</tr></tfoot>',
-    somaPessoas > reais
-      ? (somaPessoas - reais) + ' pessoa(s) dão aula nas duas unidades — por isso a soma da coluna “Pessoas” passa de ' + reais + '.'
-      : null);
+    // Sem esta frase o número vira "quanto a unidade custou", que não é verdade:
+    // bolsa, VR e VT são da PESSOA, e ela recebe uma vez só.
+    '<strong>O custo é rateado pelas horas.</strong> A parte de hora-aula é exata; '
+    + 'bolsa, VR, VT e Outros são mensais — pertencem à pessoa, não à unidade, e foram '
+    + 'repartidos na proporção das horas de cada uma. O total fecha com a folha do mês.'
+    + notaDuasUnidades);
 }
 
 /** Casca comum dos blocos: título, contagem, tabela e a nota de rodapé. */

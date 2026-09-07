@@ -29,7 +29,11 @@ function montarTela({ admin = true } = {}) {
     console: { log: noop, warn: noop, error: noop },
     Map, Set, Date, Math, JSON, String, Number, Array, Object, Boolean, RegExp, Promise, Error,
     document: { getElementById: () => null, addEventListener: noop },
-    fmt: v => 'R$ ' + (Math.round((v || 0) * 100) / 100).toFixed(2).replace('.', ','),
+    // o MESMO fmt de professores-shared.js (com separador de milhar). Um duplo
+    // de teste que formata diferente da tela esconde exatamente o que o teste
+    // deveria pegar.
+    fmt: v => (typeof v !== 'number' || isNaN(v)) ? '—'
+      : 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
     ajudaBtn: () => '',
     isStrictAdmin: () => admin,
     canSeeSalary: () => admin,
@@ -338,5 +342,27 @@ function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto()
   ok('abrirFichaDaPessoa leva à ficha certa, na aba certa, com a lista limpa');
 }
 
+/* ── 16. o custo por unidade aparece, e diz que é rateio ─────────── */
+{
+  // Pedido do Rafael em 07/09/2026: "aqui no custo, podemos colocar o valor
+  // também". O número só pode aparecer com a etiqueta certa — bolsa, VR e VT
+  // são da PESSOA, e chamar isso de "custo da unidade" seria mentira.
+  const t = montarTela();
+  const prev = previaDeAgosto();
+  prev.conferencia.unidades = [
+    { unitId: 'unit-cp', unitName: 'CrossTainer CP', classesCount: 131, horas: 125.5, pessoas: 1, custo: 1368.71 },
+    { unitId: 'unit-pp', unitName: 'CrossTainer PP', classesCount: 89, horas: 76.25, pessoas: 2, custo: 250 },
+  ];
+  const html = renderizar(t, { trocas: [], prev });
+  const bloco6 = html.slice(html.indexOf('6 · Custo por unidade'));
+  assert.ok(/1\.368,71/.test(bloco6), 'o custo de cada unidade tem que aparecer');
+  assert.ok(/1\.618,71/.test(bloco6), 'e o total das unidades também');
+  assert.ok(/rateado/i.test(bloco6),
+    'sem dizer que é rateio, o número vira "quanto a unidade custou" — que não é verdade');
+  assert.ok(/pertencem à pessoa/.test(bloco6),
+    'e tem que dizer por quê: bolsa, VR e VT são mensais, da pessoa');
+  ok('o custo por unidade aparece, e a tela diz que é rateio');
+}
+
 console.log('');
-console.log('✅ smoke-conferencia-fechamento: ' + n + ' casos');
+console.log('OK smoke-conferencia-fechamento: ' + n + ' casos');

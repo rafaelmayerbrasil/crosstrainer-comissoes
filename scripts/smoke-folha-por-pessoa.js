@@ -312,4 +312,98 @@ console.log('\n✅ smoke-folha-por-pessoa: ' + n + '/10');
   ok('fechamento e prévia usam a mesma regra de "quem fica de fora" e de avisos');
 }
 
-console.log('✅ smoke-folha-por-pessoa: ' + n + ' casos');
+/* ── 16. custo por unidade: a soma bate com a folha, no centavo ──── */
+{
+  // Pedido do Rafael em 07/09/2026: o bloco "custo por unidade" mostrava
+  // aulas e horas, faltava o dinheiro. O valor MENSAL (bolsa, VR, VT) não é
+  // de uma unidade — é da pessoa. Então é rateio, e rateio que não fecha com
+  // a folha vira duas verdades na mesma tela.
+  const r = cenario({
+    classes: [
+      aula({ unitId: 'unit-cp', durationMinutes: 120 }),
+      aula({ unitId: 'unit-pp', durationMinutes: 60 }),
+      aula({ teacherId: 't2', unitId: 'unit-pp', durationMinutes: 60 }),
+    ],
+    teachers: [{ id: 't1', name: 'BRUNO', type: 'efetivo' }, { id: 't2', name: 'ANA', type: 'efetivo' }],
+    salaries: [
+      { id: 't1', remunerationType: 'hora_aula', hourlyRate: 33.33, mealAllowance: 100.01 },
+      { id: 't2', remunerationType: 'hora_aula', hourlyRate: 20 },
+    ],
+  });
+  const un = P.resumoPorUnidade(r.pessoas);
+  const soma = un.reduce((s, u) => s + u.custo, 0);
+  perto(soma, r.totais.totalValor, 'a soma do custo por unidade tem que ser a folha inteira');
+  assert.strictEqual(Math.round(soma * 100), Math.round(r.totais.totalValor * 100),
+    'e no centavo: sobra de arredondamento vira duas verdades na mesma tela');
+  ok('custo por unidade: a soma bate com a folha, no centavo');
+}
+
+/* ── 17. quem está numa unidade só leva o custo inteiro nela ─────── */
+{
+  const r = cenario({
+    classes: [aula({ unitId: 'unit-pp' })],
+    teachers: [{ id: 't1', name: 'ANA', type: 'efetivo' }],
+    salaries: [{ id: 't1', remunerationType: 'hora_aula', hourlyRate: 50, transportAllowance: 250 }],
+  });
+  const un = P.resumoPorUnidade(r.pessoas);
+  assert.strictEqual(un.length, 1);
+  perto(un[0].custo, 300, 'R$ 50 da hora + R$ 250 de VT, tudo na única unidade onde ela trabalhou');
+  ok('quem está numa unidade só leva o custo inteiro nela');
+}
+
+/* ── 18. em duas unidades, o rateio segue as HORAS ───────────────── */
+{
+  const r = cenario({
+    classes: [
+      aula({ unitId: 'unit-cp', durationMinutes: 180 }),   // 3h
+      aula({ unitId: 'unit-pp', durationMinutes: 60 }),    // 1h
+    ],
+    teachers: [{ id: 't1', name: 'BRUNO', type: 'efetivo' }],
+    salaries: [{ id: 't1', remunerationType: 'hora_aula', hourlyRate: 10, mealAllowance: 40 }],
+  });
+  const un = P.resumoPorUnidade(r.pessoas);
+  const cp = un.find(u => u.unitId === 'unit-cp');
+  const pp = un.find(u => u.unitId === 'unit-pp');
+  // total 80 = 4h × 10 + 40 de VR · 3/4 na CP, 1/4 na PP
+  perto(cp.custo, 60, 'CP com 3 das 4 horas fica com 3/4 do custo');
+  perto(pp.custo, 20, 'PP com 1 das 4 horas fica com 1/4');
+  ok('em duas unidades, o rateio segue as horas');
+}
+
+/* ── 19. quem não teve hora nenhuma não quebra o rateio ──────────── */
+{
+  // Acontece de verdade: aula de Escola Interna não paga hora, e a pessoa
+  // aparece na unidade com 0h. Dividir por zero devolveria NaN na tela.
+  const r = cenario({
+    classes: [
+      aula({ unitId: 'unit-cp', specialScaleType: 'escola_interna' }),
+      aula({ unitId: 'unit-pp', specialScaleType: 'escola_interna' }),
+    ],
+    teachers: [{ id: 't1', name: 'ANA', type: 'estagiario' }],
+    salaries: [{ id: 't1', remunerationType: 'bolsa', internMonthlyStipend: 900,
+                 internMonthlyLimitMinutes: 6000, transportAllowance: 100 }],
+  });
+  const un = P.resumoPorUnidade(r.pessoas);
+  const soma = un.reduce((s, u) => s + u.custo, 0);
+  assert.ok(un.every(u => isFinite(u.custo)), 'nenhum custo pode sair NaN');
+  perto(soma, r.pessoas[0].valorTotal, 'e a bolsa + VT continuam inteiros na soma');
+  ok('quem não teve hora nenhuma não quebra o rateio');
+}
+
+/* ── 20. o resumo traz o nome da unidade e quanta gente ──────────── */
+{
+  const r = cenario({
+    classes: [aula({ unitId: 'unit-cp' }), aula({ teacherId: 't2', unitId: 'unit-cp' })],
+    teachers: [{ id: 't1', name: 'A', type: 'efetivo' }, { id: 't2', name: 'B', type: 'efetivo' }],
+    salaries: [{ id: 't1', remunerationType: 'hora_aula', hourlyRate: 10 },
+               { id: 't2', remunerationType: 'hora_aula', hourlyRate: 10 }],
+  });
+  const un = P.resumoPorUnidade(r.pessoas, new Map([['unit-cp', { name: 'CrossTainer CP' }]]));
+  assert.strictEqual(un[0].unitName, 'CrossTainer CP', 'o nome vem de units quando existe');
+  assert.strictEqual(un[0].pessoas, 2);
+  assert.strictEqual(un[0].classesCount, 2);
+  ok('o resumo traz o nome da unidade e quanta gente');
+}
+
+console.log('');
+console.log('OK smoke-folha-por-pessoa: ' + n + ' casos');

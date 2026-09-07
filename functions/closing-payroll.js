@@ -202,6 +202,71 @@
   const r2 = n => Math.round(n * 100) / 100;
 
   /**
+   * Custo por unidade, a partir das linhas da folha.
+   *
+   * ⚠️ É RATEIO, não medição. A parte de hora-aula sai exata (as horas daquela
+   * unidade × o valor/hora da pessoa dão o mesmo número que a proporção), mas
+   * bolsa, VR, VT e Outros são MENSAIS: pertencem à pessoa, não à unidade.
+   * Repartir pelas horas é a leitura mais defensável — e a única que fecha com
+   * a folha.
+   *
+   * A sobra de arredondamento vai para a maior unidade de propósito: se a soma
+   * das linhas não bater com o total da folha, a mesma tela passa a mostrar
+   * dois números de dinheiro diferentes, e nenhum deles é confiável.
+   */
+  function resumoPorUnidade(pessoas, units) {
+    const mapa = new Map();
+    const somaEm = (unitId, campo, valor) => {
+      if (!mapa.has(unitId)) {
+        mapa.set(unitId, {
+          unitId,
+          unitName: (pega(units, unitId) || {}).name || unitId,
+          classesCount: 0, horas: 0, pessoas: 0, custo: 0,
+        });
+      }
+      mapa.get(unitId)[campo] += valor;
+    };
+
+    for (const p of (pessoas || [])) {
+      const uns = p.porUnidade || [];
+      if (!uns.length) continue;
+
+      for (const u of uns) {
+        somaEm(u.unitId, 'classesCount', u.classesCount || 0);
+        somaEm(u.unitId, 'horas', u.horas || 0);
+        somaEm(u.unitId, 'pessoas', 1);
+      }
+
+      // base do rateio: horas; sem horas (só Escola Interna, por exemplo),
+      // cai pras aulas; sem nada, divide igual — nunca divide por zero
+      const total = r2(p.valorTotal || 0);
+      const porHoras = uns.reduce((s, u) => s + (u.horas || 0), 0);
+      const porAulas = uns.reduce((s, u) => s + (u.classesCount || 0), 0);
+      const peso = (u) => porHoras > 0 ? (u.horas || 0) / porHoras
+        : porAulas > 0 ? (u.classesCount || 0) / porAulas
+        : 1 / uns.length;
+
+      let distribuido = 0;
+      const partes = uns.map(u => {
+        const v = Math.round(total * peso(u) * 100) / 100;
+        distribuido = Math.round((distribuido + v) * 100) / 100;
+        return { unitId: u.unitId, valor: v, horas: u.horas || 0 };
+      });
+      // a sobra (ou falta) de centavo vai pra unidade de mais horas
+      const sobra = Math.round((total - distribuido) * 100) / 100;
+      if (sobra !== 0 && partes.length) {
+        const maior = partes.reduce((a, b) => (b.horas > a.horas ? b : a), partes[0]);
+        maior.valor = Math.round((maior.valor + sobra) * 100) / 100;
+      }
+      partes.forEach(x => somaEm(x.unitId, 'custo', x.valor));
+    }
+
+    return [...mapa.values()]
+      .map(u => ({ ...u, horas: r2(u.horas), custo: r2(u.custo) }))
+      .sort((a, b) => b.horas - a.horas);
+  }
+
+  /**
    * A folha do mês inteiro, uma linha por pessoa.
    *
    * @param {{
@@ -335,6 +400,6 @@
   return {
     STATUS_QUE_PAGAM,
     contaParaPagamento, minutosEfetivos, horasDasAulas, ehBolsista, avisosDaLinha,
-    salarioVigenteEm, valorDoProfessor, montarFolha,
+    salarioVigenteEm, valorDoProfessor, montarFolha, resumoPorUnidade,
   };
 });

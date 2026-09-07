@@ -2668,21 +2668,11 @@ const ClosingService = {
       });
 
       // Custo por unidade: derivado das MESMAS linhas da folha, pra não existir
-      // um segundo caminho de cálculo que possa divergir.
-      const mapaUn = new Map();
-      for (const p of folha.pessoas) {
-        for (const u of p.porUnidade) {
-          if (!mapaUn.has(u.unitId)) mapaUn.set(u.unitId, { unitId: u.unitId, classesCount: 0, horas: 0, pessoas: 0 });
-          const acc = mapaUn.get(u.unitId);
-          acc.classesCount += u.classesCount;
-          acc.horas += u.horas;
-          acc.pessoas += 1;
-        }
-      }
-      const unidades = [...mapaUn.values()]
-        .map(u => ({ ...u, horas: Math.round(u.horas * 100) / 100,
-          unitName: ((unitsRes.success ? unitsRes.data : []).find(x => x.id === u.unitId) || {}).name || u.unitId }))
-        .sort((a, b) => b.horas - a.horas);
+      // um segundo caminho de cálculo que possa divergir. O valor é RATEIO —
+      // bolsa, VR e VT são mensais, da pessoa, não da unidade.
+      const unidades = ClosingPayroll.resumoPorUnidade(
+        folha.pessoas,
+        new Map((unitsRes.success ? unitsRes.data : []).map(u => [u.id, u])));
 
       return {
         success: true,

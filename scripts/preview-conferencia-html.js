@@ -75,18 +75,8 @@ const db = admin.firestore();
     v.firstPeriodStart && v.lastPeriodEnd
     && v.firstPeriodStart.toDate() <= fim && v.lastPeriodEnd.toDate() >= inicio);
 
-  const mapaUn = new Map();
-  for (const p of folha.pessoas) {
-    for (const u of p.porUnidade) {
-      if (!mapaUn.has(u.unitId)) mapaUn.set(u.unitId, { unitId: u.unitId, classesCount: 0, horas: 0, pessoas: 0 });
-      const a = mapaUn.get(u.unitId);
-      a.classesCount += u.classesCount; a.horas += u.horas; a.pessoas += 1;
-    }
-  }
-  const unidades = [...mapaUn.values()].map(u => ({
-    ...u, horas: Math.round(u.horas * 100) / 100,
-    unitName: (units.get(u.unitId) || {}).name || u.unitId,
-  })).sort((a, b) => b.horas - a.horas);
+  // mesmo resumo que a tela usa — inclusive o rateio do custo
+  const unidades = Folha.resumoPorUnidade(folha.pessoas, units);
 
   const trocasAbertas = subsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
     .filter(s => s.status === 'pending' || s.status === 'aguardando_gestao')
