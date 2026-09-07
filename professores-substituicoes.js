@@ -161,6 +161,13 @@ function renderSubCard(sub, lado) {
   // diferença importa pra quem lê. Pedido antigo sem o campo continua lendo
   // como sempre leu (do titular): SubstitutionFlow.registradoPor cobre isso.
   const por = SubstitutionFlow.registradoPor(sub);
+  // A gestão sempre pôde confirmar sem esperar o professor (é a saída para
+  // férias, folga, desligamento e para quem não abre o app) — mas até 05/09/2026
+  // a tela só oferecia o botão no degrau seguinte, e 23 trocas ficaram paradas
+  // sem que ninguém da gestão pudesse tocá-las. Confirmar sem resposta continua
+  // sendo outra coisa: fica dito na tela e gravado no pedido.
+  const semResposta = sub.status === 'pending';
+
   const registradoLabel = por === 'gestao'
     ? 'lançada pela gestão'
     : por === 'substituto'
@@ -181,10 +188,15 @@ function renderSubCard(sub, lado) {
       </div>
       <div class="class-card-status">
         <span class="class-status-badge" style="color:${st.cor};border:1px solid ${st.cor};">${st.label}</span>
-        ${subsEhGestao() && sub.status === 'aguardando_gestao' ? `
+        ${subsEhGestao() && SubstitutionFlow.STATUS_ABERTO.indexOf(sub.status) !== -1 ? `
         <div class="inbox-item-actions" style="margin-top:8px;">
+          ${semResposta ? `<div class="info-field-hint" style="margin-bottom:6px;">
+            ${subsEsc(subsNomeProf(SubstitutionFlow.quemConfirma(sub)))} ainda não respondeu.
+          </div>` : ''}
           <button class="btn btn-outline btn-sm" onclick="subsRecusar('${sub.id}')">Recusar</button>
-          <button class="btn btn-primary btn-sm" onclick="subsHomologar('${sub.id}')">Confirmar troca</button>
+          <button class="btn btn-primary btn-sm" onclick="subsHomologar('${sub.id}', ${semResposta})">
+            ${semResposta ? 'Confirmar mesmo assim' : 'Confirmar troca'}
+          </button>
         </div>` : ''}
         ${sub.semConfirmacaoDoProfessor ? '<div class="info-field-hint">Confirmada pela gestão sem a resposta do professor.</div>' : ''}
         ${sub.atorEhParte ? '<div class="info-field-hint">Quem confirmou é uma das partes da troca.</div>' : ''}
@@ -193,8 +205,13 @@ function renderSubCard(sub, lado) {
   `;
 }
 
-async function subsHomologar(subId) {
-  if (!confirm('Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.')) return;
+async function subsHomologar(subId, semResposta) {
+  const aviso = semResposta
+    ? 'O professor ainda NÃO confirmou esta troca.\n\n'
+      + 'Confirmando assim, a aula passa para o outro professor, o pagamento acompanha '
+      + 'e fica registrado que foi a gestão quem decidiu sem a resposta dele.\n\nConfirmar mesmo assim?'
+    : 'Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.';
+  if (!confirm(aviso)) return;
   const res = await SubstitutionService.homologar(subId, '');
   if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
   toast('Troca confirmada.', 'success');

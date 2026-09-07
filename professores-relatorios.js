@@ -382,7 +382,10 @@ function buildReceiptHtmlForExport(prof, closing) {
   var valorLiquido = (prof.valorTotal || 0) + (prof.vacationValue || 0);
   var extenso = numeroExtensoSimples(valorLiquido);
 
-  var unitName = (closing.unitName || closing.unitId || '').toString();
+  // O fechamento cobre a academia inteira desde 05/09/2026 — o recibo mostra
+  // as unidades em que a pessoa deu aula, não uma unidade do fechamento.
+  var unitName = (Array.isArray(closing.unitIds) ? closing.unitIds.join(' + ')
+    : (closing.unitName || closing.unitId || '')).toString();
 
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Recibo</title>' +
     '<style>' +
@@ -479,7 +482,7 @@ function renderReciboInPdf(doc, prof, closing) {
   doc.setFontSize(10); doc.setFont(undefined, 'normal');
   doc.text('CrossTainer ELITE — Módulo Professores', 14, 28);
   doc.text('Competência: ' + monthLabel, 14, 36);
-  doc.text('Unidade: ' + (closing.unitId || '—'), 14, 42);
+  doc.text('Unidade: ' + ((closing.unitIds || []).join(' + ') || closing.unitId || '—'), 14, 42);
 
   // Linha separadora
   doc.setDrawColor(216, 124, 28);
@@ -723,8 +726,8 @@ async function renderRecibosLoteSection() {
   var closingsSnap = await db.collection('monthly_closings').where('status', '==', 'fechado').limit(50).get();
   var closings = closingsSnap.docs.map(function(d) {
     var c = d.data();
-    return { id: d.id, unitId: c.unitId, month: c.month, year: c.year,
-      label: (c.unitId || '?') + ' — ' + String(c.month).padStart(2,'0') + '/' + c.year + ' (' + (c.teachers || []).length + ' profs)' };
+    return { id: d.id, unitIds: c.unitIds || (c.unitId ? [c.unitId] : []), month: c.month, year: c.year,
+      label: String(c.month).padStart(2,'0') + '/' + c.year + ' (' + (c.teachers || []).length + ' profs)' };
   }).sort(function(a, b) { return (b.year*12+b.month) - (a.year*12+a.month); });
 
   filtersDiv.innerHTML = `

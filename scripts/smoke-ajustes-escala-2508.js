@@ -183,9 +183,23 @@ const passou = (msg) => { console.log('✓ ' + msg); ok++; };
     assert.ok(/naoRemunerado:/.test(criar), 'create grava a marca');
 
     // O fechamento tem que pular quem não recebe, senão a ficha vira linha de
-    // pendência todo mês.
-    const agrupa = shared.slice(shared.indexOf('// 7) Agrupa classes por teacherId'), shared.indexOf('// 8) Calcula por professor'));
-    assert.ok(/naoRemunerado/.test(agrupa), 'o fechamento pula quem não recebe por aula');
+    // pendência todo mês. Desde 05/09/2026 a conta da folha mora em
+    // closing-payroll.js — e aqui a regra é EXERCITADA, não procurada no texto.
+    const Folha = require('../closing-payroll.js');
+    const folha = Folha.montarFolha({
+      classes: [
+        { id: 'a', status: 'realizada', durationMinutes: 60, unitId: 'u1', teacherId: 'socio' },
+        { id: 'b', status: 'realizada', durationMinutes: 60, unitId: 'u1', teacherId: 'prof' },
+      ],
+      teachers: new Map([
+        ['socio', { id: 'socio', name: 'RAFAEL ROJAIS', type: 'efetivo', naoRemunerado: true }],
+        ['prof', { id: 'prof', name: 'THEO', type: 'efetivo' }],
+      ]),
+      salaries: new Map([['prof', { remunerationType: 'hora_aula', hourlyRate: 10 }]]),
+      scaleTypes: new Map(), ano: 2026, mes: 8,
+    });
+    assert.deepStrictEqual(folha.pessoas.map(x => x.teacherName), ['THEO'],
+      'o fechamento pula quem não recebe por aula');
 
     const html = ler('professores.html');
     assert.ok(/teacherNaoRemunerado/.test(html), 'o formulário tem o campo');

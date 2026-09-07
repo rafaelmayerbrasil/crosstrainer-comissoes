@@ -144,6 +144,26 @@ function renderPessoaListItem(p) {
     </div>`;
 }
 
+/**
+ * Abre a ficha de uma pessoa vinda de OUTRA tela, já na aba pedida.
+ *
+ * Nasceu do Fechamento (07/09/2026): a conferência aponta quem está com o
+ * cadastro errado, e mandar a gestão pra lista de Pessoas obrigava a procurar
+ * o nome de novo, numa tela cheia de gente.
+ *
+ * `teacherId` é o id da FICHA (`teachers`), que é o que o fechamento conhece —
+ * a chave do hub é `T:<id>` pra ficha e `U:<uid>` pra quem só tem login.
+ * Se a pessoa não aparecer na lista (desligada, filtro ativo), a busca é
+ * limpa antes: abrir a tela e não achar ninguém é pior do que não ter botão.
+ */
+function abrirFichaDaPessoa(teacherId, aba = 'salarial') {
+  if (!teacherId) return;
+  PessoasState.filters = { search: '', profile: 'all' };   // 'all' é o padrão da tela
+  PessoasState.selectedKey = 'T:' + teacherId;
+  PessoasState.activeTab = aba;
+  navigateTo('pessoas');
+}
+
 function selectPessoa(key) {
   if (PessoasState.selectedKey !== key) PessoasState.activeTab = 'identidade';
   PessoasState.selectedKey = key;

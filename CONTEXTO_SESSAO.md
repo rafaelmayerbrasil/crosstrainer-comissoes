@@ -3,7 +3,119 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 63 (03/09/2026) — ✅ DOMINGO FORA DA ESCALA + A GESTÃO QUE DÁ AULA ENTRA · NO AR EM PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 64 (05/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · HOMOLOGADO NO STAGING, ESPERANDO OK PRA PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+
+Começou com **três dúvidas da Benny no grupo** (horas extras dos estagiários, um print de banco de
+horas que não batia, e substituições paradas) mais um recado: *"não consegui fechar a folha com base
+nele"*. Conferindo a produção antes de responder, apareceu o resto.
+
+**🚨 O ACHADO GRANDE: o fechamento era POR UNIDADE, e o valor MENSAL saía inteiro em cada um.**
+Bolsa de estágio, VR, VT e Outros. Só o excedente de hora do estagiário estava protegido (o
+movimento do banco de horas é por pessoa+mês). Medido em agosto: folha certa **R$ 24.971,20** ×
+soma dos dois fechamentos **R$ 32.552,04** → **R$ 7.580,84 a mais**, em 8 pessoas. Thaynara,
+Heloísa e Eduarda apareceriam no fechamento da PP com **0h** — uma aula de Escola Interna, que não
+paga hora — e ainda levariam **bolsa cheia + VT** de novo.
+
+**Nada foi pago errado: nenhum mês jamais foi fechado em produção.** Agosto seria o primeiro, e a
+Benny era quem ia dar o clique. Por isso a troca do id do fechamento saiu de graça — zero migração.
+
+### O que mudou (branch, não deployado)
+
+**(a) A gestão consegue confirmar troca parada.** `substitution-flow.js` sempre deixou a gestão
+homologar direto do `pending`, e as rules liberam — **mas a tela só desenhava o botão no
+`aguardando_gestao`**. Produção tinha **23 trocas abertas, 23 em `pending`, zero em
+`aguardando_gestao`**: a Benny via 23 tarjas laranja e nenhum botão, e a caixa dela dizia "nenhuma
+troca esperando homologação". Agora tem **"Confirmar mesmo assim"**, com o nome de quem não
+respondeu na linha de cima.
+
+**(b) O fechamento virou POR PESSOA/MÊS** (opção escolhida pelo Rafael). `monthly_closings/{ano-mes}`,
+uma linha por pessoa, com `porUnidade[]` — o custo por unidade não se perdeu, virou coluna. Unidade
+na tela é **lente de leitura**, não escopo. A raiz era pior que "é por unidade": **a conta da folha
+existia copiada em dois lugares** (Cloud Function e tela), e foi entre as cópias que a duplicação
+passou. Virou o módulo puro **`closing-payroll.js`** (gêmeo em `functions/`, com teste que falha se
+divergirem), usado pelos dois. **De brinde, o PLR tinha o mesmo defeito** — `plrHorasNoCiclo` somava
+os fechamentos de cada unidade e duplicava as horas de quem dá aula nas duas.
+
+**(c) Tela nova de conferência do fechamento**, mockup validado pelo Rafael antes de construir. Seis
+blocos, tudo tabela: *antes de fechar* (checklist que trava o botão) · *a folha do mês* · *bolsistas:
+contrato × horas* · *trocas em aberto* · *cadastro com problema* · *custo por unidade*. Tudo sai do
+MESMO cálculo que o fechamento grava.
+
+**Decisões do Rafael nesta sessão:**
+- **Eventual com bolsa segue a regra do estagiário.** O **Thiago Valentim** tinha ficha `eventual` e
+  cadastro salarial de bolsa: caía na conta por hora, não tinha valor/hora, e o fechamento pagaria
+  **R$ 0,00 por 88 aulas / 76,25h**, sem uma palavra na tela. Agora recebe **R$ 777,15**. Quem decide
+  a regra é o **cadastro salarial**, não o tipo da ficha — `efetivo` fica de fora de propósito
+  (bolsa em ficha de efetivo é erro de cadastro e vira aviso).
+- **Toda troca aberta TRAVA o fechamento.** Antes, a que esperava professor só avisava — e a razão
+  era boa, a gestão não tinha como resolvê-la. Agora tem, e fechar é irreversível.
+- **A tela é só do Administrador.** Supervisão não entra: mostra bolsa, VR, VT e total de todo
+  mundo. O menu já não oferecia e as rules já barrariam, mas deep-link existe — sem a trava, quem
+  entrasse por link via "erro ao carregar" em vez de saber que a tela não é dele.
+
+### Como foi validado (⚠️ ninguém clicou de verdade)
+
+- **Suíte 71 smokes**, 3 novos: `smoke-folha-por-pessoa.js` (14), `smoke-conferencia-fechamento.js`
+  (10) e `smoke-gestao-confirma-troca-parada.js` (7). Os três **renderizam/chamam** as funções num
+  sandbox `vm` — não leem texto de arquivo.
+- **`scripts/homologar-folha-por-pessoa.js --project production --mes 2026-08`** (só leitura): roda o
+  módulo contra o Firestore real e confere que ninguém aparece duas vezes, que a divisão por unidade
+  fecha com o total, e discrimina os R$ 7.580,84 pessoa por pessoa.
+- **`scripts/preview-conferencia-html.js`**: renderiza a TELA com os dados reais e grava um `.html`.
+  Foi assim que apareceram três acertos finos (hora por unidade com ponto em vez de vírgula, R$ 0,00
+  onde cabia travessão, e a tabela buscando nome de unidade no lugar errado).
+- Um teste pegou um defeito de verdade: `renderTeacherTable` lia o nome da unidade do estado da tela
+  em vez de usar o que a própria folha já traz.
+
+### ✅ Homologado no staging (05/09/2026)
+
+Branch **`fechamento-por-pessoa-mes`**, 3 commits (`9edbc47`, `4bddce5`, `d5dadde`). No staging:
+**Cloud Function `closeMonth` deployada** e **hosting publicado** (`?v=20260905`).
+
+**`scripts/e2e-fechamento-por-pessoa-staging.js` — 21/21.** Fecha um mês **de verdade** (HTTP na CF,
+token de admin real) e compara o documento gravado com o que o módulo puro diz. Inclui a fixture que
+o staging não tinha — **um bolsista com aula nas DUAS unidades** — e prova o que importava:
+**uma linha só, bolsa R$ 500,00 uma vez, não R$ 1.000,00**. Faz e desfaz tudo.
+
+⚠️ **Dois tropeços meus no próprio teste, os dois já corrigidos e comentados no script:** comparar a
+conta pura contra um snapshot ANTERIOR à fixture (dá diferença que não existe), e apagar a aula de
+fixture ANTES de devolver o `monthClosingId` das outras — o batch estoura no meio e **as 43 aulas
+reais do staging ficaram congeladas apontando pra um fechamento apagado**. Tive que desfazer à mão.
+
+**Achado de segurança, corrigido junto (`4bddce5`):** o hosting publica a pasta do **disco**
+(`public: "."`), e `.gitignore` não protege o Firebase — `backups/` e `scratchpad/` têm dado real de
+produção e subiriam no deploy. Entraram na lista de ignorados. Conferido que **não estavam no ar**:
+o 200 em `/backups/<arquivo>` era o rewrite devolvendo o index, não o arquivo.
+
+### 🔴 O que falta
+
+1. **Produção** — esperando o OK. Precisa: merge no `main` + `git push origin main` (GitHub Pages),
+   e `firebase deploy --only functions:closeMonth --project production`. **Rules não mudaram.**
+2. **Fechar agosto é da GESTÃO — nós não fazemos** (decisão do Rafael, 05/09). Confirmar troca é
+   decisão de gestão e agora existe botão. A Benny confirma as 20 pela tela e clica em fechar; é
+   também o primeiro uso real do fluxo inteiro. Folha de agosto com a regra nova: **R$ 25.748,35**
+   (19 pessoas, 1.641 aulas, 1.565,75h).
+3. **As 23 trocas em aberto** — 20 de agosto, 3 de setembro. Esperando **Thaynara (16), João Vitor
+   (6), Karin (1)**; as 31 notificações estão todas não lidas e o e-mail desse tipo cai no spam.
+4. **A reunião presencial que a Benny pediu** sobre agenda/horas continua de pé.
+
+### Coisa que a conferência levantou e ninguém decidiu ainda
+
+**Nenhuma ocorrência foi lançada em agosto** — nem falta, nem atraso, nem hora extra, em 1.641
+aulas. A aula vira `realizada` sozinha às 3h da manhã, então isso quer dizer "ninguém lançou", não
+necessariamente "não houve". O bloco 4 da tela nova diz isso com todas as letras. Se houve falta ou
+atraso na prática, **as horas de agosto estão altas**.
+
+Memórias: [[fechamento-por-unidade-duplica-bolsa]] · [[gestao-sem-botao-na-troca-pendente]] ·
+[[bolsa-segue-o-cadastro-nao-a-ficha]]. Plano:
+`docs/superpowers/plans/2026-09-05-fechamento-por-pessoa-mes.md`. Conferência de agosto para a
+reunião: `docs/fechamento-agosto-2026-conferencia.md`.
+
+---
+
+## 📜 sessão 63 (03/09/2026) — ✅ DOMINGO FORA DA ESCALA + A GESTÃO QUE DÁ AULA ENTRA · NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
