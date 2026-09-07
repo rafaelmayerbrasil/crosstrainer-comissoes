@@ -218,4 +218,41 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('o arrasto lê só meses anteriores, e nada antes de 2026-08');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 11. As duas homes mostram o bloco, e a vendedora só vê o dela
+// ════════════════════════════════════════════════════════════════════
+{
+  const fs = require('fs');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  // Recorta o CORPO da funcao, nao uma janela de N caracteres: assim o teste
+  // prova que a chamada esta DENTRO da home, e nao numa funcao vizinha.
+  const corpo = nome => {
+    const i = html.indexOf(nome);
+    assert.ok(i >= 0, 'nao achei ' + nome);
+    const fim = html.indexOf('\n    }\n', i);
+    return html.slice(i, fim);
+  };
+  const gestao = corpo('function renderAdminDashboard(');
+  const vendedora = corpo('async function loadVendorPeriod(');
+
+  assert.ok(/vendidoXPagoHome/.test(gestao), 'a home da gestão precisa do espaço do bloco');
+  assert.ok(/vendidoXPagoVendedora/.test(vendedora), 'a home da vendedora também');
+  assert.ok(/preencherVendidoXPago\(/.test(gestao) && /preencherVendidoXPago\(/.test(vendedora),
+    'as duas precisam chamar o preenchedor');
+
+  // Agora sim são 3: definição + aba + preenchedor (que serve as duas homes)
+  const usos = [...html.matchAll(/carregarVendidoXPago\(/g)];
+  assert.ok(usos.length >= 3, 'a aba e o preenchedor têm que usar o carregador — achei ' + usos.length);
+
+  const j = html.indexOf('async function preencherVendidoXPago(');
+  const preench = html.slice(j, j + 1600);
+  assert.ok(/soDe/.test(preench), 'o preenchedor precisa saber de quem é a visão');
+  assert.ok(/daVendedora\(/.test(preench),
+    'a visão da vendedora tem que filtrar pelas vendas dela, não mostrar as das colegas');
+  assert.ok(/carregarArrastoAnterior\(/.test(preench),
+    'o bloco precisa do arrasto de meses anteriores');
+  ok('as duas homes mostram o bloco, e o da vendedora é filtrado');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

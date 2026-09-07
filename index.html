@@ -6137,7 +6137,7 @@
         const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
         if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
-        let html = avisoSoVendas + `
+        let html = avisoSoVendas + '<div id="vendidoXPagoHome"></div>' + `
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
@@ -6340,6 +6340,10 @@
       `;
 
         document.getElementById('dashboardContent').innerHTML = html;
+
+        // O bloco chega depois: renderAdminDashboard e sincrono e a leitura do
+        // banco nao e. Mesmo padrao de loadVendorItems/loadVendorHistory.
+        preencherVendidoXPago('vendidoXPagoHome', periodId, '');
 
         // RESET lazy loading state for the new period
         loadedTabs = new Set();
@@ -6838,6 +6842,8 @@
         }
       } catch(e) { /* créditos não críticos */ }
 
+      html += '<div id="vendidoXPagoVendedora"></div>';
+
       // ── Stats row ──
       html += `<div class="stats-row">
         <div class="stat accent"><div class="s-label">Minha Comissão</div><div class="s-value mono">R$ ${fmt(myData.grandTotal || 0)}</div></div>
@@ -7004,6 +7010,7 @@
       updateSimulatorUI(); // trigger initial simulation
       loadVendorItems(myName);
       loadVendorHistory(myName);
+      preencherVendidoXPago('vendidoXPagoVendedora', periodId, myName);
     }
 
 
@@ -7717,6 +7724,49 @@
         });
       });
       return fora;
+    }
+
+    // ==================================================================
+    // O preenchedor - desenha o bloco num elemento que ja esta na tela
+    // ==================================================================
+    // `renderAdminDashboard` e sincrono e a leitura do banco nao e. Entao a
+    // home deixa o espaco vazio e o bloco chega depois - mesmo padrao de
+    // `loadVendorItems` e `loadVendorHistory`.
+    //
+    // @param {string} elId      onde desenhar
+    // @param {string} periodId
+    // @param {string} soDe      nome da vendedora; '' = visao da gestao
+    async function preencherVendidoXPago(elId, periodId, soDe) {
+      const el = document.getElementById(elId);
+      if (!el || !periodId) return;
+      try {
+        const d = await carregarVendidoXPago(periodId);
+        let dados = d, arrasto = 0;
+
+        if (d.temLista && soDe) {
+          // A vendedora ve so o que e dela - inclusive a venda dividida, que
+          // conta para as duas.
+          const cruzado = {
+            pagas: VendasAguardando.daVendedora(d.cruzado.pagas, soDe),
+            aguardando: VendasAguardando.daVendedora(d.cruzado.aguardando, soDe),
+            conferir: VendasAguardando.daVendedora(d.cruzado.conferir, soDe),
+          };
+          dados = { ...d, cruzado, resumo: VendasAguardando.resumo(cruzado) };
+        }
+
+        if (d.temLista && d.year && d.month) {
+          const mes = d.year + '-' + String(d.month).padStart(2, '0');
+          let velhas = await carregarArrastoAnterior(d.unitId, mes);
+          if (soDe) velhas = VendasAguardando.daVendedora(velhas, soDe);
+          arrasto = velhas.length;
+        }
+
+        el.innerHTML = blocoVendidoXPago(dados, { soDe, arrasto });
+      } catch (e) {
+        // O painel e acessorio: se ele quebrar, a home tem que continuar de pe.
+        el.innerHTML = '';
+        console.error('[vendidoXPago]', e);
+      }
     }
 
     // ══════════════════════════════════════════════════════════════════
