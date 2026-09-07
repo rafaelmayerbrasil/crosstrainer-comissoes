@@ -163,6 +163,22 @@ function exige(txt, ondeNome, assuntos) {
   ok('professor: domingo não tem escala');
 }
 {
+  // Sessão 64 (07/09/2026): o fechamento deixou de ser por unidade e a tela
+  // ganhou a conferência em seis blocos. Manual que descreve a tela antiga é
+  // pior que manual nenhum — manda a gestão procurar um seletor que sumiu.
+  exige(admin, 'manual-admin', {
+    'o fechamento cobre as duas unidades': 'academia inteira',
+    'cada pessoa aparece uma vez só': 'uma vez só',
+    'o custo por unidade é rateio': 'rateio',
+    'toda troca aberta trava o fechamento': 'trava o fechamento',
+    'a gestão pode confirmar sem esperar o professor': 'Confirmar mesmo assim',
+    'a tela é só do admin, nem supervisão entra': 'nem a supervisão',
+    'ocorrência não lançada deixa as horas altas': 'ninguém lançou',
+    'ninguém é avisado do saldo de horas': 'Ninguém é avisado',
+  });
+  ok('admin: fechamento por pessoa/mês, o rateio, a trava e o saldo que ninguém avisa');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>

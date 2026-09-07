@@ -379,23 +379,68 @@
 
   <h2 id="fechamento">💰 7. Fechamento mensal</h2>
   <div class="card">
-    <ol>
-      <li>Em <strong>Fechamento</strong>, escolha unidade + mês e gere a <strong>prévia</strong>: aulas realizadas, horas (com pesos de escala) e valor por professor — hora-aula pros efetivos/eventuais, bolsa proporcional pros estagiários, férias aprovadas do mês incluídas.</li>
-      <li>Confira os números. Ajustes (aula errada, troca de professor não registrada) se corrigem <strong>antes</strong> de fechar, pela Agenda Geral.</li>
-      <li><strong>Fechar o mês</strong> congela tudo e libera os pagamentos/recibos.</li>
-    </ol>
+    <h3>O fechamento é do MÊS, não da unidade</h3>
+    <p>Escolha só o <strong>mês</strong> e clique em <strong>Carregar preview</strong>. O fechamento cobre a
+      <strong>academia inteira</strong> — CP e PP juntas — e cada pessoa aparece <strong>uma vez só</strong>.</p>
+    <p>Isso importa por dinheiro: quem dá aula nas duas unidades tem <strong>uma bolsa</strong>, <strong>um VR</strong>
+      e <strong>um VT</strong> no mês, não dois. As <strong>horas</strong>, sim, somam — e a coluna
+      <strong>Unidades</strong> mostra quanto cada uma consumiu.</p>
+    <div class="tip">💡 O seletor <strong>"Ver aulas de"</strong> é só uma lente de leitura: filtra quem aparece na
+      tabela, mas os valores continuam sendo os do mês inteiro. Uma pessoa, um pagamento.</div>
   </div>
+
   <div class="card">
-    <h3>🛑 A tela avisa antes de você errar</h3>
-    <p>Ao clicar em fechar, o sistema procura <strong>trocas de professor em aberto</strong> naquele mês e reage conforme quem está devendo resposta:</p>
+    <h3>A tela de conferência — seis blocos</h3>
+    <ol>
+      <li><strong>Antes de fechar</strong> — a lista do que falta. Cada item é ⛔ (trava), ⚠️ (atenção) ou ✅.</li>
+      <li><strong>A folha do mês</strong> — uma linha por pessoa: unidades, aulas, horas, R$ das horas, VR, VT, total.</li>
+      <li><strong>Bolsistas: contrato × horas</strong> — contrato, horas trabalhadas, quanto passou, quanto isso vale
+        e o saldo a compensar. É aqui que se vê a <strong>hora extra do estagiário</strong>.</li>
+      <li><strong>Trocas em aberto</strong> — quem precisa confirmar, quantas aulas e quem cobriu.</li>
+      <li><strong>Cadastro com problema</strong> — quem está com aula valendo R$ 0,00, <strong>com nome</strong>,
+        e um botão que abre a ficha da pessoa já na aba Salarial.</li>
+      <li><strong>Custo por unidade</strong> — aulas, horas e R$ por unidade.</li>
+    </ol>
+    <div class="warn">⚠️ O <strong>custo por unidade é rateio, não medição.</strong> A parte de hora-aula é exata; bolsa,
+      VR, VT e Outros são <strong>mensais da pessoa</strong> e foram repartidos na proporção das horas. O total fecha
+      com a folha do mês — mas não leia a linha como "quanto essa unidade custou de verdade".</div>
+  </div>
+
+  <div class="card">
+    <h3>🛑 O botão só libera quando não sobrar pendência</h3>
+    <p><strong>Toda troca de professor em aberto trava o fechamento</strong>, e cadastro que faria alguém receber
+      R$ 0,00 também. O botão vira <em>"Resolva as pendências primeiro"</em> e fica desabilitado.</p>
     <ul>
-      <li><strong>Esperando você confirmar</strong> → o botão <strong>trava</strong> e diz <em>"Resolva as trocas primeiro"</em>, listando quem deu a aula de quem, e em que data. É ação sua, e passar reto significa pagar o professor errado sem conserto.</li>
-      <li><strong>Esperando um professor confirmar</strong> → só <strong>avisa</strong> e deixa fechar. Se não fosse assim, a folha inteira ficaria refém de quem não abre o app.</li>
-      <li><strong>Se a verificação não conseguir rodar</strong> → o botão trava também. Fechar sem checar é pior do que não fechar.</li>
+      <li><strong>Troca esperando você</strong> (o colega já confirmou) → confirme em <strong>Substituições</strong>.</li>
+      <li><strong>Troca sem resposta do professor</strong> → você <strong>não precisa esperar</strong>: em Substituições,
+        o botão <strong>"Confirmar mesmo assim"</strong> resolve, e fica registrado que foi a gestão quem decidiu sem a
+        resposta dele.</li>
+      <li><strong>Cadastro com problema</strong> → abra a ficha pelo botão do bloco 5, corrija na aba Salarial e
+        recarregue a prévia.</li>
+      <li><strong>Se a verificação de trocas não conseguir rodar</strong> → o botão trava também. Fechar sem checar é
+        pior do que não fechar.</li>
+    </ul>
+    <div class="tip">💡 Enquanto a troca não é confirmada, <strong>o sistema não mexeu em nada</strong>: a aula continua
+      no nome de quem estava antes, e a folha paga essa pessoa.</div>
+  </div>
+
+  <div class="card">
+    <h3>Duas conferências que a tela pede e ninguém deve pular</h3>
+    <ul>
+      <li><strong>Ocorrências.</strong> A aula é confirmada <strong>automaticamente</strong> depois que o horário passa.
+        Se o mês inteiro aparece "nenhuma ocorrência", isso costuma querer dizer <em>ninguém lançou</em> — não
+        <em>não houve</em>. Falta, atraso, saída antecipada e hora extra precisam ser lançados <strong>antes</strong> de
+        fechar, senão as horas saem altas.</li>
+      <li><strong>Aulas fora da folha.</strong> Só entram as marcadas como <strong>realizada</strong> ou
+        <strong>substituída</strong>. O bloco 1 diz quantas ficaram de fora e por quê.</li>
     </ul>
   </div>
-  <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha mês.</div>
-  <div class="tip">💡 Professor sem cadastro salarial aparece como <strong>"Sem cadastro"</strong> na prévia e nos relatórios — em vez de R$ 0,00 enganoso. Complete o salário na ficha e gere a prévia de novo.</div>
+
+  <div class="warn">⛔ <strong>Fechamento é IRREVERSÍVEL.</strong> Mês fechado não reabre — é proteção contábil (o próprio
+    banco de dados bloqueia). Confira a prévia com calma antes de confirmar. Só o perfil <strong>Admin</strong> fecha
+    mês, e <strong>só o Admin abre essa tela</strong>: ela mostra o quanto cada pessoa recebe, então nem a supervisão
+    entra.</div>
+
   <div class="card">
     <h3>🕒 Banco de horas do estagiário</h3>
     <p>Estagiário tem <strong>bolsa fixa</strong> vinculada a uma carga horária de contrato. O desconto proporcional não servia pra ele — bolsa de estágio não pode encolher. Então a diferença vira <strong>horas</strong>:</p>
@@ -409,6 +454,10 @@
     <p>A prévia do fechamento e o recibo mostram a <strong>conta aberta</strong>: horas do mês, contrato, quanto foi abatido, quanto foi pago de adicional e o saldo restante. O estagiário vê o próprio saldo em "Meus Pagamentos". <strong>O saldo só se mexe quando o mês fecha</strong> — ninguém edita esse número na mão, nem o Admin.</p>
     <div class="warn">⚠️ Se o contrato de horas não estiver cadastrado, o sistema paga <strong>só a bolsa</strong> e avisa na tela — em vez de chutar e pagar o mês inteiro como hora extra.</div>
     <div class="tip">💡 Vale revisar os contratos: quando a carga contratada não bate com a grade real, o saldo cresce todo mês sozinho, sem ninguém mudar de comportamento. O relatório <strong>R6 · Banco de Horas</strong> mostra quem está acumulando.</div>
+    <div class="warn">⚠️ <strong>Ninguém é avisado automaticamente.</strong> Não há alerta nem e-mail quando alguém acumula
+      saldo: é preciso <strong>ir olhar</strong> em Relatórios → 🕒 Banco de Horas, ou na coluna <em>Saldo a compensar</em>
+      do bloco 3 do fechamento. Também <strong>não existe teto nem prazo</strong> — o saldo não vence sozinho.
+      Combine uma rotina de conferência (uma vez por mês, junto com o fechamento).</div>
   </div>
 
   <h2 id="pagamentos">💳 8. Pagamentos e recibos</h2>
