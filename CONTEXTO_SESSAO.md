@@ -3,6 +3,111 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 66 (07/09/2026) — 📊 PAINEL "VENDIDO × PAGO" · ✅ NO AR EM PRODUÇÃO (`8f2602e..1885462`)
+
+### ▶️▶️ RETOMAR AQUI
+
+Sessão de continuação: a anterior estourou o limite de contexto com as **Tasks 1–4** do plano
+`docs/superpowers/plans/2026-09-07-painel-vendido-x-pago.md` commitadas e as caixas do plano nunca
+marcadas. Esta sessão fechou as **Tasks 5 a 9**.
+
+**O que o painel responde:** sob regime de caixa a comissão só nasce quando o dinheiro entra, então
+o mês sempre parece vazio no começo e vai enchendo. A vendedora compara a lista dela com o
+pagamento, não bate, e conclui que o sistema errou. Agora a home da gestão e a da vendedora abrem
+com **três números — vendidas · pagas · aguardando** — e o detalhe por pessoa vive na aba
+"A receber".
+
+### O que entrou (9 commits, `main`)
+
+- **A contagem mora no módulo puro** (`vendas-aguardando.js`): `contarPorVendedora`, `resumo` e
+  `mesFechado`. Regra de negócio no `index.html` não tem teste.
+- **Uma leitura só** (`carregarVendidoXPago`) alimenta as três telas, e **um HTML só**
+  (`blocoVendidoXPago`). Home e aba não podem divergir porque saem da mesma função — há um teste
+  que **falha se alguém chamar `cruzar()` fora dos dois carregadores**, conferido por mutação.
+- **O arrasto** (`carregarArrastoAnterior`): o que foi vendido em mês ANTERIOR e até hoje não virou
+  dinheiro, com há quantos dias está parado. É disso que a gestão precisa falar — a venda de ontem
+  ainda nem foi cobrada. ⚠️ **Não lê nada antes de `2026-08`**: julho e antes saíram com a
+  numeração do TecnoFit e `codigosPagos` daqueles meses não tem código da Pacto, então toda venda
+  antiga apareceria parada para sempre.
+- **A tabela vendido × pago por pessoa**, só para a gestão. A vendedora não vê o número das colegas.
+- **`visaoDe()`** — o filtro da vendedora mora num lugar só. O plano mandava escrevê-lo dentro da
+  home *e* dentro da aba: duas cópias da mesma regra é exatamente como os dois cabeçalhos
+  divergiriam um dia.
+
+### Três decisões de exibição que o painel toma
+
+1. **"Não sei" nunca vira "zero".** Sem a lista de vendas do mês, a tela pede o arquivo em vez de
+   mostrar 0 — um zero ao lado do nome de alguém é uma acusação falsa.
+2. **O % de conversão só aparece em mês fechado.** No mês corrente ele é baixo por construção,
+   porque a cobrança ainda está caindo.
+3. **A soma da tabela por vendedora é MAIOR que o total do mês**, de propósito: a venda dividida
+   conta para as duas, porque a comissão dela é dividida. A nota no rodapé diz isso, para ninguém
+   "corrigir" depois.
+
+### Como foi validado
+
+- **Suíte 76 smokes, todos passando.** `smoke-vendido-x-pago.js` novo, **13 casos**.
+- **Os casos 8 e 13 RODAM as funções** recortadas do `index.html` num sandbox `vm`. Ler o texto do
+  arquivo não prova nada — é literalmente como a prévia de 24/08 passou por 12 testes sem nunca ter
+  rodado (ver [[previa-nunca-rodou]]).
+- **`scripts/homologar-vendido-x-pago.js --project production` → 10/10** (só leitura). Refaz o
+  caminho das duas funções contra o Firestore real. **É uma reimplementação de propósito, não um
+  import:** se fosse o mesmo código, concordaria com um defeito em vez de denunciá-lo.
+- **Staging publicado e conferido no navegador:** as 6 funções existem na página servida, **0 erro
+  de console**, e o bloco renderizado com os números reais de agosto nos **dois temas** — nenhuma
+  var CSS órfã (ver [[css-var-orfa-tema-claro]]).
+
+**Os números, conferidos contra a produção em 07/09:**
+
+| período | vendidas | pagas | aguardando | conferir |
+|---|---:|---:|---:|---:|
+| `cp_2026-08` | 74 | 68 | 4 | 2 |
+| `pp_2026-08` | 59 | 43 | 16 | 0 |
+| `cp_2026-09` | 14 | 0 | 14 | 0 |
+| `pp_2026-09` | 11 | 0 | 11 | 0 |
+
+Príncipe/agosto por pessoa: Kali 21/14 (67%) · Rodrigo 19/13 *(não comissionado)* · Bárbara 12/9
+(75%) · Erica 5/3 (60%) · Francini 3/3 (100%) · Benny 1/1 *(não comissionado)*.
+
+### 🐛 Três defeitos meus, os três pegos por mutação e não por teste verde
+
+1. **A trava do caso 7 barrou o próprio código legítimo.** Ela proíbe chamar `cruzar()` fora do
+   carregador, e o arrasto é um segundo leitor legítimo. Passou a reconhecer os **dois**, e continua
+   barrando qualquer `cruzar()` solto na tela — conferido quebrando o código de propósito.
+2. **O `100%` que eu conferia era o `width:100%` da `<table>`**, não uma conversão. A asserção
+   passaria com qualquer coisa; agora olha a linha da pessoa.
+3. **A asserção de ordenação era vazia:** o fixture já vinha ordenado, então remover o `.sort()`
+   não quebrava nada. O fixture foi invertido de propósito e a mutação passou a ser pega.
+
+### 📌 Cache-buster: um furo real que apareceu no caminho
+
+A produção **já tinha sido publicada hoje com `?v=20260907`**, e o smoke exige exatamente 8 dígitos
+(`\?v=\d{8}`) — repetir o valor não furaria o cache de ninguém, e quem abriu o site hoje receberia o
+JS antigo, com o painel simplesmente não aparecendo. Resolvido com **`?v=20260908`**: o `?v=` é
+número de versão, não data — o navegador só compara. **A trava dos 8 dígitos não foi afrouxada.**
+⚠️ Fica o padrão: **dois deploys no mesmo dia não têm buster distinto**. Ver
+[[publicar-para-usuario-github-pages]].
+
+### 🔴 O que falta
+
+1. ⚠️ **Ninguém clicou de verdade.** Eu chamei as funções que os botões chamam e renderizei o bloco
+   com dado real, mas não naveguei logado pela home nem pela aba "A receber". A gestão será a
+   primeira.
+2. **O arrasto vai mostrar `TESTE ENDEREÇO TECNOFIT`** como venda a cobrar no Campeche — registro
+   de teste virando tarefa de gestão. Casa com o **filtro de "TESTE"** que ficou pendente da
+   resposta 6 do Rodrigo ("permitir com registro"). **Não implementado.**
+3. **`MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE`** entra no arrasto do Príncipe com o nome
+   truncado assim, vindo da Pacto.
+4. **A tela de metas do mês continua não abrindo sem período aberto** (`if (!currentPeriodId) return;`),
+   e o período só nasce de um upload — segue impossível definir a meta antes da primeira venda
+   entrar. Foi onde o Rodrigo esbarrou em setembro. **Conserto pendente**, herdado da sessão 65.
+
+### Arrasto real no dia da publicação
+
+**Campeche 6 vendas · Príncipe 16 vendas** de agosto ainda sem pagamento identificado.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 65 (07/09/2026) — 💸 A LISTA DA KALI ACHOU UM ERRO DE R$ 582,91 · ✅ NO AR EM PRODUÇÃO (`f5607a5..b41d8c4`) · 🔴 FALTA RE-SUBIR O ARQUIVO
 
 ### ▶️▶️ RETOMAR AQUI

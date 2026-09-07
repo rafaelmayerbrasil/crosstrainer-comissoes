@@ -1001,7 +1001,7 @@ git commit -m "feat(comissoes): tabela por vendedora e arrasto na aba A receber"
 - Modify: `index.html` (bump do `?v=`)
 - Test: suíte inteira
 
-- [ ] **Step 1: Rodar a suíte inteira**
+- [x] **Step 1: Rodar a suíte inteira**
 
 ```bash
 for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node "$f" >/dev/null 2>&1 || echo "FALHOU: $f"; done; echo fim
@@ -1009,11 +1009,11 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`, sem nenhum `FALHOU`.
 
-- [ ] **Step 2: Bump do cache-buster**
+- [x] **Step 2: Bump do cache-buster**
 
 Em `index.html`, trocar as quatro ocorrências de `?v=20260907` por `?v=` seguido da data de hoje (formato `AAAAMMDD`). Sem isso o navegador serve o JS antigo depois do deploy e o painel não aparece — `smoke-upload-pacto-tela.js` falha se algum dos quatro perder o `?v=`, mas não sabe se a data mudou.
 
-- [ ] **Step 3: Publicar no staging e conferir no navegador**
+- [x] **Step 3: Publicar no staging e conferir no navegador**
 
 ```bash
 firebase deploy --only hosting
@@ -1030,7 +1030,7 @@ blocoVendidoXPago({temLista:false, year:2026, month:9, fechado:false}, {}).inclu
 
 Esperado: `true`, e nenhum erro no console.
 
-- [ ] **Step 4: Homologar contra o Firestore do staging**
+- [x] **Step 4: Homologar contra o Firestore do staging**
 
 Conferir que os números da tela batem com os do banco:
 
@@ -1040,7 +1040,7 @@ node scripts/conferir-listas-vendedoras.js
 
 E, com o staging aberto no navegador, abrir o Dashboard de agosto e a aba "A receber" e conferir que o cabeçalho, a tabela e o arrasto mostram o mesmo número.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html
@@ -1051,11 +1051,11 @@ git commit -m "chore(comissoes): bump do cache-buster do painel vendido x pago"
 
 ### Task 9: Produção
 
-- [ ] **Step 1: Pedir o OK explícito ao Rafael**
+- [x] **Step 1: Pedir o OK explícito ao Rafael**
 
 Regra 7 do `CLAUDE.md`: produção só depois de homologação completa no staging, com OK explícito. Mostrar o que foi homologado e o que ainda não foi clicado por gente.
 
-- [ ] **Step 2: Publicar**
+- [x] **Step 2: Publicar**
 
 ```bash
 git push origin main
@@ -1063,7 +1063,7 @@ git push origin main
 
 (É o GitHub Pages que serve o usuário — `firebase deploy --only hosting` publica o staging, não a produção.)
 
-- [ ] **Step 3: Conferir no ar**
+- [x] **Step 3: Conferir no ar**
 
 ```bash
 curl -s "https://rafaelmayerbrasil.github.io/crosstrainer-comissoes/index.html" | grep -c "vendidoXPagoHome"
@@ -1071,7 +1071,7 @@ curl -s "https://rafaelmayerbrasil.github.io/crosstrainer-comissoes/index.html" 
 
 Esperado: `1` ou mais. Se vier `0`, o GitHub Pages ainda está publicando — esperar e repetir.
 
-- [ ] **Step 4: Registrar a sessão**
+- [x] **Step 4: Registrar a sessão**
 
 Atualizar `CONTEXTO_SESSAO.md` com o que entrou, o que foi homologado e o que **não** foi clicado por gente. Commitar.
 
