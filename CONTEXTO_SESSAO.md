@@ -3,6 +3,102 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 65 (07/09/2026) — 💸 A LISTA DA KALI ACHOU UM ERRO DE R$ 582,91 · ✅ HOMOLOGADO NO STAGING · ⏸️ PRODUÇÃO ESPERANDO O OK
+
+### ▶️▶️ RETOMAR AQUI
+
+O Rodrigo respondeu as 6 perguntas de `docs/rodrigo-fechamento-agosto-e-metas.md` e mandou junto as
+listas de ativações que a **Bárbara (14 nomes) e a Kali (27)** anotaram na mão, para bater com o
+fechamento de agosto. A Kali marcava 27 e o sistema pagava **7**. Não era a lista dela.
+
+**🚨 O DEFEITO: `RECORRENCIA` é a forma de cobrança, não o robô.** `PactoAdapter.ehAutomatica`
+excluía toda linha com `Responsável 2 = RECORRENCIA`. Na Pacto esse campo diz que a cobrança saiu no
+**cartão recorrente** — uma matrícula nova fechada no balcão chega marcada igual. Em agosto derrubou
+**24 linhas de contrato**; conferidas uma a uma contra as planilhas de julho (que ainda têm a coluna
+`Origem` de verdade), **7 são robô e 17 são venda de gente**. Nenhuma das 24 tinha `Data Início`
+anterior a julho — a recobrança de contrato velho vem como `Plano = IMPORTAÇÃO`, que `ehMigrado` já
+pegava. **A regra não excluía nenhum robô que já não estivesse excluído, e destruía comissão real.**
+
+**Prova independente:** nenhum dos 7 nomes de robô aparece nas listas da Kali ou da Bárbara, e todos
+os que elas reivindicavam estão entre os 17. As duas leituras bateram sem combinar.
+
+**Dinheiro (agosto, com as metas que o Rodrigo aprovou):**
+
+| | Bárbara | Erica | Francini | Kali | Folha |
+|---|---:|---:|---:|---:|---:|
+| como está em produção hoje | 399,79 | 1.526,94 | 756,34 | 313,69 | **2.996,77** |
+| + metas aprovadas em 07/09 | 573,90 | 1.666,49 | 820,23 | 475,13 | **3.535,75** |
+| **+ correção** | 692,90 | 1.734,65 | 902,20 | **788,90** | **4.118,66** |
+| + reatribuir o que reivindicam | 777,68 | 1.734,65 | 902,20 | **1.008,96** | **4.423,49** |
+
+E as ativações, que são o insumo da faixa de meta: **CP 59 → 63**, **PP 29 → 36**. As metas foram
+propostas ao Rodrigo em cima dos números errados — continuam de pé (as duas em Super Meta), mas
+ficaram a 2 e a 1 ativação do Gold.
+
+### O que foi feito (branch `comissoes-recorrencia-nao-e-robo`, commit `3bd22b9`)
+
+- **`pacto-adapter.js`**: `ehAutomatica` → **`ehCobrancaRecorrente`**, e **não exclui mais**. Quem
+  barra a recobrança é `codigosPagos` (cada contrato paga uma vez só). O que sobra vira **aviso** no
+  resumo do upload — a tela já renderiza `avisos`, então não precisou tocar no `index.html`.
+- **`vendas-aguardando.js`**: parou de filtrar a mesma coisa. As 17 vendas sumiam da tela "A receber"
+  junto com a comissão delas.
+- **`scripts/marcar-cobranca-robo-agosto.js`** — agosto é mês de **fronteira**: julho foi calculado
+  com a numeração do TecnoFit, então `codigosPagos` de julho não tem código da Pacto e as 7 cobranças
+  do robô passariam a pagar (**R$ 849,31**, com as duas unidades subindo indevidamente para Gold). O
+  script grava os 7 códigos em julho, com backup, nota no próprio documento e `audit_log`.
+  **Já aplicado no staging.** ⚠️ `gravarCodigosPagos` reescreve `codigosPagos` a partir dos itens —
+  se alguém re-subir JULHO, os 7 somem; o script é idempotente e repõe.
+- **`scripts/conferir-listas-vendedoras.js`** (leitura) — as 4 leituras de agosto e a classificação
+  linha a linha das 24.
+- **`scripts/homologar-recorrencia-agosto.js`** (leitura) — refaz o caminho do upload da tela contra
+  o Firestore real.
+- **`docs/rodrigo-agosto-conferencia-listas.md`** — o documento para o Rodrigo, com a conferência
+  nome a nome, as 18 ativações que estão no nome dele e as 6 decisões que faltam.
+
+### Como foi validado
+
+- **Suíte 71/71.** Três smokes atualizados (`pacto-adapter`, `pacto-ponta-a-ponta`,
+  `vendas-aguardando`) — os antigos **codificavam o defeito**.
+- **`homologar-recorrencia-agosto.js --project staging` 9/9** contra o Firestore real: prova que os 7
+  vêm do **banco**, não de regra escondida, e que a folha bate com a conferência (R$ 4.118,66).
+- **Staging publicado e conferido no navegador**: o `pacto-adapter.js` servido tem a correção, e
+  rodando o tradutor **dentro da página** a linha recorrente vira ativação, gera aviso e é bloqueada
+  quando o contrato está em `codigosPagos`. **0 erro de console.**
+- ⚠️ **Ninguém arrastou o arquivo de verdade.** O caminho de dados está homologado; o clique não.
+
+### 🔴 O QUE FALTA (produção — esperando o OK do Rafael)
+
+1. `node scripts/marcar-cobranca-robo-agosto.js --project production --apply`
+2. `git push origin main` (GitHub Pages é quem serve o usuário). ⚠️ `index.html` carrega
+   `pacto-adapter.js` **sem `?v=`** — o navegador pode servir o antigo. **Hard refresh (Ctrl+Shift+R)
+   antes de re-subir**, senão o upload roda com o adapter velho e nada muda.
+3. Re-subir o arquivo de agosto pela tela, **uma vez em cada unidade**.
+4. Metas de agosto: **CP** 50·57·65 · minNovos 18 · minRenov 13 · minVoucher 6 —
+   **PP** 28·32·37 · minNovos 15 · minRenov 9 · minVoucher 4.
+5. ⚠️ **`units/pp.config.minAtivacoesIndivP3 = 7`** — a tela de metas do mês **não tem esse campo**
+   (só a config da unidade, que vale para sempre). Sem isso a Bárbara (7 ativações) fica fora do
+   rateio do P3: a folha do PP é a mesma R$ 1.612,47, mas **R$ 293,11 saem dela e vão para a Kali**.
+   O Rodrigo aprovou o 7 como **exceção de agosto** — voltar para 10 depois de fechar.
+
+### 📋 Também nesta sessão
+
+- **Respostas do Rodrigo registradas:** 1 (meta CP confirmada) · 2 (PP opção A) · 3 (ele quer os
+  nomes — estão no documento) · 4 (**todas devolvem a fatia**) · 5 (**não fazer nada**) ·
+  6 (**permitir com registro**). As 4/5/6 destravam os dois ajustes de estorno + o filtro de "TESTE".
+- **Ele acredita que os números atualizam sozinhos.** Não atualizam: não há integração com a Pacto
+  nem job agendado — só o upload manual. Ver [[rodrigo-acha-que-e-automatico]].
+- **A tela de metas do mês não abre sem período aberto** (`if (!currentPeriodId) return;`), e o
+  período só nasce de um upload → **é impossível definir a meta antes da primeira venda entrar**.
+  Foi onde ele esbarrou em setembro. **Conserto pendente.**
+- **Não existe bonificação por bater meta nas duas unidades** — nem em código nem em documento.
+- **O radar de meta na visão da vendedora já existe**; fica mudo quando a meta do mês não foi
+  configurada.
+- **Campanha de antecipação de renovação:** a comissão de plano que começa em outubro/novembro é
+  **adiada para o mês de início**. A vendedora trabalha em setembro e recebe depois — contar isso a
+  ela antes.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 64 (05–07/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · ✅ NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
