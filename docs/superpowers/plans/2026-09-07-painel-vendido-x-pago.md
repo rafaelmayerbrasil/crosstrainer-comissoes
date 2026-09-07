@@ -1,6 +1,6 @@
 # Painel "vendido × pago" — plano de implementação
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Mostrar, na home da gestão e na da vendedora, quantas vendas foram fechadas e quantas viraram dinheiro — com o detalhe por pessoa na aba "A receber".
 
@@ -30,7 +30,7 @@
 - Modify: `vendas-aguardando.js` (acrescentar método ao objeto retornado pelo factory, depois de `daVendedora`)
 - Test: `scripts/smoke-vendido-x-pago.js` (criar)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Criar `scripts/smoke-vendido-x-pago.js`:
 
@@ -108,7 +108,7 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
 console.log('\n' + n + '/' + n + ' casos passaram.');
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -116,7 +116,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `TypeError: VA.contarPorVendedora is not a function`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `vendas-aguardando.js`, logo **depois** do método `daVendedora` (é o último do objeto; acrescentar vírgula ao fim dele):
 
@@ -154,7 +154,7 @@ Em `vendas-aguardando.js`, logo **depois** do método `daVendedora` (é o últim
     },
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -162,7 +162,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `3/3 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-vendido-x-pago.js
@@ -177,7 +177,7 @@ git commit -m "feat(comissoes): contagem vendido x pago por vendedora"
 - Modify: `vendas-aguardando.js` (depois de `contarPorVendedora`)
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, **antes** da linha final `console.log(...)`:
 
@@ -226,7 +226,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, **antes** da linha final `cons
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -234,7 +234,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `TypeError: VA.resumo is not a function`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `vendas-aguardando.js`, depois de `contarPorVendedora`:
 
@@ -264,7 +264,7 @@ Em `vendas-aguardando.js`, depois de `contarPorVendedora`:
     },
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -272,7 +272,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `6/6 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-vendido-x-pago.js
@@ -287,7 +287,7 @@ git commit -m "feat(comissoes): resumo do mes e corte de mes fechado"
 - Modify: `index.html` — inserir **imediatamente antes** da linha `// Aba "A receber" — vendi e o dinheiro ainda não entrou` (hoje linha ~7567)
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 
@@ -313,7 +313,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -321,7 +321,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `AssertionError: precisa existir um carregador único`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `index.html`, antes do comentário `// Aba "A receber" — vendi e o dinheiro ainda não entrou`:
 
@@ -406,7 +406,7 @@ e remover o bloco que vai de `// Um contrato deixa de aguardar quando aparece na
         const r = dados.cruzado;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js && node scripts/smoke-vendas-aguardando.js
@@ -416,7 +416,7 @@ Esperado: `7/7 casos passaram.` no primeiro e `20/20` no segundo (a aba "A receb
 
 > A 3ª chamada do carregador só existe depois da Task 6 — por isso o teste aqui exige 2, e o da Task 6 exige 3.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-vendido-x-pago.js
@@ -431,7 +431,7 @@ git commit -m "refactor(comissoes): leitura unica do vendido x pago"
 - Modify: `index.html` — inserir logo depois de `carregarVendidoXPago`
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 
@@ -483,7 +483,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -491,7 +491,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `AssertionError: blocoVendidoXPago não existe`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `index.html`, logo depois de `carregarVendidoXPago`:
 
@@ -547,7 +547,7 @@ Em `index.html`, logo depois de `carregarVendidoXPago`:
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -555,7 +555,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `8/8 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-vendido-x-pago.js
@@ -570,7 +570,7 @@ git commit -m "feat(comissoes): bloco dos tres numeros do vendido x pago"
 - Modify: `index.html` — depois de `blocoVendidoXPago`
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 
@@ -609,7 +609,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -617,7 +617,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `AssertionError: falta carregarArrastoAnterior`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `index.html`, depois de `blocoVendidoXPago`:
 
@@ -666,7 +666,7 @@ Em `index.html`, depois de `blocoVendidoXPago`:
 
 > **Nota:** o arrasto usa `clientesPagantes` vazio de propósito. Esse terceiro grupo ("conferir") depende dos itens do mês em questão, e aqui interessa só a pergunta binária "entrou dinheiro neste contrato, em qualquer mês?". Uma venda que o cliente pagou por outro contrato aparece no arrasto e a gestão resolve olhando — melhor aparecer a mais que sumir.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -674,7 +674,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `10/10 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-vendido-x-pago.js
@@ -689,7 +689,7 @@ git commit -m "feat(comissoes): arrasto de vendas de meses anteriores"
 - Modify: `index.html` — `renderAdminDashboard` (~6098) e `loadVendorPeriod` (~6740)
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 
@@ -723,7 +723,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -731,7 +731,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `AssertionError: a home da gestão precisa do espaço do bloco`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 **(a)** Em `index.html`, depois de `carregarArrastoAnterior`, acrescentar o preenchedor:
 
@@ -813,7 +813,7 @@ e, no fim da função, **logo depois** de `el.innerHTML = html;` (hoje linha ~70
       preencherVendidoXPago('vendidoXPagoVendedora', periodId, myName);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -821,7 +821,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `11/11 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-vendido-x-pago.js
@@ -836,7 +836,7 @@ git commit -m "feat(comissoes): bloco vendido x pago nas duas homes"
 - Modify: `index.html` — `renderAReceberTab`
 - Test: `scripts/smoke-vendido-x-pago.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 
@@ -863,7 +863,7 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js
@@ -871,7 +871,7 @@ node scripts/smoke-vendido-x-pago.js
 
 Esperado: `AssertionError: a aba mostra o mesmo cabeçalho da home`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 **(a)** Em `index.html`, depois de `blocoVendidoXPago`, acrescentar:
 
@@ -978,7 +978,7 @@ por:
             <div style="background:var(--green-bg);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-vendido-x-pago.js && node scripts/smoke-vendas-aguardando.js
@@ -986,7 +986,7 @@ node scripts/smoke-vendido-x-pago.js && node scripts/smoke-vendas-aguardando.js
 
 Esperado: `12/12 casos passaram.` e `20/20 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-vendido-x-pago.js
