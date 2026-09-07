@@ -195,7 +195,22 @@
      * @returns {{aguardando, conferir, pagas, porVendedora, testes}}
      */
     cruzar(vendas, pagos, clientesPagantes) {
-      const jaPagou = PA.contratosDe(pagos);
+      // `pagos` aceita duas formas, de propósito:
+      //   • lista de códigos           — como sempre funcionou
+      //   • [{ codigo, mes, data }]    — quando quem chama sabe de QUAL mês
+      //     veio cada código, e aí a venda paga carrega essa informação.
+      // O painel achatava tudo numa lista só e jogava o mês fora; era por isso
+      // que a venda de agosto paga em setembro sumia calada.
+      const ondePagou = {};
+      const codigos = (pagos || []).map(p => {
+        if (p && typeof p === 'object') {
+          const num = String(p.codigo).replace(/^C/i, '');
+          ondePagou[num] = { mes: p.mes || null, data: p.data || null };
+          return p.codigo;
+        }
+        return p;
+      });
+      const jaPagou = PA.contratosDe(codigos);
       // Os dois lados passam pelo mesmo limpador: o nome pode vir sujo do lado
       // da venda, do lado do recebimento, ou dos dois.
       const limpo = n => norm(this.limparNome(n));
@@ -213,7 +228,7 @@
         const vl = nome === v.cliente ? v : { ...v, cliente: nome, clienteOriginal: v.cliente };
 
         const num = String(vl.contrato).replace(/^C/i, '');
-        if (jaPagou.has(num)) { pagas.push(vl); return; }
+        if (jaPagou.has(num)) { pagas.push({ ...vl, pagoEm: ondePagou[num] || null }); return; }
         if (pagante.has(norm(nome))) {
           conferir.push({ ...vl, motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número' });
           return;
