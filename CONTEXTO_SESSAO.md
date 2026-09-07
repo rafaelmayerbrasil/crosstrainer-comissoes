@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 65 (07/09/2026) — 💸 A LISTA DA KALI ACHOU UM ERRO DE R$ 582,91 · ✅ HOMOLOGADO NO STAGING · ⏸️ PRODUÇÃO ESPERANDO O OK
+## 🔖 ONDE PARAMOS — sessão 65 (07/09/2026) — 💸 A LISTA DA KALI ACHOU UM ERRO DE R$ 582,91 · ✅ NO AR EM PRODUÇÃO (`f5607a5..b41d8c4`) · 🔴 FALTA RE-SUBIR O ARQUIVO
 
 ### ▶️▶️ RETOMAR AQUI
 
@@ -66,19 +66,34 @@ ficaram a 2 e a 1 ativação do Gold.
   quando o contrato está em `codigosPagos`. **0 erro de console.**
 - ⚠️ **Ninguém arrastou o arquivo de verdade.** O caminho de dados está homologado; o clique não.
 
-### 🔴 O QUE FALTA (produção — esperando o OK do Rafael)
+### ✅ Já feito em produção (07/09, autorizado pelo Rafael)
 
-1. `node scripts/marcar-cobranca-robo-agosto.js --project production --apply`
-2. `git push origin main` (GitHub Pages é quem serve o usuário). ⚠️ `index.html` carrega
-   `pacto-adapter.js` **sem `?v=`** — o navegador pode servir o antigo. **Hard refresh (Ctrl+Shift+R)
-   antes de re-subir**, senão o upload roda com o adapter velho e nada muda.
-3. Re-subir o arquivo de agosto pela tela, **uma vez em cada unidade**.
-4. Metas de agosto: **CP** 50·57·65 · minNovos 18 · minRenov 13 · minVoucher 6 —
-   **PP** 28·32·37 · minNovos 15 · minRenov 9 · minVoucher 4.
-5. ⚠️ **`units/pp.config.minAtivacoesIndivP3 = 7`** — a tela de metas do mês **não tem esse campo**
-   (só a config da unidade, que vale para sempre). Sem isso a Bárbara (7 ativações) fica fora do
-   rateio do P3: a folha do PP é a mesma R$ 1.612,47, mas **R$ 293,11 saem dela e vão para a Kali**.
-   O Rodrigo aprovou o 7 como **exceção de agosto** — voltar para 10 depois de fechar.
+1. **`marcar-cobranca-robo-agosto.js --apply`** — os 7 códigos gravados em `cp_2026-07` e
+   `pp_2026-07`, com backup em `backups/` e `audit_log`.
+2. **`metas-agosto-2026.js --apply`** — `metasMensais` de agosto (**CP** 50·57·65 · 18/13/6 ·
+   **PP** 28·32·37 · 15/9/4) e **`units/pp.config.minAtivacoesIndivP3 = 7`**.
+3. **`git push origin main`** (`f5607a5..b41d8c4`) — GitHub Pages já está servindo o adapter novo,
+   conferido no navegador na própria página de produção: a linha no cartão recorrente vira ativação,
+   gera aviso e é barrada quando o contrato está em `codigosPagos`. **0 erro de console.**
+4. **`?v=20260907`** nas quatro tags de script do `index.html`, com smoke que falha se alguma perder
+   o cache-buster. Sem ele o navegador servia o JS antigo e o upload dava a conta errada em silêncio.
+5. **`homologar-recorrencia-agosto.js --project production` → 11/11**, lendo config e metas do banco.
+
+### 🔴 FALTA UM PASSO, E É NA TELA
+
+**Re-subir o arquivo `faturamento-recebido` de agosto pela tela de Upload, uma vez em cada unidade.**
+Nada muda na tela até isso acontecer: os 24 itens estão gravados em `periodos/{id}/itens` com
+`type: 'excluded'` e `origem: 'Renovação automática'`, e o `recalculatePeriod` só mexe em quem é
+`processed` — quem os substitui é o dedup do upload ("já existe e está inativo → substituir pelo
+novo"). **Não vale a pena scriptar:** o `confirmUpload` tem dedup por `stableId`, `softId`,
+preservação de splits e deltas de histórico; refazer isso num script criaria a segunda cópia da
+mesma conta, que foi exatamente a raiz do defeito da folha na sessão 64.
+
+Depois de subir, conferir com `homologar-recorrencia-agosto.js --project production` e
+`conferir-upload-gravado.js`. O esperado: **CP R$ 2.506,19 · PP R$ 1.612,47 · folha R$ 4.118,66**.
+
+⚠️ **Voltar `units/pp.config.minAtivacoesIndivP3` para 10 depois de fechar agosto** — é exceção do
+mês, e o campo vale para sempre. Ou levar o campo para a tela de metas do mês.
 
 ### 📋 Também nesta sessão
 
