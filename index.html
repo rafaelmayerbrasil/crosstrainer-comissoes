@@ -6009,7 +6009,12 @@
     // PROJEÇÃO DE FIM DE MÊS (RUN RATE)
     // ═══════════════════════════════════════════════════════════════
     function calcProjection(periodData) {
-      const t = periodData.totals;
+      // Mês que só recebeu o relatório de VENDAS (tela "A receber") não tem
+      // `totals` — nada foi calculado. Projetar sobre isso daria zero, que
+      // mente; e ler direto derrubava o dashboard inteiro com "Cannot read
+      // properties of undefined (reading 'unitAtivacoes')" (07/09/2026, prod).
+      if (!periodData || !periodData.totals) return null;
+      const t = periodData.totals || {};
       const year = periodData.year;
       const month = periodData.month;
       if (!year || !month) return null;
@@ -6026,8 +6031,8 @@
       const daysLeft = daysInMonth - dayElapsed;
       const pctElapsed = dayElapsed / daysInMonth;
 
-      const projAtiv = Math.round(t.unitAtivacoes / pctElapsed);
-      const projCaixa = t.unitCaixa / pctElapsed;
+      const projAtiv = Math.round((t.unitAtivacoes || 0) / pctElapsed);
+      const projCaixa = (t.unitCaixa || 0) / pctElapsed;
       const projNovos = Math.round((t.unitNovosRetorno || 0) / pctElapsed);
       const projRenov = Math.round((t.unitRenovacoes || 0) / pctElapsed);
       const projVouchers = Math.round((t.unitVouchers || 0) / pctElapsed);
@@ -6111,13 +6116,28 @@
         const barPct = Math.min((t.unitAtivacoes / cfg.metaGold) * 100, 105);
         const barColor = hitGold ? 'var(--orange-light)' : hitSuper ? 'var(--blue)' : hitMeta ? 'var(--green)' : 'var(--orange)';
 
+        // ── Mês que só tem o relatório de VENDAS ──
+        // `registrarVendasDoPeriodo` cria o período com `vendasDoMes` e mais
+        // nada. Ele passa a aparecer no seletor, e sem este aviso a tela mostra
+        // um dashboard inteiro zerado como se o mês tivesse sido um fracasso.
+        const soVendas = !data.totals && Array.isArray(data.vendasDoMes) && data.vendasDoMes.length;
+        const avisoSoVendas = !soVendas ? '' : `
+          <div style="background:rgba(0,150,255,0.08);border:1px solid var(--blue);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+            <div style="font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Este mês ainda não tem comissão calculada</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.6">
+              Foi registrado o <strong>relatório de vendas</strong> (${data.vendasDoMes.length} venda${data.vendasDoMes.length > 1 ? 's' : ''}), que serve só para conferência — ele <strong>nunca entra no cálculo</strong>.
+              Os números abaixo ficam zerados até você subir o <strong>Faturamento Recebido</strong> na tela de Upload.
+              <br>As vendas que ainda não receberam estão em <strong>"A receber"</strong>.
+            </div>
+          </div>`;
+
         // ── Inconsistency alerts ──
         const alerts = [];
         if (t.unitVouchers === 0) alerts.push('⚠ Nenhum voucher (Mês Degustação) encontrado neste período');
         const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
         if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
-        let html = `
+        let html = avisoSoVendas + `
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
@@ -6753,7 +6773,11 @@
         return;
       }
 
-      const t = data.totals;
+      // `|| {}` pelo mesmo motivo do dashboard da gestão: mês que só recebeu o
+      // relatório de vendas não tem `totals`. Hoje a vendedora nem chega aqui
+      // (sai antes, sem `myData`), mas a proteção custa nada e a falta dela
+      // derrubou a tela da gestão em produção.
+      const t = data.totals || {};
       const hitMeta = t.unitAtivacoes >= cfg.meta;
       const hitSuper = t.unitAtivacoes >= cfg.superMeta;
       const hitGold = t.unitAtivacoes >= cfg.metaGold;
