@@ -74,7 +74,9 @@
         if (!mes) return;
         if (PA.ehMigrado(l, mes)) return;                        // contrato antigo, não é venda
         if (PA.ehQuitacaoCancelamento(l)) return;
-        if (PA.ehAutomatica(l)) return;                          // robô, não paga comissão
+        // Cobrança no cartão recorrente NÃO é filtro: quase sempre é venda de
+        // gente (ver `PactoAdapter.ehCobrancaRecorrente`). Até 07/09/2026 esta
+        // linha sumia daqui junto com a comissão dela.
         const valor = PA.valorBR(PA.campo(l, 'valor'));
         if (!valor) return;
 

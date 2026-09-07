@@ -284,8 +284,32 @@ const PactoAdapter = {
   /** Taxa que anda junto do contrato, em linha própria (matrícula, renegociação) */
   ehAcessorio(l) { return /MATR[IÍ]CULA|TAXA/i.test(this.campo(l, 'produto')); },
 
-  /** Renovação automática: o robô lançou, ninguém vendeu → não paga comissão */
-  ehAutomatica(l) { return this.campo(l, 'resp2').toUpperCase() === 'RECORRENCIA'; },
+  /**
+   * A cobrança saiu pelo motor do CARTÃO RECORRENTE.
+   *
+   * ⚠️ Isto NÃO quer dizer "o robô renovou sozinho". Até 07/09/2026 o tradutor
+   * lia este campo como renovação automática e mandava a linha para fora — e a
+   * regra "renovação automática não paga comissão" é do Rodrigo e está certa.
+   * Errado era o sinal: `Responsável 2 = RECORRENCIA` descreve a FORMA DE
+   * COBRANÇA. Uma matrícula nova fechada no balcão, paga no cartão recorrente,
+   * chega marcada igualzinho à mensalidade que o robô cobra sozinho.
+   *
+   * Medido em agosto/2026, o primeiro mês inteiro de Pacto: a regra derrubou
+   * **24 linhas de contrato**. Conferindo uma a uma contra as planilhas
+   * corrigidas de julho (que ainda trazem a coluna `Origem` de verdade, do
+   * TecnoFit), **7 eram cobrança do robô e 17 eram venda de gente** — contrato
+   * criado no próprio mês, Consultor preenchido, situação Matrícula. Nenhuma
+   * das 24 tinha `Data Início` anterior a julho: a recobrança de contrato
+   * velho aparece como `Plano = IMPORTAÇÃO`, que `ehMigrado` já pegava. Ou
+   * seja, a regra não excluía nenhum robô que já não estivesse excluído, e
+   * destruía comissão real — R$ 582,91 só em agosto.
+   *
+   * Quem barra a recobrança do robô é `codigosPagos`: cada contrato paga uma
+   * vez só, no primeiro recebimento (ver o balde `jaPagos`). O que sobra —
+   * renovação automática que cria contrato NOVO sem ninguém vender — vira
+   * **aviso** no resumo do upload, para alguém olhar, em vez de sumir calado.
+   */
+  ehCobrancaRecorrente(l) { return this.campo(l, 'resp2').toUpperCase() === 'RECORRENCIA'; },
 
   unidadeDe(l) {
     const m = this.campo(l, 'empresa').match(/\((CP|PP)\)/i);
@@ -507,7 +531,7 @@ const PactoAdapter = {
         'Desconto Recebimento': '-',
         'Valor Final': valor,
         'Valor Quitado/Recibo': valor,
-        'Origem': this.ehAutomatica(l) ? 'Renovação automática' : 'Balcão',
+        'Origem': 'Balcão',
         'Tipo de Venda': papel === 'plano' ? this.tipoDeVenda(this.campo(l, 'situacao')) : '',
         'Vendedor': vendedor,
         _unidade: this.unidadeDe(l),
@@ -527,6 +551,20 @@ const PactoAdapter = {
           motivo: 'venda dividida — aplicar a divisão na tela',
           cliente, valor, comQuem: divididaCom.join(', '),
           produto: this.campo(l, 'produto'),
+        });
+      }
+
+      // A cobrança veio do motor do cartão recorrente. Quase sempre é venda de
+      // gente (ver `ehCobrancaRecorrente`), então ela PAGA — mas fica listada,
+      // porque é aqui que se esconde a renovação automática que abre contrato
+      // novo sem ninguém vender. Só para linha de contrato: avulso e bar no
+      // cartão recorrente encheriam a lista de ruído.
+      if (papel === 'plano' && this.ehCobrancaRecorrente(l)) {
+        avisos.push({
+          motivo: 'cobrança pelo cartão recorrente — confira se foi venda trabalhada',
+          cliente, produto: this.campo(l, 'produto'), valor,
+          contrato: this.campo(l, 'contrato'), inicio: this.campo(l, 'inicio'),
+          situacao: this.campo(l, 'situacao'), vendedor, unidade: this.unidadeDe(l),
         });
       }
 

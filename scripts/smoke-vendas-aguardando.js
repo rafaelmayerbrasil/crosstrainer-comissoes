@@ -136,7 +136,6 @@ const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
     linha({ contrato: '7078', nome: 'VENDA BOA' }),
     linha({ contrato: '0', nome: 'AULA AVULSA', produto: '1 AULA', plano: '', duracao: '0', inicio: '', termino: '' }),
     linha({ contrato: '6200', nome: 'MIGRADO', plano: 'IMPORTAÇÃO', produto: 'IMPORTAÇÃO', inicio: '07/01/2026' }),
-    linha({ contrato: '7300', nome: 'AUTOMATICA', resp2: 'RECORRENCIA' }),
     linha({ contrato: '7400', nome: 'CANCELADO', produto: 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO' }),
     linha({ contrato: '7500', nome: 'VALOR ZERO', valor: '0,00' }),
   ];
@@ -144,7 +143,21 @@ const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
   const nomes = vendas.map(v => v.cliente);
   assert.deepStrictEqual(nomes, ['VENDA BOA'],
     'só a venda de verdade sobra — veio: ' + nomes.join(', '));
-  ok('avulso, migrado, renovação automática, cancelamento e valor zero ficam fora');
+  ok('avulso, migrado, cancelamento e valor zero ficam fora');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 4b. Cobrança no cartão recorrente FICA — é venda esperando dinheiro
+// ════════════════════════════════════════════════════════════════════
+// Até 07/09/2026 esta linha era filtrada como "robô". `Responsável 2 =
+// RECORRENCIA` é a forma de cobrança, não quem vendeu: em agosto/2026 sumiam
+// daqui 17 vendas de gente, as mesmas que sumiam da comissão.
+{
+  const vendas = VA.extrair([cab(),
+    linha({ contrato: '7300', nome: 'CARTAO RECORRENTE', resp2: 'RECORRENCIA' }),
+  ])['CP|2026-08'];
+  assert.deepStrictEqual(vendas.map(v => v.cliente), ['CARTAO RECORRENTE']);
+  ok('venda cobrada no cartão recorrente continua na tela "A receber"');
 }
 
 // ════════════════════════════════════════════════════════════════════

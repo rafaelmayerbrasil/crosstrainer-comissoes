@@ -57,7 +57,8 @@ const entrada = [
   // contrato importado que começou em janeiro: migração, fica de fora
   linha({ nome: 'CARLA DIAS', contrato: '6200', duracao: '12', inicio: '07/01/2026', termino: '06/01/2027',
           produto: 'IMPORTAÇÃO', plano: 'IMPORTAÇÃO', situacao: 'Rematrícula', valor: '269,00' }),
-  // renovação automática: o robô lançou, não paga
+  // cobrança no cartão recorrente: é venda de gente, PAGA (a recobrança do mês
+  // seguinte quem barra é `codigosPagos` — ver `ehCobrancaRecorrente`)
   linha({ nome: 'DÉBORA REIS', contrato: '7101', duracao: '1', inicio: '08/08/2026', termino: '07/09/2026',
           produto: 'HIIT/MAROMBINHA | RECORRENTE | 3X | PADRÃO.', plano: 'HIIT/MAROMBINHA | RECORRENTE | 3X | PADRÃO.',
           situacao: 'Renovação', valor: '309,00', resp2: 'RECORRENCIA', forma: 'CARTÃO RECORRENTE' }),
@@ -113,18 +114,31 @@ try {
   // ─── 4. o dinheiro no fim da corrente ───
   const res = CE.calculate(rows, CE.defaultConfig, {});
 
-  assert.strictEqual(res.excluded.length, 1, 'só a renovação automática foi excluída');
-  assert.ok(/autom/i.test(res.excluded[0].excludeReason || ''), res.excluded[0].excludeReason);
-  ok('renovação automática chega excluída no fim da corrente');
+  assert.strictEqual(res.excluded.length, 0,
+    'nada é excluído por origem: ' + res.excluded.map(e => e.cliente + '/' + e.excludeReason).join(', '));
+  const avisoRec = (r.avisos || []).find(a => /cart[ãa]o recorrente/i.test(a.motivo || ''));
+  assert.ok(avisoRec && avisoRec.cliente === 'DÉBORA REIS', 'a cobrança recorrente vira aviso, não sumiço');
+  ok('cobrança no cartão recorrente paga e sai listada como aviso');
+
+  // ─── a recobrança do mês seguinte: bloqueada pelo caminho certo ───
+  const rep = PA.traduzir(entrada, { mes: '2026-08', codigosPagos: ['C7101'] });
+  assert.ok(!(rep.porUnidade.CP || []).some(v => v['Cliente'] === 'DÉBORA REIS'),
+    'contrato já comissionado não volta');
+  assert.ok(rep.jaPagos.some(j => j.cliente === 'DÉBORA REIS'), 'e sai explicado no balde jaPagos');
+  ok('a mesma linha no mês seguinte é barrada por codigosPagos');
 
   const erica = res.vendorData['ERICA FAUSTINO'];
   const kali = res.vendorData['KALI DUTRA'];
   assert.ok(erica, 'ERICA FAUSTINO existe no resultado');
-  assert.strictEqual(erica.ativacoes, 3, 'ANA PAULA + BRUNO + HELENA = 3 ativações (a taxa não conta)');
-  assert.strictEqual(erica.p2total, CE.defaultConfig.bonusAnualLocal * 2 + CE.defaultConfig.bonusBianual,
-    'P2 = 2 × R$ 30 de anual LOCAL + R$ 80 do bianual presumido');
+  assert.strictEqual(erica.ativacoes, 4,
+    'ANA PAULA + BRUNO + DÉBORA + HELENA = 4 ativações (a taxa não conta)');
+  assert.strictEqual(erica.p2total,
+    CE.defaultConfig.bonusAnualLocal * 2 + CE.defaultConfig.bonusBianual + CE.defaultConfig.bonusRecorrente,
+    'P2 = 2 × R$ 30 de anual LOCAL + R$ 80 do bianual presumido + R$ 20 do recorrente');
   // P1 = 5% de 100 (taxa) + 259 (plano) + 299 (importado) + 199 (gateway velho, venda nova)
-  assert.strictEqual(Math.round(erica.p1total * 100) / 100, Math.round((100 + 259 + 299 + 199) * 0.05 * 100) / 100);
+  //      + 2,5% de 309 (DÉBORA é renovação)
+  assert.strictEqual(Math.round(erica.p1total * 100) / 100,
+    Math.round(((100 + 259 + 299 + 199) * 0.05 + 309 * 0.025) * 100) / 100);
   ok('ativações, P1 e P2 batem no fim da corrente');
 
   assert.ok(kali, 'a água pagou a KALI (nome já unificado)');

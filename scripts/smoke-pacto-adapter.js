@@ -114,20 +114,35 @@ const ok = msg => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + msg
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 4. Renovação automática = Responsável#2 diz RECORRENCIA
+// 4. RECORRENCIA é a forma de cobrança, NÃO "o robô renovou"
 // ════════════════════════════════════════════════════════════════════
-// Medido: as 13 linhas RECORRENCIA são subconjunto exato das 34 pagas em
-// CARTÃO RECORRENTE. Usar a forma de pagamento como sinal cortaria 21 vendas
-// legítimas — cartão recorrente é só cartão salvo, gente vendeu do mesmo jeito.
+// A regra antiga excluía toda linha com `Responsável 2 = RECORRENCIA`. Ela
+// nasceu de uma medição parcial (13 linhas, meio de agosto) que nunca foi
+// conferida contra um resultado sabidamente certo.
+//
+// Medido no mês INTEIRO (agosto/2026, 619 linhas): a regra derrubou 24 linhas
+// de contrato, e conferindo uma a uma contra as planilhas de julho — que ainda
+// têm a coluna `Origem` de verdade — **17 eram venda de gente**: matrícula
+// nova, contrato criado no próprio mês, Consultor preenchido. O campo descreve
+// o CARTÃO RECORRENTE, não quem vendeu. Custou R$ 582,91 na folha de agosto.
+//
+// Quem barra a recobrança do robô é `codigosPagos`: cada contrato paga uma vez
+// só, no primeiro recebimento. A linha não some mais em silêncio — vira aviso.
 {
-  const auto = soUma({ ...ANUAL_LOCAL, resp2: 'RECORRENCIA', situacao: 'Renovação' });
-  assert.strictEqual(auto['Origem'], 'Renovação automática');
-  assert.strictEqual(classifica(auto).excluded, true, 'motor exclui renovação automática');
+  const auto = soUma({ ...ANUAL_LOCAL, resp2: 'RECORRENCIA', situacao: 'Matrícula' });
+  assert.strictEqual(auto['Origem'], 'Balcão', 'RECORRENCIA não exclui mais');
+  assert.strictEqual(classifica(auto).excluded, false, 'venda no cartão recorrente paga');
 
-  const mao = soUma({ ...ANUAL_LOCAL, forma: 'CARTÃO RECORRENTE', situacao: 'Renovação' });
-  assert.strictEqual(mao['Origem'], 'Balcão', 'cartão recorrente sozinho NÃO é automática');
-  assert.strictEqual(classifica(mao).excluded, false, 'venda trabalhada continua pagando');
-  ok('RECORRENCIA vira renovação automática; cartão recorrente sozinho não');
+  const r = traduz([linha({ ...ANUAL_LOCAL, resp2: 'RECORRENCIA' })]);
+  const av = (r.avisos || []).find(a => /cart[ãa]o recorrente/i.test(a.motivo || ''));
+  assert.ok(av, 'a linha vira aviso em vez de sumir: ' + JSON.stringify(r.avisos));
+  assert.strictEqual(av.cliente, 'ANA PAULA');
+
+  // A cobrança do mês seguinte continua bloqueada — pelo caminho certo
+  const rep = traduz([linha({ ...ANUAL_LOCAL, resp2: 'RECORRENCIA' })], { codigosPagos: ['C7078'] });
+  assert.strictEqual(rep.vendas.length, 0, 'contrato já pago não volta');
+  assert.strictEqual(rep.jaPagos.length, 1, 'e sai listado como já pago');
+  ok('RECORRENCIA vira aviso, não exclusão; quem barra a recobrança é codigosPagos');
 }
 
 // ════════════════════════════════════════════════════════════════════
