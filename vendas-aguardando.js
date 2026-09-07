@@ -155,5 +155,37 @@
       const alvo = norm(nome);
       return (vendas || []).filter(v => v.vendedores.some(x => norm(x) === alvo));
     },
+
+    /**
+     * Quanto cada vendedora vendeu e quanto virou dinheiro.
+     *
+     * ⚠️ A venda DIVIDIDA conta para as duas — é assim que a comissão dela é
+     * paga. Por isso a soma desta tabela é MAIOR que o total do mês (ver
+     * `resumo`), e isso não é bug: são perguntas diferentes.
+     *
+     * @param {{pagas, aguardando, conferir}} cruzado  saída de `cruzar`
+     * @param {Array<string>} naoComissionaveis  `cfg.naoComissionaveis` do motor
+     * @returns {Object} nome → {vendidas, pagas, aguardando, conferir, naoComissionado}
+     */
+    contarPorVendedora(cruzado, naoComissionaveis) {
+      const naoCom = (naoComissionaveis || []).map(x => String(x).toUpperCase().trim());
+      const out = {};
+      const contar = (lista, campo) => (lista || []).forEach(v => {
+        const nomes = (v.vendedores && v.vendedores.length) ? v.vendedores : ['(sem vendedora)'];
+        nomes.forEach(nome => {
+          const x = out[nome] = out[nome] || {
+            vendidas: 0, pagas: 0, aguardando: 0, conferir: 0,
+            // mesma regra do motor: `vendedor.includes(n)`
+            naoComissionado: naoCom.some(nc => String(nome).toUpperCase().includes(nc)),
+          };
+          x[campo]++;
+          x.vendidas++;
+        });
+      });
+      contar(cruzado && cruzado.pagas, 'pagas');
+      contar(cruzado && cruzado.aguardando, 'aguardando');
+      contar(cruzado && cruzado.conferir, 'conferir');
+      return out;
+    },
   };
 });
