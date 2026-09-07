@@ -45,7 +45,8 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // A ordem é a do index.html: quem depende vem depois
-const nossos = [...html.matchAll(/<script src="([a-z0-9-]+\.js)"><\/script>/g)].map(m => m[1]);
+// O `?v=` é o cache-buster do deploy — faz parte do src, não do nome do arquivo.
+const nossos = [...html.matchAll(/<script src="([a-z0-9-]+\.js)(?:\?v=\d{8})?"><\/script>/g)].map(m => m[1]);
 const alvo = ['pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js', 'commission.js'];
 
 {

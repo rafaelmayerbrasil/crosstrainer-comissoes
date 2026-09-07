@@ -197,7 +197,7 @@ const fs = require('fs');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 {
-  assert.ok(html.includes('<script src="estorno-comissao.js"></script>'), 'a tela carrega o módulo');
+  assert.ok(/<script src="estorno-comissao\.js(\?v=\d{8})?"><\/script>/.test(html), 'a tela carrega o módulo');
   assert.ok(html.includes('onclick="openEstornoModal()"'), 'e tem o botão de registrar estorno');
   assert.ok(html.includes('EstornoComissao.creditosDoEstorno('), 'que gera os créditos pelo módulo');
   assert.ok(html.includes('EstornoComissao.removerDaMemoria('), 'e tira o contrato da memória');

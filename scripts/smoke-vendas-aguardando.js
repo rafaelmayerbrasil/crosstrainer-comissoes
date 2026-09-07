@@ -243,7 +243,7 @@ const fs = require('fs');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 {
-  assert.ok(html.includes('<script src="vendas-aguardando.js"></script>'), 'a tela carrega o módulo');
+  assert.ok(/<script src="vendas-aguardando\.js(\?v=\d{8})?"><\/script>/.test(html), 'a tela carrega o módulo');
   assert.ok(html.includes('VendasAguardando.extrair(json)'), 'o upload lê as vendas do relatório certo');
   assert.ok(html.includes('function registrarVendasDoPeriodo('), 'existe o registro');
   assert.ok(html.includes('vendasDoMes'), 'guardadas no doc do período');

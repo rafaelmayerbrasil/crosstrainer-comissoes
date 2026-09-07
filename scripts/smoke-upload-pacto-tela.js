@@ -27,10 +27,10 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
 // PARTE 1 — a tela realmente chama o tradutor
 // ════════════════════════════════════════════════════════════════════
 {
-  assert.ok(html.includes('<script src="pacto-adapter.js"></script>'),
+  assert.ok(/<script src="pacto-adapter\.js(\?v=\d{8})?"><\/script>/.test(html),
     'index.html precisa carregar o pacto-adapter.js');
-  const iAdapter = html.indexOf('<script src="pacto-adapter.js">');
-  const iEngine = html.indexOf('<script src="commission.js">');
+  const iAdapter = html.indexOf('<script src="pacto-adapter.js');
+  const iEngine = html.indexOf('<script src="commission.js');
   assert.ok(iEngine >= 0 && iAdapter > iEngine, 'o adapter carrega depois do motor');
   ok('index.html carrega o pacto-adapter.js');
 }
@@ -178,6 +178,23 @@ function subir(json, currentUnitId) {
   assert.strictEqual(r.bloqueado, true, 'o relatório errado é barrado antes de calcular');
   assert.strictEqual(r.rows, undefined, 'e nada chega ao motor');
   ok('o relatório errado é barrado antes de qualquer cálculo');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Os módulos do cálculo têm que sair com `?v=` no index.html
+// ════════════════════════════════════════════════════════════════════
+// Sem o cache-buster o navegador serve o JS antigo depois do deploy. Num
+// upload isso é pior que um erro: a conta sai errada e a tela não reclama.
+// Em 07/09/2026 a correção da recorrência quase subiu assim.
+{
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
+  ['commission.js', 'pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js'].forEach(arq => {
+    const tag = new RegExp('<script src="' + arq.replace('.', '\\.') + '(\\?v=\\d{8})?"');
+    const m = html.match(tag);
+    assert.ok(m, arq + ' não está no index.html');
+    assert.ok(m[1], arq + ' está sem ?v= — o usuário vai rodar o JS antigo depois do deploy');
+  });
+  ok('commission, pacto-adapter, estorno e vendas-aguardando saem com ?v= no index.html');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

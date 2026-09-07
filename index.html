@@ -3238,13 +3238,17 @@
 
   <div id="printReceiptContainer"></div>
 
-  <!-- COMMISSION ENGINE -->
-  <script src="commission.js"></script>
+  <!-- COMMISSION ENGINE
+       ⚠️ O `?v=` é o que obriga o navegador a buscar o arquivo novo. Sem ele o
+       usuário roda o JS antigo depois do deploy e nada muda — e no upload isso
+       é pior que um erro, porque a conta sai errada sem avisar.
+       BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
+  <script src="commission.js?v=20260907"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
-  <script src="pacto-adapter.js"></script>
-  <script src="estorno-comissao.js"></script>
-  <script src="vendas-aguardando.js"></script>
+  <script src="pacto-adapter.js?v=20260907"></script>
+  <script src="estorno-comissao.js?v=20260907"></script>
+  <script src="vendas-aguardando.js?v=20260907"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════

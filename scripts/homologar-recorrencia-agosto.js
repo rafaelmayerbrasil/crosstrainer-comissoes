@@ -37,10 +37,9 @@ if (!['staging', 'production'].includes(PROJETO)) {
 const EXPORT_AGOSTO = path.join(__dirname, '..', 'relatorios pacto',
   'faturamento-recebido_6d85c17be56a3354e9142649a1c0a830_20260901_213346.xls');
 const MES = '2026-08';
-const METAS = {
-  CP: { meta: 50, superMeta: 57, metaGold: 65, minNovos: 18, minRenov: 13, minVoucher: 6 },
-  PP: { meta: 28, superMeta: 32, metaGold: 37, minNovos: 15, minRenov: 9, minVoucher: 4, minAtivacoesIndivP3: 7 },
-};
+// A config NAO e escrita aqui: e lida do banco, do mesmo jeito que a tela le
+// ({ defaultConfig, ...units/{id}.config, ...periodos/{id}.metasMensais }).
+// Assim isto prova o que esta GRAVADO, nao o que eu acho que esta.
 const ROBO = {
   CP: ['C7082', 'C7091'],
   PP: ['C4582', 'C4566', 'C4558', 'C4540', 'C4563'],
@@ -81,6 +80,9 @@ async function codigosPagosAnteriores(unitId, mesArquivo) {
     const unitId = unidades.find(u => PA.siglaDaUnidade(u, ['CP', 'PP']) === sigla);
     assert.ok(unitId, 'unidade ' + sigla + ' nao encontrada em /units: ' + unidades.join(', '));
 
+    const periodoId = (await db.collection('periodos').get()).docs
+      .map(d => d.id).find(id => id.endsWith('_' + MES) && (id.startsWith(unitId + '_')));
+    assert.ok(periodoId, 'periodo de agosto de ' + unitId + ' nao encontrado');
     const codigosPagos = await codigosPagosAnteriores(unitId, MES);
     console.log('--- ' + sigla + ' (' + unitId + ') · ' + codigosPagos.length + ' contratos ja pagos antes de agosto ---');
 
@@ -102,7 +104,13 @@ async function codigosPagosAnteriores(unitId, mesArquivo) {
     assert.ok(avisosRec.length > 0, 'as vendas no cartao recorrente tem que sair listadas');
     ok(avisosRec.length + ' vendas no cartao recorrente saem como aviso, para alguem olhar');
 
-    const res = CE.calculate(vendas, { ...CE.defaultConfig, ...METAS[sigla] }, {});
+    const unitCfg = ((await db.collection('units').doc(unitId).get()).data() || {}).config || {};
+    const pDoc = await db.collection('periodos').doc(periodoId).get();
+    const metasMensais = (pDoc.data() || {}).metasMensais || {};
+    assert.ok(Object.keys(metasMensais).length, periodoId + ' esta sem metasMensais — rode metas-agosto-2026.js --apply');
+    ok('metas do mes vieram do banco: ' + metasMensais.meta + '/' + metasMensais.superMeta + '/' + metasMensais.metaGold +
+       ' · minRenov ' + metasMensais.minRenov + ' · minIndivP3 ' + (unitCfg.minAtivacoesIndivP3 ?? CE.defaultConfig.minAtivacoesIndivP3));
+    const res = CE.calculate(vendas, { ...CE.defaultConfig, ...unitCfg, ...metasMensais }, {});
     const ut = res.unitTotals;
     let subtotal = 0;
     Object.entries(res.vendorData).forEach(([nome, v]) => {
