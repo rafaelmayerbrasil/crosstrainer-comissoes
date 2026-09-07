@@ -126,9 +126,15 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   const usos = [...html.matchAll(/carregarVendidoXPago\(/g)];
   assert.ok(usos.length >= 2,
     'o carregador tem que existir e ser chamado pela aba — achei ' + usos.length);
-  assert.ok(!/VendasAguardando\.cruzar\(/.test(html.replace(/async function carregarVendidoXPago\([\s\S]*?\n    \}/, '')),
-    'ninguém pode chamar cruzar() fora do carregador');
-  ok('existe um carregador único e ninguém cruza por fora');
+  // Só os DOIS carregadores podem cruzar: o do mês aberto e o do arrasto de
+  // meses anteriores. Qualquer outra chamada é uma tela lendo por fora, e é
+  // por aí que os números começam a divergir.
+  const semCarregadores = html
+    .replace(/async function carregarVendidoXPago\([\s\S]*?\n    \}/, '')
+    .replace(/async function carregarArrastoAnterior\([\s\S]*?\n    \}/, '');
+  assert.ok(!/VendasAguardando\.cruzar\(/.test(semCarregadores),
+    'ninguém pode chamar cruzar() fora dos dois carregadores');
+  ok('a leitura do banco mora nos carregadores; ninguém cruza por fora');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -175,6 +181,41 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   assert.ok(/2 delas|2 podem/i.test(fechado),
     'as 2 de conferir têm que sair como nota, não somadas no aguardando: ' + fechado);
   ok('o bloco: sem lista não vira zero, % só em mês fechado, conferir não soma');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 9. Venda de mês anterior sai do arrasto sozinha quando o dinheiro entra
+// ════════════════════════════════════════════════════════════════════
+// É a regra que justifica o bloco separado: a venda velha que nunca virou
+// dinheiro é a que merece conversa. Se ela some quando é paga, ninguém cobra
+// à toa; se não some, o bloco vira lixo e ninguém olha.
+{
+  const vendasAgosto = [venda('C4566', 'JAIR', ['KALI DUTRA']), venda('C4647', 'RAQUEL', ['KALI DUTRA'])];
+  const semPagar = VA.cruzar(vendasAgosto, [], []);
+  assert.strictEqual(semPagar.aguardando.length, 2, 'nada pago ainda');
+
+  const comSetembro = VA.cruzar(vendasAgosto, ['C4566'], []);
+  assert.strictEqual(comSetembro.pagas.length, 1);
+  assert.strictEqual(comSetembro.aguardando.length, 1);
+  assert.strictEqual(comSetembro.aguardando[0].cliente, 'RAQUEL',
+    'quem foi paga em outro mês tem que sair do arrasto');
+  ok('venda de mês anterior sai do arrasto sozinha quando o pagamento entra');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 10. O carregador do arrasto existe, lê só meses anteriores e ignora o legado
+// ════════════════════════════════════════════════════════════════════
+{
+  const fs = require('fs');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(/async function carregarArrastoAnterior/.test(html), 'falta carregarArrastoAnterior');
+  const i = html.indexOf('async function carregarArrastoAnterior(');
+  const trecho = html.slice(i, i + 2000);
+  assert.ok(/< *mesAtual/.test(trecho),
+    'tem que recortar só os meses ANTERIORES ao aberto: ' + trecho);
+  assert.ok(/2026-08/.test(trecho),
+    'tem que ignorar o que veio antes da numeração da Pacto (julho é do TecnoFit)');
+  ok('o arrasto lê só meses anteriores, e nada antes de 2026-08');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

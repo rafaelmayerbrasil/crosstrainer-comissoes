@@ -7671,6 +7671,54 @@
       </div>`;
     }
 
+    // ==================================================================
+    // O arrasto - vendido em mes ANTERIOR que ate hoje nao virou dinheiro
+    // ==================================================================
+    // E o que merece conversa: a venda de ontem ainda nao teve tempo de ser
+    // cobrada; a de dois meses atras, teve. Por isso vive num bloco separado,
+    // e nao somada com o mes aberto.
+    //
+    // ATENCAO: nao le nada anterior a 2026-08. Julho e antes foram calculados
+    // com a numeracao do TecnoFit, e `codigosPagos` daqueles meses nao tem
+    // codigo da Pacto - as vendas apareceriam como paradas para sempre. Ver o
+    // desenho em docs/superpowers/specs/2026-09-07-painel-vendido-x-pago-design.md.
+    //
+    // O `clientesPagantes` vai vazio de proposito: o terceiro grupo (conferir)
+    // depende dos itens do mes em questao, e aqui a pergunta e binaria - entrou
+    // dinheiro neste contrato, em qualquer mes? Uma venda paga por outro
+    // contrato aparece no arrasto e a gestao resolve olhando. Melhor aparecer a
+    // mais do que sumir calada.
+    //
+    // @param {string} unitId
+    // @param {string} mesAtual  'AAAA-MM' do mes aberto - exclusivo
+    // @returns {Array} vendas em aberto, cada uma com `_mes` e `_diasParada`
+    async function carregarArrastoAnterior(unitId, mesAtual) {
+      const PRIMEIRO_MES = '2026-08';
+      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+      const docs = [];
+      const pagos = [];
+      snap.forEach(d => {
+        const m = String(d.id).match(/(\d{4}-\d{2})$/);
+        (d.data().codigosPagos || []).forEach(c => pagos.push(c));
+        if (m && m[1] >= PRIMEIRO_MES && m[1] < mesAtual) docs.push({ mes: m[1], ...d.data() });
+      });
+
+      const fora = [];
+      const hoje = new Date();
+      docs.sort((a, b) => a.mes.localeCompare(b.mes)).forEach(pr => {
+        const r = VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []);
+        r.aguardando.forEach(v => {
+          const [dd, mm, aa] = String(v.data || '').split('/');
+          const quando = aa ? new Date(Number(aa), Number(mm) - 1, Number(dd)) : null;
+          fora.push({
+            ...v, _mes: pr.mes,
+            _diasParada: quando ? Math.round((hoje - quando) / 86400000) : null,
+          });
+        });
+      });
+      return fora;
+    }
+
     // ══════════════════════════════════════════════════════════════════
     // Aba "A receber" — vendi e o dinheiro ainda não entrou
     // ══════════════════════════════════════════════════════════════════
