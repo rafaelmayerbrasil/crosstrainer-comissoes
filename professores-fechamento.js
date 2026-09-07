@@ -380,8 +380,11 @@ function montarChecklist(data) {
     (t.avisos || []).some(a => a === 'sem_salario' || a === 'sem_valor_hora'));
   itens.push(semValor.length
     ? { nivel: 'bloqueia', titulo: 'Cadastro com problema',
-        situacao: '<b>' + semValor.length + '</b> pessoa(s) com aula valendo R$ 0,00',
-        acao: { rotulo: 'Ver', pagina: 'pessoas' } }
+        // Dizer "2 pessoa(s)" e parar aí obriga quem lê a caçar quem são —
+        // reclamação do Rafael olhando a tela em 07/09/2026. O nome vem junto.
+        situacao: '<b>' + semValor.length + '</b> pessoa(s) com aula valendo R$ 0,00: '
+          + listaDeNomes(semValor.map(t => t.teacherName)),
+        acao: { rotulo: 'Ver', fn: 'verCadastrosComProblema()' } }
     : { nivel: 'ok', titulo: 'Cadastro salarial', situacao: 'todo mundo com valor cadastrado', acao: null });
 
   // 3. Aulas que não entram na folha — ninguém recebe por elas.
@@ -419,6 +422,29 @@ function montarChecklist(data) {
   return itens;
 }
 
+/**
+ * Nomes numa linha só. Com muita gente, a linha do checklist viraria parágrafo:
+ * mostra os primeiros e diz quantos ficaram — a lista inteira está no bloco 5.
+ */
+function listaDeNomes(nomes, limite = 3) {
+  const lista = (nomes || []).filter(Boolean);
+  const mostra = lista.slice(0, limite).map(nm => '<b>' + escapeHtml(nm) + '</b>').join(', ');
+  const resto = lista.length - limite;
+  return resto > 0 ? mostra + ' e mais ' + resto : mostra;
+}
+
+/** Leva ao bloco que lista todos, na mesma tela — sem perder o contexto. */
+function verCadastrosComProblema() {
+  const el = document.getElementById('bloco-cadastro-problema');
+  if (!el) return;
+  if (el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // pisca a borda: numa tela com seis blocos, rolar sem marcar deixa a pessoa
+  // procurando o que mudou
+  el.style.transition = 'box-shadow .3s';
+  el.style.boxShadow = '0 0 0 2px var(--orange)';
+  setTimeout(() => { el.style.boxShadow = ''; }, 1600);
+}
+
 function resumoStatus(statusAulas) {
   const rotulo = { prevista: 'ainda previstas', cancelada: 'canceladas', nao_realizada: 'não realizadas' };
   return Object.keys(statusAulas || {})
@@ -439,7 +465,8 @@ function renderBlocoChecklist(itens) {
       <td style="color:var(--text2);">${i.situacao}</td>
       <td style="text-align:right;">${i.acao
         ? '<button class="btn btn-sm ' + (i.nivel === 'bloqueia' ? '' : 'btn-ghost')
-          + '" style="width:auto;" onclick="navigateTo(\'' + i.acao.pagina + '\')">'
+          + '" style="width:auto;" onclick="'
+          + (i.acao.fn || ('navigateTo(\'' + i.acao.pagina + '\')')) + '">'
           + escapeHtml(i.acao.rotulo) + '</button>'
         : ''}</td>
     </tr>`).join('');
@@ -580,13 +607,18 @@ function renderBlocoCadastro(teachers) {
       <td style="font-size:12px;">${(t.avisos || []).filter(a => ROTULO[a]).map(a => ROTULO[a]).join('<br>')}</td>
       <td class="mono" style="text-align:right;">${t.classesCount} · ${t.totalHoras.toFixed(2).replace('.', ',')}h</td>
       <td class="mono" style="text-align:right;${t.valorHoras <= 0 ? 'color:var(--red);font-weight:700;' : ''}">${fmt(t.valorHoras)}</td>
+      <td style="text-align:right;">
+        <button class="btn btn-sm" style="width:auto;"
+          onclick="abrirFichaDaPessoa('${escapeHtml(t.teacherId)}')">Abrir ficha</button>
+      </td>
     </tr>`).join('');
+  // O botão abre a ficha DAQUELA pessoa, já na aba Salarial. Mandar pra lista
+  // de Pessoas obrigava a procurar o nome de novo numa tela cheia de gente.
   return blocoTabela('5 · Cadastro com problema', alvo.length + ' pessoa(s)',
     '<thead><tr><th>Pessoa</th><th>O que está errado</th><th style="text-align:right;">Aulas</th>'
-    + '<th style="text-align:right;">Pagaria de horas</th></tr></thead><tbody>' + linhas + '</tbody>',
-    'Corrigir é na ficha da pessoa, aba Salarial. Depois recarregue a prévia.',
-    null,
-    '<button class="btn btn-sm" style="width:auto;" onclick="navigateTo(\'pessoas\')">Ir para Pessoas</button>');
+    + '<th style="text-align:right;">Pagaria de horas</th><th></th></tr></thead><tbody>' + linhas + '</tbody>',
+    'Corrigir é na ficha da pessoa, aba Salarial. Depois volte aqui e recarregue a prévia.',
+    null, null, 'bloco-cadastro-problema');
 }
 
 function renderBlocoUnidades(data) {
@@ -621,10 +653,10 @@ function renderBlocoUnidades(data) {
 }
 
 /** Casca comum dos blocos: título, contagem, tabela e a nota de rodapé. */
-function blocoTabela(titulo, contagem, tabelaInterna, nota, htmlPronto, acaoTopo) {
+function blocoTabela(titulo, contagem, tabelaInterna, nota, htmlPronto, acaoTopo, id) {
   const corpo = htmlPronto || ('<div class="table-wrap"><table>' + tabelaInterna + '</table></div>');
   return `
-    <section class="report-card" style="padding:0;margin-bottom:16px;">
+    <section class="report-card" ${id ? 'id="' + id + '"' : ''} style="padding:0;margin-bottom:16px;">
       <div style="padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <h3 style="font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.06em;">${escapeHtml(titulo)}</h3>
         <span style="font-size:11px;color:var(--text2);">${contagem || ''}</span>

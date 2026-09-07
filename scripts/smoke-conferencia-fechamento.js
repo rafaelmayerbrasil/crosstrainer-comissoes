@@ -235,4 +235,108 @@ function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto()
   ok('mês sem aula não quebra a tela');
 }
 
-console.log('\n✅ smoke-conferencia-fechamento: ' + n + '/10');
+/* ── 11. o checklist DIZ QUEM está com cadastro errado ───────────── */
+{
+  // Pedido do Rafael em 07/09/2026, olhando a tela no staging: "2 pessoa(s)
+  // com aula valendo R$ 0,00" não diz de quem se trata. Quem lê tem que saber
+  // o nome sem precisar clicar.
+  const t = montarTela();
+  const html = renderizar(t, { trocas: [] });
+  const bloco1 = html.slice(html.indexOf('1 · Antes de fechar'), html.indexOf('2 · A folha do mês'));
+  assert.ok(/THIAGO VALENTIM/.test(bloco1),
+    'o nome de quem está com cadastro errado tem que aparecer na própria linha');
+  ok('o checklist diz QUEM está com cadastro errado');
+}
+
+/* ── 12. com muita gente, mostra alguns e diz quantos faltam ─────── */
+{
+  const t = montarTela();
+  const prev = previaDeAgosto();
+  const base = prev.teachers[1];
+  prev.teachers = ['ANA', 'BENTO', 'CARLOS', 'DIRCE', 'ELIAS'].map((nome, i) =>
+    Object.assign({}, base, { teacherId: 'p' + i, teacherName: nome }));
+  const html = renderizar(t, { trocas: [], prev });
+  const bloco1 = html.slice(html.indexOf('1 · Antes de fechar'), html.indexOf('2 · A folha do mês'));
+  assert.ok(/ANA/.test(bloco1) && /BENTO/.test(bloco1), 'os primeiros nomes aparecem');
+  assert.ok(/e mais 2/.test(bloco1),
+    'com muita gente a linha não pode virar um parágrafo — mostra alguns e diz quantos faltam');
+  assert.ok(/ELIAS/.test(html), 'mas todos aparecem no bloco de cadastro, mais abaixo');
+  ok('com muita gente, a linha mostra alguns e diz quantos faltam');
+}
+
+/* ── 13. o "Ver" leva ao bloco que lista todos ───────────────────── */
+{
+  const t = montarTela();
+  const html = renderizar(t, { trocas: [] });
+  assert.ok(/id="bloco-cadastro-problema"/.test(html),
+    'o bloco de cadastro precisa de âncora pra onde o botão leva');
+  const bloco1 = html.slice(html.indexOf('1 · Antes de fechar'), html.indexOf('2 · A folha do mês'));
+  assert.ok(/verCadastrosComProblema\(\)/.test(bloco1),
+    'o botão da linha tem que levar ao bloco, não a uma tela onde a pessoa se perde');
+  ok('o "Ver" leva ao bloco que lista todos');
+}
+
+/* ── 14. cada linha do bloco abre a ficha DAQUELA pessoa ─────────── */
+{
+  const t = montarTela();
+  const html = renderizar(t, { trocas: [] });
+  const bloco5 = html.slice(html.indexOf('5 · Cadastro com problema'), html.indexOf('6 · Custo por unidade'));
+  assert.ok(/abrirFichaDaPessoa\('thi'/.test(bloco5),
+    'da linha da pessoa tem que dar pra ir direto na ficha DELA, já na aba certa');
+  ok('cada linha do bloco abre a ficha daquela pessoa');
+}
+
+/* ── 15. abrirFichaDaPessoa leva à ficha certa, na aba certa ─────── */
+{
+  // O botão do bloco 5 aponta pra esta função — e apontar não é funcionar.
+  // Aqui ela é CHAMADA de verdade, com professores-pessoas.js carregado como
+  // <script>, e se confere onde a tela de Pessoas foi parar.
+  const noop = () => {};
+  const sandbox = {
+    console: { log: noop, warn: noop, error: noop },
+    Map, Set, Date, Math, JSON, String, Number, Array, Object, Boolean, RegExp, Promise, Error,
+    document: { getElementById: () => null, querySelector: () => null, addEventListener: noop },
+    setTimeout, clearTimeout,
+    navigateTo: (p) => { sandbox._foiPara = p; },
+    isStrictAdmin: () => true, isAdminGestao: () => true, isSupervisao: () => false,
+    canSeeSalary: () => true, isSuperv: () => false,
+    escapeHtml: (x) => String(x == null ? '' : x),
+    fmt: () => '', toast: noop,
+    AppState: { currentUser: { uid: 'u1' } },
+    db: new Proxy(function () {}, { get: () => () => {}, apply: () => ({}) }),
+    firebase: { firestore: () => ({}), auth: () => ({}), apps: [] },
+  };
+  sandbox.window = sandbox; sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(raiz, 'pessoas-model.js'), 'utf8'), sandbox,
+    { filename: 'pessoas-model.js' });
+  sandbox.PessoasModel = sandbox.window.PessoasModel;
+  vm.runInContext(fs.readFileSync(path.join(raiz, 'professores-pessoas.js'), 'utf8'), sandbox,
+    { filename: 'professores-pessoas.js' });
+
+  const st = vm.runInContext('PessoasState', sandbox);
+  // deixa a tela num estado "sujo", como fica depois de alguém filtrar
+  st.filters = { search: 'zzz', profile: 'professor' };
+  st.selectedKey = null;
+  st.activeTab = 'identidade';
+
+  vm.runInContext('abrirFichaDaPessoa', sandbox)('BU1SQbcMUlRnFC4Dx5Yq');
+
+  assert.strictEqual(st.selectedKey, 'T:BU1SQbcMUlRnFC4Dx5Yq',
+    'a ficha selecionada é a da pessoa que veio do fechamento');
+  assert.strictEqual(st.activeTab, 'salarial',
+    'e abre na aba Salarial, que é onde o problema se conserta');
+  assert.strictEqual(st.filters.search, '',
+    'a busca anterior é limpa — abrir a tela e não achar ninguém é pior que não ter botão');
+  assert.strictEqual(st.filters.profile, 'all', 'e o filtro de perfil volta ao padrão da tela');
+  assert.strictEqual(sandbox._foiPara, 'pessoas', 'e a navegação acontece de fato');
+
+  // id vazio não pode navegar pra lugar nenhum
+  sandbox._foiPara = null;
+  vm.runInContext('abrirFichaDaPessoa', sandbox)('');
+  assert.strictEqual(sandbox._foiPara, null, 'sem id, não navega');
+  ok('abrirFichaDaPessoa leva à ficha certa, na aba certa, com a lista limpa');
+}
+
+console.log('');
+console.log('✅ smoke-conferencia-fechamento: ' + n + ' casos');
