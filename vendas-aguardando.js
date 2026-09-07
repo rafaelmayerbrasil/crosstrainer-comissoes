@@ -187,5 +187,29 @@
       contar(cruzado && cruzado.conferir, 'conferir');
       return out;
     },
+
+    /**
+     * Os três números do mês. Conta VENDA: a dividida conta uma vez só.
+     * @param {{pagas, aguardando, conferir}} cruzado
+     */
+    resumo(cruzado) {
+      const c = cruzado || {};
+      const pagas = (c.pagas || []).length;
+      const aguardando = (c.aguardando || []).length;
+      const conferir = (c.conferir || []).length;
+      return { vendidas: pagas + aguardando + conferir, pagas, aguardando, conferir };
+    },
+
+    /**
+     * O mês já terminou? Só aí o % de conversão diz alguma coisa — no mês
+     * corrente ele é baixo por construção, porque a cobrança ainda não caiu.
+     * @param {number} year  @param {number} month  1-12
+     * @param {Date} hoje  injetável para teste
+     */
+    mesFechado(year, month, hoje) {
+      const d = hoje || new Date();
+      const anoAtual = d.getFullYear(), mesAtual = d.getMonth() + 1;
+      return year < anoAtual || (year === anoAtual && month < mesAtual);
+    },
   };
 });
