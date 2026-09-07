@@ -255,4 +255,121 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('as duas homes mostram o bloco, e o da vendedora é filtrado');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 12. A aba "A receber": cabeçalho, tabela por vendedora e arrasto
+// ════════════════════════════════════════════════════════════════════
+// O cabeçalho é o MESMO bloco da home — se a aba montasse o dela, um dia os
+// dois números iam divergir na mesma tela e ninguém saberia em qual acreditar.
+{
+  const fs = require('fs');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const corpo = nome => {
+    const j = html.indexOf(nome);
+    assert.ok(j >= 0, 'nao achei ' + nome);
+    return html.slice(j, html.indexOf('\n    }\n', j));
+  };
+
+  const aba = corpo('async function renderAReceberTab(');
+  assert.ok(/blocoVendidoXPago\(/.test(aba), 'a aba mostra o mesmo cabeçalho da home');
+  assert.ok(/tabelaPorVendedora\(/.test(aba), 'a aba mostra a tabela por vendedora');
+  assert.ok(/carregarArrastoAnterior\(/.test(aba), 'e o arrasto de meses anteriores');
+
+  const tab = corpo('function tabelaPorVendedora(');
+  assert.ok(/soDe/.test(tab), 'a tabela comparativa é só da gestão');
+  assert.ok(/naoComissionado/.test(tab), 'quem não recebe comissão sai marcado e sem %');
+  assert.ok(/fechado/.test(tab), 'o % só aparece em mês fechado');
+  ok('a aba tem cabeçalho, tabela por vendedora e arrasto');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 13. A tabela e o filtro da vendedora, RODANDO
+// ════════════════════════════════════════════════════════════════════
+// O caso 12 só confere que o texto está no arquivo. Isso não prova nada —
+// é literalmente como a prévia de 24/08 passou por 12 testes sem nunca ter
+// rodado. Aqui as duas funções são recortadas do index.html e chamadas.
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  /** recorta uma função do index.html contando chaves */
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function tabelaPorVendedora('), sandbox);
+  vm.runInContext(recortar('function visaoDe('), sandbox);
+  const tabela = sandbox.tabelaPorVendedora;
+  const visaoDe = sandbox.visaoDe;
+
+  // (a) a vendedora não vê a tabela comparativa — é o número das colegas
+  assert.strictEqual(tabela({ 'KALI DUTRA': { vendidas: 3, pagas: 1, aguardando: 2, conferir: 0 } },
+                            true, 'KALI DUTRA'), '',
+    'a vendedora não pode ver o número das colegas');
+
+  // De proposito na ordem ERRADA: o RODRIGO vendeu menos e entra primeiro.
+  // Se o fixture ja viesse ordenado, a assercao de ordem la embaixo passaria
+  // mesmo sem ordenacao nenhuma - conferido por mutacao.
+  const porVend = {
+    'RODRIGO':     { vendidas: 2, pagas: 2, aguardando: 0, conferir: 0, naoComissionado: true },
+    'KALI DUTRA':  { vendidas: 4, pagas: 3, aguardando: 1, conferir: 0, naoComissionado: false },
+  };
+
+  // (b) mês fechado: coluna de conversão, e quem não recebe sai sem %
+  const fechada = tabela(porVend, true, '');
+  assert.ok(/Convertido/.test(fechada), 'mês fechado mostra a conversão');
+  assert.ok(/n[ãa]o comission/i.test(fechada), 'o RODRIGO tem que sair marcado');
+  // A linha da pessoa, não a tabela inteira: o `width:100%` da <table> é um
+  // "100%" que não tem nada a ver com conversão, e um teste frouxo passaria
+  // por ele achando que provou alguma coisa.
+  const linhaRodrigo = fechada.split('<tr>').find(l => /RODRIGO/.test(l)) || '';
+  assert.ok(/>—</.test(linhaRodrigo),
+    'quem não recebe comissão mostra travessão, não %: ' + linhaRodrigo);
+  assert.ok(!/\d+%/.test(linhaRodrigo),
+    'nenhum percentual na linha de quem não recebe: ' + linhaRodrigo);
+  const linhaKali = fechada.split('<tr>').find(l => /KALI/.test(l)) || '';
+  assert.ok(/75%/.test(linhaKali), 'a conversão sai na linha de quem recebe: ' + linhaKali);
+
+  // (c) mês corrente: sem coluna de conversão, e a tela explica por quê
+  const corrente = tabela(porVend, false, '');
+  assert.ok(!/Convertido/.test(corrente), 'mês corrente não mostra conversão');
+  assert.ok(/quando o m[êe]s fecha/i.test(corrente), 'tem que explicar por que a coluna sumiu');
+
+  // (d) a ordem é por quem mais vendeu — a tabela é para comparar
+  assert.ok(corrente.indexOf('KALI DUTRA') < corrente.indexOf('RODRIGO'),
+    'quem vendeu mais vem primeiro');
+
+  // (e) sem ninguém, a tabela some em vez de virar um quadro vazio
+  assert.strictEqual(tabela({}, true, ''), '');
+
+  // (f) visaoDe: a gestão vê tudo, a vendedora só o dela — e a dividida entra
+  const cruzado = {
+    pagas:      [venda('C1', 'ANA', ['KALI DUTRA', 'BÁRBARA VIEIRA CARDOSO'])],
+    aguardando: [venda('C2', 'BIA', ['BÁRBARA VIEIRA CARDOSO'])],
+    conferir:   [],
+  };
+  const d = { temLista: true, cruzado, resumo: VA.resumo(cruzado) };
+  assert.strictEqual(visaoDe(d, ''), d, 'sem soDe devolve o mesmo objeto');
+  const dela = visaoDe(d, 'KALI DUTRA');
+  assert.deepStrictEqual(dela.resumo, { vendidas: 1, pagas: 1, aguardando: 0, conferir: 0 },
+    'a Kali vê a venda dividida como dela, e não vê a da colega');
+  assert.deepStrictEqual(d.resumo, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0 },
+    'o objeto da gestão não pode ser mutado pelo filtro');
+
+  // (g) mês sem lista: filtrar não pode inventar zeros
+  const semLista = { temLista: false, cruzado: null, resumo: null };
+  assert.strictEqual(visaoDe(semLista, 'KALI DUTRA'), semLista,
+    'sem lista, "não sei" continua "não sei" para a vendedora também');
+
+  ok('a tabela por vendedora e o filtro da vendedora rodam de verdade');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
