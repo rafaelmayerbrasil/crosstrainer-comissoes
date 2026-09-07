@@ -106,6 +106,24 @@
     },
 
     /**
+     * Registro de teste — não é venda de ninguém.
+     *
+     * Em produção existe `TESTE ENDEREÇO TECNOFIT` (contrato C7117, R$ 150,
+     * 25/08/2026). Ele entrava na contagem do mês e virava tarefa de cobrança
+     * no arrasto, ao lado de gente de verdade.
+     *
+     * ⚠️ O casamento é por PALAVRA INTEIRA, e não por pedaço do nome. Existe
+     * uma cliente chamada `ESTEFANE COUTINHO CAMPOS`, e foi exatamente um
+     * casamento por pedaço que fez o BIANUAL ser lido como ANUAL em produção
+     * (commit 6f0a15b). Um falso positivo aqui apaga a venda de alguém.
+     *
+     * @param {Object} venda  item de `extrair`
+     */
+    ehTeste(venda) {
+      return /(^|[^A-Za-zÀ-ÿ])TESTES?([^A-Za-zÀ-ÿ]|$)/i.test(String((venda && venda.cliente) || ''));
+    },
+
+    /**
      * Separa o que ainda espera pagamento do que já recebeu.
      *
      * ⚠️ SÓ O NÚMERO DO CONTRATO NÃO BASTA — medido no dado real de agosto/2026.
@@ -122,14 +140,21 @@
      * @param {Array<string>} pagos   códigos já comissionados, de QUALQUER mês
      * @param {Array<string>} clientesPagantes  clientes com recebimento DE CONTRATO
      *        no período (bar e loja não contam — pagar uma água não paga o plano)
-     * @returns {{aguardando, conferir, pagas, porVendedora}}
+     * Registro de teste sai antes dos três grupos e volta em `testes`, para a
+     * tela poder DIZER que tirou. Sumir calado é como a gestão fica procurando
+     * a diferença entre o número da tela e o que ela contou na mão.
+     *
+     * @returns {{aguardando, conferir, pagas, porVendedora, testes}}
      */
     cruzar(vendas, pagos, clientesPagantes) {
       const jaPagou = PA.contratosDe(pagos);
       const pagante = new Set((clientesPagantes || []).map(norm));
-      const aguardando = [], conferir = [], pagas = [];
+      const aguardando = [], conferir = [], pagas = [], testes = [];
 
       (vendas || []).forEach(v => {
+        // Antes de tudo: teste não é venda em estado nenhum — nem pago, nem
+        // aguardando, nem "conferir".
+        if (this.ehTeste(v)) { testes.push(v); return; }
         const num = String(v.contrato).replace(/^C/i, '');
         if (jaPagou.has(num)) { pagas.push(v); return; }
         if (pagante.has(norm(v.cliente))) {
@@ -147,7 +172,7 @@
           x.valorContratos = Math.round((x.valorContratos + v.valorContrato) * 100) / 100;
         });
       });
-      return { aguardando, conferir, pagas, porVendedora };
+      return { aguardando, conferir, pagas, porVendedora, testes };
     },
 
     /** As vendas de uma pessoa — a dividida conta para as duas */

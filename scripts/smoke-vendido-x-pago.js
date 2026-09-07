@@ -372,4 +372,104 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('a tabela por vendedora e o filtro da vendedora rodam de verdade');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 14. Registro de teste não é venda de ninguém
+// ════════════════════════════════════════════════════════════════════
+// Em produção existe `TESTE ENDEREÇO TECNOFIT` (contrato C7117, R$ 150,
+// 25/08/2026, no nome do Rodrigo). Ele aparecia na conta de agosto e virava
+// tarefa de cobrança no arrasto de setembro.
+//
+// ⚠️ O casamento é por PALAVRA INTEIRA, não por pedaço. Existe uma cliente
+// de verdade chamada `ESTEFANE COUTINHO CAMPOS`, e foi exatamente um
+// casamento por pedaço que quebrou o BIANUAL em produção (commit 6f0a15b).
+{
+  assert.strictEqual(VA.ehTeste({ cliente: 'TESTE ENDEREÇO TECNOFIT' }), true);
+  assert.strictEqual(VA.ehTeste({ cliente: 'Cliente Teste' }), true, 'minúscula também');
+  assert.strictEqual(VA.ehTeste({ cliente: 'ESTEFANE COUTINHO CAMPOS' }), false,
+    'ESTEFANE é uma cliente de verdade — nunca pode ser confundida com teste');
+  assert.strictEqual(VA.ehTeste({ cliente: 'CELESTE MARIA' }), false);
+  assert.strictEqual(VA.ehTeste({}), false, 'sem nome não é teste');
+  assert.strictEqual(VA.ehTeste({ cliente: '' }), false);
+  ok('registro de teste é reconhecido por palavra inteira, sem pegar cliente real');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 15. O teste sai dos três grupos e não conta em lugar nenhum
+// ════════════════════════════════════════════════════════════════════
+// Sai na origem, dentro de `cruzar`, e não só no arrasto: se saísse só de lá,
+// a gestão abriria "A receber" de agosto e o veria na lista de vendas a
+// cobrar, mas ele sumiria do arrasto de setembro — a mesma família de telas
+// se contradizendo.
+{
+  const vendas = [
+    venda('C1', 'ANA', ['KALI DUTRA']),
+    venda('C7117', 'TESTE ENDEREÇO TECNOFIT', ['RODRIGO'], { valorContrato: 150 }),
+    venda('C3', 'ESTEFANE COUTINHO CAMPOS', ['KALI DUTRA']),
+  ];
+  const c = VA.cruzar(vendas, [], []);
+
+  assert.strictEqual(c.aguardando.length, 2, 'só as duas vendas de verdade aguardam');
+  assert.ok(!c.aguardando.some(v => /TESTE/.test(v.cliente)), 'o teste não pode aguardar nada');
+  assert.ok(c.aguardando.some(v => v.cliente === 'ESTEFANE COUTINHO CAMPOS'),
+    'a ESTEFANE tem que continuar na conta');
+  assert.strictEqual(c.testes.length, 1, 'o que saiu fica registrado, não some calado');
+  assert.strictEqual(c.testes[0].contrato, 'C7117');
+
+  // e o resumo não pode contá-lo
+  assert.deepStrictEqual(VA.resumo(c), { vendidas: 2, pagas: 0, aguardando: 2, conferir: 0 });
+
+  // nem a tabela por vendedora — o Rodrigo tinha 7 vendas em agosto, uma era esta
+  const t = VA.contarPorVendedora(c, NAO_COM);
+  assert.ok(!t['RODRIGO'], 'o Rodrigo não vendeu nada de verdade neste fixture');
+
+  // um teste já pago também sai: ele não é venda em nenhum estado
+  const pago = VA.cruzar(vendas, ['C7117'], []);
+  assert.strictEqual(pago.pagas.length, 0, 'teste pago continua não sendo venda');
+  assert.strictEqual(pago.testes.length, 1);
+
+  // e um teste cujo cliente pagou outra coisa não pode cair no "conferir"
+  const conf = VA.cruzar(vendas, [], ['TESTE ENDEREÇO TECNOFIT']);
+  assert.strictEqual(conf.conferir.length, 0, 'teste nunca vira dúvida para a gestão');
+  assert.strictEqual(conf.testes.length, 1);
+
+  ok('o registro de teste sai dos três grupos, do resumo e da tabela');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 16. A tela DIZ o que tirou — nada some calado
+// ════════════════════════════════════════════════════════════════════
+// Sumir sem avisar é como a gestão fica procurando um número que não bate.
+// A vendedora não vê a nota: registro de teste é assunto de quem administra.
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const ini = html.indexOf('function blocoVendidoXPago(');
+  let nivel = 0, fim = -1;
+  for (let j = html.indexOf('{', ini); j < html.length; j++) {
+    if (html[j] === '{') nivel++;
+    else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+  }
+  const sandbox = { console };
+  vm.createContext(sandbox);
+  vm.runInContext(html.slice(ini, fim), sandbox);
+  const bloco = sandbox.blocoVendidoXPago;
+
+  const base = {
+    temLista: true, year: 2026, month: 8, fechado: true,
+    resumo: { vendidas: 73, pagas: 68, aguardando: 3, conferir: 2 },
+  };
+
+  const comTeste = bloco({ ...base, cruzado: { testes: [{ cliente: 'TESTE ENDEREÇO TECNOFIT' }] } }, {});
+  assert.ok(/teste/i.test(comTeste), 'a gestão tem que saber que 1 registro ficou de fora: ' + comTeste);
+
+  const semTeste = bloco({ ...base, cruzado: { testes: [] } }, {});
+  assert.ok(!/registro de teste/i.test(semTeste), 'sem teste nenhum, nenhuma nota');
+
+  const daVendedora = bloco({ ...base, cruzado: { testes: [{ cliente: 'TESTE X' }] } }, { soDe: 'KALI DUTRA' });
+  assert.ok(!/registro de teste/i.test(daVendedora),
+    'a vendedora não precisa saber do registro de teste da gestão');
+
+  ok('a tela avisa que tirou o registro de teste, e só para a gestão');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

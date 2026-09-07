@@ -101,15 +101,23 @@ async function arrasto(unitId, mesAtual) {
   return fora;
 }
 
-// Os numeros que o plano registrou em 07/09/2026, medidos contra a producao.
-// Se o banco mudar (upload novo, estorno), o esperado muda junto - por isso a
-// divergencia e para ler, nao para "consertar" no automatico.
+// Os numeros medidos contra a producao. Se o banco mudar (upload novo,
+// estorno), o esperado muda junto - por isso a divergencia e para LER, nao
+// para "consertar" no automatico.
+//
+// O Campeche de agosto caiu de 74/4 para 73/3 em 07/09: `TESTE ENDERECO
+// TECNOFIT` (contrato C7117, R$ 150, no nome do Rodrigo) e registro de teste
+// e passou a sair da conta em `cruzar`. Nao mexeu em dinheiro nenhum - ele
+// nunca gerou item de comissao, e o Rodrigo e nao comissionado.
 const ESPERADO = {
-  '2026-08': { cp: { vendidas: 74, pagas: 68, aguardando: 4, conferir: 2 },
+  '2026-08': { cp: { vendidas: 73, pagas: 68, aguardando: 3, conferir: 2 },
                pp: { vendidas: 59, pagas: 43, aguardando: 16, conferir: 0 } },
   '2026-09': { cp: { vendidas: 14, pagas: 0, aguardando: 14, conferir: 0 },
                pp: { vendidas: 11, pagas: 0, aguardando: 11, conferir: 0 } },
 };
+
+// Nenhum registro de teste pode sobrar em grupo nenhum, em periodo nenhum.
+const SEM_TESTE_EM_LUGAR_NENHUM = true;
 
 (async () => {
   console.log('\n=== Painel vendido x pago - ' + PROJETO + ' ===\n');
@@ -142,6 +150,18 @@ const ESPERADO = {
       conferir(r.vendidas === esp.vendidas && r.pagas === esp.pagas
         && r.aguardando === esp.aguardando && r.conferir === esp.conferir,
         periodId + ' bate com o plano (esperado ' + JSON.stringify(esp) + ', veio ' + JSON.stringify(r) + ')');
+    }
+
+    if (SEM_TESTE_EM_LUGAR_NENHUM) {
+      const vazou = [...d.cruzado.pagas, ...d.cruzado.aguardando, ...d.cruzado.conferir]
+        .filter(v => VA.ehTeste(v));
+      conferir(vazou.length === 0,
+        periodId + ': nenhum registro de teste nos tres grupos'
+        + (vazou.length ? ' (vazaram: ' + vazou.map(v => v.cliente).join(', ') + ')' : ''));
+      if (d.cruzado.testes.length) {
+        console.log('  fora da conta por ser teste: '
+          + d.cruzado.testes.map(v => v.cliente + '/' + v.contrato).join(', '));
+      }
     }
 
     // A soma da tabela por vendedora e MAIOR que o total quando ha venda

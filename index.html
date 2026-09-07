@@ -3262,12 +3262,12 @@
        usuário roda o JS antigo depois do deploy e nada muda — e no upload isso
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
-  <script src="commission.js?v=20260908"></script>
+  <script src="commission.js?v=20260909"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
-  <script src="pacto-adapter.js?v=20260908"></script>
-  <script src="estorno-comissao.js?v=20260908"></script>
-  <script src="vendas-aguardando.js?v=20260908"></script>
+  <script src="pacto-adapter.js?v=20260909"></script>
+  <script src="estorno-comissao.js?v=20260909"></script>
+  <script src="vendas-aguardando.js?v=20260909"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -7654,6 +7654,15 @@
       const dt = ts => { try { return ts.toDate().toLocaleDateString('pt-BR'); } catch (e) { return '—'; } };
       const pct = r.vendidas ? Math.round((r.pagas / r.vendidas) * 100) : 0;
 
+      // Registro de teste fica fora da conta — mas a gestão precisa saber que
+      // ficou, senão procura a diferença entre este número e o que contou na
+      // mão. A vendedora não vê: é assunto de quem administra.
+      const testes = ((d.cruzado && d.cruzado.testes) || []).length;
+      const notaTeste = (testes && !o.soDe) ? `
+        <div style="font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+          ${testes} registro${testes > 1 ? 's' : ''} de teste fora da conta (cliente com "teste" no nome).
+        </div>` : '';
+
       const num = (valor, rotulo, cor, nota) => `
         <div style="text-align:center;padding:0 10px">
           <div class="mono" style="font-size:30px;font-weight:800;color:${cor};line-height:1.1">${valor}</div>
@@ -7675,6 +7684,7 @@
                 (o.arrasto ? '+ ' + o.arrasto + ' de meses anteriores' : '')
                 + (r.conferir ? (o.arrasto ? '<br>' : '') + r.conferir + ' delas podem já ter sido pagas em outro contrato' : ''))}
         </div>
+        ${notaTeste}
       </div>`;
     }
 
