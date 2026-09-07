@@ -126,4 +126,36 @@ const venda = (contrato, cliente, extra) => ({
   ok('mês ausente de um dos lados nunca apaga um mês conhecido, em nenhuma ordem');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 5. A venda "a conferir" carrega o pagamento que fez o nome bater
+// ════════════════════════════════════════════════════════════════════
+// Sem isso a gestão tem que ir na Pacto procurar. Com isso, a conferência
+// vira um olhar de cinco segundos.
+{
+  const vendas = [venda('C7130', 'CÁTIA TEREZINHA PEREIRA TORRES', { valorContrato: 2388 })];
+
+  // lista de nomes: como sempre funcionou
+  const soNome = VA.cruzar(vendas, [], ['CÁTIA TEREZINHA PEREIRA TORRES']);
+  assert.strictEqual(soNome.conferir.length, 1);
+  assert.strictEqual(soNome.conferir[0].pagamentoQueBateu, null,
+    'sem o lançamento, não há prova para mostrar — null, nunca inventado');
+
+  // com o lançamento inteiro
+  const comItem = VA.cruzar(vendas, [], [
+    { cliente: 'CÁTIA TEREZINHA PEREIRA TORRES', codigo: 'C6867', valor: 199, data: '12/08/2026' },
+  ]);
+  assert.strictEqual(comItem.conferir.length, 1);
+  assert.deepStrictEqual(comItem.conferir[0].pagamentoQueBateu,
+    { cliente: 'CÁTIA TEREZINHA PEREIRA TORRES', codigo: 'C6867', valor: 199, data: '12/08/2026' });
+
+  // o nome sujo continua casando com o limpo, dos dois lados
+  const sujo = VA.cruzar(
+    [venda('C4588', 'MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE')],
+    [], [{ cliente: 'MARIANA MINGHELLI BECKER', codigo: 'C4000', valor: 50, data: '01/08/2026' }]);
+  assert.strictEqual(sujo.conferir.length, 1, 'o limpador de nome continua valendo');
+  assert.strictEqual(sujo.conferir[0].pagamentoQueBateu.codigo, 'C4000');
+
+  ok('a venda a conferir carrega o pagamento que fez o nome bater');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

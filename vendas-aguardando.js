@@ -188,15 +188,21 @@
      * @param {Array<string|{codigo,mes,data}>} pagos  códigos já comissionados,
      *        de QUALQUER mês — lista achatada de códigos (de sempre) ou objetos
      *        `{ codigo, mes, data }` quando quem chama sabe de qual mês veio cada um
-     * @param {Array<string>} clientesPagantes  clientes com recebimento DE CONTRATO
-     *        no período (bar e loja não contam — pagar uma água não paga o plano)
+     * @param {Array<string|{cliente,codigo,valor,data}>} clientesPagantes  clientes
+     *        com recebimento DE CONTRATO no período (bar e loja não contam — pagar
+     *        uma água não paga o plano) — lista achatada de nomes (de sempre) ou
+     *        objetos com o lançamento inteiro, quando quem chama tem essa prova
+     *        para mostrar ao lado da pergunta em vez de mandar a gestão procurar
+     *        na Pacto
      * Registro de teste sai antes dos três grupos e volta em `testes`, para a
      * tela poder DIZER que tirou. Sumir calado é como a gestão fica procurando
      * a diferença entre o número da tela e o que ela contou na mão.
      *
      * @returns {{aguardando, conferir, pagas, porVendedora, testes}} as vendas em
      *        `pagas` trazem `pagoEm: {mes, data} | null` — null quando `pagos` só
-     *        informou o código, sem dizer de qual mês veio o pagamento
+     *        informou o código, sem dizer de qual mês veio o pagamento. As vendas
+     *        em `conferir` trazem `pagamentoQueBateu: {cliente,codigo,valor,data} | null`
+     *        — null quando `clientesPagantes` só informou o nome, sem o lançamento
      */
     cruzar(vendas, pagos, clientesPagantes) {
       // `pagos` aceita duas formas, de propósito:
@@ -238,7 +244,18 @@
       // Os dois lados passam pelo mesmo limpador: o nome pode vir sujo do lado
       // da venda, do lado do recebimento, ou dos dois.
       const limpo = n => norm(this.limparNome(n));
-      const pagante = new Set((clientesPagantes || []).map(limpo));
+
+      // `clientesPagantes` aceita duas formas, de propósito:
+      //   • lista de nomes                            — como sempre funcionou
+      //   • [{ cliente, codigo, valor, data }]        — o lançamento inteiro,
+      //     que a tela mostra como PROVA ao lado da pergunta, em vez de mandar
+      //     a gestão procurar na Pacto.
+      const pagante = new Map();
+      (clientesPagantes || []).forEach(c => {
+        const nome = (c && typeof c === 'object') ? c.cliente : c;
+        const chave = limpo(nome);
+        if (!pagante.has(chave)) pagante.set(chave, (c && typeof c === 'object') ? c : null);
+      });
       const aguardando = [], conferir = [], pagas = [], testes = [];
 
       (vendas || []).forEach(v => {
@@ -254,7 +271,11 @@
         const num = String(vl.contrato).replace(/^C/i, '');
         if (jaPagou.has(num)) { pagas.push({ ...vl, pagoEm: ondePagou[num] || null }); return; }
         if (pagante.has(norm(nome))) {
-          conferir.push({ ...vl, motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número' });
+          conferir.push({
+            ...vl,
+            motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número',
+            pagamentoQueBateu: pagante.get(norm(nome)) || null,
+          });
           return;
         }
         aguardando.push(vl);
