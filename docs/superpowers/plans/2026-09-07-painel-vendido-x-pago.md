@@ -302,9 +302,11 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(/async function carregarVendidoXPago\(/.test(html),
     'precisa existir um carregador único');
+  // Aqui são 2: a definição e a chamada da aba. A terceira (o preenchedor das
+  // duas homes) nasce na Task 6, e o teste dela aperta este número para 3.
   const usos = [...html.matchAll(/carregarVendidoXPago\(/g)];
-  assert.ok(usos.length >= 3,
-    'o carregador tem que ser chamado pela home da gestão, pela da vendedora e pela aba — achei ' + usos.length);
+  assert.ok(usos.length >= 2,
+    'o carregador tem que existir e ser chamado pela aba — achei ' + usos.length);
   assert.ok(!/VendasAguardando\.cruzar\(/.test(html.replace(/async function carregarVendidoXPago\([\s\S]*?\n    \}/, '')),
     'ninguém pode chamar cruzar() fora do carregador');
   ok('existe um carregador único e ninguém cruza por fora');
@@ -392,10 +394,11 @@ por:
 
 ```js
         const dados = await carregarVendidoXPago(periodId);
-        const vendas = dados.temLista ? dados.cruzado.pagas.concat(dados.cruzado.aguardando, dados.cruzado.conferir) : [];
 
         if (!dados.temLista) {
 ```
+
+> **Nota:** a variável `vendas` some. Ela só existia para o `if (!vendas.length)`, que virou `!dados.temLista` — e nada mais na função a lê. Conferir que não sobrou nenhum uso dela antes de commitar.
 
 e remover o bloco que vai de `// Um contrato deixa de aguardar quando aparece na memória` até a linha `const r = VendasAguardando.cruzar(vendas, pagos, clientesPagantes);`, substituindo tudo por:
 
@@ -410,6 +413,8 @@ node scripts/smoke-vendido-x-pago.js && node scripts/smoke-vendas-aguardando.js
 ```
 
 Esperado: `7/7 casos passaram.` no primeiro e `20/20` no segundo (a aba "A receber" não pode ter regredido).
+
+> A 3ª chamada do carregador só existe depois da Task 6 — por isso o teste aqui exige 2, e o da Task 6 exige 3.
 
 - [ ] **Step 5: Commit**
 
@@ -704,6 +709,10 @@ Acrescentar em `scripts/smoke-vendido-x-pago.js`, antes da linha final:
   assert.ok(/vendidoXPagoVendedora/.test(vendedora), 'a home da vendedora também');
   assert.ok(/preencherVendidoXPago\(/.test(gestao) && /preencherVendidoXPago\(/.test(vendedora),
     'as duas precisam chamar o preenchedor');
+
+  // Agora sim são 3: definição + aba + preenchedor (que serve as duas homes)
+  const usos = [...html.matchAll(/carregarVendidoXPago\(/g)];
+  assert.ok(usos.length >= 3, 'a aba e o preenchedor têm que usar o carregador — achei ' + usos.length);
 
   const preench = html.slice(html.indexOf('async function preencherVendidoXPago('),
                              html.indexOf('async function preencherVendidoXPago(') + 1400);

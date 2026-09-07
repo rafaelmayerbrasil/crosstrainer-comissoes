@@ -7564,6 +7564,59 @@
     }
 
     // ══════════════════════════════════════════════════════════════════
+    // Painel "vendido × pago" — a leitura única
+    // ══════════════════════════════════════════════════════════════════
+    // A home da gestão, a home da vendedora e a aba "A receber" mostram os
+    // mesmos números. Se cada uma buscasse por conta própria, um dia
+    // divergiriam — e um painel que se contradiz não é usado. Toda leitura
+    // passa por aqui.
+    //
+    // @param {string} periodId
+    // @returns {{temLista, cruzado, resumo, porVendedora, fechado,
+    //            vendasAtualizadasEm, recebidosAtualizadosEm, unitId, year, month}}
+    async function carregarVendidoXPago(periodId) {
+      const pDoc = await db.collection('periodos').doc(periodId).get();
+      const pData = pDoc.exists ? pDoc.data() : {};
+      const vendas = pData.vendasDoMes || [];
+      const unitId = pData.unitId || currentUnitId;
+      const base = {
+        unitId, year: pData.year, month: pData.month,
+        vendasAtualizadasEm: pData.vendasAtualizadasEm || null,
+        recebidosAtualizadosEm: pData.uploadDate || null,
+        fechado: VendasAguardando.mesFechado(pData.year, pData.month),
+      };
+
+      // Sem lista de vendas não é "zero" — é "não sei". Quem decide o que
+      // mostrar é a tela; aqui só devolvemos a verdade.
+      if (!vendas.length) return { ...base, temLista: false, cruzado: null, resumo: null, porVendedora: {} };
+
+      // Um contrato deixa de aguardar quando aparece na memória de QUALQUER mês
+      // desta unidade: venda de agosto paga em setembro já entrou.
+      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+      const pagos = [];
+      snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
+
+      // Quem pagou algo DE CONTRATO no mês — separa a renovação que trocou de
+      // número de quem não pagou nada. Bar e loja não contam.
+      const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const clientesPagantes = [];
+      itensSnap.forEach(d => {
+        const it = d.data();
+        if ((it.type || 'processed') !== 'processed') return;
+        if (!/^C\d+/i.test(String(it.codigo || ''))) return;
+        if (it.cliente) clientesPagantes.push(it.cliente);
+      });
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
+      const cruzado = VendasAguardando.cruzar(vendas, pagos, clientesPagantes);
+      return {
+        ...base, temLista: true, cruzado,
+        resumo: VendasAguardando.resumo(cruzado),
+        porVendedora: VendasAguardando.contarPorVendedora(cruzado, cfg.naoComissionaveis),
+      };
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // Aba "A receber" — vendi e o dinheiro ainda não entrou
     // ══════════════════════════════════════════════════════════════════
     // Sob regime de caixa a comissão só nasce quando o cliente paga. Sem esta
@@ -7583,11 +7636,9 @@
       if (!el || !periodId) return;
       el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
       try {
-        const pDoc = await db.collection('periodos').doc(periodId).get();
-        const pData = pDoc.exists ? pDoc.data() : {};
-        const vendas = pData.vendasDoMes || [];
+        const dados = await carregarVendidoXPago(periodId);
 
-        if (!vendas.length) {
+        if (!dados.temLista) {
           el.innerHTML = `
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center">
               <div style="font-size:32px;margin-bottom:8px">📋</div>
@@ -7601,27 +7652,7 @@
           return;
         }
 
-        // Um contrato deixa de aguardar quando aparece na memória de QUALQUER
-        // mês desta unidade: venda de agosto paga em setembro já entrou.
-        const unitId = pData.unitId || currentUnitId;
-        const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
-        const pagos = [];
-        snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
-
-        // Quem PAGOU alguma coisa de CONTRATO no mês. Serve para separar a
-        // renovação que trocou de número de contrato (o dinheiro entrou, mas no
-        // contrato antigo) de quem realmente não pagou nada. Bar e loja não
-        // contam: pagar uma água não paga o plano.
-        const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
-        const clientesPagantes = [];
-        itensSnap.forEach(d => {
-          const it = d.data();
-          if ((it.type || 'processed') !== 'processed') return;
-          if (!/^C\d+/i.test(String(it.codigo || ''))) return;
-          if (it.cliente) clientesPagantes.push(it.cliente);
-        });
-
-        const r = VendasAguardando.cruzar(vendas, pagos, clientesPagantes);
+        const r = dados.cruzado;
         const lista = soDe ? VendasAguardando.daVendedora(r.aguardando, soDe) : r.aguardando;
         const conferir = soDe ? VendasAguardando.daVendedora(r.conferir, soDe) : r.conferir;
         const totalContratos = lista.reduce((s, v) => s + (v.valorContrato || 0), 0);

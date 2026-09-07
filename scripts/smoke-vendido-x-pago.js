@@ -111,4 +111,24 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('mesFechado separa o mês corrente do que já terminou');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 7. Uma leitura só, usada pelas duas telas
+// ════════════════════════════════════════════════════════════════════
+// Se a home e a aba lerem o banco por caminhos diferentes, um dia divergem —
+// e o painel perde a serventia. Esta é a trava estrutural.
+{
+  const fs = require('fs');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(/async function carregarVendidoXPago\(/.test(html),
+    'precisa existir um carregador único');
+  // Aqui são 2: a definição e a chamada da aba. A terceira (o preenchedor das
+  // duas homes) nasce depois, e o teste dela aperta este número para 3.
+  const usos = [...html.matchAll(/carregarVendidoXPago\(/g)];
+  assert.ok(usos.length >= 2,
+    'o carregador tem que existir e ser chamado pela aba — achei ' + usos.length);
+  assert.ok(!/VendasAguardando\.cruzar\(/.test(html.replace(/async function carregarVendidoXPago\([\s\S]*?\n    \}/, '')),
+    'ninguém pode chamar cruzar() fora do carregador');
+  ok('existe um carregador único e ninguém cruza por fora');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
