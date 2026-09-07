@@ -631,4 +631,27 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   ok('com o id do staging o upload encontra as linhas da unidade');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// A sigla da unidade muda de lugar dentro do campo Empresa
+// ════════════════════════════════════════════════════════════════════
+// No export de agosto/2026 vinha "CROSSTAINER UNID. CAMPECHE (CP)"; no de
+// setembro veio "(CP) CROSSTAINER UNID. CAMPECHE " — sigla na frente e espaço
+// no fim. O formato da Pacto anda mudando sozinho, e quem lê por posição fixa
+// perde tudo em silêncio: sem sigla, a linha cai num balde sem unidade e nunca
+// chega a unidade nenhuma — o upload diz "não tem linhas desta unidade".
+{
+  const FORMATOS = [
+    'CROSSTAINER UNID. CAMPECHE (CP)',
+    '(CP) CROSSTAINER UNID. CAMPECHE ',
+    ' (cp)  crosstainer unid. campeche',
+  ];
+  FORMATOS.forEach(emp => {
+    const r = traduz([linha({ ...ANUAL_LOCAL, empresa: emp })]);
+    assert.strictEqual((r.porUnidade.CP || []).length, 1, 'não achou a unidade em: ' + JSON.stringify(emp));
+  });
+  const pp = traduz([linha({ ...ANUAL_LOCAL, empresa: '(PP) CROSSTAINER UNID. PEQ PRÍNCIPE ' })]);
+  assert.strictEqual((pp.porUnidade.PP || []).length, 1, 'sigla do Príncipe na frente');
+  ok('a sigla da unidade é achada com ela no fim, na frente ou em minúscula');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
