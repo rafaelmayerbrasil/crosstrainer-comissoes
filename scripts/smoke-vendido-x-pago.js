@@ -472,4 +472,75 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('a tela avisa que tirou o registro de teste, e só para a gestão');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 17. Rótulo de tela grudado no nome do cliente
+// ════════════════════════════════════════════════════════════════════
+// Em produção, a MARIANA MINGHELLI BECKER está cadastrada na Pacto como
+// `MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE` — um rótulo de
+// interface vazou para dentro do campo do nome (e o "VE" ainda está cortado
+// pelo limite do campo). É o ÚNICO caso assim em toda a base.
+//
+// 💰 Ela NÃO é registro de teste: é uma renovação ANUAL de R$ 2.598,57
+// vendida pela Erica em 07/08/2026 e até hoje sem pagamento. Ela TEM que
+// continuar no arrasto — o que se limpa é o nome, não a venda.
+{
+  const SUJO = 'MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE';
+
+  assert.strictEqual(VA.limparNome(SUJO), 'MARIANA MINGHELLI BECKER');
+  assert.strictEqual(VA.limparNome('MARIANA MINGHELLI BECKER'), 'MARIANA MINGHELLI BECKER',
+    'nome limpo não pode ser mexido');
+
+  // ⚠️ O corte é ancorado no rótulo, NUNCA no espaço duplo: um espaço a mais
+  // digitado por engano apagaria o sobrenome de alguém, calado.
+  assert.strictEqual(VA.limparNome('ANA  PAULA SOUZA'), 'ANA PAULA SOUZA',
+    'espaço duplo só colapsa, jamais corta');
+  assert.strictEqual(VA.limparNome('MARIA GERAL DA SILVA'), 'MARIA GERAL DA SILVA',
+    '"GERAL" sozinho é palavra de nome, não rótulo');
+  assert.strictEqual(VA.limparNome('CADASTRO DE OLIVEIRA'), 'CADASTRO DE OLIVEIRA',
+    'só o rótulo INTEIRO corta, e nada corta o começo do nome');
+
+  // nunca devolve vazio — sem nome nenhum a tela não tem o que mostrar
+  assert.strictEqual(VA.limparNome('VISÃO GERAL CADASTRO'), 'VISÃO GERAL CADASTRO',
+    'se sobrar vazio, devolve o original: melhor feio que em branco');
+  assert.strictEqual(VA.limparNome(''), '');
+  assert.strictEqual(VA.limparNome(null), '');
+
+  ok('rótulo de tela sai do nome, e nome de gente fica intacto');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 18. O nome limpo vale na tela E no cruzamento por nome
+// ════════════════════════════════════════════════════════════════════
+// O grupo "conferir" existe porque a renovação troca de número de contrato e o
+// dinheiro continua caindo no antigo — e ele casa por NOME. O caso da Mariana é
+// justamente uma Renovação: com o nome sujo de um lado e limpo do outro, o
+// sistema diria "não pagou" no mês em que ela pagar. São R$ 2.598,57.
+{
+  const SUJO = 'MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE';
+  const vendas = [venda('C4588', SUJO, ['ERICA FAUSTINO'], { valorContrato: 2598.57 })];
+
+  // (a) sem pagamento nenhum: continua aguardando, com o nome limpo na tela
+  const so = VA.cruzar(vendas, [], []);
+  assert.strictEqual(so.aguardando.length, 1, 'a venda dela NÃO pode sumir — é dinheiro a receber');
+  assert.strictEqual(so.aguardando[0].cliente, 'MARIANA MINGHELLI BECKER');
+  assert.strictEqual(so.aguardando[0].clienteOriginal, SUJO,
+    'o nome como está na Pacto fica guardado — nada é reescrito calado');
+
+  // (b) o dinheiro entrou em OUTRO contrato, e o recebimento traz o nome LIMPO
+  const conf = VA.cruzar(vendas, [], ['MARIANA MINGHELLI BECKER']);
+  assert.strictEqual(conf.conferir.length, 1,
+    'nome sujo de um lado e limpo do outro tinham que casar mesmo assim');
+  assert.strictEqual(conf.aguardando.length, 0);
+
+  // (c) e o contrário: o recebimento é que vem sujo
+  const conf2 = VA.cruzar([venda('C4588', 'MARIANA MINGHELLI BECKER', ['ERICA FAUSTINO'])], [], [SUJO]);
+  assert.strictEqual(conf2.conferir.length, 1, 'o lado sujo pode ser qualquer um dos dois');
+
+  // (d) nome limpo continua não casando com pessoa diferente
+  const outra = VA.cruzar(vendas, [], ['MARIANA FIGUEIREDO DE SA']);
+  assert.strictEqual(outra.aguardando.length, 1, 'outra Mariana não é ela');
+
+  ok('o nome limpo vale nos dois lados do cruzamento, e a venda não some');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

@@ -43,6 +43,17 @@
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ');
 
+  // Rótulos de interface que vazaram para dentro do campo do nome, na Pacto.
+  //
+  // ⚠️ Lista curta de propósito, e só com o que foi VISTO no dado real. Cada
+  // entrada nova é risco de comer o sobrenome de alguém — e apagar meia venda
+  // em silêncio é pior que mostrar um nome feio. Antes de acrescentar, rodar
+  // uma varredura na base e conferir quem mais casaria.
+  //
+  // ⚠️ E o corte é ancorado no RÓTULO, nunca no espaço duplo: um espaço a mais
+  // digitado por engano cortaria "ANA  PAULA SOUZA" em "ANA".
+  const ROTULOS = ['VISAO GERAL'];
+
   return {
     /** Só o relatório de VENDAS entra por aqui — o de recebimentos é o outro caminho */
     ehRelatorioDeVendas(linhas) {
@@ -89,7 +100,10 @@
         const { vendedor, divididaCom } = PA.vendedorDe(l, true);
         (out[chave] = out[chave] || []).push({
           contrato,
-          cliente: PA.campo(l, 'nome'),
+          cliente: this.limparNome(PA.campo(l, 'nome')),
+          // Guardado só quando difere: é por ele que a gestão acha a pessoa na
+          // Pacto para arrumar o cadastro na origem.
+          clienteOriginal: PA.campo(l, 'nome'),
           vendedores: [vendedor, ...(divididaCom || [])].filter(Boolean),
           data: PA.campo(l, 'lancamento'),
           inicio: PA.campo(l, 'inicio'),
@@ -103,6 +117,40 @@
         });
       });
       return out;
+    },
+
+    /**
+     * Tira do nome do cliente o rótulo de tela que a Pacto deixou grudar.
+     *
+     * Em produção existe um caso, e um só:
+     * `MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE` (o "VE" cortado pelo
+     * limite do campo). Ela é cliente de VERDADE — renovação anual de
+     * R$ 2.598,57 vendida em 07/08/2026 e até hoje sem pagamento. O que se
+     * limpa aqui é o NOME, nunca a venda: ela tem que continuar no arrasto.
+     *
+     * Serve a duas coisas: o nome sair certo na tela, e o cruzamento por nome
+     * voltar a funcionar. O grupo "conferir" casa cliente pagante por NOME —
+     * com o nome sujo de um lado e limpo do outro, uma renovação já paga em
+     * outro contrato apareceria como "não pagou".
+     *
+     * Nunca devolve vazio: se sobrasse nada, é melhor o nome feio que branco.
+     *
+     * @param {string} nome
+     * @returns {string} o nome sem o rótulo; o original, se não houver o que tirar
+     */
+    limparNome(nome) {
+      const cru = String(nome || '').replace(/\s+/g, ' ').trim();
+      if (!cru) return '';
+      const semAcento = norm(cru);
+      for (const rotulo of ROTULOS) {
+        const i = semAcento.indexOf(rotulo);
+        // Só corta se o rótulo começar em palavra, e se sobrar nome antes dele.
+        if (i > 0 && /\s/.test(semAcento[i - 1])) {
+          const limpo = cru.slice(0, i).trim();
+          if (limpo) return limpo;
+        }
+      }
+      return cru;
     },
 
     /**
@@ -148,20 +196,29 @@
      */
     cruzar(vendas, pagos, clientesPagantes) {
       const jaPagou = PA.contratosDe(pagos);
-      const pagante = new Set((clientesPagantes || []).map(norm));
+      // Os dois lados passam pelo mesmo limpador: o nome pode vir sujo do lado
+      // da venda, do lado do recebimento, ou dos dois.
+      const limpo = n => norm(this.limparNome(n));
+      const pagante = new Set((clientesPagantes || []).map(limpo));
       const aguardando = [], conferir = [], pagas = [], testes = [];
 
       (vendas || []).forEach(v => {
         // Antes de tudo: teste não é venda em estado nenhum — nem pago, nem
         // aguardando, nem "conferir".
         if (this.ehTeste(v)) { testes.push(v); return; }
-        const num = String(v.contrato).replace(/^C/i, '');
-        if (jaPagou.has(num)) { pagas.push(v); return; }
-        if (pagante.has(norm(v.cliente))) {
-          conferir.push({ ...v, motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número' });
+
+        // O nome chega aqui limpo mesmo quando foi GRAVADO sujo: os períodos
+        // que já estão no banco vieram de antes desta limpeza.
+        const nome = this.limparNome(v.cliente);
+        const vl = nome === v.cliente ? v : { ...v, cliente: nome, clienteOriginal: v.cliente };
+
+        const num = String(vl.contrato).replace(/^C/i, '');
+        if (jaPagou.has(num)) { pagas.push(vl); return; }
+        if (pagante.has(norm(nome))) {
+          conferir.push({ ...vl, motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número' });
           return;
         }
-        aguardando.push(v);
+        aguardando.push(vl);
       });
 
       const porVendedora = {};
