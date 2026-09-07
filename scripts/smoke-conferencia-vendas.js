@@ -50,4 +50,80 @@ const venda = (contrato, cliente, extra) => ({
   ok('`pagoEm` traz o mês e o dia do pagamento, e null quando não dá para saber');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 2. O código pago em dois meses: vence o menor mês, não o último lido
+// ════════════════════════════════════════════════════════════════════
+// `codigosPagos` é a memória de "cada contrato paga uma vez só" do regime de
+// caixa. Reprocessar um mês ANTERIOR pode reintroduzir um código que já
+// estava num mês posterior — já aconteceu (7 códigos de cobrança automática
+// repostos em julho por script). Quem monta esta lista percorre uma consulta
+// do Firestore SEM `orderBy`, então a ordem não é garantida cronológica —
+// por isso o teste exige o MESMO resultado nas duas ordens.
+{
+  const vendas = [venda('C4566', 'JAIR')];
+
+  const setembroPrimeiro = VA.cruzar(vendas, [
+    { codigo: 'C4566', mes: '2026-09', data: '05/09/2026' },
+    { codigo: 'C4566', mes: '2026-08', data: '20/08/2026' },
+  ], []);
+  const agostoPrimeiro = VA.cruzar(vendas, [
+    { codigo: 'C4566', mes: '2026-08', data: '20/08/2026' },
+    { codigo: 'C4566', mes: '2026-09', data: '05/09/2026' },
+  ], []);
+
+  assert.deepStrictEqual(setembroPrimeiro.pagas[0].pagoEm, { mes: '2026-08', data: '20/08/2026' },
+    'vence o menor mês, mesmo quando setembro chega primeiro no array');
+  assert.deepStrictEqual(agostoPrimeiro.pagas[0].pagoEm, { mes: '2026-08', data: '20/08/2026' });
+  assert.deepStrictEqual(setembroPrimeiro.pagas[0].pagoEm, agostoPrimeiro.pagas[0].pagoEm,
+    'a ordem do array não pode mudar o resultado');
+
+  ok('código pago em dois meses: vence o menor mês, nas duas ordens');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 3. `pagos` nulo e objeto sem `codigo` não quebram `cruzar`
+// ════════════════════════════════════════════════════════════════════
+{
+  const vendas = [venda('C4566', 'JAIR')];
+
+  assert.doesNotThrow(() => VA.cruzar(vendas, null, []), '`pagos` nulo não pode quebrar');
+  const semPagos = VA.cruzar(vendas, null, []);
+  assert.strictEqual(semPagos.aguardando.length, 1);
+
+  assert.doesNotThrow(() => VA.cruzar(vendas, [{ mes: '2026-09', data: '05/09/2026' }], []),
+    'objeto sem `codigo` não pode quebrar');
+  const semCodigo = VA.cruzar(vendas, [{ mes: '2026-09', data: '05/09/2026' }], []);
+  assert.strictEqual(semCodigo.pagas.length, 0, 'sem código, nenhuma venda casa — não é "pago"');
+  assert.strictEqual(semCodigo.aguardando.length, 1);
+
+  ok('`pagos` nulo e objeto sem `codigo` não quebram `cruzar`');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 4. Mês ausente de um dos lados não apaga um mês conhecido
+// ════════════════════════════════════════════════════════════════════
+// Sob a mesma regra do caso 2 (menor mês vence), um `mes` ausente é "não sei",
+// nunca "vence tudo". Testado nas duas ordens de chegada.
+{
+  const vendas = [venda('C4566', 'JAIR'), venda('C4647', 'RAQUEL')];
+
+  // conhecido primeiro, depois um registro do mesmo código sem mês
+  const conhecidoDepoisNulo = VA.cruzar(vendas, [
+    { codigo: 'C4566', mes: '2026-08', data: '20/08/2026' },
+    { codigo: 'C4566' },
+  ], []);
+  assert.deepStrictEqual(conhecidoDepoisNulo.pagas[0].pagoEm, { mes: '2026-08', data: '20/08/2026' },
+    'o registro sem mês não pode apagar o mês já conhecido');
+
+  // sem mês primeiro, depois o mesmo código com mês conhecido
+  const nuloDepoisConhecido = VA.cruzar(vendas, [
+    { codigo: 'C4647' },
+    { codigo: 'C4647', mes: '2026-08', data: '20/08/2026' },
+  ], []);
+  assert.deepStrictEqual(nuloDepoisConhecido.pagas[0].pagoEm, { mes: '2026-08', data: '20/08/2026' },
+    'o mês conhecido que chega depois ainda deve valer — não fica preso no null');
+
+  ok('mês ausente de um dos lados nunca apaga um mês conhecido, em nenhuma ordem');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

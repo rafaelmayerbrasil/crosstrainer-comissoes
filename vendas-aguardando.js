@@ -185,14 +185,18 @@
      * a pergunta que só a gestão responde, mostrada em vez de escondida.
      *
      * @param {Array} vendas          saída de `extrair`, de um mês/unidade
-     * @param {Array<string>} pagos   códigos já comissionados, de QUALQUER mês
+     * @param {Array<string|{codigo,mes,data}>} pagos  códigos já comissionados,
+     *        de QUALQUER mês — lista achatada de códigos (de sempre) ou objetos
+     *        `{ codigo, mes, data }` quando quem chama sabe de qual mês veio cada um
      * @param {Array<string>} clientesPagantes  clientes com recebimento DE CONTRATO
      *        no período (bar e loja não contam — pagar uma água não paga o plano)
      * Registro de teste sai antes dos três grupos e volta em `testes`, para a
      * tela poder DIZER que tirou. Sumir calado é como a gestão fica procurando
      * a diferença entre o número da tela e o que ela contou na mão.
      *
-     * @returns {{aguardando, conferir, pagas, porVendedora, testes}}
+     * @returns {{aguardando, conferir, pagas, porVendedora, testes}} as vendas em
+     *        `pagas` trazem `pagoEm: {mes, data} | null` — null quando `pagos` só
+     *        informou o código, sem dizer de qual mês veio o pagamento
      */
     cruzar(vendas, pagos, clientesPagantes) {
       // `pagos` aceita duas formas, de propósito:
@@ -204,8 +208,28 @@
       const ondePagou = {};
       const codigos = (pagos || []).map(p => {
         if (p && typeof p === 'object') {
-          const num = String(p.codigo).replace(/^C/i, '');
-          ondePagou[num] = { mes: p.mes || null, data: p.data || null };
+          if (p.codigo) {
+            // ⚠️ Mesma exigência do `contratosDe` logo abaixo: sem o prefixo
+            // `C` esta chave nunca bate com `jaPagou` e a entrada fica morta.
+            // O formato não é livre — é o que separa "número de contrato" de
+            // qualquer outro número solto.
+            const num = String(p.codigo).replace(/^C/i, '');
+            // Vence o PRIMEIRO mês, não o último a ser lido. Sob regime de
+            // caixa o contrato paga uma vez só, no primeiro pagamento — é
+            // esse mês que levou a comissão na folha. E a ordem em que os
+            // meses chegam aqui não é garantida: quem monta esta lista
+            // percorre uma consulta do Firestore sem ordenação. Reprocessar
+            // um mês ANTERIOR pode reintroduzir um código que já estava num
+            // mês posterior — já aconteceu (7 códigos de cobrança automática
+            // repostos em julho por script) — e mostrar o mês posterior
+            // diria à gestão que o dinheiro entrou depois do que entrou.
+            // Mês desconhecido (null) nunca vence um mês já conhecido, dos
+            // dois lados: um `p.mes` ausente não sobrescreve nada, e um
+            // `ondePagou[num].mes` ausente perde para qualquer mês real.
+            if (!ondePagou[num] || (p.mes && (!ondePagou[num].mes || p.mes < ondePagou[num].mes))) {
+              ondePagou[num] = { mes: p.mes || null, data: p.data || null };
+            }
+          }
           return p.codigo;
         }
         return p;
