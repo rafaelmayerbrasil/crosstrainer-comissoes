@@ -35,11 +35,19 @@ const ARQ = path.join(__dirname, '..', 'relatorios pacto',
   const wb = readXlsx(ARQ);
   const aba = wb.sheet(wb.sheetNames[0]);
   const linhas = Object.keys(aba).map(Number).sort((a,b)=>a-b).map(k => aba[k]);
-  const r = PA.traduzir(linhas, { mes: '2026-08' });
-
   for (const [sigla, pid] of [['CP','cp_2026-08'], ['PP','pp_2026-08']]) {
+    // Mesmos insumos que a tela usou: codigosPagos dos meses ANTERIORES e a
+    // config efetiva (defaultConfig < units/{id}.config < metasMensais).
+    const unitId = pid.split('_')[0];
+    const pSnap = await db.collection('periodos').where('unitId','==',unitId).get();
+    const codigosPagos = [];
+    pSnap.forEach(d => { const m = String(d.id).match(/(\d{4}-\d{2})$/);
+      if (m && m[1] < '2026-08') (d.data().codigosPagos||[]).forEach(c => codigosPagos.push(c)); });
+    const unitCfg = ((await db.collection('units').doc(unitId).get()).data()||{}).config || {};
+    const metas = ((await db.collection('periodos').doc(pid).get()).data()||{}).metasMensais || {};
+    const r = PA.traduzir(linhas, { mes: '2026-08', codigosPagos });
     const vendas = (r.porUnidade[sigla]||[]).map(v => { const o={}; PA.CABECALHO_SAIDA.forEach(h=>o[h]=v[h]); return o; });
-    const meu = CE.calculate(vendas, CE.defaultConfig, {});
+    const meu = CE.calculate(vendas, { ...CE.defaultConfig, ...unitCfg, ...metas }, {});
     const snap = await db.collection('periodos').doc(pid).collection('itens').get();
     const app = []; snap.forEach(s => { const d = s.data(); if ((d.type||'processed')==='processed') app.push(d); });
 

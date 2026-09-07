@@ -79,18 +79,36 @@ ficaram a 2 e a 1 ativação do Gold.
    o cache-buster. Sem ele o navegador servia o JS antigo e o upload dava a conta errada em silêncio.
 5. **`homologar-recorrencia-agosto.js --project production` → 11/11**, lendo config e metas do banco.
 
-### 🔴 FALTA UM PASSO, E É NA TELA
+### ✅ ARQUIVO RE-SUBIDO PELO RAFAEL E CONFERIDO (07/09)
 
-**Re-subir o arquivo `faturamento-recebido` de agosto pela tela de Upload, uma vez em cada unidade.**
-Nada muda na tela até isso acontecer: os 24 itens estão gravados em `periodos/{id}/itens` com
-`type: 'excluded'` e `origem: 'Renovação automática'`, e o `recalculatePeriod` só mexe em quem é
-`processed` — quem os substitui é o dedup do upload ("já existe e está inativo → substituir pelo
-novo"). **Não vale a pena scriptar:** o `confirmUpload` tem dedup por `stableId`, `softId`,
-preservação de splits e deltas de histórico; refazer isso num script criaria a segunda cópia da
-mesma conta, que foi exatamente a raiz do defeito da folha na sessão 64.
+O Rafael subiu o `faturamento-recebido` de agosto nas duas unidades pela tela. Conferido contra o
+motor com `conferir-upload-gravado.js` (que passou a usar os MESMOS insumos da tela: `codigosPagos`
+dos meses anteriores + `defaultConfig < units/{id}.config < metasMensais`).
 
-Depois de subir, conferir com `homologar-recorrencia-agosto.js --project production` e
-`conferir-upload-gravado.js`. O esperado: **CP R$ 2.506,19 · PP R$ 1.612,47 · folha R$ 4.118,66**.
+**O que está gravado em produção agora:**
+
+| | Bárbara | Erica | Francini | Kali | **Folha** |
+|---|---:|---:|---:|---:|---:|
+| Campeche — 63 ativações | — | 1.673,94 | 829,17 | — | 2.503,11 |
+| Príncipe — 36 ativações | 693,93 | 56,98 | 73,69 | 784,02 | 1.608,62 |
+| **total** | **693,93** | **1.730,92** | **902,86** | **784,02** | **R$ 4.111,73** |
+
+**Bateu com a previsão a menos de R$ 6,93**, e a diferença é conhecida e explicada linha a linha:
+são **17 vendas de bar** (águas, Monster, Soft Bar) do mesmo cliente genérico, no mesmo dia, pelo
+mesmo valor, que colidem no `generateStableId` e viram uma só — R$ 6,30 de P1 mais R$ 0,63 de P3
+(o caixa menor encolhe os 0,5%). **Nenhuma linha de contrato divergiu.** Ver
+[[venda-repetida-colapsa-no-id]] — segue **não corrigido** de propósito, mexe na identidade de todos
+os itens.
+
+**Conferido item a item:** os 7 do robô estão fora (CP 2, PP 5) e **nenhum outro** foi excluído; as
+12 vendas que estavam sendo apagadas voltaram como `processed`; a Bárbara recebe P3 (R$ 293,11
+previsto → R$ 294,74 gravado), o que só acontece por causa do corte individual 7.
+
+⚠️ **Cosmético:** os 7 documentos antigos dessas linhas continuam em `itens` com
+`excludeReason: 'Renovação automática'` — o upload novo não os produz, e o dedup só apaga item
+`processed` removido. Não entram em conta nenhuma (o `recalculatePeriod` só toca em `processed`, e o
+`vendorSummary` veio do motor), mas o motivo na tela é de uma regra que não existe mais. O motivo
+certo hoje seria "contrato já pagou antes".
 
 ### ✅ O corte individual do P3 virou campo da meta do MÊS (07/09, autorizado)
 
