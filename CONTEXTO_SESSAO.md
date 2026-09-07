@@ -95,8 +95,10 @@ número de versão, não data — o navegador só compara. **A trava dos 8 dígi
    primeira.
 2. ~~O arrasto vai mostrar `TESTE ENDEREÇO TECNOFIT`~~ — **✅ RESOLVIDO no mesmo dia**, ver o
    bloco abaixo.
-3. **`MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE`** entra no arrasto do Príncipe com o nome
-   truncado assim, vindo da Pacto.
+3. ~~`MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE` com o nome truncado~~ — **✅ RESOLVIDO
+   no mesmo dia**, ver o bloco abaixo. 🔴 **Continua com a gestão:** arrumar o cadastro dela **na
+   Pacto**. A limpeza protege a tela e o cruzamento, mas o nome errado ainda sai em recibo e em
+   relatório tirado direto de lá.
 4. **A tela de metas do mês continua não abrindo sem período aberto** (`if (!currentPeriodId) return;`),
    e o período só nasce de um upload — segue impossível definir a meta antes da primeira venda
    entrar. Foi onde o Rodrigo esbarrou em setembro. **Conserto pendente**, herdado da sessão 65.
@@ -134,6 +136,44 @@ Smoke foi de 13 para **16 casos**; `homologar-vendido-x-pago.js --project produc
 agora com conferência que **falha se sobrar registro de teste em qualquer grupo de qualquer
 período**. ⚠️ Terceiro deploy do dia: buster em **`?v=20260909`** — ver
 [[dois-deploys-no-mesmo-dia]].
+
+### ✅ Rótulo de tela grudado no nome do cliente (07/09, `3733831`, no ar em produção)
+
+O Rafael perguntou o que eu tinha querido dizer com o nome truncado da Mariana — **e a pergunta
+achou uma exposição de R$ 2.598,57**. Eu tinha listado esse nome ao lado do `TESTE`, e isso fez
+parecer que era o mesmo tipo de problema. **É o oposto.**
+
+**Ela é cliente de VERDADE:** contrato C4588, **Renovação ANUAL de R$ 2.598,57**, HIIT/MAROMBINHA
+3X no Príncipe, vendida pela **Erica** em 07/08/2026 (início 19/08) e **até hoje sem pagamento**. É
+o maior contrato da lista de agosto do Príncipe. **Ela TEM que continuar no arrasto** — tirá-la
+seria esconder dinheiro que a academia tem a receber. O que se limpou foi o **nome**.
+
+Na Pacto ela está cadastrada como `MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE`: um rótulo
+de interface vazou para dentro do campo do nome, e o "VE" ainda está cortado pelo limite do campo.
+**É o único caso assim nos 158 nomes da base.**
+
+**🚨 A consequência que eu não tinha visto, e que é o que justifica o conserto:** o grupo
+"conferir" — *"o cliente pagou, mas em outro contrato"* — casa **por NOME**. E o caso dela é
+justamente uma **Renovação**, que é exatamente quando a Pacto cria contrato novo e deixa a cobrança
+caindo no antigo (o caso da Cátia). Com o nome sujo de um lado e limpo do outro, **no mês em que ela
+pagar o sistema diria "não pagou"**. Hoje ainda não mordeu (não há recebimento no nome dela em
+agosto, então "aguardando" está certo), mas mordia no mês do pagamento.
+
+**`VendasAguardando.limparNome()`** corta o rótulo, e `cruzar` passa **os dois lados** por ele —
+tanto faz qual vem sujo. Vale para o que **já está gravado**, porque a limpeza é na leitura: não
+depende de re-subir agosto. O nome da Pacto fica guardado em `clienteOriginal`, e é por ele que a
+gestão acha a pessoa lá para arrumar na origem. **Nada é reescrito calado.**
+
+**⚠️ O corte é ancorado no RÓTULO, nunca no espaço duplo.** Foi a primeira ideia e é uma armadilha:
+`ANA  PAULA SOUZA` com um espaço a mais digitado por engano viraria `ANA`, **apagando o sobrenome
+de alguém em silêncio**. Tem caso de teste travando isso e travando que `MARIA GERAL DA SILVA` não
+seja tocada. A lista de rótulos tem **uma entrada só** (`VISAO GERAL`), e só o que foi visto no dado
+real — cada entrada nova é risco de comer o sobrenome de alguém. **Antes de acrescentar, varrer a
+base e conferir quem mais casaria.**
+
+**Conferido contra a produção:** 158 nomes varridos, **exatamente 1 alterado**; arrasto do Príncipe
+intacto em 16 vendas; homologação **14/14**. Smoke do painel foi de 16 para **18 casos**.
+⚠️ Quarto deploy do dia: buster em **`?v=20260910`**.
 
 ### Arrasto real no dia da publicação
 
