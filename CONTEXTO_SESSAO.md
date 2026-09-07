@@ -104,11 +104,13 @@ os itens.
 12 vendas que estavam sendo apagadas voltaram como `processed`; a Bárbara recebe P3 (R$ 293,11
 previsto → R$ 294,74 gravado), o que só acontece por causa do corte individual 7.
 
-⚠️ **Cosmético:** os 7 documentos antigos dessas linhas continuam em `itens` com
-`excludeReason: 'Renovação automática'` — o upload novo não os produz, e o dedup só apaga item
-`processed` removido. Não entram em conta nenhuma (o `recalculatePeriod` só toca em `processed`, e o
-`vendorSummary` veio do motor), mas o motivo na tela é de uma regra que não existe mais. O motivo
-certo hoje seria "contrato já pagou antes".
+**Os 7 documentos que sobraram foram apagados** (`scripts/limpar-excluidos-renovacao-automatica.js
+--project production --apply`). Eram os antigos das cobranças de robô, ainda gravados com
+`excludeReason: 'Renovação automática'` — o upload novo não os produz e o dedup só apaga item que
+ERA ativo, então ficaram para trás com o motivo de uma regra que não existe mais. **A folha não
+mudou:** R$ 4.111,73 antes e depois, 63 e 36 ativações. Documento inteiro salvo em `backups/`
+(23 campos por item) e registrado no `audit_log`. Não voltam num re-upload: o tradutor derruba
+essas linhas antes de virarem venda.
 
 ### ✅ O corte individual do P3 virou campo da meta do MÊS (07/09, autorizado)
 
