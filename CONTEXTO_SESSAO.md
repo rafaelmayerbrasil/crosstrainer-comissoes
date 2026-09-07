@@ -93,14 +93,47 @@ número de versão, não data — o navegador só compara. **A trava dos 8 dígi
 1. ⚠️ **Ninguém clicou de verdade.** Eu chamei as funções que os botões chamam e renderizei o bloco
    com dado real, mas não naveguei logado pela home nem pela aba "A receber". A gestão será a
    primeira.
-2. **O arrasto vai mostrar `TESTE ENDEREÇO TECNOFIT`** como venda a cobrar no Campeche — registro
-   de teste virando tarefa de gestão. Casa com o **filtro de "TESTE"** que ficou pendente da
-   resposta 6 do Rodrigo ("permitir com registro"). **Não implementado.**
+2. ~~O arrasto vai mostrar `TESTE ENDEREÇO TECNOFIT`~~ — **✅ RESOLVIDO no mesmo dia**, ver o
+   bloco abaixo.
 3. **`MARIANA MINGHELLI BECKER  VISÃO GERAL CADASTRO VE`** entra no arrasto do Príncipe com o nome
    truncado assim, vindo da Pacto.
 4. **A tela de metas do mês continua não abrindo sem período aberto** (`if (!currentPeriodId) return;`),
    e o período só nasce de um upload — segue impossível definir a meta antes da primeira venda
    entrar. Foi onde o Rodrigo esbarrou em setembro. **Conserto pendente**, herdado da sessão 65.
+
+### ✅ Registro de teste saiu da conta (07/09, `a72a24a`, no ar em produção)
+
+Pedido do Rafael: *"tira o TESTE ENDEREÇO TECNOFIT do arrasto"*. Feito **na origem, dentro de
+`cruzar`**, e não só no arrasto — porque esse registro **também era uma das 4 "aguardando" de
+agosto**. Tirando só do arrasto, a gestão abriria "A receber" de agosto e o veria na lista de
+vendas a cobrar, mas ele sumiria do arrasto de setembro: a mesma família de telas se contradizendo.
+
+**⚠️ O casamento é por PALAVRA INTEIRA.** Olhando o dado antes de escrever, apareceu uma cliente de
+verdade: **`ESTEFANE COUTINHO CAMPOS`**. Ela não casa com `TESTE`, mas foi exatamente um casamento
+por pedaço que fez o BIANUAL ser lido como ANUAL em produção (`6f0a15b`) — e aqui um falso positivo
+**apaga a venda de alguém**. Há caso de teste travando a Estefane.
+
+**A tela DIZ que tirou** ("1 registro de teste fora da conta"), e só para a gestão — a vendedora não
+precisa saber do registro de teste de quem administra. Sumir calado é como a gestão fica procurando
+a diferença entre o número da tela e o que contou na mão.
+
+**Efeito medido em produção:**
+
+| | antes | depois |
+|---|---:|---:|
+| arrasto Campeche/setembro | 6 | **5** |
+| Campeche/agosto — vendidas | 74 | **73** |
+| Campeche/agosto — aguardando | 4 | **3** |
+| Rodrigo — vendidas em agosto | 7 | **6** |
+
+Príncipe não mudou. **Nenhum efeito em dinheiro, provado e não suposto:** `commission.js` não
+conhece `vendasDoMes` (0 ocorrências no arquivo), o registro nunca gerou item de comissão, e o
+Rodrigo é não comissionado de qualquer forma.
+
+Smoke foi de 13 para **16 casos**; `homologar-vendido-x-pago.js --project production` → **14/14**,
+agora com conferência que **falha se sobrar registro de teste em qualquer grupo de qualquer
+período**. ⚠️ Terceiro deploy do dia: buster em **`?v=20260909`** — ver
+[[dois-deploys-no-mesmo-dia]].
 
 ### Arrasto real no dia da publicação
 
