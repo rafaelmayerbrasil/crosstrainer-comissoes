@@ -172,6 +172,56 @@
     },
 
     /**
+     * O que o sistema ACHA sobre uma venda "a conferir" — e por quê.
+     *
+     * ⚠️ Opinião NUNCA decide. Foi a pergunta do Rafael em 07/09/2026 ("o
+     * sistema não pode marcar sozinho?") e a resposta veio dos dois casos
+     * reais de produção: a Amandha e a Cátia pagaram R$ 239 e R$ 199 ANTES de
+     * a venda existir, contra renovações anuais de R$ 2.388 que só começavam
+     * em setembro. Marcar "pago" sozinho faria a gestão parar de acompanhar
+     * R$ 4.776.
+     *
+     * @param {Object} venda      item de `cruzar().conferir`
+     * @param {Object} pagamento  `pagamentoQueBateu`, ou null
+     * @returns {{suspeita: string, porque: string}}
+     */
+    opiniao(venda, pagamento) {
+      const naoSei = { suspeita: 'nao_da_para_dizer',
+        porque: 'Não dá para dizer pelo arquivo — vale conferir na Pacto.' };
+      if (!venda || !pagamento) return naoSei;
+
+      // dd/mm/aaaa → aaaammdd, para comparar como texto sem fuso nenhum
+      const ord = d => {
+        const m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? m[3] + m[2] + m[1] : null;
+      };
+      const pago = ord(pagamento.data), fechada = ord(venda.data);
+
+      // Pagamento anterior à venda ganha de tudo: dinheiro que entrou antes de
+      // a venda existir não pode ser dela, por mais que o valor coincida.
+      if (pago && fechada && pago < fechada) {
+        return {
+          suspeita: 'provavelmente_nao_paga',
+          porque: 'O pagamento que bateu o nome foi de R$ ' + Number(pagamento.valor || 0).toFixed(2)
+            + ' em ' + pagamento.data + ' — antes desta venda existir, fechada em ' + venda.data
+            + '. Provavelmente é do plano anterior, e esta venda ainda não foi paga.',
+        };
+      }
+
+      const valor = Number(pagamento.valor || 0);
+      const contrato = Number(venda.valorContrato || 0);
+      if (valor > 0 && contrato > 0 && Math.abs(valor - contrato) < 0.01) {
+        return {
+          suspeita: 'provavelmente_paga',
+          porque: 'O valor pago (R$ ' + valor.toFixed(2) + ', no contrato ' + pagamento.codigo
+            + ') bate com o valor deste contrato. Provavelmente é esta venda, com outro número.',
+        };
+      }
+
+      return naoSei;
+    },
+
+    /**
      * Separa o que ainda espera pagamento do que já recebeu.
      *
      * ⚠️ SÓ O NÚMERO DO CONTRATO NÃO BASTA — medido no dado real de agosto/2026.

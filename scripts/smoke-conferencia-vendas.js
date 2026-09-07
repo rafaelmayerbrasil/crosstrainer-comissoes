@@ -206,4 +206,51 @@ const venda = (contrato, cliente, extra) => ({
   ok('cliente sem nome utilizável (ausente ou só espaços) nunca vira prova de ninguém');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 7. A opinião do sistema, com os dois casos reais de produção
+// ════════════════════════════════════════════════════════════════════
+// A Amandha e a Cátia foram medidas na produção em 07/09/2026: as duas
+// pagaram ANTES de a venda existir, R$ 239 e R$ 199 contra contratos anuais
+// de R$ 2.388. Foi por isso que o sistema NÃO decide sozinho — se decidisse,
+// a gestão pararia de acompanhar R$ 4.776.
+{
+  const catia = venda('C7130', 'CÁTIA TEREZINHA PEREIRA TORRES',
+    { valorContrato: 2388, data: '27/08/2026', inicio: '02/09/2026' });
+
+  const antes = VA.opiniao(catia, { codigo: 'C6867', valor: 199, data: '12/08/2026' });
+  assert.strictEqual(antes.suspeita, 'provavelmente_nao_paga');
+  assert.ok(/antes/i.test(antes.porque), 'o motivo tem que dizer que o pagamento é anterior: ' + antes.porque);
+
+  const amandha = venda('C7070', 'AMANDHA MARCELA PEREIRA GERN TORRES',
+    { valorContrato: 2388, data: '06/08/2026', inicio: '02/09/2026' });
+  assert.strictEqual(VA.opiniao(amandha, { codigo: 'C5044', valor: 239, data: '04/08/2026' }).suspeita,
+    'provavelmente_nao_paga');
+
+  // valor bate com o contrato: aí sim é provável que seja esta venda
+  const bate = VA.opiniao(venda('C7130', 'X', { valorContrato: 2388, data: '01/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '15/08/2026' });
+  assert.strictEqual(bate.suspeita, 'provavelmente_paga');
+  assert.ok(/valor/i.test(bate.porque), bate.porque);
+
+  // ⚠️ Pagamento anterior GANHA do valor que bate: um pagamento feito antes de
+  // a venda existir não pode ser dela, por mais que o número coincida.
+  const conflito = VA.opiniao(venda('C7130', 'X', { valorContrato: 2388, data: '27/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '12/08/2026' });
+  assert.strictEqual(conflito.suspeita, 'provavelmente_nao_paga');
+
+  // nenhum sinal: a opinião admite que não sabe
+  const nada = VA.opiniao(venda('C7130', 'X', { valorContrato: 2388, data: '01/08/2026' }),
+    { codigo: 'C6867', valor: 700, data: '15/08/2026' });
+  assert.strictEqual(nada.suspeita, 'nao_da_para_dizer');
+
+  // sem pagamento nenhum não há o que opinar
+  assert.strictEqual(VA.opiniao(catia, null).suspeita, 'nao_da_para_dizer');
+
+  // data quebrada não pode explodir nem virar palpite
+  assert.strictEqual(VA.opiniao(venda('C1', 'X', { data: '' }),
+    { codigo: 'C2', valor: 10, data: 'xx' }).suspeita, 'nao_da_para_dizer');
+
+  ok('a opinião cobre os dois casos reais e admite quando não sabe');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
