@@ -2769,6 +2769,25 @@
           </div>
         </div>
 
+        <!-- Quem entra na divisão do P3 — é outra coisa das travas acima:
+             as travas encolhem o prêmio; esta linha decide quem come dele. -->
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--blue);font-weight:700;margin:18px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+          👥 Quem entra na divisão do P3
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;align-items:center">
+          <div class="form-group">
+            <label>Mín. por vendedora</label>
+            <input type="number" id="mm_minAtivIndiv" required step="1" min="0">
+            <div style="font-size:10px;color:var(--text3);margin-top:3px">Ativações dela no mês</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.5">
+            Quem ficar <strong>abaixo deste número não recebe P3</strong> — é corte seco, não é
+            proporcional. A venda dela continua contando para a unidade bater a meta, e o prêmio
+            <strong>não diminui</strong>: o que seria dela é redividido entre as que passaram.
+            Padrão da casa: <strong>10</strong>. Numa unidade menor, considere algo perto de 20% da meta.
+          </div>
+        </div>
+
         <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeMetasMesModal()">Cancelar</button>
           <button type="submit" class="btn">💾 Salvar Metas do Mês</button>
@@ -5398,6 +5417,9 @@
       document.getElementById('mm_minNovos').value = cfg.minNovos;
       document.getElementById('mm_minRenov').value = cfg.minRenov;
       document.getElementById('mm_minVoucher').value = cfg.minVoucher;
+      // Corte individual do P3. Até 07/09/2026 só existia na config da unidade,
+      // que vale para SEMPRE — então uma exceção de um mês virava regra fixa.
+      document.getElementById('mm_minAtivIndiv').value = cfg.minAtivacoesIndivP3;
       document.getElementById('metasMesModal').classList.add('open');
     }
 
@@ -5416,7 +5438,8 @@
         goldFixo:   parseFloat(document.getElementById('mm_goldFixo').value) || 0,
         minNovos:   parseInt(document.getElementById('mm_minNovos').value)   || 0,
         minRenov:   parseInt(document.getElementById('mm_minRenov').value)   || 0,
-        minVoucher: parseInt(document.getElementById('mm_minVoucher').value) || 0
+        minVoucher: parseInt(document.getElementById('mm_minVoucher').value) || 0,
+        minAtivacoesIndivP3: parseInt(document.getElementById('mm_minAtivIndiv').value) || 0
       };
 
       try {

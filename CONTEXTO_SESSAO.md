@@ -92,8 +92,26 @@ mesma conta, que foi exatamente a raiz do defeito da folha na sessão 64.
 Depois de subir, conferir com `homologar-recorrencia-agosto.js --project production` e
 `conferir-upload-gravado.js`. O esperado: **CP R$ 2.506,19 · PP R$ 1.612,47 · folha R$ 4.118,66**.
 
-⚠️ **Voltar `units/pp.config.minAtivacoesIndivP3` para 10 depois de fechar agosto** — é exceção do
-mês, e o campo vale para sempre. Ou levar o campo para a tela de metas do mês.
+### ✅ O corte individual do P3 virou campo da meta do MÊS (07/09, autorizado)
+
+`minAtivacoesIndivP3` — quantas ativações uma vendedora precisa ter para entrar na divisão do
+prêmio da unidade — só existia na **config da unidade, que vale para sempre**. Então a exceção de
+agosto que o Rodrigo aprovou (mínimo 7 no Príncipe) viraria regra permanente, calada.
+
+Agora ele é um campo da tela **Metas do Mês**, na seção nova **"👥 Quem entra na divisão do P3"**,
+com o texto explicando o que ninguém entendia: **é corte seco, não proporcional** · a venda de quem
+fica de fora **continua contando** para a unidade bater a meta · e **o prêmio não diminui**, o que
+seria dela é redividido entre as que passaram.
+
+Em produção: agosto gravado com **CP 10 · PP 7** em `metasMensais`, e
+`units/{cp,pp}.config.minAtivacoesIndivP3` **apagado** (backup em `backups/`) — quem manda agora é a
+meta do mês. O CP tinha 10, igual ao padrão, então nada muda para ele.
+
+`scripts/smoke-metas-do-mes.js` (7 casos) guarda os dois lados: **todo campo da tela é lido ao abrir,
+gravado ao salvar e existe no `commission.js`** — um typo gravaria no vazio sem dar erro —, e prova
+no motor que o mínimo decide QUEM divide, não o tamanho do prêmio.
+`homologar-recorrencia-agosto.js` agora **falha** se o corte voltar para a config da unidade, e
+confere o rateio: **Bárbara R$ 293,11 · Kali R$ 347,88**. Produção: **14/14**.
 
 ### 📋 Também nesta sessão
 

@@ -45,6 +45,9 @@ const ROBO = {
   PP: ['C4582', 'C4566', 'C4558', 'C4540', 'C4563'],
 };
 const FOLHA_ESPERADA = 4118.66;
+// O total do PP e o mesmo com corte 7 ou 10 — o que muda e QUEM recebe o P3.
+// Sem o corte 7 a Barbara fica em R$ 0,00 e os R$ 293,11 vao para a Kali.
+const P3_ESPERADO_PP = { 'BÁRBARA VIEIRA CARDOSO': 293.11, 'KALI DUTRA': 347.88 };
 
 admin.initializeApp({ credential: admin.credential.cert(require('./serviceAccount-' + PROJETO + '.json')) });
 const db = admin.firestore();
@@ -108,9 +111,15 @@ async function codigosPagosAnteriores(unitId, mesArquivo) {
     const pDoc = await db.collection('periodos').doc(periodoId).get();
     const metasMensais = (pDoc.data() || {}).metasMensais || {};
     assert.ok(Object.keys(metasMensais).length, periodoId + ' esta sem metasMensais — rode metas-agosto-2026.js --apply');
-    ok('metas do mes vieram do banco: ' + metasMensais.meta + '/' + metasMensais.superMeta + '/' + metasMensais.metaGold +
-       ' · minRenov ' + metasMensais.minRenov + ' · minIndivP3 ' + (unitCfg.minAtivacoesIndivP3 ?? CE.defaultConfig.minAtivacoesIndivP3));
-    const res = CE.calculate(vendas, { ...CE.defaultConfig, ...unitCfg, ...metasMensais }, {});
+    const cfg = { ...CE.defaultConfig, ...unitCfg, ...metasMensais };
+    ok('metas do mes vieram do banco: ' + cfg.meta + '/' + cfg.superMeta + '/' + cfg.metaGold +
+       ' · minRenov ' + cfg.minRenov + ' · minIndivP3 ' + cfg.minAtivacoesIndivP3);
+    // O corte individual e por MES desde 07/09/2026. Se ele voltar a sair da
+    // config permanente da unidade, este assert avisa antes de alguem pagar.
+    assert.strictEqual(unitCfg.minAtivacoesIndivP3, undefined,
+      'units/' + unitId + '.config.minAtivacoesIndivP3 nao deveria existir — o corte e da meta do mes');
+    ok('o corte individual vem da meta do mes, nao da config permanente da unidade');
+    const res = CE.calculate(vendas, cfg, {});
     const ut = res.unitTotals;
     let subtotal = 0;
     Object.entries(res.vendorData).forEach(([nome, v]) => {
@@ -120,6 +129,18 @@ async function codigosPagosAnteriores(unitId, mesArquivo) {
       console.log('       ' + nome.padEnd(24) + 'ativ=' + String(v.ativacoes).padStart(3) + '   ' + brl(t).padStart(12));
     });
     console.log('       ' + ut.unitAtivacoes + ' ativacoes · caixa ' + brl(ut.unitCaixa) + ' · subtotal ' + brl(subtotal));
+
+    if (sigla === 'PP') {
+      Object.entries(P3_ESPERADO_PP).forEach(([nome, esperado]) => {
+        const v = res.vendorData[nome];
+        assert.ok(v, nome + ' sumiu do resultado do PP');
+        assert.strictEqual(Math.round(v.p3 * 100) / 100, esperado,
+          'P3 de ' + nome + ': esperado ' + brl(esperado) + ', veio ' + brl(v.p3) +
+          ' — confira o minAtivacoesIndivP3 da meta do mes');
+      });
+      ok('o P3 do PP divide certo: Barbara ' + brl(P3_ESPERADO_PP['BÁRBARA VIEIRA CARDOSO']) +
+         ' · Kali ' + brl(P3_ESPERADO_PP['KALI DUTRA']));
+    }
     folha += subtotal;
   }
 

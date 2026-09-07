@@ -11,12 +11,16 @@
 // { defaultConfig, ...unitConfig, ...metasMensais }, entao isto vale so para
 // agosto e nao encosta na configuracao permanente da unidade.
 //
-// ⚠️ EXCECAO: `minAtivacoesIndivP3` NAO existe na tela de metas do mes — so na
-//    config da unidade, que vale para sempre. O Rodrigo aprovou o minimo 7 no
-//    Principe como excecao de agosto (a base migrada esta no meio do contrato).
-//    Sem isso a Barbara, com 7 ativacoes, fica fora do rateio do P3: a folha do
-//    PP e a mesma R$ 1.612,47, mas R$ 293,11 saem dela e vao para a Kali.
-//    **VOLTAR PARA 10 DEPOIS DE FECHAR AGOSTO** — ou levar o campo para a tela.
+// `minAtivacoesIndivP3` (o corte individual do P3) entra junto: desde 07/09/2026
+// ele existe na tela de metas do mes, entao a excecao fica presa a agosto em vez
+// de virar config permanente da unidade. O Rodrigo aprovou o minimo 7 no
+// Principe (a base migrada esta no meio do contrato). Sem isso a Barbara, com 7
+// ativacoes, fica fora do rateio: a folha do PP e a mesma R$ 1.612,47, mas
+// R$ 293,11 saem dela e vao para a Kali.
+//
+// Este script TAMBEM limpa `units/{pp}.config.minAtivacoesIndivP3`, que foi
+// gravado antes de o campo existir na tela. Deixa-lo la faria a excecao de
+// agosto valer para setembro, outubro e sempre — calada.
 //
 // ⚠️ ORDEM: rodar ANTES de re-subir o arquivo de agosto. O upload termina
 //    chamando `recalculatePeriod`, que le `metasMensais` do periodo — entao a
@@ -37,11 +41,10 @@ if (!['staging', 'production'].includes(PROJETO)) {
 // Principe: opcao A — reconhece agosto como o mes da migracao
 const METAS = {
   CP: { meta: 50, superMeta: 57, metaGold: 65, minNovos: 18, minRenov: 13, minVoucher: 6,
-        metaFixo: 300, superFixo: 600, goldFixo: 900 },
+        metaFixo: 300, superFixo: 600, goldFixo: 900, minAtivacoesIndivP3: 10 },
   PP: { meta: 28, superMeta: 32, metaGold: 37, minNovos: 15, minRenov: 9, minVoucher: 4,
-        metaFixo: 300, superFixo: 600, goldFixo: 900 },
+        metaFixo: 300, superFixo: 600, goldFixo: 900, minAtivacoesIndivP3: 7 },
 };
-const MIN_INDIV_PP = 7;
 
 admin.initializeApp({ credential: admin.credential.cert(require('./serviceAccount-' + PROJETO + '.json')) });
 const db = admin.firestore();
@@ -77,26 +80,30 @@ const sigla = id => /pp/i.test(String(id)) ? 'PP' : 'CP';
     console.log('    gravado');
   }
 
-  // ── 2. minimo individual do P3 no Principe ──
+  // ── 2. tirar o corte individual da config PERMANENTE da unidade ──
+  // Ele foi gravado la em 07/09 porque a tela ainda nao tinha o campo. Agora
+  // tem, e o valor de agosto vai em `metasMensais` — deixar a config apontando
+  // 7 faria a excecao de um mes valer para sempre, sem ninguem ter decidido.
   const units = await db.collection('units').get();
   for (const d of units.docs) {
-    if (sigla(d.id) !== 'PP') continue;
     const cfg = (d.data() || {}).config || {};
+    if (cfg.minAtivacoesIndivP3 === undefined) continue;
     console.log('\n--- units/' + d.id + '.config.minAtivacoesIndivP3 ---');
-    console.log('    antes: ' + (cfg.minAtivacoesIndivP3 === undefined ? '(nao definido → padrao 10)' : cfg.minAtivacoesIndivP3));
-    console.log('    novo : ' + MIN_INDIV_PP + '   ⚠️ excecao de agosto — voltar para 10 depois de fechar');
+    console.log('    hoje: ' + cfg.minAtivacoesIndivP3 + '  (vale para TODOS os meses)');
+    console.log('    acao: apagar — agora quem manda e a meta do mes');
     if (!APLICAR) continue;
     fs.writeFileSync(path.join(backupDir, 'unitConfig-' + d.id + '-' + hoje + '.json'),
       JSON.stringify({ unit: d.id, config: cfg }, null, 2));
-    await db.collection('units').doc(d.id).set({ config: { ...cfg, minAtivacoesIndivP3: MIN_INDIV_PP } }, { merge: true });
+    await db.collection('units').doc(d.id).update({
+      'config.minAtivacoesIndivP3': admin.firestore.FieldValue.delete(),
+    });
     await db.collection('audit_log').add({
       module: 'comissoes', action: 'settings_change',
-      description: 'units/' + d.id + ' minAtivacoesIndivP3: ' +
-        (cfg.minAtivacoesIndivP3 === undefined ? 'padrao 10' : cfg.minAtivacoesIndivP3) + ' -> ' + MIN_INDIV_PP +
-        ' (excecao de agosto/2026 aprovada pelo Rodrigo — voltar para 10 depois de fechar)',
+      description: 'units/' + d.id + ': config.minAtivacoesIndivP3 (' + cfg.minAtivacoesIndivP3 +
+        ') removido — o corte individual passou a ser por mes, na tela de Metas do Mes',
       userEmail: 'script:metas-agosto-2026', createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    console.log('    gravado');
+    console.log('    apagado');
   }
 
   console.log('\nDepois disto, re-subir o arquivo de agosto pela tela, uma vez em cada unidade.');
