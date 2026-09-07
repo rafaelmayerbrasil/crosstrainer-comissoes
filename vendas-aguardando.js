@@ -254,6 +254,16 @@
       (clientesPagantes || []).forEach(c => {
         const nome = (c && typeof c === 'object') ? c.cliente : c;
         const chave = limpo(nome);
+        // Nome vazio (ou só espaço, que normaliza pra vazio) não é ninguém — gravar
+        // essa chave faria QUALQUER venda com cliente vazio casar com ela e levar
+        // pra tela o lançamento de uma pessoa completamente diferente como "prova".
+        // O carregador da tela filtra `if (it.cliente)`, que deixa passar um nome
+        // só com espaços — a trava certa é aqui, porque um módulo puro não pode
+        // confiar em quem o chama.
+        if (!chave) return;
+        // Guarda o PRIMEIRO lançamento de cada cliente: se o mesmo nome aparecer
+        // duas vezes, não há como saber qual dos dois bateu com ESTA venda — a
+        // prova serve pra gestão abrir a Pacto e conferir, não pra decidir valor.
         if (!pagante.has(chave)) pagante.set(chave, (c && typeof c === 'object') ? c : null);
       });
       const aguardando = [], conferir = [], pagas = [], testes = [];
@@ -270,11 +280,12 @@
 
         const num = String(vl.contrato).replace(/^C/i, '');
         if (jaPagou.has(num)) { pagas.push({ ...vl, pagoEm: ondePagou[num] || null }); return; }
-        if (pagante.has(norm(nome))) {
+        const chaveNome = norm(nome);
+        if (pagante.has(chaveNome)) {
           conferir.push({
             ...vl,
             motivoConferir: 'o cliente pagou no mês, mas em outro contrato — provável renovação que trocou de número',
-            pagamentoQueBateu: pagante.get(norm(nome)) || null,
+            pagamentoQueBateu: pagante.get(chaveNome), // .has() já garantiu a chave — nunca undefined aqui
           });
           return;
         }

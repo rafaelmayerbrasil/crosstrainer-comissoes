@@ -158,4 +158,52 @@ const venda = (contrato, cliente, extra) => ({
   ok('a venda a conferir carrega o pagamento que fez o nome bater');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 6. Cliente sem nome utilizável nunca vira prova de ninguém
+// ════════════════════════════════════════════════════════════════════
+// Achado da revisão do commit 03157cc: um lançamento sem `cliente` (ou com o
+// nome normalizando pra vazio) gravava a chave '' no Map, e QUALQUER venda com
+// cliente vazio casava com ele e carregava aquele lançamento como
+// `pagamentoQueBateu` — prova de uma pessoa completamente diferente.
+{
+  // item sem `cliente`: não pode virar prova de uma venda com cliente vazio,
+  // e a venda nem deve cair em "conferir" por causa dele
+  const semNome = VA.cruzar(
+    [venda('C4589', '')],
+    [], [{ codigo: 'C999', valor: 42, data: '01/01/2026' }]);
+  assert.strictEqual(semNome.conferir.length, 0,
+    'sem nome utilizável no lançamento, a venda de cliente vazio não casa com nada');
+  assert.strictEqual(semNome.aguardando.length, 1);
+
+  // nome só com espaços: o mesmo tratamento — é o caso que o filtro
+  // `if (it.cliente)` do carregador da tela deixa passar
+  const soEspaco = VA.cruzar(
+    [venda('C4590', '')],
+    [], [{ cliente: '   ', codigo: 'C998', valor: 42, data: '01/01/2026' }]);
+  assert.strictEqual(soEspaco.conferir.length, 0,
+    'nome só de espaços normaliza pra vazio — mesma trava');
+  assert.strictEqual(soEspaco.aguardando.length, 1);
+
+  // `clientesPagantes` nulo não quebra
+  assert.doesNotThrow(() => VA.cruzar([venda('C4591', 'ALGUEM')], [], null),
+    '`clientesPagantes` nulo não pode quebrar');
+  assert.strictEqual(VA.cruzar([venda('C4591', 'ALGUEM')], [], null).aguardando.length, 1);
+
+  // mistura de string e objeto na mesma lista: cada um com seu tratamento
+  const vendas = [venda('C4592', 'FULANA DE TAL'), venda('C4593', 'CICLANA SOUZA')];
+  const mistura = VA.cruzar(vendas, [], [
+    'FULANA DE TAL',
+    { cliente: 'CICLANA SOUZA', codigo: 'C777', valor: 80, data: '02/01/2026' },
+  ]);
+  assert.strictEqual(mistura.conferir.length, 2);
+  const porContrato = c => mistura.conferir.find(x => x.contrato === c);
+  assert.strictEqual(porContrato('C4592').pagamentoQueBateu, null,
+    'nome como string: sem lançamento, prova é null');
+  assert.deepStrictEqual(porContrato('C4593').pagamentoQueBateu,
+    { cliente: 'CICLANA SOUZA', codigo: 'C777', valor: 80, data: '02/01/2026' },
+    'nome como objeto: prova é o lançamento inteiro');
+
+  ok('cliente sem nome utilizável (ausente ou só espaços) nunca vira prova de ninguém');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
