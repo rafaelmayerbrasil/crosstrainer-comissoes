@@ -131,4 +131,50 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   ok('existe um carregador único e ninguém cruza por fora');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 8. O bloco dos três números, e o que ele faz quando falta dado
+// ════════════════════════════════════════════════════════════════════
+// Roda a função DE VERDADE, recortada do index.html — ler o texto do arquivo
+// não provaria nada (lição de `previa-nunca-rodou`).
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const ini = html.indexOf('function blocoVendidoXPago(');
+  assert.ok(ini > 0, 'blocoVendidoXPago não existe');
+  let nivel = 0, fim = -1;
+  for (let j = html.indexOf('{', ini); j < html.length; j++) {
+    if (html[j] === '{') nivel++;
+    else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+  }
+  const sandbox = { console };
+  vm.createContext(sandbox);
+  vm.runInContext(html.slice(ini, fim), sandbox);
+  const bloco = sandbox.blocoVendidoXPago;
+
+  // (a) mês sem lista de vendas: "não sei", nunca "zero"
+  const semLista = bloco({ temLista: false, year: 2026, month: 9, fechado: false }, {});
+  assert.ok(/lista de vendas/i.test(semLista), 'tem que explicar que falta a lista');
+  assert.ok(!/>\s*0\s*</.test(semLista), 'não pode mostrar zero: ' + semLista);
+
+  // (b) mês corrente: sem percentual
+  const corrente = bloco({
+    temLista: true, year: 2026, month: 9, fechado: false,
+    resumo: { vendidas: 25, pagas: 0, aguardando: 25, conferir: 0 },
+  }, {});
+  assert.ok(/25/.test(corrente), 'mostra as 25 vendidas');
+  assert.ok(!/%/.test(corrente), 'mês corrente não mostra percentual: ' + corrente);
+
+  // (c) mês fechado: com percentual
+  const fechado = bloco({
+    temLista: true, year: 2026, month: 8, fechado: true,
+    resumo: { vendidas: 74, pagas: 68, aguardando: 4, conferir: 2 },
+  }, {});
+  assert.ok(/92%/.test(fechado), '68 de 74 é 92%: ' + fechado);
+
+  // (d) "conferir" nunca soma com "aguardando"
+  assert.ok(/2 delas|2 podem/i.test(fechado),
+    'as 2 de conferir têm que sair como nota, não somadas no aguardando: ' + fechado);
+  ok('o bloco: sem lista não vira zero, % só em mês fechado, conferir não soma');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

@@ -7617,6 +7617,61 @@
     }
 
     // ══════════════════════════════════════════════════════════════════
+    // O bloco dos três números — igual na home e na aba
+    // ══════════════════════════════════════════════════════════════════
+    // Autocontido de propósito: nada de `fmt()`, `currentUnitId`, `db` ou DOM
+    // aqui dentro. A home da gestão, a home da vendedora e a aba "A receber"
+    // chamam esta mesma função, então ela não pode depender de nada que só
+    // exista numa dessas telas.
+    //
+    // @param {Object} d     saída de `carregarVendidoXPago`
+    // @param {Object} opts  { soDe: nome da vendedora ('' = gestão), arrasto: n }
+    // @returns {string} HTML do bloco
+    function blocoVendidoXPago(d, opts) {
+      const o = opts || {};
+      const titulo = o.soDe ? 'O QUE VOCÊ VENDEU' : 'VENDAS DO MÊS';
+
+      // "Não sei" nunca vira "zero": um 0 ao lado do nome de alguém é uma
+      // acusação falsa. Sem a lista, a tela pede o arquivo.
+      if (!d.temLista) {
+        return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+          <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">${titulo}</div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.6">
+            Este mês ainda não tem a <strong>lista de vendas</strong>. Sem ela não dá para dizer quanto do que foi vendido virou dinheiro.
+            ${o.soDe ? 'Peça à gestão para subir' : 'Suba'} o relatório <strong>"Faturamento por Período"</strong> da Pacto em Upload.
+          </div>
+        </div>`;
+      }
+
+      const r = d.resumo;
+      const dt = ts => { try { return ts.toDate().toLocaleDateString('pt-BR'); } catch (e) { return '—'; } };
+      const pct = r.vendidas ? Math.round((r.pagas / r.vendidas) * 100) : 0;
+
+      const num = (valor, rotulo, cor, nota) => `
+        <div style="text-align:center;padding:0 10px">
+          <div class="mono" style="font-size:30px;font-weight:800;color:${cor};line-height:1.1">${valor}</div>
+          <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:2px">${rotulo}</div>
+          ${nota ? `<div style="font-size:10.5px;color:var(--text3);margin-top:3px">${nota}</div>` : ''}
+        </div>`;
+
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">${titulo}</div>
+          <div style="font-size:10.5px;color:var(--text3)">
+            vendas até ${dt(d.vendasAtualizadasEm)} · recebimentos até ${dt(d.recebidosAtualizadosEm)}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-around;align-items:flex-start">
+          ${num(r.vendidas, 'vendidas', 'var(--text)')}
+          ${num(r.pagas, 'pagas', 'var(--green)', d.fechado ? pct + '% do que vendeu' : '')}
+          ${num(r.aguardando, 'aguardando', 'var(--orange)',
+                (o.arrasto ? '+ ' + o.arrasto + ' de meses anteriores' : '')
+                + (r.conferir ? (o.arrasto ? '<br>' : '') + r.conferir + ' delas podem já ter sido pagas em outro contrato' : ''))}
+        </div>
+      </div>`;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // Aba "A receber" — vendi e o dinheiro ainda não entrou
     // ══════════════════════════════════════════════════════════════════
     // Sob regime de caixa a comissão só nasce quando o cliente paga. Sem esta
