@@ -133,6 +133,38 @@ no motor que o mínimo decide QUEM divide, não o tamanho do prêmio.
 `homologar-recorrencia-agosto.js` agora **falha** se o corte voltar para a config da unidade, e
 confere o rateio: **Bárbara R$ 293,11 · Kali R$ 347,88**. Produção: **14/14**.
 
+### 🐛 Dois defeitos pegos pelo Rafael clicando, depois do deploy
+
+**1. Setembro "não tinha nada" no upload.** O `faturamento-recebido` de 01–07/09 tem **7 linhas**:
+5 são IMPORTAÇÃO (contrato migrado, começou em fev/abr/2026 e set/out/2025) e 2 são a parcela de
+setembro dos anuais da Julia e do Rafael Del Fabro, vendidos em 06/08 e **já comissionados em
+agosto**. Do Príncipe existem 2 linhas, as duas migração — daí a mensagem "não tem linhas desta
+unidade", que está certa no resultado e **engana na redação** (o certo seria "as 2 linhas do
+Príncipe foram descartadas: contrato migrado").
+
+**O achado que importa: setembro TEM 25 contratos vendidos em 7 dias** (CP 14, PP 11), no relatório
+de VENDAS. Nenhum aparece na comissão porque **o dinheiro ainda não caiu** — quase tudo é cartão
+recorrente e anual parcelado. Ou seja: sob regime de caixa **o painel sempre vai parecer vazio nos
+primeiros dias do mês** e vai enchendo conforme as cobranças caem. É a metade da resposta que
+faltou quando o Rodrigo reclamou de "nada de setembro" — não era só falta de upload. O placar do
+começo do mês é a tela **"A receber"**.
+
+**De brinde:** o campo `Empresa` do export **mudou de formato** — agosto trazia
+`CROSSTAINER UNID. CAMPECHE (CP)`, setembro trouxe `(CP) CROSSTAINER UNID. CAMPECHE `. O regex
+aguentou por sorte; se a sigla sumir do campo, **todas as linhas caem num balde sem unidade** e a
+tela dá exatamente essa mesma mensagem, com o mês inteiro perdido. Os três formatos estão travados
+em teste. ⚠️ Esse balde sem unidade ainda **engole a linha calada** — falta um aviso.
+
+**2. O Dashboard morreu depois de subir o relatório de vendas** (`fcc83b7`):
+`Cannot read properties of undefined (reading 'unitAtivacoes')`. `registrarVendasDoPeriodo` cria o
+período só com `vendasDoMes` — sem `totals` —, o mês aparece no seletor, e `calcProjection` lia
+`periodData.totals.unitAtivacoes` direto. `renderAdminDashboard` **já** tinha `data.totals || {}`,
+mas numa variável local: **a proteção existia e não protegia nada.** Agora, sem `totals` não há
+projeção, e a tela **explica** o mês (quantas vendas foram registradas, que falta o Faturamento
+Recebido, e que as vendas a receber estão em "A receber") em vez de mostrar um painel zerado.
+`smoke-dashboard-mes-so-vendas.js` roda a função de verdade num sandbox e caça o padrão de volta.
+Ver [[periodo-pode-existir-sem-totals]].
+
 ### 📋 Também nesta sessão
 
 - **Respostas do Rodrigo registradas:** 1 (meta CP confirmada) · 2 (PP opção A) · 3 (ele quer os
