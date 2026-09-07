@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 64 (05/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · HOMOLOGADO NO STAGING, ESPERANDO OK PRA PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 64 (05–07/09/2026) — 💰 O FECHAMENTO IA PAGAR R$ 7.580,84 A MAIS · ✅ NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
 
@@ -89,10 +89,22 @@ reais do staging ficaram congeladas apontando pra um fechamento apagado**. Tive 
 produção e subiriam no deploy. Entraram na lista de ignorados. Conferido que **não estavam no ar**:
 o 200 em `/backups/<arquivo>` era o rewrite devolvendo o index, não o arquivo.
 
+### ✅ NO AR EM PRODUÇÃO (07/09/2026, `2cfeef2..d4d8c20`)
+
+Autorizado pelo Rafael. **Ordem do deploy: Cloud Function ANTES do frontend** — a CF nova tolera a
+tela velha (ignora o `unitId` que ela ainda manda), mas a tela nova quebraria com a CF velha, que
+exige `unitId`. Ao contrário, quem estivesse com a página em cache veria erro ao fechar.
+
+- `closeMonth` deployada em `us-central1` (responde `UNAUTHENTICATED` sem token) ✓
+- `main` mergeado e publicado; GitHub Pages servindo `?v=20260907` ✓ (levou ~1 min pra reconstruir)
+- **Rules e índices não mudaram.** Conferido antes que o índice
+  `vacation_requests: status + firstPeriodStart` **existe em produção** — a prévia usa essa consulta
+  e ela talvez nunca tivesse rodado lá, já que nenhum mês foi fechado.
+- Produção conferida depois: **0 fechamentos, 0 aulas congeladas, 0 saldos** — só código mudou.
+
 ### 🔴 O que falta
 
-1. **Produção** — esperando o OK. Precisa: merge no `main` + `git push origin main` (GitHub Pages),
-   e `firebase deploy --only functions:closeMonth --project production`. **Rules não mudaram.**
+1. **Nada de deploy.** ⚠️ **Ninguém clicou de verdade em produção** — a gestão será a primeira.
 2. **Fechar agosto é da GESTÃO — nós não fazemos** (decisão do Rafael, 05/09). Confirmar troca é
    decisão de gestão e agora existe botão. A Benny confirma as 20 pela tela e clica em fechar; é
    também o primeiro uso real do fluxo inteiro. Folha de agosto com a regra nova: **R$ 25.748,35**
@@ -100,6 +112,31 @@ o 200 em `/backups/<arquivo>` era o rewrite devolvendo o index, não o arquivo.
 3. **As 23 trocas em aberto** — 20 de agosto, 3 de setembro. Esperando **Thaynara (16), João Vitor
    (6), Karin (1)**; as 31 notificações estão todas não lidas e o e-mail desse tipo cai no spam.
 4. **A reunião presencial que a Benny pediu** sobre agenda/horas continua de pé.
+
+### Ajustes pedidos pelo Rafael clicando no staging (07/09) — já no ar
+
+- **A conferência DIZ QUEM está com cadastro errado.** "2 pessoa(s) com aula valendo R$ 0,00" não
+  dizia de quem; agora traz os nomes (3 primeiros + "e mais N"). O botão **Ver** rola até o bloco 5
+  e pisca a borda, e cada linha lá ganhou **"Abrir ficha"** — vai direto na ficha DAQUELA pessoa, já
+  na aba Salarial (`abrirFichaDaPessoa`, em `professores-pessoas.js`). A busca e o filtro de Pessoas
+  são limpos antes: abrir a tela e não achar ninguém seria pior que não ter botão.
+- **Custo por unidade em R$**, rateado pelas horas (`resumoPorUnidade`, pura). ⚠️ **É rateio, não
+  medição**, e a tela diz isso: bolsa, VR, VT e Outros são MENSAIS, da pessoa. A sobra de centavo vai
+  pra maior unidade — se a soma não fechar com a folha, a tela mostra dois números de dinheiro
+  diferentes e nenhum é confiável. Agosto real: PP 13.701,87 + CP 12.046,48 = **25.748,35** ✓
+
+### 🕒 Banco de horas: existe, é automático, e tem três buracos (07/09)
+
+Pergunta do Rafael: *"como que se controla o saldo das horas dos estagiários?"*. A regra está no ar
+desde 11/08: trabalhou a menos → **bolsa cheia** e as horas viram saldo negativo; trabalhou a mais →
+as extras **primeiro quitam** a dívida. **Sem teto e sem prazo**; estágio encerrado com saldo
+negativo encerra sem dívida financeira. O estagiário vê em *Meus Pagamentos*; a gestão em
+*Relatórios → 🕒 Banco de Horas*; o acumulado aparece na coluna *Saldo a compensar* do bloco 3.
+
+**Os buracos, ainda sem decisão:** (1) **ninguém é avisado** — o relatório é passivo, dá pra chegar
+em 40h a compensar sem nada acontecer; (2) **não há limite nem prazo** — o "Atenção" a partir de 20h
+é só etiqueta na tela; (3) **nada disso começou**, porque o saldo só se move quando o mês fecha.
+Perguntei ao Rafael se quer alerta (e com que limite) e se o saldo deve vencer algum dia.
 
 ### Coisa que a conferência levantou e ninguém decidiu ainda
 
