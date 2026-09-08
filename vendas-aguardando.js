@@ -209,10 +209,33 @@
         return m ? m[3] + m[2] + m[1] : null;
       };
       const pago = ord(pagamento.data), fechada = ord(venda.data);
+      const pagamentoAnterior = !!(pago && fechada && pago < fechada);
 
-      // Pagamento anterior à venda ganha de tudo: dinheiro que entrou antes de
-      // a venda existir não pode ser dela, por mais que o valor coincida.
-      if (pago && fechada && pago < fechada) {
+      const valor = Number(pagamento.valor || 0);
+      const contrato = Number(venda.valorContrato || 0);
+      const valorBate = valor > 0 && contrato > 0 && Math.abs(valor - contrato) < 0.01;
+
+      // Os dois sinais podem brigar. Numa academia é comum o cliente pagar no
+      // dia da negociação e o contrato só ser lançado no sistema alguns dias
+      // depois — aí o pagamento É desta venda, só que datado antes de
+      // `venda.data` por causa do atraso de lançamento, não porque é de outro
+      // plano. Se o valor bate exato com o contrato ao mesmo tempo que a data
+      // vem antes, a data sozinha não pode decidir: ela e o valor apontam para
+      // lados opostos, e a resposta honesta é admitir a briga.
+      if (pagamentoAnterior && valorBate) {
+        return {
+          suspeita: 'nao_da_para_dizer',
+          porque: 'O valor pago (R$ ' + moeda(valor) + ') é exatamente o valor deste contrato'
+            + ' (R$ ' + moeda(contrato) + '), o que sugere que é esta venda. Mas o pagamento é'
+            + ' de ' + pagamento.data + ', antes de esta venda ter sido fechada em ' + venda.data
+            + ', o que sugere que é do plano anterior. Vale conferir na Pacto.',
+        };
+      }
+
+      // Pagamento anterior à venda ganha de tudo quando o valor NÃO bate:
+      // dinheiro que entrou antes de a venda existir, e num valor diferente,
+      // não pode ser dela.
+      if (pagamentoAnterior) {
         return {
           suspeita: 'provavelmente_nao_paga',
           porque: 'O pagamento que bateu o nome foi de R$ ' + moeda(pagamento.valor)
@@ -221,13 +244,12 @@
         };
       }
 
-      const valor = Number(pagamento.valor || 0);
-      const contrato = Number(venda.valorContrato || 0);
-      if (valor > 0 && contrato > 0 && Math.abs(valor - contrato) < 0.01) {
+      if (valorBate) {
         return {
           suspeita: 'provavelmente_paga',
           porque: 'O valor pago (R$ ' + moeda(valor) + ', no contrato ' + pagamento.codigo
-            + ') bate com o valor deste contrato. Provavelmente é esta venda, com outro número.',
+            + ') bate com o valor do contrato ' + venda.contrato + ' desta venda.'
+            + ' Provavelmente é esta venda, só que com outro número de contrato.',
         };
       }
 

@@ -232,11 +232,11 @@ const venda = (contrato, cliente, extra) => ({
   assert.strictEqual(bate.suspeita, 'provavelmente_paga');
   assert.ok(/valor/i.test(bate.porque), bate.porque);
 
-  // ⚠️ Pagamento anterior GANHA do valor que bate: um pagamento feito antes de
-  // a venda existir não pode ser dela, por mais que o número coincida.
+  // ⚠️ Pagamento anterior E valor que bate se contradizem — não é mais a data
+  // decidindo sozinha (ver caso 9, sessão 2026-09-07: lançamento atrasado).
   const conflito = VA.opiniao(venda('C7130', 'X', { valorContrato: 2388, data: '27/08/2026' }),
     { codigo: 'C6867', valor: 2388, data: '12/08/2026' });
-  assert.strictEqual(conflito.suspeita, 'provavelmente_nao_paga');
+  assert.strictEqual(conflito.suspeita, 'nao_da_para_dizer');
 
   // nenhum sinal: a opinião admite que não sabe
   const nada = VA.opiniao(venda('C7130', 'X', { valorContrato: 2388, data: '01/08/2026' }),
@@ -278,6 +278,57 @@ const venda = (contrato, cliente, extra) => ({
     'formato americano vazou pro texto: ' + comMilhar.porque);
 
   ok('o "porque" usa R$ no formato brasileiro (vírgula decimal, ponto de milhar), nunca ponto decimal cru');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 9. Pagamento anterior e valor que bate se contradizem — a data não decide
+//    mais sozinha (decisão do Rafael em 07/09/2026, revisão de código)
+// ════════════════════════════════════════════════════════════════════
+// Numa academia é comum o cliente pagar no dia da negociação e o contrato só
+// ser lançado no sistema alguns dias depois: o pagamento é desta venda, só
+// que datado antes de `venda.data` por causa do atraso de lançamento. Quando
+// isso coincide com o valor batendo exato, a data e o valor apontam para
+// lados opostos — e a resposta vira "não dá para dizer", com os dois fatos.
+{
+  // 1. pagamento anterior + valor exato → não dá para dizer, citando os dois
+  //    valores e as duas datas
+  const contradiz = VA.opiniao(
+    venda('C7130', 'X', { valorContrato: 2388, data: '27/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '12/08/2026' });
+  assert.strictEqual(contradiz.suspeita, 'nao_da_para_dizer');
+  assert.ok(contradiz.porque.includes('R$ 2.388,00'),
+    'tem que citar o valor pago: ' + contradiz.porque);
+  assert.ok(contradiz.porque.includes('12/08/2026'),
+    'tem que citar a data do pagamento: ' + contradiz.porque);
+  assert.ok(contradiz.porque.includes('27/08/2026'),
+    'tem que citar a data em que a venda foi fechada: ' + contradiz.porque);
+
+  // 2. pagamento anterior + valor DIFERENTE → continua provavelmente_nao_paga
+  //    (a Cátia continua exatamente como está)
+  const catiaDeNovo = VA.opiniao(
+    venda('C7130', 'CÁTIA TEREZINHA PEREIRA TORRES',
+      { valorContrato: 2388, data: '27/08/2026', inicio: '02/09/2026' }),
+    { codigo: 'C6867', valor: 199, data: '12/08/2026' });
+  assert.strictEqual(catiaDeNovo.suspeita, 'provavelmente_nao_paga');
+
+  // 3. valor exato + pagamento no mesmo dia ou depois → provavelmente_paga,
+  //    citando os DOIS números de contrato (o desta venda e o do pagamento)
+  const paga = VA.opiniao(
+    venda('C7130', 'X', { valorContrato: 2388, data: '01/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '15/08/2026' });
+  assert.strictEqual(paga.suspeita, 'provavelmente_paga');
+  assert.ok(paga.porque.includes('C7130'),
+    'tem que citar o contrato desta venda: ' + paga.porque);
+  assert.ok(paga.porque.includes('C6867'),
+    'tem que citar o contrato em que o dinheiro entrou: ' + paga.porque);
+
+  // mesmo dia (não é "anterior") também conta como provavelmente_paga
+  const mesmoDia = VA.opiniao(
+    venda('C7130', 'X', { valorContrato: 2388, data: '15/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '15/08/2026' });
+  assert.strictEqual(mesmoDia.suspeita, 'provavelmente_paga');
+
+  ok('pagamento anterior e valor exato se contradizem: não dá para dizer, com os dois fatos');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');
