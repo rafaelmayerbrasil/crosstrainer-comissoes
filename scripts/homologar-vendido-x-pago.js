@@ -126,9 +126,23 @@ async function arrasto(unitId, mesAtual) {
     (d.data().codigosPagos || []).forEach(c => pagos.push(c));
     if (m && m[1] >= PRIMEIRO_MES && m[1] < mesAtual) docs.push({ mes: m[1], ...d.data() });
   });
+
+  // As mesmas marcações da gestão que `carregarArrastoAnterior` aplica na
+  // tela: a venda dada por perdida (`nao_cobrar`) sai do arrasto lá, então
+  // tem que sair daqui também. Este script existe para conferir a TELA, e
+  // ler `vendas_conferencia` de um jeito diferente do dela é pior do que não
+  // ler - seria um "OK" comparando um número que a tela nunca mostrou. Hoje
+  // não muda nada (nenhuma conferência gravada em produção), mas no dia em
+  // que a gestão marcar a primeira venda de mês anterior, sem isto o script
+  // continuaria contando ela no arrasto e diria "bate" para um número que já
+  // diverge do que a gestão vê na tela.
+  const confSnap = await db.collection('vendas_conferencia').where('unitId', '==', unitId).get();
+  const conferencias = {};
+  confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+
   const fora = [];
   docs.sort((a, b) => a.mes.localeCompare(b.mes)).forEach(pr => {
-    const r = VA.cruzar(pr.vendasDoMes || [], pagos, []);
+    const r = VA.aplicarConferencias(VA.cruzar(pr.vendasDoMes || [], pagos, []), conferencias);
     r.aguardando.forEach(v => fora.push({ ...v, _mes: pr.mes }));
   });
   return fora;
