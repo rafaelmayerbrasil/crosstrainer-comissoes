@@ -167,13 +167,34 @@ const ESPERADO = {
 const SEM_TESTE_EM_LUGAR_NENHUM = true;
 
 // Os dois casos reais que provaram por que `opiniao()` existe (07/09/2026).
-// Marca quem foi achado, para o final do script exigir os dois - se nenhum
-// aparecer mais em "conferir", o achado se resolveu sozinho ou o dado mudou,
-// e as duas coisas merecem os olhos de alguem, nao um teste calado.
+// Marca quem foi achado. A EXIGENCIA de que os dois apareçam so faz sentido
+// em producao: e onde esses dois contratos vivem de verdade, entao "sumiu"
+// so pode significar "o achado se resolveu sozinho ou o dado mudou" - as
+// duas coisas merecem os olhos de alguem, nao um teste calado. No staging o
+// banco e outro; se o registro estiver la (copia) e uma sorte, e ausencia
+// nao denuncia nada - exigir os dois no staging seria a MESMA armadilha da
+// tabela ESPERADO (numero de um banco cobrado no outro). Quando o registro
+// aparece no staging, a checagem da opiniao (dentro do loop, mais abaixo)
+// roda do mesmo jeito nos dois ambientes: ali o que se testa e a REGRA
+// (opiniao() classifica certo quem tem esse formato de venda+pagamento), nao
+// um numero medido - e regra vale em qualquer banco onde o caso aparecer.
 const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': { apelido: 'Catia', achado: false } };
 
 (async () => {
-  console.log('\n=== Painel vendido x pago - ' + PROJETO + ' ===\n');
+  console.log('\n=== Painel vendido x pago - ' + PROJETO + ' ===');
+  // A tabela ESPERADO foi medida na producao (comentario acima dela). Rodar
+  // este script contra o staging e legitimo - e como se prova que a leitura
+  // funciona num banco com outros dados - mas comparar staging com numero de
+  // producao e comparar bancos diferentes, nao codigo com regra. Por isso,
+  // so em producao a divergencia vira FALHA vermelha; em staging os numeros
+  // saem so para leitura, e as invariantes (as que nao dependem de QUANTO,
+  // so de a conta fechar) continuam valendo e continuam podendo falhar.
+  if (PROJETO === 'production') {
+    console.log('numeros comparados com a tabela ESPERADO (medida na producao) - divergencia e FALHA.\n');
+  } else {
+    console.log('ambiente de staging: os numeros abaixo sao so informativos (banco diferente do medido).');
+    console.log('as invariantes de regra (sem teste, sem pagamento escondido, vendidas=soma, arrasto, opiniao) continuam valendo.\n');
+  }
 
   // Descobre os ids reais: nao chutar o prefixo da unidade.
   const todos = await db.collection('periodos').get();
@@ -200,9 +221,17 @@ const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': {
     const sigla = periodId.replace(/_.*/, '').replace(/^unit-/, '');
     const esp = (ESPERADO[mes] || {})[sigla];
     if (esp) {
-      conferir(r.vendidas === esp.vendidas && r.pagas === esp.pagas
-        && r.aguardando === esp.aguardando && r.conferir === esp.conferir,
-        periodId + ' bate com o plano (esperado ' + JSON.stringify(esp) + ', veio ' + JSON.stringify(r) + ')');
+      // A tabela ESPERADO so vale contra o banco onde foi medida (producao).
+      // No staging o mesmo periodo tem outro dado (outro upload, outro
+      // estado de conferencia) - divergir daqui e o ESPERADO, e nao a regra.
+      const bate = r.vendidas === esp.vendidas && r.pagas === esp.pagas
+        && r.aguardando === esp.aguardando && r.conferir === esp.conferir;
+      if (PROJETO === 'production') {
+        conferir(bate, periodId + ' bate com o plano (esperado ' + JSON.stringify(esp) + ', veio ' + JSON.stringify(r) + ')');
+      } else {
+        console.log('  (staging, informativo) plano de producao era ' + JSON.stringify(esp)
+          + (bate ? ' - coincide por acaso' : ' - diferente, esperado num banco de staging'));
+      }
     }
 
     if (SEM_TESTE_EM_LUGAR_NENHUM) {
@@ -283,12 +312,20 @@ const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': {
     console.log('');
   }
 
-  // Os dois casos reais tem que ter aparecido em ALGUM periodo. Se nenhum
-  // apareceu, o achado sumiu do banco (venda paga, ou marcada) e o teste
-  // acima nunca rodou de verdade - silenciosamente inutil e pior que FALHA.
-  Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
-    conferir(caso.achado, 'caso real de opiniao C' + num + ' (' + caso.apelido + ') apareceu em "conferir" em algum periodo');
-  });
+  // Os dois casos reais tem que ter aparecido em ALGUM periodo - MAS so essa
+  // exigencia e coisa de producao (ver comentario acima de CASOS_OPINIAO).
+  // Em staging, achado ou nao e so informativo: nao afirma nada sobre a
+  // regra, so sobre o acaso de o banco de staging ter ou nao aquela copia.
+  if (PROJETO === 'production') {
+    Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
+      conferir(caso.achado, 'caso real de opiniao C' + num + ' (' + caso.apelido + ') apareceu em "conferir" em algum periodo');
+    });
+  } else {
+    Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
+      console.log('  (staging, informativo) caso real C' + num + ' (' + caso.apelido + ') '
+        + (caso.achado ? 'apareceu em "conferir" - sorte de o staging ter copia do dado' : 'nao apareceu neste banco - normal em staging'));
+    });
+  }
 
   console.log('=== ' + ok + '/' + (ok + falhas) + ' ===');
   process.exit(falhas ? 1 : 0);
