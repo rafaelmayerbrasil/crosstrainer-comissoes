@@ -331,4 +331,90 @@ const venda = (contrato, cliente, extra) => ({
   ok('pagamento anterior e valor exato se contradizem: não dá para dizer, com os dois fatos');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 10. A ordem de quem manda — e o dinheiro sempre ganha
+// ════════════════════════════════════════════════════════════════════
+// ⚠️ ESTE É O CASO QUE MAIS IMPORTA. Se uma marcação humana puder esconder
+// dinheiro que entrou de verdade, esta tela mente.
+{
+  const cruzado = {
+    pagas:      [venda('C1', 'ANA')],
+    aguardando: [venda('C2', 'BIA'), venda('C3', 'CLARA')],
+    conferir:   [venda('C4', 'DORA')],
+    testes:     [],
+    porVendedora: {},
+  };
+
+  // (a) sem marcação nenhuma, nada muda
+  const zero = VA.aplicarConferencias(cruzado, {});
+  assert.strictEqual(zero.pagas.length, 1);
+  assert.strictEqual(zero.aguardando.length, 2);
+  assert.strictEqual(zero.conferir.length, 1);
+  assert.strictEqual(zero.naoCobrar.length, 0);
+
+  // (b) "já foi paga" vira paga; "não vamos cobrar" sai dos três
+  const marcado = VA.aplicarConferencias(cruzado, {
+    C4: { desfecho: 'paga_outro_contrato', por: 'Rafael', em: '07/09/2026' },
+    C2: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'cliente desistiu' },
+    C3: { desfecho: 'a_receber', por: 'Rafael', em: '07/09/2026' },
+  });
+  assert.deepStrictEqual(marcado.pagas.map(v => v.contrato), ['C1', 'C4']);
+  assert.deepStrictEqual(marcado.aguardando.map(v => v.contrato), ['C3']);
+  assert.strictEqual(marcado.conferir.length, 0);
+  assert.deepStrictEqual(marcado.naoCobrar.map(v => v.contrato), ['C2']);
+
+  // a venda marcada carrega o registro, para a tela poder mostrar quem e quando
+  assert.strictEqual(marcado.aguardando[0].conferencia.por, 'Rafael');
+  assert.strictEqual(marcado.naoCobrar[0].conferencia.observacao, 'cliente desistiu');
+
+  // (c) 🚨 O DINHEIRO SEMPRE GANHA: marcada "não vamos cobrar", mas o contrato
+  //     apareceu nos recebimentos → volta a contar como paga, e a tela DIZ que
+  //     estava marcada de outro jeito.
+  const comDinheiro = VA.aplicarConferencias({
+    ...cruzado,
+    pagas: [venda('C1', 'ANA'), venda('C2', 'BIA')],   // a C2 foi paga de verdade
+    aguardando: [venda('C3', 'CLARA')],
+  }, { C2: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026' } });
+
+  assert.deepStrictEqual(comDinheiro.pagas.map(v => v.contrato), ['C1', 'C2'],
+    'pagamento de verdade GANHA da marcação humana');
+  assert.strictEqual(comDinheiro.naoCobrar.length, 0);
+  const c2 = comDinheiro.pagas.find(v => v.contrato === 'C2');
+  assert.strictEqual(c2.marcacaoIgnorada.desfecho, 'nao_cobrar',
+    'a tela precisa DIZER que havia uma marcação em contrário');
+
+  // (d) a soma sempre fecha
+  const soma = marcado.pagas.length + marcado.aguardando.length
+             + marcado.conferir.length + marcado.naoCobrar.length;
+  assert.strictEqual(soma, 4, 'vendidas = pagas + aguardando + conferir + naoCobrar');
+
+  // (e) marcação de contrato que não existe no mês é ignorada, sem quebrar
+  const fantasma = VA.aplicarConferencias(cruzado, { C999: { desfecho: 'nao_cobrar' } });
+  assert.strictEqual(fantasma.naoCobrar.length, 0);
+
+  // (f) desfecho desconhecido não move a venda de lugar
+  const estranho = VA.aplicarConferencias(cruzado, { C2: { desfecho: 'sei_la' } });
+  assert.deepStrictEqual(estranho.aguardando.map(v => v.contrato), ['C2', 'C3']);
+
+  ok('a ordem de quem manda; e o dinheiro sempre ganha da marcação');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 11. O resumo conta o "não vamos cobrar" à parte, sem tirar de "vendidas"
+// ════════════════════════════════════════════════════════════════════
+// A venda dada por perdida foi vendida de verdade: sai das que ainda esperam
+// dinheiro, não da história do mês.
+{
+  const r = VA.resumo({
+    pagas: [1, 2, 3], aguardando: [4], conferir: [5], naoCobrar: [6, 7],
+  });
+  assert.deepStrictEqual(r, { vendidas: 7, pagas: 3, aguardando: 1, conferir: 1, naoCobrar: 2 });
+
+  // sem o grupo novo, continua valendo como antes
+  const velho = VA.resumo({ pagas: [1], aguardando: [2], conferir: [] });
+  assert.deepStrictEqual(velho, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, naoCobrar: 0 });
+
+  ok('o resumo conta o "não vamos cobrar" à parte, sem tirar de vendidas');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

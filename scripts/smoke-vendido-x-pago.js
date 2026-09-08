@@ -78,7 +78,7 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
     conferir:   [venda('C3', 'CLARA', ['RODRIGO'])],
   };
   assert.deepStrictEqual(VA.resumo(cruzado),
-    { vendidas: 3, pagas: 1, aguardando: 1, conferir: 1 });
+    { vendidas: 3, pagas: 1, aguardando: 1, conferir: 1, naoCobrar: 0 });
 
   const porV = VA.contarPorVendedora(cruzado, NAO_COM);
   const somaTabela = Object.values(porV).reduce((s, v) => s + v.vendidas, 0);
@@ -93,7 +93,7 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
 // ════════════════════════════════════════════════════════════════════
 {
   assert.deepStrictEqual(VA.resumo({ pagas: [], aguardando: [], conferir: [] }),
-    { vendidas: 0, pagas: 0, aguardando: 0, conferir: 0 });
+    { vendidas: 0, pagas: 0, aguardando: 0, conferir: 0, naoCobrar: 0 });
   ok('mês sem nenhuma venda devolve zeros (quem trata "não sei" é a tela)');
 }
 
@@ -359,9 +359,9 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   const d = { temLista: true, cruzado, resumo: VA.resumo(cruzado) };
   assert.strictEqual(visaoDe(d, ''), d, 'sem soDe devolve o mesmo objeto');
   const dela = visaoDe(d, 'KALI DUTRA');
-  assert.deepStrictEqual(dela.resumo, { vendidas: 1, pagas: 1, aguardando: 0, conferir: 0 },
+  assert.deepStrictEqual(dela.resumo, { vendidas: 1, pagas: 1, aguardando: 0, conferir: 0, naoCobrar: 0 },
     'a Kali vê a venda dividida como dela, e não vê a da colega');
-  assert.deepStrictEqual(d.resumo, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0 },
+  assert.deepStrictEqual(d.resumo, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, naoCobrar: 0 },
     'o objeto da gestão não pode ser mutado pelo filtro');
 
   // (g) mês sem lista: filtrar não pode inventar zeros
@@ -416,7 +416,7 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   assert.strictEqual(c.testes[0].contrato, 'C7117');
 
   // e o resumo não pode contá-lo
-  assert.deepStrictEqual(VA.resumo(c), { vendidas: 2, pagas: 0, aguardando: 2, conferir: 0 });
+  assert.deepStrictEqual(VA.resumo(c), { vendidas: 2, pagas: 0, aguardando: 2, conferir: 0, naoCobrar: 0 });
 
   // nem a tabela por vendedora — o Rodrigo tinha 7 vendas em agosto, uma era esta
   const t = VA.contarPorVendedora(c, NAO_COM);

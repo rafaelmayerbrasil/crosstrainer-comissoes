@@ -257,6 +257,59 @@
     },
 
     /**
+     * Aplica as marcações da gestão sobre os três grupos de `cruzar`.
+     *
+     * A ordem de quem manda, e ela é o coração desta tela:
+     *   1. o contrato apareceu nos recebimentos  → PAGA. Ganha de tudo.
+     *   2. senão, vale a marcação da gestão
+     *   3. senão, o automático de `cruzar`
+     *
+     * 🚨 O DINHEIRO SEMPRE GANHA. Se alguém marcou "não vamos cobrar" e o
+     * cliente pagou depois, a venda volta a contar como paga e leva
+     * `marcacaoIgnorada` para a tela poder DIZER que havia marcação em
+     * contrário. Uma marcação humana nunca pode esconder dinheiro que entrou:
+     * é o que impede esta tela de mentir.
+     *
+     * @param {{pagas, aguardando, conferir}} cruzado  saída de `cruzar`
+     * @param {Object<string, {desfecho: string, observacao?: string, por?: string, em?: string}>} conferencias
+     *        contrato → marcação da gestão. `desfecho` é um de
+     *        'paga_outro_contrato' | 'a_receber' | 'nao_cobrar'; qualquer
+     *        outro valor (ou ausente) é tratado como "sem marcação"
+     * @returns {{pagas, aguardando, conferir, naoCobrar, testes, porVendedora}}
+     *        mesma forma de `cruzar`, com o grupo novo `naoCobrar`; a venda
+     *        marcada carrega `conferencia` (o registro inteiro), e a que teve
+     *        a marcação ignorada pelo dinheiro carrega `marcacaoIgnorada`
+     */
+    aplicarConferencias(cruzado, conferencias) {
+      const c = cruzado || {};
+      const marcas = conferencias || {};
+      const de = v => marcas[v.contrato] || marcas[String(v.contrato).replace(/^C/i, '')] || null;
+
+      // (1) quem já está em `pagas` veio dos recebimentos: nada mexe nisso —
+      // só leva o aviso de que existia marcação em contrário, se existir.
+      const pagas = (c.pagas || []).map(v => {
+        const m = de(v);
+        return (m && m.desfecho !== 'paga_outro_contrato') ? { ...v, marcacaoIgnorada: m } : v;
+      });
+      const aguardando = [], conferir = [], naoCobrar = [];
+
+      // (2) e (3) para o resto: o automático de `cruzar` só vale quando a
+      // gestão não marcou nada (ou marcou um desfecho que o código não conhece).
+      [].concat(c.aguardando || [], c.conferir || []).forEach(v => {
+        const m = de(v);
+        const eraConferir = (c.conferir || []).indexOf(v) >= 0;
+        if (!m) { (eraConferir ? conferir : aguardando).push(v); return; }
+        const vm = { ...v, conferencia: m };
+        if (m.desfecho === 'paga_outro_contrato') pagas.push(vm);
+        else if (m.desfecho === 'nao_cobrar') naoCobrar.push(vm);
+        else if (m.desfecho === 'a_receber') aguardando.push(vm);
+        else (eraConferir ? conferir : aguardando).push(v);   // desfecho desconhecido: não move
+      });
+
+      return { ...c, pagas, aguardando, conferir, naoCobrar };
+    },
+
+    /**
      * Separa o que ainda espera pagamento do que já recebeu.
      *
      * ⚠️ SÓ O NÚMERO DO CONTRATO NÃO BASTA — medido no dado real de agosto/2026.
@@ -435,7 +488,12 @@
       const pagas = (c.pagas || []).length;
       const aguardando = (c.aguardando || []).length;
       const conferir = (c.conferir || []).length;
-      return { vendidas: pagas + aguardando + conferir, pagas, aguardando, conferir };
+      // A venda dada por perdida foi vendida de verdade: sai das que ainda
+      // esperam dinheiro, não da história do mês. Por isso ela continua em
+      // `vendidas` e aparece como nota, fora dos três números.
+      const naoCobrar = (c.naoCobrar || []).length;
+      return { vendidas: pagas + aguardando + conferir + naoCobrar,
+               pagas, aguardando, conferir, naoCobrar };
     },
 
     /**
