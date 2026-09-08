@@ -1,6 +1,6 @@
 # Conferência de vendas — plano de implementação
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Deixar a gestão registrar o desfecho de uma venda que ainda não virou dinheiro — já foi paga · ainda a receber · não vamos cobrar — e mostrar a data em que a venda que se resolveu sozinha foi paga.
 
@@ -42,7 +42,7 @@ Hoje `cruzar` recebe `pagos` como lista achatada de códigos e perde de qual mê
 - Modify: `vendas-aguardando.js` (o método `cruzar`)
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Criar `scripts/smoke-conferencia-vendas.js` com este conteúdo inteiro:
 
@@ -102,7 +102,7 @@ const venda = (contrato, cliente, extra) => ({
 console.log('\n' + n + '/' + n + ' casos passaram.');
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -110,7 +110,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `AssertionError: sem saber o mês, 'pagoEm' é null — nunca um mês inventado` (hoje `pagoEm` é `undefined`, não `null`).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `vendas-aguardando.js`, trocar o começo do método `cruzar`. O trecho de hoje:
 
@@ -153,7 +153,7 @@ passa a ser:
         if (jaPagou.has(num)) { pagas.push({ ...vl, pagoEm: ondePagou[num] || null }); return; }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -169,7 +169,7 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-conferencia-vendas.js
@@ -186,7 +186,7 @@ Hoje a tela diz *"confira na Pacto"*. O sistema já sabe qual pagamento fez o no
 - Modify: `vendas-aguardando.js` (o método `cruzar`)
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha `console.log(...)` final:
 
@@ -224,7 +224,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha `console.lo
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -232,7 +232,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `AssertionError: sem o lançamento, não há prova para mostrar — null, nunca inventado`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `vendas-aguardando.js`, dentro de `cruzar`, trocar a construção do `pagante`. Hoje:
 
@@ -285,7 +285,7 @@ passa a ser:
         }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -301,7 +301,7 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-conferencia-vendas.js
@@ -318,7 +318,7 @@ Três opiniões, e nada além. A opinião **nunca decide** — ela só encurta o
 - Modify: `vendas-aguardando.js` (método novo, depois de `ehTeste`)
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 
@@ -371,7 +371,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -379,7 +379,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `TypeError: VA.opiniao is not a function`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `vendas-aguardando.js`, acrescentar o método logo **depois** de `ehTeste` (antes do bloco de comentário que abre `cruzar`):
 
@@ -435,7 +435,7 @@ Em `vendas-aguardando.js`, acrescentar o método logo **depois** de `ehTeste` (a
     },
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -443,7 +443,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `3/3 casos passaram.`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-conferencia-vendas.js
@@ -460,7 +460,7 @@ O coração do desenho. Sem ordem explícita a tela se contradiz.
 - Modify: `vendas-aguardando.js` (método novo, depois de `opiniao`)
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 
@@ -552,7 +552,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -560,7 +560,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `TypeError: VA.aplicarConferencias is not a function`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 **(a)** Em `vendas-aguardando.js`, acrescentar o método logo **depois** de `opiniao`:
 
@@ -640,7 +640,7 @@ passa a ser:
     },
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -656,7 +656,7 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`. Se `smoke-vendido-x-pago.js` falhar num `deepStrictEqual` de `resumo`, é porque ele compara o objeto inteiro e agora existe `naoCobrar: 0` — acrescentar `naoCobrar: 0` nas comparações daquele arquivo, sem afrouxar para comparação parcial.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vendas-aguardando.js scripts/smoke-conferencia-vendas.js scripts/smoke-vendido-x-pago.js
@@ -673,7 +673,7 @@ git commit -m "feat(comissoes): a ordem de quem manda na conferencia de vendas"
 - Modify: `firestore.rules`
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 
@@ -700,7 +700,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -708,7 +708,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `AssertionError: falta a regra de vendas_conferencia`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `firestore.rules`, acrescentar o bloco logo **depois** do bloco `match /periodos/{id} { ... }` (que termina na linha com `}` fechando o `match /historico`):
 
@@ -728,7 +728,7 @@ Em `firestore.rules`, acrescentar o bloco logo **depois** do bloco `match /perio
     }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -744,7 +744,7 @@ node scripts/validate-rules-comissoes.js
 
 Esperado: sem erro.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add firestore.rules scripts/smoke-conferencia-vendas.js
@@ -759,7 +759,7 @@ git commit -m "feat(comissoes): rule da conferencia de vendas, write so admin"
 - Modify: `index.html` — `carregarVendidoXPago` e `carregarArrastoAnterior`
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 
@@ -794,7 +794,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -802,7 +802,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `AssertionError: o carregador tem que ler as conferências`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Em `index.html`, dentro de `carregarVendidoXPago`, trocar o trecho que monta `pagos`. Hoje:
 
@@ -939,7 +939,7 @@ por:
           VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []), conferencias);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -955,7 +955,7 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-conferencia-vendas.js
@@ -970,7 +970,7 @@ git commit -m "feat(comissoes): o carregador le as conferencias e o mes do pagam
 - Modify: `index.html` — `blocoVendidoXPago` e `renderAReceberTab`
 - Test: `scripts/smoke-conferencia-vendas.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 
@@ -1035,7 +1035,7 @@ Acrescentar em `scripts/smoke-conferencia-vendas.js`, antes da linha final:
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -1043,7 +1043,7 @@ node scripts/smoke-conferencia-vendas.js
 
 Esperado: `AssertionError: function linhaConferencia( não existe`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 **(a)** Em `index.html`, acrescentar a função logo **antes** de `async function renderAReceberTab(`:
 
@@ -1246,7 +1246,7 @@ por:
       </div>`;
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 ```bash
 node scripts/smoke-conferencia-vendas.js
@@ -1262,7 +1262,7 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html scripts/smoke-conferencia-vendas.js
@@ -1276,7 +1276,7 @@ git commit -m "feat(comissoes): botoes de conferencia, opiniao do sistema e pago
 **Files:**
 - Modify: `scripts/homologar-vendido-x-pago.js`
 
-- [ ] **Step 1: Acrescentar a conferência da precedência**
+- [x] **Step 1: Acrescentar a conferência da precedência**
 
 Em `scripts/homologar-vendido-x-pago.js`, dentro de `carregar()`, trocar:
 
@@ -1312,7 +1312,7 @@ E, no laço principal do script, logo depois do bloco `if (SEM_TESTE_EM_LUGAR_NE
     }
 ```
 
-- [ ] **Step 2: Rodar contra a produção**
+- [x] **Step 2: Rodar contra a produção**
 
 ```bash
 node scripts/homologar-vendido-x-pago.js --project production
@@ -1320,7 +1320,7 @@ node scripts/homologar-vendido-x-pago.js --project production
 
 Esperado: todas as linhas `OK`, nenhuma `FALHA`. Como ainda não há nenhuma conferência gravada, os grupos devem sair idênticos aos de hoje — Campeche/agosto 73·68·3·2 e Príncipe/agosto 59·43·16·0.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add scripts/homologar-vendido-x-pago.js
@@ -1331,7 +1331,7 @@ git commit -m "test(comissoes): homologacao confere a precedencia da conferencia
 
 ### Task 9: Staging
 
-- [ ] **Step 1: Rodar a suíte inteira**
+- [x] **Step 1: Rodar a suíte inteira**
 
 ```bash
 for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node "$f" >/dev/null 2>&1 || echo "FALHOU: $f"; done; echo fim
@@ -1339,11 +1339,11 @@ for f in scripts/smoke-*.js; do case "$f" in *smoke-9.js) continue;; esac; node 
 
 Esperado: só `fim`.
 
-- [ ] **Step 2: Bump do cache-buster**
+- [x] **Step 2: Bump do cache-buster**
 
 Em `index.html`, trocar as quatro ocorrências de `?v=20260910` por um valor **diferente e com 8 dígitos** (`smoke-upload-pacto-tela.js` exige `\?v=\d{8}`). Se o deploy for no dia 08/09, usar `20260908`; se for outro deploy no mesmo dia do anterior, avançar a data em um dia. Sem isso o navegador serve o JS antigo e os botões não aparecem.
 
-- [ ] **Step 3: Publicar a regra e o hosting no staging**
+- [x] **Step 3: Publicar a regra e o hosting no staging**
 
 ⚠️ **A regra vai ANTES do hosting.** A tela nova grava numa coleção que sem regra é negada.
 
@@ -1353,7 +1353,7 @@ firebase deploy --only firestore:rules
 firebase deploy --only hosting
 ```
 
-- [ ] **Step 4: Conferir no navegador do staging**
+- [x] **Step 4: Conferir no navegador do staging**
 
 No console da página do staging:
 
@@ -1367,7 +1367,7 @@ typeof registrarConferencia === 'function' &&
 
 Esperado: `true`, e nenhum erro no console.
 
-- [ ] **Step 5: Clicar de verdade, logado como Admin**
+- [x] **Step 5: Clicar de verdade, logado como Admin**
 
 Abrir o Dashboard → aba "A receber" de agosto e:
 
@@ -1379,7 +1379,7 @@ Abrir o Dashboard → aba "A receber" de agosto e:
 
    ⚠️ **As contas de demo do staging (`dono.teste@`, `professor.teste@`, `professor2.teste@`) são de admin e de professor — nenhuma é vendedora.** Antes deste passo, criar uma pela tela Pessoas, ou pedir ao Rafael um login de vendedora do staging. Sem isso, o passo mais importante da permissão fica sem prova: a trava da regra do banco protege a ESCRITA, mas quem garante que a vendedora consegue LER o desfecho é este clique.
 
-- [ ] **Step 6: Homologar contra o Firestore do staging**
+- [x] **Step 6: Homologar contra o Firestore do staging**
 
 ```bash
 node scripts/homologar-vendido-x-pago.js --project staging
@@ -1387,7 +1387,7 @@ node scripts/homologar-vendido-x-pago.js --project staging
 
 Esperado: todas `OK`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add index.html
@@ -1398,11 +1398,11 @@ git commit -m "chore(comissoes): bump do cache-buster da conferencia de vendas"
 
 ### Task 10: Produção
 
-- [ ] **Step 1: Pedir o OK explícito ao Rafael**
+- [x] **Step 1: Pedir o OK explícito ao Rafael**
 
 Regra 7 do `CLAUDE.md`: produção só depois de homologação completa no staging, com OK explícito. Mostrar o que foi clicado e o que não foi.
 
-- [ ] **Step 2: Publicar a regra ANTES do frontend**
+- [x] **Step 2: Publicar a regra ANTES do frontend**
 
 ```bash
 node scripts/validate-rules-comissoes.js
@@ -1411,7 +1411,7 @@ firebase deploy --only firestore:rules --project production
 
 ⚠️ `validate-rules-comissoes.js` existe porque um deploy de regras já deixou quatro coleções de Comissões sem regra em produção, e Pagamentos e Histórico quebraram em silêncio. Não pular.
 
-- [ ] **Step 3: Publicar o frontend**
+- [x] **Step 3: Publicar o frontend**
 
 ```bash
 git push origin main
@@ -1419,7 +1419,7 @@ git push origin main
 
 (É o GitHub Pages que serve o usuário — `firebase deploy --only hosting` publica o staging.)
 
-- [ ] **Step 4: Conferir no ar**
+- [x] **Step 4: Conferir no ar**
 
 ```bash
 curl -s "https://rafaelmayerbrasil.github.io/crosstrainer-comissoes/vendas-aguardando.js" | grep -c "aplicarConferencias"
@@ -1427,7 +1427,7 @@ curl -s "https://rafaelmayerbrasil.github.io/crosstrainer-comissoes/vendas-aguar
 
 Esperado: `1` ou mais. Se vier `0`, o GitHub Pages ainda está publicando — esperar e repetir.
 
-- [ ] **Step 5: Homologar contra a produção**
+- [x] **Step 5: Homologar contra a produção**
 
 ```bash
 node scripts/homologar-vendido-x-pago.js --project production
@@ -1435,7 +1435,7 @@ node scripts/homologar-vendido-x-pago.js --project production
 
 Esperado: todas `OK`.
 
-- [ ] **Step 6: Registrar a sessão**
+- [x] **Step 6: Registrar a sessão**
 
 Atualizar `CONTEXTO_SESSAO.md` com o que entrou, o que foi clicado por gente e o que não foi. Commitar.
 

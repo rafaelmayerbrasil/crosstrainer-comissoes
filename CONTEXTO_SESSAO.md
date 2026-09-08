@@ -3,6 +3,137 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 67 (07–08/09/2026) — ✍️ A CONFERÊNCIA DE VENDAS · ✅ NO AR EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+
+O Rafael clicou pela primeira vez no painel "vendido × pago" publicado na sessão 66 e trouxe duas
+perguntas: *"não sei o que fazer com essas vendas a conferir — depois de conferido seria legal
+registrar, pra não ficar só na cabeça de alguém"* e *"se a venda foi paga depois, seria legal que
+ficasse registrado que foi pago em tal data"*.
+
+**São duas coisas diferentes, e só uma precisava de gente.** A venda paga no mesmo contrato já saía
+da fila sozinha — faltava **mostrar quando**. A venda "a conferir" é decisão humana, e morria na
+cabeça de quem conferiu; pior, **o grupo é recalculado toda vez que a tela abre**, então o item
+voltava no dia seguinte e a pessoa conferia de novo.
+
+**Entregue:** três desfechos — **já foi paga · ainda a receber · não vamos cobrar** — com quem
+decidiu, quando e uma observação. Mais **"Pago em 12/09"** na venda que se resolveu sozinha, e a
+**opinião do sistema** ao lado da pergunta.
+
+### 🚨 "O sistema não pode marcar sozinho?" — a pergunta que mudou o desenho
+
+O Rafael perguntou se o sistema não podia decidir sozinho. A resposta saiu dos **dois casos reais**
+de produção, e ela salva R$ 4.776:
+
+| | Amandha (C7070) | Cátia (C7130) |
+|---|---|---|
+| a venda | Renovação **ANUAL R$ 2.388** | Renovação **ANUAL R$ 2.388** |
+| fechada em | 06/08/2026 | 27/08/2026 |
+| **começa em** | **02/09/2026** | **02/09/2026** |
+| o pagamento que bateu o nome | **R$ 239,00** em **04/08** | **R$ 199,00** em **12/08** |
+
+**As duas pagaram antes de a venda existir.** Estavam num plano mensal, pagaram a mensalidade de
+agosto, e durante agosto assinaram um anual que **só começa em setembro**. Marcar "pago" sozinho
+faria a gestão parar de acompanhar as duas renovações. Então: **o sistema OPINA, a pessoa CONFIRMA.**
+
+### ⚠️ Correção a uma conclusão que estava registrada no `CLAUDE.md`
+
+O projeto registrava a Cátia como *o* exemplo de "renovou no 7130 e o dinheiro entrou no 6867".
+**O dado não sustenta isso.** O que entrou no 6867 foi a **mensalidade de agosto** dela (R$ 199), não
+a renovação anual (R$ 2.388). A conclusão anterior veio de os nomes baterem — o erro que essa tela
+existe para evitar. **O caso segue em aberto de verdade:** em setembro, essa anual cai no contrato
+novo ou a Pacto continua cobrando no antigo? Só o arquivo de recebimentos de setembro responde.
+
+### A ordem de quem manda (o coração)
+
+1. **O contrato apareceu nos recebimentos** → **PAGA**. Ganha de tudo.
+2. Senão, vale a marcação da gestão.
+3. Senão, o automático.
+
+**🚨 O DINHEIRO SEMPRE GANHA.** Marcada "não vamos cobrar" e o cliente pagou depois → volta a contar
+como paga, e a tela **DIZ** que havia marcação em contrário. Marcação humana nunca esconde dinheiro
+que entrou: é o que impede esta tela de mentir.
+
+### Decisões do Rafael
+
+| | |
+|---|---|
+| **Três desfechos** | já foi paga · ainda a receber · não vamos cobrar |
+| **Onde vale** | a conferir, aguardando **e o arrasto** de meses anteriores |
+| **Quem registra** | **só Admin** — travado na regra do banco, não só na tela |
+| **Onde guarda** | coleção própria, **fora do documento do mês** (re-subir a Pacto reescreve o período e apagaria a decisão em silêncio) |
+| **A data** | exata (`pago em 12/09`), sem ninguém digitar |
+| **A decisão** | o sistema opina, a pessoa confirma |
+| **A vendedora** | vê o desfecho e a observação nas vendas dela, sem mexer |
+
+**Nenhum dos três desfechos move um centavo** — `commission.js` não conhece `vendasDoMes`.
+
+### Como foi construído e validado
+
+Executado por **subagentes**, task a task, com revisão de conformidade e de qualidade em cada uma.
+**20 commits.** Suíte: **20/20** no smoke novo, **18/18** no do painel, 78 smokes do projeto verdes.
+
+- **Homologação: produção 26/26 · staging 12/12.** `homologar-vendido-x-pago.js` é uma
+  **reimplementação de propósito**, não um import — se fosse o mesmo código, concordaria com um
+  defeito em vez de denunciá-lo.
+- **A regra provada por REST no staging: 8/8** (`validate-rules-conferencia.js`, novo). Admin
+  escreve e lê; a vendedora é barrada em escrita **e** em delete, mas lê; anônimo não faz nada.
+  ⚠️ **Tinha que ser REST:** o Admin SDK ignora as rules e passaria mesmo com a regra aberta.
+- **Staging conferido no navegador**, dois temas, 0 erro de console, e o **"mudar" clicado de
+  verdade** — o link some e os três botões aparecem.
+
+### 🐛 Onze defeitos pegos por revisão e mutação — nenhum por teste verde
+
+Os que mais importam:
+
+1. **`R$ 239.00` com ponto.** Só apareceu ao rodar contra o dado real; ler o código não pegaria.
+2. **A regra da data era confiante demais.** Se o cliente paga no dia e o contrato é lançado dias
+   depois, ela diria "não foi paga" com certeza total. Agora, valor exato + data anterior = os dois
+   sinais brigam, e a tela **admite** que não sabe.
+3. **Injeção no `onclick`.** A mutação mostrou cru: `registrarConferencia('C7130'+alert(1)+'', …)`.
+   ⚠️ **Escapar como entidade HTML NÃO resolveria** — o navegador decodifica o atributo **antes** de
+   o JS ser interpretado. O dado saiu de dentro do JavaScript (`data-` + `dataset`).
+4. **🚨 Um teste MEU, já em produção, passava sem provar nada.** O recorte de função usava
+   `indexOf('\n    }\n')` e o `index.html` é **CRLF**: nunca casava, `slice(i, -1)` pegava
+   **356.155 caracteres** em vez de 19.026 — o arquivo quase inteiro. Os casos 11 e 12 do painel
+   passariam com as chamadas em **qualquer lugar**. Provado por mutação, corrigido. **O código
+   sempre esteve certo; a trava é que era falsa.**
+5. **A revisão FINAL achou dois que só apareceriam no primeiro uso real:** `contarPorVendedora`
+   ignorava o grupo novo, então a tabela por pessoa somaria **MENOS** que o mês — e o rodapé só sabe
+   explicar divergência para **mais**. E `visaoDe` não filtrava `naoCobrar`: a vendedora **não
+   veria** a própria venda dada por perdida, e ficaria esperando comissão que a gestão já cancelou.
+6. **Nome vazio fabricava prova falsa** · **"último mês vence"** em código pago em dois meses ·
+   JSDoc mentindo (três vezes) · homologação gritando lobo no staging.
+
+**Uma preocupação foi REFUTADA em vez de "corrigida":** o `indexOf` por identidade de objeto que um
+agente achou frágil — demonstrei que o `concat` lê do mesmo array em que o `indexOf` busca.
+
+### Decisão de leitura que vale revisar
+
+O **"Convertido"** da vendedora inclui as não cobradas no denominador. "Aguardando" ainda pode virar
+dinheiro; "não vamos cobrar" nunca vai — tirar do denominador inflaria a taxa dela escondendo
+justamente a venda que não converteu. **Ela vendeu e não converteu.**
+
+### 🔴 O que falta
+
+1. ⚠️ **Ninguém da academia clicou.** A regra está provada no servidor e eu cliquei no staging, mas
+   a gestão será a primeira a usar de verdade.
+2. ⚠️ **O "mudar" nunca gravou de verdade no banco.** O clique que testei revela os botões; o `set`
+   no Firestore só acontece logado.
+3. **Herdado da sessão 66, sem conserto:** a tela de metas do mês continua não abrindo antes do
+   primeiro upload — foi onde o Rodrigo esbarrou em setembro.
+4. **Recomendações registradas e NÃO feitas** (anotadas de propósito): usar `venda.inicio` como
+   sinal adicional da opinião · uma quarta categoria `parece_primeira_parcela` (o valor exato quase
+   nunca bate num anual parcelado) · quebrar `cruzar` em helpers, que já está com seis
+   responsabilidades · e revisitar se a forma "lista de string" de `pagos` ainda precisa existir.
+
+Desenho: `docs/superpowers/specs/2026-09-07-conferencia-de-vendas-design.md`.
+Plano: `docs/superpowers/plans/2026-09-07-conferencia-de-vendas.md`.
+⚠️ Buster em **`?v=20260912`** — cinco deploys em dois dias; ver [[dois-deploys-no-mesmo-dia]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 66 (07/09/2026) — 📊 PAINEL "VENDIDO × PAGO" · ✅ NO AR EM PRODUÇÃO (`8f2602e..1885462`)
 
 ### ▶️▶️ RETOMAR AQUI
