@@ -7599,25 +7599,66 @@
 
       // Um contrato deixa de aguardar quando aparece na memória de QUALQUER mês
       // desta unidade: venda de agosto paga em setembro já entrou.
+      //
+      // Guardamos de QUAL mês veio cada código: achatar tudo numa lista só era
+      // o que fazia a venda paga depois sumir calada, sem dizer quando.
       const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
       const pagos = [];
-      snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
+      const mesesQuePagaram = new Set();
+      snap.forEach(d => {
+        const m = String(d.id).match(/(\d{4}-\d{2})$/);
+        const mes = m ? m[1] : null;
+        (d.data().codigosPagos || []).forEach(c => {
+          pagos.push({ codigo: c, mes, data: null });
+          if (mes) mesesQuePagaram.add(mes);
+        });
+      });
+
+      // A data exata sai do lançamento, no mês que pagou. São poucas leituras:
+      // uma por mês da unidade que tenha recebimento.
+      for (const mes of mesesQuePagaram) {
+        const itens = await db.collection('periodos').doc(unitId + '_' + mes).collection('itens').get();
+        const porCodigo = {};
+        itens.forEach(d => {
+          const it = d.data();
+          if ((it.type || 'processed') !== 'processed') return;
+          if (it.data) porCodigo[String(it.codigo || '').replace(/-\d+$/, '')] = it.data;
+        });
+        pagos.forEach(p => { if (p.mes === mes && porCodigo[p.codigo]) p.data = porCodigo[p.codigo]; });
+      }
 
       // Quem pagou algo DE CONTRATO no mês — separa a renovação que trocou de
       // número de quem não pagou nada. Bar e loja não contam.
       const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      // Vai o lançamento INTEIRO, não só o nome: é ele que a tela mostra como
+      // prova ao lado da pergunta, em vez de mandar a gestão procurar na Pacto.
       const clientesPagantes = [];
       itensSnap.forEach(d => {
         const it = d.data();
         if ((it.type || 'processed') !== 'processed') return;
         if (!/^C\d+/i.test(String(it.codigo || ''))) return;
-        if (it.cliente) clientesPagantes.push(it.cliente);
+        if (it.cliente) clientesPagantes.push({
+          cliente: it.cliente, codigo: it.codigo,
+          valor: it.valorCaixa || 0, data: it.data || null,
+        });
       });
 
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-      const cruzado = VendasAguardando.cruzar(vendas, pagos, clientesPagantes);
+
+      // As marcações da gestão. Moram fora do documento do mês: re-subir o
+      // arquivo da Pacto reescreve o período, e a decisão sumiria em silêncio.
+      const confSnap = await db.collection('vendas_conferencia')
+        .where('unitId', '==', unitId).get();
+      const conferencias = {};
+      confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+
+      // Aplicar ANTES de resumir e de contar por vendedora — senão a venda é
+      // contada no grupo errado.
+      const cruzado = VendasAguardando.aplicarConferencias(
+        VendasAguardando.cruzar(vendas, pagos, clientesPagantes), conferencias);
+
       return {
-        ...base, temLista: true, cruzado,
+        ...base, temLista: true, cruzado, conferencias,
         resumo: VendasAguardando.resumo(cruzado),
         porVendedora: VendasAguardando.contarPorVendedora(cruzado, cfg.naoComissionaveis),
       };
@@ -7720,10 +7761,18 @@
         if (m && m[1] >= PRIMEIRO_MES && m[1] < mesAtual) docs.push({ mes: m[1], ...d.data() });
       });
 
+      // As mesmas marcações da gestão: a venda dada por perdida sai do arrasto,
+      // senão essa lista só cresce até virar ruído que ninguém olha.
+      const confSnap = await db.collection('vendas_conferencia')
+        .where('unitId', '==', unitId).get();
+      const conferencias = {};
+      confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+
       const fora = [];
       const hoje = new Date();
       docs.sort((a, b) => a.mes.localeCompare(b.mes)).forEach(pr => {
-        const r = VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []);
+        const r = VendasAguardando.aplicarConferencias(
+          VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []), conferencias);
         r.aguardando.forEach(v => {
           const [dd, mm, aa] = String(v.data || '').split('/');
           const quando = aa ? new Date(Number(aa), Number(mm) - 1, Number(dd)) : null;

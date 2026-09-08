@@ -438,4 +438,36 @@ const venda = (contrato, cliente, extra) => ({
   ok('a regra existe e o write exige Admin no servidor');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 13. O carregador para de achatar o mês, e lê as conferências
+// ════════════════════════════════════════════════════════════════════
+{
+  const fs = require('fs');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const i = html.indexOf('async function carregarVendidoXPago(');
+  assert.ok(i > 0, 'falta carregarVendidoXPago');
+  // index.html é CRLF de ponta a ponta — '\n    }\n' nunca casa (não há LF
+  // solto no arquivo) e o indexOf volta -1, que faz slice(i, -1) engolir
+  // quase o arquivo inteiro em vez de só a função. Recorte tem que ser CRLF.
+  const carregador = html.slice(i, html.indexOf('\r\n    }\r\n', i));
+
+  assert.ok(/vendas_conferencia/.test(carregador),
+    'o carregador tem que ler as conferências');
+  assert.ok(/aplicarConferencias\(/.test(carregador),
+    'e aplicá-las antes de resumir');
+  // Casa com `{ codigo: c, mes, data }` — o `mes` entra abreviado, então
+  // procurar por "mes:" daria falso negativo.
+  assert.ok(/pagos\.push\(\{[^}]*\bmes\b/.test(carregador),
+    'os códigos pagos têm que carregar de qual mês vieram');
+  assert.ok(/codigo:/.test(carregador),
+    'e o lançamento inteiro tem que ir como prova');
+
+  // a conta só pode ser feita DEPOIS de aplicar as marcações, senão o resumo
+  // e a tabela contam a venda no grupo errado
+  assert.ok(carregador.indexOf('aplicarConferencias(') < carregador.indexOf('VendasAguardando.resumo('),
+    'aplicar as conferências vem ANTES de resumir');
+
+  ok('o carregador lê as conferências e guarda de qual mês veio cada pagamento');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
