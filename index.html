@@ -7940,9 +7940,19 @@
 
       if (!admin) return html;
 
+      // 🔒 `contrato` não pode entrar dentro de um literal JS ('...') que mora
+      // num atributo HTML: um contrato com aspas simples fecha o literal e
+      // injeta código. E trocar `esc()` por entidade HTML NÃO resolveria —
+      // o navegador decodifica o valor do atributo ANTES de o JS ser
+      // interpretado, então onclick="f('&#39;')" chega no parser JS como
+      // f('''), com a mesma quebra. A saída é não interpolar dado nenhum
+      // dentro do JavaScript: o valor vai por atributo `data-`, e o `esc()`
+      // (que escapa `"`) protege o atributo inteiro; o manipulador lê do
+      // `dataset`, nunca de texto colado no `onclick`.
       const b = (desfecho, rotulo, cor) => `<button type="button" class="btn-sm"
         style="border:1px solid ${cor};color:${cor};background:transparent;border-radius:6px;padding:3px 9px;font-size:11px;margin-right:6px;cursor:pointer"
-        onclick="registrarConferencia('${esc(v.contrato)}','${desfecho}')">${rotulo}</button>`;
+        data-contrato="${esc(v.contrato)}" data-desfecho="${desfecho}"
+        onclick="registrarConferencia(this.dataset.contrato, this.dataset.desfecho)">${rotulo}</button>`;
 
       return html + `<div style="margin-top:6px">
         ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}

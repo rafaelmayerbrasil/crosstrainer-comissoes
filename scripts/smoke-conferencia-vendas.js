@@ -529,4 +529,69 @@ const venda = (contrato, cliente, extra) => ({
   ok('a tela mostra opinião para todos, botões só para Admin, e o pagamento ganha');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 15. Contrato com aspas simples não injeta JS no onclick
+// ════════════════════════════════════════════════════════════════════
+// `esc()` escapa &, <, >, " — mas NÃO escapa aspas simples. Enquanto o
+// contrato entrava dentro de um literal JS ('...') montado no atributo
+// onclick, um contrato com aspas simples fechava o literal e injetava
+// código. Trocar `esc()` por entidade HTML (`&#39;`) NÃO resolveria: o
+// navegador decodifica o valor do atributo ANTES de o JS ser interpretado,
+// então onclick="f('&#39;')" chega no parser JS como f('''), com a mesma
+// quebra. A correção é não interpolar dado nenhum dentro do JavaScript: o
+// contrato vai por `data-contrato`, e o onclick só lê do `dataset` — texto
+// fixo, sem nada do valor colado nele.
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function linhaConferencia('), sandbox);
+  const linha = sandbox.linhaConferencia;
+
+  const contratoMalicioso = "C7130'+alert(1)+'";
+  const venenosa = venda(contratoMalicioso, 'FULANA', { valorContrato: 1000 });
+
+  // (a) Admin: os três botões saem, e NENHUM onclick carrega pedaço do
+  // contrato — o onclick é sempre o mesmo texto fixo, lendo do dataset.
+  const adm = linha(venenosa, true);
+  const onclicks = [...adm.matchAll(/onclick="([^"]*)"/g)].map(m => m[1]);
+  assert.strictEqual(onclicks.length, 3, 'os três botões têm que sair: ' + adm);
+  for (const oc of onclicks) {
+    assert.strictEqual(oc, 'registrarConferencia(this.dataset.contrato, this.dataset.desfecho)',
+      'o onclick não pode carregar nada do contrato, tem que ser sempre o mesmo texto fixo: ' + oc);
+  }
+  // (o contrato malicioso aparece no HTML — dentro de data-contrato, onde é
+  // dado de atributo inerte. O que importa é que ele NUNCA apareça dentro do
+  // onclick, e isso já foi provado acima: todo onclick é o texto fixo.)
+
+  // (b) o contrato continua chegando ao botão, só que por data-contrato,
+  // escapado por esc() — que é onde a proteção passou a morar.
+  const dataContratos = [...adm.matchAll(/data-contrato="([^"]*)"/g)].map(m => m[1]);
+  assert.strictEqual(dataContratos.length, 3, 'os três botões precisam do data-contrato: ' + adm);
+  for (const dc of dataContratos) {
+    assert.strictEqual(dc, contratoMalicioso,
+      'o data-contrato tem que trazer o contrato completo (aspas simples inclusive): ' + dc);
+  }
+  const dataDesfechos = [...adm.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]);
+  assert.deepStrictEqual(dataDesfechos, ['paga_outro_contrato', 'a_receber', 'nao_cobrar'],
+    'cada botão precisa do seu próprio data-desfecho: ' + adm);
+
+  // (c) quem não é Admin continua sem nenhum botão, contrato malicioso ou não
+  const vend = linha(venenosa, false);
+  assert.ok(!/<button/i.test(vend), 'quem não é Admin não pode ter botão: ' + vend);
+
+  ok('contrato com aspas simples não injeta JS no onclick — vai por data-contrato');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
