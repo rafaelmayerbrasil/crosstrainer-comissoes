@@ -417,4 +417,25 @@ const venda = (contrato, cliente, extra) => ({
   ok('o resumo conta o "não vamos cobrar" à parte, sem tirar de vendidas');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 12. A regra do banco existe, e o write é só de Admin
+// ════════════════════════════════════════════════════════════════════
+// Esconder o botão não basta: link direto existe. Foi assim que o vazamento
+// de salário do fechamento aconteceu.
+{
+  const fs = require('fs');
+  const rules = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
+  const i = rules.indexOf('match /vendas_conferencia/');
+  assert.ok(i > 0, 'falta a regra de vendas_conferencia');
+  const bloco = rules.slice(i, rules.indexOf('}', rules.indexOf('allow write', i)) + 1);
+
+  assert.ok(/allow read:/.test(bloco), 'precisa liberar leitura para quem vê o painel');
+  assert.ok(/allow write:[^;]*isAdmin\(\)/.test(bloco),
+    'o write tem que exigir isAdmin() na REGRA, não só na tela: ' + bloco);
+  assert.ok(!/allow read, write/.test(bloco),
+    'read e write não podem sair na mesma linha — o write é mais restrito');
+
+  ok('a regra existe e o write exige Admin no servidor');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

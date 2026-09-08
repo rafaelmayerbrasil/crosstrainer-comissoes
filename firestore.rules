@@ -81,6 +81,20 @@ service cloud.firestore {
       }
     }
 
+    // Conferência de vendas — o desfecho que a gestão registra sobre uma venda
+    // que ainda não virou dinheiro (spec 2026-09-07).
+    //
+    // Mora FORA do documento do período de propósito: re-subir o arquivo da
+    // Pacto reescreve o período, e a decisão sumiria em silêncio.
+    //
+    // ⚠️ read e write são DIFERENTES. A vendedora precisa ver o desfecho das
+    // vendas dela; só Admin registra. Esconder o botão não basta — link direto
+    // existe, e foi assim que o vazamento de salário do fechamento aconteceu.
+    match /vendas_conferencia/{id} {
+      allow read:  if isAuth() && hasProfile() && hasComModule();
+      allow write: if isAuth() && hasProfile() && isAdmin();
+    }
+
     match /comissoes_diferidas/{id} {
       allow read, write: if isAuth() && hasComModule();
     }
