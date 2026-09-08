@@ -54,6 +54,19 @@
   // digitado por engano cortaria "ANA  PAULA SOUZA" em "ANA".
   const ROTULOS = ['VISAO GERAL'];
 
+  // R$ em pt-BR, à mão — `toLocaleString('pt-BR')` depende do Node ter o ICU
+  // completo (full-icu) e, sem ele, degrada em silêncio para o formato en-US
+  // (ponto decimal). Este texto vai para a tela da gestão, então não pode
+  // arriscar. Ponto de milhar entra porque contrato anual passa de R$ 1.000
+  // com frequência (ex.: R$ 2.388,00) e "2388,00" sem separador lê pior.
+  const moeda = valor => {
+    const n = Number(valor || 0);
+    const negativo = n < 0;
+    const [inteiro, centavos] = Math.abs(n).toFixed(2).split('.');
+    const comMilhar = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (negativo ? '-' : '') + comMilhar + ',' + centavos;
+  };
+
   return {
     /** Só o relatório de VENDAS entra por aqui — o de recebimentos é o outro caminho */
     ehRelatorioDeVendas(linhas) {
@@ -202,7 +215,7 @@
       if (pago && fechada && pago < fechada) {
         return {
           suspeita: 'provavelmente_nao_paga',
-          porque: 'O pagamento que bateu o nome foi de R$ ' + Number(pagamento.valor || 0).toFixed(2)
+          porque: 'O pagamento que bateu o nome foi de R$ ' + moeda(pagamento.valor)
             + ' em ' + pagamento.data + ' — antes desta venda existir, fechada em ' + venda.data
             + '. Provavelmente é do plano anterior, e esta venda ainda não foi paga.',
         };
@@ -213,7 +226,7 @@
       if (valor > 0 && contrato > 0 && Math.abs(valor - contrato) < 0.01) {
         return {
           suspeita: 'provavelmente_paga',
-          porque: 'O valor pago (R$ ' + valor.toFixed(2) + ', no contrato ' + pagamento.codigo
+          porque: 'O valor pago (R$ ' + moeda(valor) + ', no contrato ' + pagamento.codigo
             + ') bate com o valor deste contrato. Provavelmente é esta venda, com outro número.',
         };
       }

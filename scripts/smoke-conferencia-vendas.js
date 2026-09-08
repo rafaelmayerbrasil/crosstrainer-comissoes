@@ -253,4 +253,31 @@ const venda = (contrato, cliente, extra) => ({
   ok('a opinião cobre os dois casos reais e admite quando não sabe');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 8. O R$ do "porque" é brasileiro — vírgula decimal, nunca ponto cru
+// ════════════════════════════════════════════════════════════════════
+// Esta base já foi pega nisso na tela de fechamento da folha: `.toFixed(2)`
+// cru sai "239.00", com PONTO — e o "porque" vai direto pra tela de quem
+// administra a academia. Se alguém voltar pro `.toFixed(2)` cru, os dois
+// asserts abaixo quebram.
+{
+  const semMilhar = VA.opiniao(
+    venda('C7130', 'X', { valorContrato: 2388, data: '27/08/2026' }),
+    { codigo: 'C6867', valor: 239, data: '04/08/2026' });
+  assert.ok(semMilhar.porque.includes('R$ 239,00'),
+    'esperava vírgula decimal (R$ 239,00): ' + semMilhar.porque);
+  assert.ok(!semMilhar.porque.includes('R$ 239.00'),
+    'ponto decimal cru vazou pro texto: ' + semMilhar.porque);
+
+  const comMilhar = VA.opiniao(
+    venda('C7130', 'X', { valorContrato: 2388, data: '01/08/2026' }),
+    { codigo: 'C6867', valor: 2388, data: '15/08/2026' });
+  assert.ok(comMilhar.porque.includes('R$ 2.388,00'),
+    'esperava ponto de milhar + vírgula decimal (R$ 2.388,00): ' + comMilhar.porque);
+  assert.ok(!comMilhar.porque.includes('R$ 2388.00') && !comMilhar.porque.includes('R$ 2,388.00'),
+    'formato americano vazou pro texto: ' + comMilhar.porque);
+
+  ok('o "porque" usa R$ no formato brasileiro (vírgula decimal, ponto de milhar), nunca ponto decimal cru');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');
