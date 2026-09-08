@@ -7814,6 +7814,9 @@
         pagas: VendasAguardando.daVendedora(d.cruzado.pagas, soDe),
         aguardando: VendasAguardando.daVendedora(d.cruzado.aguardando, soDe),
         conferir: VendasAguardando.daVendedora(d.cruzado.conferir, soDe),
+        // Sem isso a venda dela marcada "não vamos cobrar" some da vida dela
+        // sem nota nenhuma — dado antigo pode não ter o grupo, daí o `|| []`.
+        naoCobrar: VendasAguardando.daVendedora(d.cruzado.naoCobrar || [], soDe),
       };
       return { ...d, cruzado, resumo: VendasAguardando.resumo(cruzado) };
     }
@@ -7826,10 +7829,22 @@
     // ⚠️ A soma da coluna "vendidas" é MAIOR que o total do mês quando existe
     // venda dividida: ela conta para as duas, porque a comissão dela é
     // dividida. Está certo — a nota no rodapé diz isso, para ninguém "corrigir".
+    //
+    // A coluna "Não cobrar" só aparece quando alguma vendedora tem uma —
+    // mesmo padrão da coluna "Convertido" (só aparece com o mês fechado):
+    // não poluir a tabela nos meses em que ninguém marcou nada.
+    //
+    // 🧮 "Convertido" = pagas / vendidas, e `vendidas` inclui as não cobradas
+    // DE PROPÓSITO. Não é "aguardando", que ainda pode virar dinheiro — é uma
+    // venda que a gestão já decidiu que NUNCA vai converter. Tirar do
+    // denominador inflaria a taxa da vendedora escondendo justamente a venda
+    // que não virou comissão nenhuma. Ela vendeu, e não converteu: o número
+    // tem que carregar isso.
     function tabelaPorVendedora(porVendedora, fechado, soDe) {
       if (soDe) return '';
       const linhas = Object.entries(porVendedora || {}).sort((a, b) => b[1].vendidas - a[1].vendidas);
       if (!linhas.length) return '';
+      const temNaoCobrar = linhas.some(([, v]) => v.naoCobrar);
       return `<div class="table-wrap" style="margin-bottom:18px">
         <table style="width:100%">
           <thead><tr>
@@ -7838,6 +7853,7 @@
             <th style="text-align:right">Pagas</th>
             <th style="text-align:right">Aguardando</th>
             <th style="text-align:right">Conferir</th>
+            ${temNaoCobrar ? '<th style="text-align:right">Não cobrar</th>' : ''}
             ${fechado ? '<th style="text-align:right">Convertido</th>' : ''}
           </tr></thead>
           <tbody>
@@ -7848,6 +7864,7 @@
               <td style="text-align:right;color:var(--green)">${v.pagas}</td>
               <td style="text-align:right;color:${v.aguardando ? 'var(--orange)' : 'var(--text3)'}">${v.aguardando}</td>
               <td style="text-align:right;color:${v.conferir ? 'var(--yellow)' : 'var(--text3)'}">${v.conferir}</td>
+              ${temNaoCobrar ? `<td style="text-align:right;color:var(--text3)">${v.naoCobrar || 0}</td>` : ''}
               ${fechado ? `<td style="text-align:right">${v.naoComissionado ? '—'
                 : Math.round((v.pagas / v.vendidas) * 100) + '%'}</td>` : ''}
             </tr>`).join('')}
@@ -7855,7 +7872,8 @@
         </table>
         <div style="font-size:11px;color:var(--text3);margin-top:8px">
           Venda dividida conta para as duas vendedoras — por isso a coluna soma mais que o total do mês.
-          ${fechado ? '' : 'A coluna de conversão aparece quando o mês fecha: no mês corrente a cobrança ainda está caindo.'}
+          ${temNaoCobrar ? ' "Não cobrar" é venda que a gestão decidiu não cobrar mais — conta como vendida, nunca vira paga.' : ''}
+          ${fechado ? '' : ' A coluna de conversão aparece quando o mês fecha: no mês corrente a cobrança ainda está caindo.'}
         </div>
       </div>`;
     }
@@ -7907,6 +7925,22 @@
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const nota = t => `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">${t}</div>`;
 
+      // 🔒 `contrato` não pode entrar dentro de um literal JS ('...') que mora
+      // num atributo HTML: um contrato com aspas simples fecha o literal e
+      // injeta código. E trocar `esc()` por entidade HTML NÃO resolveria —
+      // o navegador decodifica o valor do atributo ANTES de o JS ser
+      // interpretado, então onclick="f('&#39;')" chega no parser JS como
+      // f('''), com a mesma quebra. A saída é não interpolar dado nenhum
+      // dentro do JavaScript: o valor vai por atributo `data-`, e o `esc()`
+      // (que escapa `"`) protege o atributo inteiro; o manipulador lê do
+      // `dataset`, nunca de texto colado no `onclick`. Definida aqui em cima
+      // porque tanto a venda ainda sem desfecho quanto o "mudar" de uma venda
+      // já conferida usam os três mesmos botões.
+      const b = (desfecho, rotulo, cor) => `<button type="button" class="btn-sm"
+        style="border:1px solid ${cor};color:${cor};background:transparent;border-radius:6px;padding:3px 9px;font-size:11px;margin-right:6px;cursor:pointer"
+        data-contrato="${esc(v.contrato)}" data-desfecho="${desfecho}"
+        onclick="registrarConferencia(this.dataset.contrato, this.dataset.desfecho)">${rotulo}</button>`;
+
       // 🚨 O dinheiro ganhou de uma marcação em contrário: a tela TEM que dizer,
       // senão parece que o sistema esqueceu o que a gestão decidiu.
       if (v.marcacaoIgnorada) {
@@ -7919,13 +7953,31 @@
 
       if (v.pagoEm && v.pagoEm.data) return nota(`💰 Pago em <strong>${esc(v.pagoEm.data)}</strong>`);
 
-      // Já conferida: mostra quem decidiu e quando, e não repete os botões.
+      // Já conferida: mostra quem decidiu e quando, e não repete os botões —
+      // a não ser que quem olha seja Admin, que ganha um "mudar" discreto do
+      // lado. O desenho promete que registrar de novo sobrescreve e o
+      // audit_log guarda o histórico; sem este link o único jeito de corrigir
+      // um clique errado era mexer direto no Firestore.
       if (v.conferencia) {
         const q = { paga_outro_contrato: 'Já foi paga', a_receber: 'Ainda a receber',
                     nao_cobrar: 'Não vamos cobrar' }[v.conferencia.desfecho] || v.conferencia.desfecho;
-        return nota(`✓ <strong>${esc(q)}</strong> — ${esc(v.conferencia.por || '—')}`
+        const notaConferida = nota(`✓ <strong>${esc(q)}</strong> — ${esc(v.conferencia.por || '—')}`
           + `${v.conferencia.em ? ', ' + esc(v.conferencia.em) : ''}`
-          + `${v.conferencia.observacao ? '<br><em>' + esc(v.conferencia.observacao) + '</em>' : ''}`);
+          + `${v.conferencia.observacao ? '<br><em>' + esc(v.conferencia.observacao) + '</em>' : ''}`
+          // Nada de dado interpolado aqui: `mostrarMudar(this)` passa só a
+          // referência do próprio elemento, mesma trava dos botões acima.
+          + (admin ? ` · <a href="#" onclick="mostrarMudar(this);return false" style="color:var(--text3);text-decoration:underline">mudar</a>` : ''));
+        if (!admin) return notaConferida;
+        // Escondido até o clique em "mudar" — mesmos três botões de sempre,
+        // mesma proteção contra injeção (nada interpolado no onclick além
+        // dos atributos `data-`).
+        return `<div class="linha-conferencia">${notaConferida}
+          <div class="mudar-opcoes" style="display:none;margin-top:6px">
+            ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}
+            ${b('a_receber', 'Ainda a receber', 'var(--orange)')}
+            ${b('nao_cobrar', 'Não vamos cobrar', 'var(--red)')}
+          </div>
+        </div>`;
       }
 
       // A opinião do sistema é para TODOS — ela explica, não decide. E vem com
@@ -7940,25 +7992,25 @@
 
       if (!admin) return html;
 
-      // 🔒 `contrato` não pode entrar dentro de um literal JS ('...') que mora
-      // num atributo HTML: um contrato com aspas simples fecha o literal e
-      // injeta código. E trocar `esc()` por entidade HTML NÃO resolveria —
-      // o navegador decodifica o valor do atributo ANTES de o JS ser
-      // interpretado, então onclick="f('&#39;')" chega no parser JS como
-      // f('''), com a mesma quebra. A saída é não interpolar dado nenhum
-      // dentro do JavaScript: o valor vai por atributo `data-`, e o `esc()`
-      // (que escapa `"`) protege o atributo inteiro; o manipulador lê do
-      // `dataset`, nunca de texto colado no `onclick`.
-      const b = (desfecho, rotulo, cor) => `<button type="button" class="btn-sm"
-        style="border:1px solid ${cor};color:${cor};background:transparent;border-radius:6px;padding:3px 9px;font-size:11px;margin-right:6px;cursor:pointer"
-        data-contrato="${esc(v.contrato)}" data-desfecho="${desfecho}"
-        onclick="registrarConferencia(this.dataset.contrato, this.dataset.desfecho)">${rotulo}</button>`;
-
       return html + `<div style="margin-top:6px">
         ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}
         ${b('a_receber', 'Ainda a receber', 'var(--orange)')}
         ${b('nao_cobrar', 'Não vamos cobrar', 'var(--red)')}
       </div>`;
+    }
+
+    /**
+     * Troca o "mudar" pelos três botões de desfecho, na mesma linha. Só
+     * manipula o DOM que já está na tela — nenhum dado da venda passa por
+     * aqui, então não há o que escapar.
+     * @param {HTMLElement} link  o próprio <a>"mudar"</a> clicado
+     */
+    function mostrarMudar(link) {
+      const bloco = link.closest('.linha-conferencia');
+      const opcoes = bloco && bloco.querySelector('.mudar-opcoes');
+      if (!opcoes) return;
+      opcoes.style.display = 'block';
+      link.style.display = 'none';
     }
 
     /**

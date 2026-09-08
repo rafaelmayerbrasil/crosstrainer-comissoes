@@ -40,9 +40,9 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
   const t = VA.contarPorVendedora(cruzado, NAO_COM);
 
   assert.deepStrictEqual(t['KALI DUTRA'],
-    { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, naoComissionado: false });
+    { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, naoCobrar: 0, naoComissionado: false });
   assert.deepStrictEqual(t['BÁRBARA VIEIRA CARDOSO'],
-    { vendidas: 1, pagas: 0, aguardando: 0, conferir: 1, naoComissionado: false });
+    { vendidas: 1, pagas: 0, aguardando: 0, conferir: 1, naoCobrar: 0, naoComissionado: false });
   assert.strictEqual(t['RODRIGO'].naoComissionado, true, 'o Rodrigo vende e não recebe');
   ok('conta vendidas/pagas/aguardando/conferir por vendedora e marca quem não recebe');
 }

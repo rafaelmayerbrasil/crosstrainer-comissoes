@@ -594,4 +594,225 @@ const venda = (contrato, cliente, extra) => ({
   ok('contrato com aspas simples não injeta JS no onclick — vai por data-contrato');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 16. `contarPorVendedora` conta `naoCobrar`, e a invariante vale por pessoa
+// ════════════════════════════════════════════════════════════════════
+// Achado da revisão final: `contarPorVendedora` chamava `contar()` para
+// pagas/aguardando/conferir e esquecia `naoCobrar` — nem em campo próprio,
+// nem em `vendidas`. Reproduzido em produção: resumo do mês dizia
+// `{ vendidas: 2, naoCobrar: 1, ... }` e a linha da KALI saía `{ vendidas: 1 }`
+// — a soma da tabela ficava MENOR que o total, sem nenhuma nota explicando.
+{
+  const cruzado = {
+    pagas:      [venda('C1', 'ANA', { vendedores: ['ANA'] })],
+    aguardando: [venda('C2', 'ANA', { vendedores: ['ANA'] })],
+    conferir:   [venda('C3', 'ANA', { vendedores: ['ANA'] })],
+    naoCobrar:  [venda('C4', 'ANA', { vendedores: ['ANA'] })],
+  };
+  const porVendedora = VA.contarPorVendedora(cruzado, []);
+  assert.deepStrictEqual(porVendedora['ANA'],
+    { vendidas: 4, pagas: 1, aguardando: 1, conferir: 1, naoCobrar: 1, naoComissionado: false });
+  assert.strictEqual(porVendedora['ANA'].vendidas,
+    porVendedora['ANA'].pagas + porVendedora['ANA'].aguardando
+    + porVendedora['ANA'].conferir + porVendedora['ANA'].naoCobrar,
+    'vendidas = pagas + aguardando + conferir + naoCobrar, POR PESSOA');
+
+  // sem `naoCobrar` no cruzado (dado antigo / mês sem marcação), não quebra
+  // e o campo sai zerado
+  const semGrupo = VA.contarPorVendedora({ pagas: [venda('C5', 'BIA', { vendedores: ['BIA'] })] }, []);
+  assert.strictEqual(semGrupo['BIA'].naoCobrar, 0);
+
+  ok('contarPorVendedora conta naoCobrar, e vendidas fecha por pessoa');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 17. A soma da tabela por vendedora nunca fica MENOR que o total do mês
+// ════════════════════════════════════════════════════════════════════
+// A homologação (`homologar-vendido-x-pago.js`) verifica `somaTabela >=
+// r.vendidas` — só passava em produção porque não havia nenhuma conferência
+// gravada ainda. Com uma venda "não vamos cobrar" no fixture, o bug do caso
+// 16 fazia a soma ficar MENOR (divergência para menos); corrigido, ela volta
+// a ser só para MAIS (venda dividida) ou igual — nunca para menos.
+{
+  // (a) uma vendedora, uma paga e uma não cobrada: soma bate exato
+  const semDivisao = {
+    pagas:     [venda('C10', 'KALI', { vendedores: ['KALI'] })],
+    naoCobrar: [venda('C11', 'KALI', { vendedores: ['KALI'] })],
+  };
+  const r1 = VA.resumo(semDivisao);
+  const soma1 = Object.values(VA.contarPorVendedora(semDivisao, []))
+    .reduce((s, v) => s + v.vendidas, 0);
+  assert.strictEqual(r1.vendidas, 2);
+  assert.strictEqual(soma1, 2, 'sem venda dividida, a soma bate exata com o total');
+  assert.ok(soma1 >= r1.vendidas);
+
+  // (b) uma venda dividida entre duas + uma não cobrada de uma delas: soma
+  // fica MAIOR, nunca menor
+  const comDivisaoENaoCobrar = {
+    pagas:     [venda('C12', 'KALI', { vendedores: ['KALI', 'BIA'] })],
+    naoCobrar: [venda('C13', 'KALI', { vendedores: ['KALI'] })],
+  };
+  const r2 = VA.resumo(comDivisaoENaoCobrar);
+  const soma2 = Object.values(VA.contarPorVendedora(comDivisaoENaoCobrar, []))
+    .reduce((s, v) => s + v.vendidas, 0);
+  assert.strictEqual(r2.vendidas, 2, 'venda dividida conta uma vez só no total do mês');
+  assert.strictEqual(soma2, 3, 'a mesma venda conta para as duas vendedoras na tabela');
+  assert.ok(soma2 >= r2.vendidas, 'a divergência é só para MAIS, nunca para menos');
+
+  ok('a soma da tabela por vendedora nunca fica menor que o total do mês, mesmo com naoCobrar');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 18. `visaoDe` filtra `naoCobrar` — a vendedora vê a dela, não a da colega
+// ════════════════════════════════════════════════════════════════════
+// Achado da revisão: `visaoDe` não filtrava `naoCobrar` por nome, então a
+// venda perdida da vendedora sumia da vida dela sem nota nenhuma, e
+// `notaPerdidas` (que lê `d.resumo.naoCobrar`) nunca aparecia pra ela — e
+// isso viola a decisão do dono de que "a vendedora vê o desfecho e a
+// observação nas vendas dela, sem poder mexer". Roda a função DE VERDADE,
+// recortada do index.html por contagem de chaves (nunca `indexOf('\n }\n')`
+// — o arquivo é CRLF, isso nunca casa).
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function visaoDe('), sandbox);
+  const visaoDe = sandbox.visaoDe;
+
+  const d = {
+    temLista: true,
+    cruzado: {
+      pagas:      [venda('C20', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
+      aguardando: [venda('C21', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
+      conferir:   [],
+      naoCobrar: [
+        venda('C22', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] }),
+        venda('C23', 'OUTRA VENDEDORA', { vendedores: ['OUTRA VENDEDORA'] }),
+      ],
+    },
+  };
+
+  const daKali = visaoDe(d, 'KALI DUTRA');
+  assert.strictEqual(daKali.cruzado.naoCobrar.length, 1, 'a Kali vê só a venda dela marcada');
+  assert.strictEqual(daKali.cruzado.naoCobrar[0].contrato, 'C22');
+  assert.strictEqual(daKali.resumo.naoCobrar, 1,
+    'o resumo dela tem que contar a naoCobrar — é o que acende notaPerdidas na tela dela');
+
+  const daOutra = visaoDe(d, 'OUTRA VENDEDORA');
+  assert.strictEqual(daOutra.cruzado.naoCobrar.length, 1);
+  assert.strictEqual(daOutra.cruzado.naoCobrar[0].contrato, 'C23',
+    'a Kali não pode ver a venda perdida da colega');
+
+  // dado antigo sem o grupo `naoCobrar` não pode quebrar `visaoDe`
+  const dadoAntigo = { temLista: true, cruzado: {
+    pagas: [venda('C24', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
+    aguardando: [], conferir: [],
+  } };
+  assert.doesNotThrow(() => visaoDe(dadoAntigo, 'KALI DUTRA'),
+    'd.cruzado.naoCobrar undefined não pode explodir');
+  assert.strictEqual(visaoDe(dadoAntigo, 'KALI DUTRA').cruzado.naoCobrar.length, 0);
+
+  ok('visaoDe filtra naoCobrar por vendedora, sem quebrar em dado antigo');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 19. `linhaConferencia` oferece "mudar" para Admin numa venda já conferida
+// ════════════════════════════════════════════════════════════════════
+// Achado da revisão: o desenho promete que registrar de novo sobrescreve e
+// o audit_log guarda o histórico, mas não existia caminho na tela — corrigir
+// um clique errado exigia mexer direto no Firestore. Roda a função de
+// verdade, recortada por contagem de chaves.
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function linhaConferencia('), sandbox);
+  const linha = sandbox.linhaConferencia;
+
+  const jaConferida = venda('C30', 'FULANA', {
+    vendedores: ['FULANA'],
+    conferencia: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' },
+  });
+
+  // (a) Admin ganha o link "mudar" e os três botões (escondidos até o clique)
+  const adm = linha(jaConferida, true);
+  assert.ok(/mudar/i.test(adm), 'Admin precisa do link "mudar": ' + adm);
+  assert.ok(/mostrarMudar\(this\)/.test(adm), 'o link tem que chamar mostrarMudar(this), sem dado interpolado');
+  assert.ok(/mudar-opcoes/.test(adm) && /display:\s*none/.test(adm),
+    'os botões ficam escondidos até o clique: ' + adm);
+  const dataDesfechosAdm = [...adm.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]);
+  assert.deepStrictEqual(dataDesfechosAdm, ['paga_outro_contrato', 'a_receber', 'nao_cobrar'],
+    'os três desfechos têm que estar disponíveis para escolher de novo');
+  const dataContratosAdm = [...adm.matchAll(/data-contrato="([^"]*)"/g)].map(m => m[1]);
+  assert.ok(dataContratosAdm.every(c => c === 'C30'),
+    'os botões de "mudar" têm que registrar para o MESMO contrato');
+
+  // (b) quem não é Admin não ganha "mudar" nem botão nenhum
+  const vend = linha(jaConferida, false);
+  assert.ok(!/mudar/i.test(vend), 'quem não é Admin não pode ver "mudar": ' + vend);
+  assert.ok(!/<button/i.test(vend), 'quem não é Admin não pode ter botão');
+  assert.ok(/Rafael/.test(vend) && /desistiu/.test(vend), 'a nota da conferência continua aparecendo');
+
+  ok('linhaConferencia oferece "mudar" só para Admin, numa venda já conferida');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 20. A tabela por vendedora mostra "Não cobrar" só quando existe alguma
+// ════════════════════════════════════════════════════════════════════
+// Mesmo padrão da coluna "Convertido": aparecer sempre poluiria a tabela nos
+// meses em que ninguém marcou nada. Roda a função de verdade.
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function tabelaPorVendedora('), sandbox);
+  const tabela = sandbox.tabelaPorVendedora;
+
+  const comNaoCobrar = { 'KALI DUTRA':
+    { vendidas: 5, pagas: 2, aguardando: 1, conferir: 0, naoCobrar: 2, naoComissionado: false } };
+  const htmlCom = tabela(comNaoCobrar, false, '');
+  assert.ok(/N[ãa]o cobrar/.test(htmlCom), 'a coluna tem que aparecer quando existe naoCobrar: ' + htmlCom);
+  assert.ok(/>2</.test(htmlCom), 'o número de naoCobrar tem que aparecer na linha');
+
+  const semNaoCobrar = { 'KALI DUTRA':
+    { vendidas: 3, pagas: 2, aguardando: 1, conferir: 0, naoCobrar: 0, naoComissionado: false } };
+  const htmlSem = tabela(semNaoCobrar, false, '');
+  assert.ok(!/N[ãa]o cobrar/.test(htmlSem), 'sem ninguém com naoCobrar, a coluna não pode aparecer: ' + htmlSem);
+
+  ok('a tabela por vendedora mostra "Não cobrar" só quando o mês tem alguma');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

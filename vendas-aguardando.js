@@ -454,9 +454,12 @@
      * paga. Por isso a soma desta tabela é MAIOR que o total do mês (ver
      * `resumo`), e isso não é bug: são perguntas diferentes.
      *
-     * @param {{pagas, aguardando, conferir}} cruzado  saída de `cruzar`
+     * @param {{pagas, aguardando, conferir, naoCobrar}} cruzado  saída de `cruzar`/`aplicarConferencias`
      * @param {Array<string>} naoComissionaveis  `cfg.naoComissionaveis` do motor
-     * @returns {Object} nome → {vendidas, pagas, aguardando, conferir, naoComissionado}
+     * @returns {Object} nome → {vendidas, pagas, aguardando, conferir, naoCobrar, naoComissionado}
+     *        `vendidas = pagas + aguardando + conferir + naoCobrar` — por pessoa,
+     *        não só no total do mês (ver `resumo`). Sem isso a soma da tabela por
+     *        vendedora fica MENOR que o total, e a tela não explica por quê.
      */
     contarPorVendedora(cruzado, naoComissionaveis) {
       const naoCom = (naoComissionaveis || []).map(x => String(x).toUpperCase().trim());
@@ -465,7 +468,7 @@
         const nomes = (v.vendedores && v.vendedores.length) ? v.vendedores : ['(sem vendedora)'];
         nomes.forEach(nome => {
           const x = out[nome] = out[nome] || {
-            vendidas: 0, pagas: 0, aguardando: 0, conferir: 0,
+            vendidas: 0, pagas: 0, aguardando: 0, conferir: 0, naoCobrar: 0,
             // mesma regra do motor: `vendedor.includes(n)`
             naoComissionado: naoCom.some(nc => String(nome).toUpperCase().includes(nc)),
           };
@@ -476,6 +479,7 @@
       contar(cruzado && cruzado.pagas, 'pagas');
       contar(cruzado && cruzado.aguardando, 'aguardando');
       contar(cruzado && cruzado.conferir, 'conferir');
+      contar(cruzado && cruzado.naoCobrar, 'naoCobrar');
       return out;
     },
 
