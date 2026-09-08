@@ -227,10 +227,21 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
 
   // Recorta o CORPO da funcao, nao uma janela de N caracteres: assim o teste
   // prova que a chamada esta DENTRO da home, e nao numa funcao vizinha.
+  //
+  // ⚠️ index.html é CRLF de ponta a ponta. O padrao '\n    }\n' (LF puro)
+  // nunca casa nele -- indexOf devolvia -1 e slice(i, -1) engolia quase o
+  // arquivo inteiro em vez de so a funcao, fazendo o teste passar mesmo com
+  // a chamada em QUALQUER lugar do arquivo (provado movendo a chamada para
+  // fora da funcao: os casos 11/12 continuavam verdes). Agora casa os dois
+  // formatos de quebra de linha, e falha alto se nao achar o fim -- nunca
+  // mais um recorte gigante em silencio.
   const corpo = nome => {
     const i = html.indexOf(nome);
     assert.ok(i >= 0, 'nao achei ' + nome);
-    const fim = html.indexOf('\n    }\n', i);
+    let fim = html.indexOf('\r\n    }\r\n', i);
+    if (fim === -1) fim = html.indexOf('\n    }\n', i);
+    assert.ok(fim > i,
+      'nao achei o fim de ' + nome + ' -- o recorte silencioso pegaria o arquivo inteiro');
     return html.slice(i, fim);
   };
   const gestao = corpo('function renderAdminDashboard(');
@@ -263,10 +274,17 @@ const NAO_COM = ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'];
 {
   const fs = require('fs');
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  // Mesma armadilha do caso 11: index.html é CRLF, '\n    }\n' puro nunca
+  // casa. Casa os dois formatos e falha alto em vez de recortar o arquivo
+  // inteiro em silencio.
   const corpo = nome => {
     const j = html.indexOf(nome);
     assert.ok(j >= 0, 'nao achei ' + nome);
-    return html.slice(j, html.indexOf('\n    }\n', j));
+    let fim = html.indexOf('\r\n    }\r\n', j);
+    if (fim === -1) fim = html.indexOf('\n    }\n', j);
+    assert.ok(fim > j,
+      'nao achei o fim de ' + nome + ' -- o recorte silencioso pegaria o arquivo inteiro');
+    return html.slice(j, fim);
   };
 
   const aba = corpo('async function renderAReceberTab(');
