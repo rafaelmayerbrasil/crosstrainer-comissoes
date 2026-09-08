@@ -470,4 +470,63 @@ const venda = (contrato, cliente, extra) => ({
   ok('o carregador lê as conferências e guarda de qual mês veio cada pagamento');
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 14. A tela: botões só para Admin, opinião junto, e "pago em"
+// ════════════════════════════════════════════════════════════════════
+// Roda a função DE VERDADE, recortada do index.html — ler o texto do arquivo
+// não provaria nada (lição de `previa-nunca-rodou`).
+{
+  const fs = require('fs'), vm = require('vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const recortar = nome => {
+    const ini = html.indexOf(nome);
+    assert.ok(ini > 0, nome + ' não existe');
+    let nivel = 0, fim = -1;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+    }
+    return html.slice(ini, fim);
+  };
+  const sandbox = { console, VendasAguardando: VA };
+  vm.createContext(sandbox);
+  vm.runInContext(recortar('function linhaConferencia('), sandbox);
+  const linha = sandbox.linhaConferencia;
+
+  const catia = venda('C7130', 'CÁTIA TEREZINHA PEREIRA TORRES', {
+    valorContrato: 2388, data: '27/08/2026',
+    pagamentoQueBateu: { codigo: 'C6867', valor: 199, data: '12/08/2026' },
+  });
+
+  // (a) Admin vê os três botões e a opinião
+  const adm = linha(catia, true);
+  assert.ok(/Já foi paga/.test(adm) && /Ainda a receber/.test(adm) && /Não vamos cobrar/.test(adm),
+    'Admin precisa dos três botões: ' + adm);
+  assert.ok(/antes desta venda existir/.test(adm), 'a opinião tem que aparecer: ' + adm);
+  assert.ok(/C6867/.test(adm), 'a prova (o contrato que pagou) tem que aparecer');
+
+  // (b) quem não é Admin vê a opinião e NENHUM botão
+  const vend = linha(catia, false);
+  assert.ok(/antes desta venda existir/.test(vend), 'a explicação é para todos');
+  assert.ok(!/<button/i.test(vend), 'quem não é Admin não pode ter botão: ' + vend);
+
+  // (c) venda já marcada mostra quem decidiu e quando, e não repete os botões
+  const marcada = linha({ ...catia,
+    conferencia: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' } },
+    true);
+  assert.ok(/Rafael/.test(marcada) && /07\/09\/2026/.test(marcada),
+    'tem que dizer quem decidiu e quando: ' + marcada);
+  assert.ok(/desistiu/.test(marcada), 'a observação aparece');
+
+  // (d) 🚨 marcação atropelada pelo dinheiro tem que APARECER
+  const atropelada = linha({ ...catia,
+    marcacaoIgnorada: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026' },
+    pagoEm: { mes: '2026-09', data: '12/09/2026' } }, true);
+  assert.ok(/12\/09\/2026/.test(atropelada), 'a data do pagamento tem que aparecer');
+  assert.ok(/n[ãa]o vamos cobrar|marcad/i.test(atropelada),
+    'a tela tem que DIZER que havia marcação em contrário: ' + atropelada);
+
+  ok('a tela mostra opinião para todos, botões só para Admin, e o pagamento ganha');
+}
+
 console.log('\n' + n + '/' + n + ' casos passaram.');

@@ -7595,7 +7595,10 @@
 
       // Sem lista de vendas não é "zero" — é "não sei". Quem decide o que
       // mostrar é a tela; aqui só devolvemos a verdade.
-      if (!vendas.length) return { ...base, temLista: false, cruzado: null, resumo: null, porVendedora: {} };
+      if (!vendas.length) {
+        currentVendidoXPago = { ...base, temLista: false, cruzado: null, resumo: null, porVendedora: {} };
+        return currentVendidoXPago;
+      }
 
       // Um contrato deixa de aguardar quando aparece na memória de QUALQUER mês
       // desta unidade: venda de agosto paga em setembro já entrou.
@@ -7657,11 +7660,12 @@
       const cruzado = VendasAguardando.aplicarConferencias(
         VendasAguardando.cruzar(vendas, pagos, clientesPagantes), conferencias);
 
-      return {
+      currentVendidoXPago = {
         ...base, temLista: true, cruzado, conferencias,
         resumo: VendasAguardando.resumo(cruzado),
         porVendedora: VendasAguardando.contarPorVendedora(cruzado, cfg.naoComissionaveis),
       };
+      return currentVendidoXPago;
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -7699,6 +7703,14 @@
       // ficou, senão procura a diferença entre este número e o que contou na
       // mão. A vendedora não vê: é assunto de quem administra.
       const testes = ((d.cruzado && d.cruzado.testes) || []).length;
+
+      // A venda dada por perdida foi vendida de verdade: sai das que ainda
+      // esperam dinheiro, não da história do mês. Por isso é nota, não número.
+      const perdidas = (d.resumo && d.resumo.naoCobrar) || 0;
+      const notaPerdidas = perdidas ? `
+        <div style="font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+          ${perdidas} venda${perdidas > 1 ? 's' : ''} que não ${perdidas > 1 ? 'serão' : 'será'} cobrada${perdidas > 1 ? 's' : ''}, por decisão da gestão.
+        </div>` : '';
       const notaTeste = (testes && !o.soDe) ? `
         <div style="font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
           ${testes} registro${testes > 1 ? 's' : ''} de teste fora da conta (cliente com "teste" no nome).
@@ -7725,6 +7737,7 @@
                 (o.arrasto ? '+ ' + o.arrasto + ' de meses anteriores' : '')
                 + (r.conferir ? (o.arrasto ? '<br>' : '') + r.conferir + ' delas podem já ter sido pagas em outro contrato' : ''))}
         </div>
+        ${notaPerdidas}
         ${notaTeste}
       </div>`;
     }
@@ -7881,6 +7894,98 @@
     }
 
     // ══════════════════════════════════════════════════════════════════
+    // A linha de conferência de uma venda
+    // ══════════════════════════════════════════════════════════════════
+    // Autocontida de propósito: nada de `db`, `userProfile` ou DOM aqui dentro.
+    // Recebe a venda e se quem olha é Admin, e devolve HTML.
+    //
+    // @param {Object} v        venda de aguardando/conferir/naoCobrar/pagas
+    // @param {boolean} admin   quem olha pode registrar?
+    // @returns {string} HTML
+    function linhaConferencia(v, admin) {
+      const esc = s => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const nota = t => `<div style="font-size:11.5px;color:var(--text3);margin-top:4px">${t}</div>`;
+
+      // 🚨 O dinheiro ganhou de uma marcação em contrário: a tela TEM que dizer,
+      // senão parece que o sistema esqueceu o que a gestão decidiu.
+      if (v.marcacaoIgnorada) {
+        const q = { paga_outro_contrato: 'já foi paga', a_receber: 'ainda a receber',
+                    nao_cobrar: 'não vamos cobrar' }[v.marcacaoIgnorada.desfecho] || v.marcacaoIgnorada.desfecho;
+        return nota(`💰 O pagamento entrou${v.pagoEm && v.pagoEm.data ? ' em <strong>' + esc(v.pagoEm.data) + '</strong>' : ''}, `
+          + `apesar de esta venda estar marcada como <strong>"${esc(q)}"</strong>`
+          + `${v.marcacaoIgnorada.por ? ' por ' + esc(v.marcacaoIgnorada.por) : ''}. O pagamento vale.`);
+      }
+
+      if (v.pagoEm && v.pagoEm.data) return nota(`💰 Pago em <strong>${esc(v.pagoEm.data)}</strong>`);
+
+      // Já conferida: mostra quem decidiu e quando, e não repete os botões.
+      if (v.conferencia) {
+        const q = { paga_outro_contrato: 'Já foi paga', a_receber: 'Ainda a receber',
+                    nao_cobrar: 'Não vamos cobrar' }[v.conferencia.desfecho] || v.conferencia.desfecho;
+        return nota(`✓ <strong>${esc(q)}</strong> — ${esc(v.conferencia.por || '—')}`
+          + `${v.conferencia.em ? ', ' + esc(v.conferencia.em) : ''}`
+          + `${v.conferencia.observacao ? '<br><em>' + esc(v.conferencia.observacao) + '</em>' : ''}`);
+      }
+
+      // A opinião do sistema é para TODOS — ela explica, não decide. E vem com
+      // a PROVA (o contrato que pagou): sem ela a gestão teria que abrir a
+      // Pacto de novo para conferir o que a opinião já está afirmando.
+      let html = '';
+      if (v.pagamentoQueBateu) {
+        const op = VendasAguardando.opiniao(v, v.pagamentoQueBateu);
+        html += nota(`⚠️ ${esc(op.porque)}`);
+        if (v.pagamentoQueBateu.codigo) html += nota(`Prova: pagamento no contrato ${esc(v.pagamentoQueBateu.codigo)}.`);
+      }
+
+      if (!admin) return html;
+
+      const b = (desfecho, rotulo, cor) => `<button type="button" class="btn-sm"
+        style="border:1px solid ${cor};color:${cor};background:transparent;border-radius:6px;padding:3px 9px;font-size:11px;margin-right:6px;cursor:pointer"
+        onclick="registrarConferencia('${esc(v.contrato)}','${desfecho}')">${rotulo}</button>`;
+
+      return html + `<div style="margin-top:6px">
+        ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}
+        ${b('a_receber', 'Ainda a receber', 'var(--orange)')}
+        ${b('nao_cobrar', 'Não vamos cobrar', 'var(--red)')}
+      </div>`;
+    }
+
+    /**
+     * Grava o desfecho de uma venda. Só Admin — e a REGRA do banco também
+     * exige, porque esconder o botão não basta: link direto existe.
+     * @param {string} contrato  @param {string} desfecho
+     */
+    async function registrarConferencia(contrato, desfecho) {
+      if (userProfile?.role !== 'admin') return;
+      const rotulo = { paga_outro_contrato: 'Já foi paga', a_receber: 'Ainda a receber',
+                       nao_cobrar: 'Não vamos cobrar' }[desfecho] || desfecho;
+      const observacao = prompt(`"${rotulo}" — contrato ${contrato}.\n\nObservação (opcional):`, '');
+      if (observacao === null) return;   // cancelou
+
+      const dados = currentVendidoXPago || {};
+      const todas = [].concat(dados.cruzado?.aguardando || [], dados.cruzado?.conferir || [],
+                              dados.cruzado?.naoCobrar || []);
+      const v = todas.find(x => String(x.contrato) === String(contrato)) || {};
+      try {
+        await db.collection('vendas_conferencia').doc(currentUnitId + '_' + contrato).set({
+          unitId: currentUnitId, contrato, cliente: v.cliente || '',
+          mesDaVenda: (dados.year || '') + '-' + String(dados.month || '').padStart(2, '0'),
+          valorContrato: v.valorContrato || 0,
+          desfecho, observacao: observacao || '',
+          por: userProfile?.name || currentUser?.email || '—',
+          porUid: currentUser?.uid || '',
+          em: new Date().toLocaleDateString('pt-BR'),
+          emTs: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        await logAudit('conferencia_venda', { contrato, desfecho, observacao, cliente: v.cliente });
+        renderAReceberTab('aReceberContent', currentPeriodId, '');
+      } catch (e) {
+        alert('Não foi possível registrar: ' + e.message);
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     // Aba "A receber" — vendi e o dinheiro ainda não entrou
     // ══════════════════════════════════════════════════════════════════
     // Sob regime de caixa a comissão só nasce quando o cliente paga. Sem esta
@@ -7967,7 +8072,7 @@
               comissão já foi paga; vale conferir antes de cobrar de novo.
             </div>
             <div style="font-size:12px">
-              ${conferir.map(v => `<div style="padding:3px 0">• <strong>${v.cliente}</strong> — contrato ${v.contrato} · ${v.situacao || ''} · fechada em ${v.data}${v.vendedores.length ? ' · ' + v.vendedores.join(', ') : ''}</div>`).join('')}
+              ${conferir.map(v => `<div style="padding:6px 0;border-top:1px solid var(--border)">• <strong>${v.cliente}</strong> — contrato ${v.contrato} · ${v.situacao || ''} · fechada em ${v.data}${v.vendedores.length ? ' · ' + v.vendedores.join(', ') : ''}${linhaConferencia(v, userProfile?.role === 'admin')}</div>`).join('')}
             </div>
           </div>`;
 
@@ -8002,7 +8107,7 @@
                   .map(v => `<tr>
                     <td style="font-weight:600">${v.cliente}<br><span style="font-size:10.5px;color:var(--text3)">contrato ${v.contrato}${v.inicio && /\d/.test(v.inicio) ? ' · início ' + v.inicio : ''}</span></td>
                     <td>${v.data}</td>
-                    <td>${v.situacao || '—'}</td>
+                    <td>${v.situacao || '—'}${linhaConferencia(v, userProfile?.role === 'admin')}</td>
                     ${soDe ? '' : `<td style="font-size:12px">${v.vendedores.join(', ') || '—'}</td>`}
                     <td class="currency">R$ ${fmt(v.valorContrato)}</td>
                   </tr>`).join('')}
@@ -9699,6 +9804,9 @@
         });
       } catch (e) { console.warn('Audit log failed:', e); }
     }
+
+    // A última leitura do painel — `registrarConferencia` acha a venda aqui.
+    let currentVendidoXPago = null;
 
     let auditCache = [];
     async function loadAuditLog() {
