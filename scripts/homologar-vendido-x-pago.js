@@ -58,24 +58,57 @@ async function carregar(periodId) {
   const unitId = pData.unitId;
   if (!vendas.length) return { unitId, year: pData.year, month: pData.month, temLista: false };
 
+  // `pagos` carrega o MES de cada codigo, nao so o codigo: sob regime de
+  // caixa o contrato paga uma vez so, no primeiro mes que pagou, e e esse
+  // mes que `cruzar` usa para dizer `pagoEm`. Achatar numa lista so era o
+  // que fazia a venda de agosto paga em setembro sumir calada.
   const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
   const pagos = [];
-  snap.forEach(d => (d.data().codigosPagos || []).forEach(c => pagos.push(c)));
+  const mesesQuePagaram = new Set();
+  snap.forEach(d => {
+    const m = String(d.id).match(/(\d{4}-\d{2})$/);
+    const mes = m ? m[1] : null;
+    (d.data().codigosPagos || []).forEach(c => {
+      pagos.push({ codigo: c, mes, data: null });
+      if (mes) mesesQuePagaram.add(mes);
+    });
+  });
 
+  // A data exata do pagamento sai do lancamento, no mes em que ele caiu.
+  // Sao poucas leituras a mais: uma por mes da unidade que tenha recebimento.
+  for (const mes of mesesQuePagaram) {
+    const itens = await db.collection('periodos').doc(unitId + '_' + mes).collection('itens').get();
+    const porCodigo = {};
+    itens.forEach(d => {
+      const it = d.data();
+      if ((it.type || 'processed') !== 'processed') return;
+      if (it.data) porCodigo[String(it.codigo || '').replace(/-\d+$/, '')] = it.data;
+    });
+    pagos.forEach(p => { if (p.mes === mes && porCodigo[p.codigo]) p.data = porCodigo[p.codigo]; });
+  }
+
+  // Quem pagou algo DE CONTRATO no mes vai INTEIRO, nao so o nome: e o
+  // lancamento que `opiniao()` usa para comparar data e valor contra a venda.
   const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
   const clientesPagantes = [];
   itensSnap.forEach(d => {
     const it = d.data();
     if ((it.type || 'processed') !== 'processed') return;
     if (!/^C\d+/i.test(String(it.codigo || ''))) return;
-    if (it.cliente) clientesPagantes.push(it.cliente);
+    if (it.cliente) clientesPagantes.push({
+      cliente: it.cliente, codigo: it.codigo,
+      valor: it.valorCaixa || 0, data: it.data || null,
+    });
   });
 
   const uDoc = await db.collection('units').doc(unitId).get();
   const unitConfig = (uDoc.exists && uDoc.data().config) || {};
   const cfg = { ...CE.defaultConfig, ...unitConfig };
 
-  const cruzado = VA.cruzar(vendas, pagos, clientesPagantes);
+  const confSnap = await db.collection('vendas_conferencia').where('unitId', '==', unitId).get();
+  const conferencias = {};
+  confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+  const cruzado = VA.aplicarConferencias(VA.cruzar(vendas, pagos, clientesPagantes), conferencias);
   return {
     unitId, year: pData.year, month: pData.month, temLista: true, cruzado,
     resumo: VA.resumo(cruzado),
@@ -118,6 +151,12 @@ const ESPERADO = {
 
 // Nenhum registro de teste pode sobrar em grupo nenhum, em periodo nenhum.
 const SEM_TESTE_EM_LUGAR_NENHUM = true;
+
+// Os dois casos reais que provaram por que `opiniao()` existe (07/09/2026).
+// Marca quem foi achado, para o final do script exigir os dois - se nenhum
+// aparecer mais em "conferir", o achado se resolveu sozinho ou o dado mudou,
+// e as duas coisas merecem os olhos de alguem, nao um teste calado.
+const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': { apelido: 'Catia', achado: false } };
 
 (async () => {
   console.log('\n=== Painel vendido x pago - ' + PROJETO + ' ===\n');
@@ -164,6 +203,21 @@ const SEM_TESTE_EM_LUGAR_NENHUM = true;
       }
     }
 
+    // 🚨 Nenhuma marcacao humana pode ter escondido um pagamento real.
+    const escondidos = (d.cruzado.naoCobrar || []).filter(v => v.pagoEm);
+    conferir(escondidos.length === 0,
+      periodId + ': nenhuma marcacao escondendo pagamento real'
+      + (escondidos.length ? ' (' + escondidos.map(v => v.cliente).join(', ') + ')' : ''));
+
+    const r2 = d.resumo;
+    conferir(r2.vendidas === r2.pagas + r2.aguardando + r2.conferir + (r2.naoCobrar || 0),
+      periodId + ': vendidas = pagas + aguardando + conferir + naoCobrar');
+
+    if ((d.cruzado.naoCobrar || []).length) {
+      console.log('  nao serao cobradas: '
+        + d.cruzado.naoCobrar.map(v => v.cliente + ' (' + (v.conferencia?.por || '?') + ')').join(', '));
+    }
+
     // A soma da tabela por vendedora e MAIOR que o total quando ha venda
     // dividida. E de proposito, e o teste guarda os dois lados.
     const somaTabela = Object.values(d.porVendedora).reduce((s, v) => s + v.vendidas, 0);
@@ -177,6 +231,32 @@ const SEM_TESTE_EM_LUGAR_NENHUM = true;
         + ' vendidas · ' + String(v.pagas).padStart(3) + ' pagas  ' + pct);
     });
 
+    // A opiniao do sistema sobre cada venda "a conferir" - e o motivo pelo
+    // qual `opiniao()` existe: dar a gestao um palpite sem decidir por ela.
+    if (d.cruzado.conferir.length) {
+      console.log('  a conferir, com a opiniao do sistema:');
+      d.cruzado.conferir.forEach(v => {
+        const op = VA.opiniao(v, v.pagamentoQueBateu);
+        console.log('    ' + v.cliente + ' (' + v.contrato + '): ' + op.suspeita);
+      });
+    }
+
+    // 🚨 O achado que justificou o recurso inteiro (07/09/2026): a Amandha
+    // (C7070) e a Catia (C7130) pagaram ANTES de a venda existir - R$ 239 em
+    // 04/08 e R$ 199 em 12/08, contra contratos anuais de R$ 2.388,00. Se a
+    // opiniao delas mudar de `provavelmente_nao_paga`, ou a regra quebrou ou
+    // o dado mudou - as duas merecem os olhos de alguem antes de publicar.
+    const normalizaContrato = c => String(c || '').replace(/^C/i, '').toUpperCase();
+    Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
+      const v = d.cruzado.conferir.find(x => normalizaContrato(x.contrato) === num);
+      if (!v) return; // pode nao estar neste periodo/unidade - cada uma so existe em um
+      caso.achado = true;
+      const op = VA.opiniao(v, v.pagamentoQueBateu);
+      conferir(op.suspeita === 'provavelmente_nao_paga',
+        periodId + ': opiniao de ' + caso.apelido + '/C' + num + ' (' + v.cliente + ') e provavelmente_nao_paga'
+        + ' (veio ' + op.suspeita + ')');
+    });
+
     const velhas = await arrasto(d.unitId, mes);
     console.log('  arrasto de meses anteriores: ' + velhas.length
       + (velhas.length ? ' (' + velhas.map(v => v.cliente + '/' + v._mes).join(', ') + ')' : ''));
@@ -188,6 +268,13 @@ const SEM_TESTE_EM_LUGAR_NENHUM = true;
     }
     console.log('');
   }
+
+  // Os dois casos reais tem que ter aparecido em ALGUM periodo. Se nenhum
+  // apareceu, o achado sumiu do banco (venda paga, ou marcada) e o teste
+  // acima nunca rodou de verdade - silenciosamente inutil e pior que FALHA.
+  Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
+    conferir(caso.achado, 'caso real de opiniao C' + num + ' (' + caso.apelido + ') apareceu em "conferir" em algum periodo');
+  });
 
   console.log('=== ' + ok + '/' + (ok + falhas) + ' ===');
   process.exit(falhas ? 1 : 0);
