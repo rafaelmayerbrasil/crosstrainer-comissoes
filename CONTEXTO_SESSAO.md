@@ -3,6 +3,91 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 68 (08–09/09/2026) — 🧾 O DIFERIMENTO ACABOU · ✅ NO AR EM PRODUÇÃO (`9388454..7d125da`)
+
+### ▶️▶️ RETOMAR AQUI
+
+🔴 **A BOLA ESTÁ COM O RAFAEL: ele vai subir o arquivo de agosto pela tela.** Só depois disso eu
+rodo `node scripts/limpar-diferidas-do-marco-zero.js --project production --aplicar` (6 documentos).
+**Rodar ANTES seria inútil — o upload recria os registros.**
+
+Depois disso, o assunto que o Rodrigo cobrou: **as metas de setembro**. A base certa do Príncipe em
+agosto é **44 ativações**, não 41 (ver abaixo). ⚠️ E projeção linear NÃO serve: até o dia 8 de
+agosto o CP tinha feito 40% do mês e o PP **7%** — regra de três daria 301 ativações no PP. O
+caminho é bottom-up (renovações que vencem no mês + média de novos).
+
+### O pedido do Rodrigo virou três achados
+
+Ele mandou: *"cruze as vendas de agosto e me pergunte só o que você tiver dúvida"*. O cruzamento
+bateu com a tela — **das 21 aguardando, 8 pagaram em setembro** — e sobraram três coisas erradas.
+
+**1. A tela mandava cobrar quem já pagou.** `codigosDeContrato` só contava item `processed`; o
+DIFERIDO ficava de fora. O Príncipe listava a **JULIANA COSTA** (C4652, R$ 3.150 pagos em 28/08) e a
+**JAQUELINE FREIBERGER** (C4636, R$ 199 em 24/08) entre as vendas que "merecem conversa".
+
+**2. Registro de teste dentro do CÁLCULO.** O `TESTE ENDEREÇO TECNOFIT` saiu da tela de vendas em
+07/09, mas a regra morava só em `VendasAguardando` — e o `commission.js` não a conhece. O mesmo
+fantasma entra pelo relatório de RECEBIDOS: **CP −1 ativação e −R$ 434,00 · PP −1 e −R$ 768,00**. No
+CP passava calado, porque lá a linha tinha vendedor preenchido.
+
+**3. 🚨 O DIFERIMENTO NUNCA PAGOU NINGUÉM.** Reavaliando a regra a pedido do Rafael, apareceu o
+buraco: a comissão diferida saía do mês do pagamento e **nunca era somada em mês nenhum** — nada no
+sistema lê `comissoes_diferidas` para pagar. Em produção: **91 registros únicos desde jan/2025,
+TODOS com `status: 'pendente'`. R$ 6.318,17 de comissão e 91 ativações que sumiram.** A tela do mês
+de destino ainda mostrava um card verde escrito *"Comissão paga agora"*.
+
+### Decisões do Rafael (09/09)
+
+| | |
+|---|---|
+| **Marco zero** | **agosto/2026** — o primeiro mês pago sob caixa (folha em 15/09) |
+| **O que ficou para trás** | morreu. Não se recalcula, não se paga |
+| **Os R$ 132,20 da Erica** | morrem junto — são de vendas de **julho** |
+| **A aba "Diferidos"** | **saiu do menu**, nos dois perfis |
+| **A data do corte** | **fixa no código** (`CommissionEngine.FIM_DO_DIFERIMENTO`) |
+
+A data é fixa **contra a regra geral do projeto** de propósito: não é data de calendário da
+operação, é o dia em que uma regra mudou. Editável, alguém moveria o marco e reescreveria uma folha
+já paga sem querer.
+
+### O que muda no dinheiro
+
+| Agosto | antes | agora |
+|---|---:|---:|
+| Campeche | 65 ativações | igual (não tinha diferida) |
+| Príncipe — ativações | 41 | **44** |
+| Príncipe — caixa | R$ 13.634,03 | **R$ 17.142,20** |
+| Príncipe — comissão | R$ 1.155,78 | **R$ 1.189,76** |
+
+Os R$ 33,98 são da **Francini**: o **MARCELO ALVES DE PAULA** pagou R$ 159,17 em 17/08/2026 para um
+plano que começa em **21/08/2027** — ela receberia daqui a um ano.
+
+### 🐛 Três armadilhas que os scripts pegaram sozinhos
+
+1. **O corretor de `codigosPagos` ia apagar 7 códigos de JULHO** (2 CP, 5 PP) que não saem dos itens
+   — foram postos por script para segurar cobranças automáticas que voltariam a pagar comissão. O
+   alarme *"SAIRIA da lista, pare e investigue"* funcionou; o script virou **aditivo**.
+2. **A homologação de `codigosPagos` gritava lobo:** exigia que agosto não enxergasse nada antes
+   dele, mas julho tem códigos e agosto **deve** vê-los. Provado pré-existente rodando com o código
+   de `main`. Corrigida e provada por mutação.
+3. **Duas âncoras liam o texto do JSDoc** em vez da assinatura e quebraram quando reescrevi um
+   comentário. Passaram a ancorar na assinatura.
+
+### Validação
+
+Suíte **77/77**. Dois smokes novos (**9 + 11 casos**), todos vistos falhando antes. Staging **10/10**
+contra o Firestore real, com o caminho de **escrita exercitado** (estado montado de propósito,
+depois devolvido). Homologado **na página servida**: o Marcelo paga agora, julho ainda difere,
+nenhum botão de Diferidos sobrou, 0 erro de console, nenhuma var CSS órfã.
+Produção conferida no GitHub Pages: `?v=20260914`, 0 botão da aba, `FIM_DO_DIFERIMENTO` no ar.
+
+⚠️ **Ninguém da academia clicou** em nada disso. A validação é toda minha.
+
+Desenho: `docs/superpowers/specs/2026-09-09-fim-do-diferimento-design.md`.
+Memórias: [[diferido-e-venda-paga]] · [[diferimento-nunca-pagou]] · [[registro-de-teste-nao-e-venda]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 67 (07–08/09/2026) — ✍️ A CONFERÊNCIA DE VENDAS · ✅ NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
