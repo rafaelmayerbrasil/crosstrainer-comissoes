@@ -5,6 +5,37 @@
 
 const CommissionEngine = {
 
+  /**
+   * O mês em que o DIFERIMENTO deixou de existir.
+   *
+   * A regra dos 30 dias (plano começa muito depois do pagamento → a comissão vai
+   * para o mês do início) nasceu quando a comissão era do mês da VENDA, e servia
+   * para não pagar por contrato que o cliente ainda podia desistir de usar.
+   *
+   * Sob REGIME DE CAIXA ela contradiz o que está valendo: a comissão é do mês em
+   * que o dinheiro entrou, paga no dia 15 do mês seguinte — quando o aluno começa
+   * a treinar não entra na conta. E a desistência já tem outro dono: é estorno,
+   * que vira crédito no pagamento seguinte.
+   *
+   * ⚠️ Não era só incoerência. A comissão diferida saía do mês do pagamento e
+   *    NUNCA era somada em mês nenhum — nada no sistema lê `comissoes_diferidas`
+   *    para pagar. Em produção: 91 registros únicos desde janeiro/2025, todos com
+   *    `status: 'pendente'`, R$ 6.318,17 que sumiram sem ninguém ver.
+   *
+   * ⚠️ O CORTE PRESERVA O PASSADO DE PROPÓSITO. Pagamento anterior a este mês
+   *    continua diferindo: são 20 meses de folhas já pagas, e re-subir um arquivo
+   *    antigo não pode reescrever o que a academia pagou.
+   *
+   * É uma data FIXA, contra a regra geral do projeto de deixar datas com a
+   * gestão, porque não é data de calendário da operação — é o dia em que uma
+   * regra de negócio mudou. Editável, ela convidaria alguém a mover o marco e
+   * reescrever, sem querer, uma folha já paga.
+   *
+   * Decidido pelo Rafael em 09/09/2026. Agosto é o primeiro mês pago sob caixa.
+   * Desenho: docs/superpowers/specs/2026-09-09-fim-do-diferimento-design.md
+   */
+  FIM_DO_DIFERIMENTO: '2026-08',
+
   // ─── Default config ───
   defaultConfig: {
     pctNovo: 5,
@@ -416,12 +447,19 @@ const CommissionEngine = {
       const dateVoucherEnd = info.isDegustacao ? this.parseStartDate(row['Itens'])?.endDate : null;
       item.dateVoucherEnd = dateVoucherEnd;
 
-      // ── Deferral check: plan start > 30 days from payment → defer ──
+      // ── Diferimento: plano começa > 30 dias depois do pagamento ──
+      // Encerrado em `FIM_DO_DIFERIMENTO` (ver a constante, no topo). O corte
+      // olha o mês do PAGAMENTO, não o do início do plano: é o mês do pagamento
+      // que diz sob qual regra aquela folha foi (ou vai ser) paga.
       const planDates = this.parseStartDate(row['Itens']);
       if (planDates) {
         item.planStartDate = planDates.startStr;
         item.planEndDate = planDates.endStr;
-        if (dateObj && item.isActivation) {
+        const mesPgto = dateObj
+          ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+          : '';
+        const aindaDifere = mesPgto && mesPgto < this.FIM_DO_DIFERIMENTO;
+        if (dateObj && item.isActivation && aindaDifere) {
           const diffDays = Math.round((planDates.startDate - dateObj) / (1000 * 60 * 60 * 24));
           if (diffDays > 30) {
             const deferMonth = `${planDates.startDate.getFullYear()}-${String(planDates.startDate.getMonth() + 1).padStart(2, '0')}`;
