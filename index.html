@@ -7648,9 +7648,15 @@
         const it = d.data();
         if ((it.type || 'processed') !== 'processed') return;
         if (!/^C\d+/i.test(String(it.codigo || ''))) return;
+        // `vendedor` vai junto de propósito: quando o dinheiro entrou no nome
+        // de OUTRA vendedora, isso é sinal de que o pagamento pode ser mesmo
+        // do plano anterior — exatamente a dúvida que esta tela existe para
+        // resolver. Sem carregar aqui, `pagamentoApontado.vendedor` era
+        // gravado vazio para sempre e a tela nunca tinha o que mostrar.
         if (it.cliente) clientesPagantes.push({
           cliente: it.cliente, codigo: it.codigo,
           valor: it.valorCaixa || 0, data: it.data || null,
+          vendedor: it.vendedor || '',
         });
       });
 
@@ -8027,7 +8033,17 @@
       if (v.pagamentoQueBateu) {
         const op = VendasAguardando.opiniao(v, v.pagamentoQueBateu);
         html += nota(`⚠️ ${esc(op.porque)}`);
-        if (v.pagamentoQueBateu.codigo) html += nota(`Prova: pagamento no contrato ${esc(v.pagamentoQueBateu.codigo)}.`);
+        // Quem RECEBEU o dinheiro, quando não é quem vendeu. Dinheiro que
+        // entrou no nome de outra pessoa reforça que o pagamento é do plano
+        // anterior — é o sinal que faz a gestão decidir. Só aparece quando
+        // difere: repetir o nome que já está na linha da venda seria ruído.
+        const deQuem = String(v.pagamentoQueBateu.vendedor || '').trim();
+        const norm = s => String(s || '').trim().toUpperCase();
+        const outraPessoa = deQuem && !(v.vendedores || []).some(x => norm(x) === norm(deQuem));
+        if (v.pagamentoQueBateu.codigo) {
+          html += nota(`Prova: pagamento no contrato ${esc(v.pagamentoQueBateu.codigo)}`
+            + `${outraPessoa ? `, recebido no nome de <strong>${esc(deQuem)}</strong>` : ''}.`);
+        }
       }
 
       if (!admin) return html;

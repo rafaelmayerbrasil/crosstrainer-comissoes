@@ -277,4 +277,23 @@ vm.runInContext(recortar('function linhaConferencia('), sb);
   ok('a linha da venda já conferida fala português, sem sobra do desenho antigo');
 }
 
+// 18. QUEM RECEBEU O DINHEIRO, quando não é quem vendeu.
+//     Decidir "este pagamento é desta venda?" fica muito mais fácil sabendo
+//     que o dinheiro entrou no nome de OUTRA vendedora — é sinal de que pode
+//     ser mesmo o plano anterior, de outra época. O dado existe no item do
+//     mês; só não estava sendo carregado até a tela.
+{
+  const outra = { ...PGTO_CATIA, vendedor: 'KALI DUTRA' };
+  const html = sb.linhaConferencia({ ...VENDA_CATIA, pagamentoQueBateu: outra }, true);
+  assert.ok(/KALI DUTRA/.test(html),
+    'quando o pagamento entrou no nome de outra pessoa, a tela tem que dizer de quem');
+
+  // Mesma vendedora nos dois lados não vira ruído: repetir o nome que já está
+  // na linha da venda só ocupa espaço e não informa nada.
+  const igual = sb.linhaConferencia({ ...VENDA_CATIA, pagamentoQueBateu: PGTO_CATIA }, true);
+  assert.ok(!/FRANCINI DAS CHAGAS/.test(igual),
+    'mesma vendedora dos dois lados não precisa ser repetida');
+  ok('a tela mostra os dois nomes quando venda e pagamento têm vendedoras diferentes');
+}
+
 console.log('\n' + n + '/' + n + ' ✅\n');

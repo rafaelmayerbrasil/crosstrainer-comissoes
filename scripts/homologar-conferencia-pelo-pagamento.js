@@ -74,6 +74,9 @@ async function carregar(unitId) {
     if (!/^C\d+/i.test(String(it.codigo || ''))) return;
     if (it.cliente) clientesPagantes.push({
       cliente: it.cliente, codigo: it.codigo, valor: it.valorCaixa || 0, data: it.data || null,
+      // Quem RECEBEU o dinheiro. A tela mostra este nome quando ele difere de
+      // quem vendeu — sinal de que o pagamento pode ser do plano anterior.
+      vendedor: it.vendedor || '',
     });
   });
 
@@ -150,6 +153,19 @@ async function descartarPagamento(unitId, codigo, cliente) {
       conferir(Number(d.pagamento.valor) === 199,
         'o pagamento mostrado é o de R$ 199 de verdade (veio R$ ' + d.pagamento.valor + ')');
     }
+
+    // Quem recebeu o dinheiro tem que chegar até a tela. O campo existe no
+    // item do mês, e era ele que estava sendo perdido no caminho — gravando
+    // `pagamentoApontado.vendedor` vazio para sempre (achado em 09/09/2026,
+    // conferindo o que o primeiro clique humano gravou no staging).
+    conferir(cp.duvidas.every(d => String(d.pagamento.vendedor || '').trim()),
+      'o pagamento de cada dúvida carrega QUEM RECEBEU o dinheiro');
+    // Nos dois casos reais do staging é a mesma pessoa dos dois lados, então a
+    // tela tem que ficar CALADA — mostrar o nome repetido seria ruído.
+    conferir(cp.duvidas.every(d => d.candidatas.every(v =>
+      (v.vendedores || []).map(x => x.trim().toUpperCase())
+        .includes(String(d.pagamento.vendedor).trim().toUpperCase()))),
+      'e aqui é a mesma vendedora dos dois lados — a tela não tem nome novo a mostrar');
 
     const pp = await carregar('unit-pp');
     conferir(pp.duvidas.length === 0, 'o Príncipe não tem dúvida nenhuma — a tela não inventa pergunta');
