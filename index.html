@@ -7993,8 +7993,15 @@
       // audit_log guarda o histórico; sem este link o único jeito de corrigir
       // um clique errado era mexer direto no Firestore.
       if (v.conferencia) {
-        const q = { paga_outro_contrato: 'Já foi paga', a_receber: 'Ainda a receber',
-                    nao_cobrar: 'Não vamos cobrar' }[v.conferencia.desfecho] || v.conferencia.desfecho;
+        // O banco guarda o desfecho em código (`paga` / `cancelada`); quem lê a
+        // linha é gente. Sem traduzir, a confirmação do clique sai como
+        // "✓ paga" — código cru bem no momento em que a gestão quer conferir
+        // se acertou. Tem que acompanhar os rótulos dos botões logo abaixo:
+        // este mapa ficou para trás quando o desenho mudou em 09/09/2026, e os
+        // desfechos antigos (`paga_outro_contrato`, `a_receber`, `nao_cobrar`)
+        // não são mais gravados por ninguém.
+        const q = { paga: 'É este pagamento', cancelada: 'Cliente desistiu' }[v.conferencia.desfecho]
+                  || v.conferencia.desfecho;
         const notaConferida = nota(`✓ <strong>${esc(q)}</strong> — ${esc(v.conferencia.por || '—')}`
           + `${v.conferencia.em ? ', ' + esc(v.conferencia.em) : ''}`
           + `${v.conferencia.observacao ? '<br><em>' + esc(v.conferencia.observacao) + '</em>' : ''}`

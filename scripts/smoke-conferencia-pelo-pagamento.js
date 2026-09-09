@@ -253,4 +253,28 @@ vm.runInContext(recortar('function linhaConferencia('), sb);
   ok('a decisão continua só do Admin');
 }
 
+// 17. depois de decidir, a linha diz o que foi decidido EM PORTUGUÊS.
+//     A tela guarda `paga`/`cancelada`, mas quem lê é gente: se o rótulo não
+//     for traduzido, a confirmação do clique sai como "✓ paga" — código cru na
+//     cara da gestão, no exato momento em que ela quer conferir se acertou.
+{
+  const paga = sb.linhaConferencia({ ...VENDA_CATIA, pagamentoQueBateu: PGTO_CATIA,
+    conferencia: { desfecho: 'paga', por: 'Rafael', em: '09/09/2026' } }, true);
+  assert.ok(/✓ <strong>É este pagamento<\/strong>/.test(paga),
+    'venda apontada tem que confirmar "É este pagamento", não o código `paga`');
+
+  const desistiu = sb.linhaConferencia({ contrato: 'C4606', cliente: 'DJEINI',
+    conferencia: { desfecho: 'cancelada', por: 'Rafael', em: '09/09/2026' } }, true);
+  assert.ok(/✓ <strong>Cliente desistiu<\/strong>/.test(desistiu),
+    'venda desistida tem que confirmar "Cliente desistiu", não o código `cancelada`');
+
+  // E o vocabulário velho não pode sobreviver em canto nenhum da tela: os
+  // desfechos `paga_outro_contrato` / `a_receber` / `nao_cobrar` deixaram de
+  // ser gravados em 09/09, e "Não vamos cobrar" foi justamente o rótulo que o
+  // Rafael mandou tirar — a academia não decide parar de cobrar.
+  assert.ok(!/Não vamos cobrar|Ainda a receber/.test(paga + desistiu),
+    'rótulo do desenho antigo não pode aparecer na tela nova');
+  ok('a linha da venda já conferida fala português, sem sobra do desenho antigo');
+}
+
 console.log('\n' + n + '/' + n + ' ✅\n');
