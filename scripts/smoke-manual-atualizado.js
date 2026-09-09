@@ -179,6 +179,27 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: fechamento por pessoa/mês, o rateio, a trava e o saldo que ninguém avisa');
 }
 {
+  // Sessão 69 (09/09/2026): a comissão virou regime de CAIXA e a conferência de
+  // vendas passou a partir do pagamento. Até aqui o manual dizia "nada mudou pra
+  // operação de vendas" — três meses atrás da realidade, na parte que mais mexe
+  // com dinheiro.
+  exige(admin, 'manual-admin', {
+    'a comissão é do mês em que o dinheiro entrou': 'mês em que o',
+    'a folha é paga no dia 15 do mês seguinte': 'dia 15 do mês seguinte',
+    'cada contrato paga uma vez só': 'uma vez só',
+    'o mês começa vazio e vai enchendo': 'vai enchendo',
+    'a aba A receber precisa do relatório de vendas': 'Faturamento por Período',
+    'as duas listas se distinguem pelo mês': 'meses anteriores',
+    'a venda paga sai da lista sozinha': 'sai da lista sozinha',
+    'os três desfechos da dúvida': 'Não é este pagamento',
+    'cliente desistiu é o único sem pagamento na mesa': 'Cliente desistiu',
+    'um pagamento não explica duas vendas': 'não explica duas vendas',
+    'o dinheiro sempre ganha da marcação': 'dinheiro sempre ganha',
+    'marcação nenhuma paga comissão': 'Quem paga é o dinheiro',
+  });
+  ok('admin: regime de caixa, a aba "A receber" e a conferência pelo pagamento');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>

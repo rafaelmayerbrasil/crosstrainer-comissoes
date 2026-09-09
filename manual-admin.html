@@ -507,11 +507,60 @@
 
   <h2 id="comissoes">🛒 11. E o Comissões?</h2>
   <div class="card">
-    <p><strong>Nada mudou pra operação de vendas.</strong> Upload, dashboard, comparativo, metas e o painel das vendedoras seguem idênticos. As novidades pra você:</p>
     <ul>
       <li>O antigo menu "Usuários" virou <strong>"Pessoas"</strong> — clica e cai no cadastro unificado.</li>
       <li>O <strong>seletor de módulo</strong> no menu lateral alterna entre Comissões e Professores sem novo login.</li>
     </ul>
+  </div>
+
+  <div class="card">
+    <h3>💰 A comissão é do mês em que o dinheiro entrou</h3>
+    <p>Desde <strong>agosto de 2026</strong> a comissão não é mais do mês da venda: ela é do mês em que o
+    <strong>cliente pagou</strong>, e é paga à vendedora no <strong>dia 15 do mês seguinte</strong>. Pagou em
+    agosto → comissão de agosto → recebe 15/09. Não importa quando o aluno começa a treinar.</p>
+    <p>Por isso o mês <strong>começa parecendo vazio e vai enchendo</strong> conforme as cobranças caem. Não é
+    erro do sistema: é a cobrança ainda entrando.</p>
+    <p><strong>Cada contrato paga uma vez só</strong>, no primeiro pagamento. Num plano anual parcelado, a
+    comissão sai sobre a primeira parcela — as outras onze não pagam de novo.</p>
+  </div>
+
+  <div class="card">
+    <h3>💰 A aba "A receber": o que foi vendido e ainda não virou dinheiro</h3>
+    <p>Para essa aba funcionar, além do relatório de <strong>recebimentos</strong> é preciso subir também o
+    relatório de <strong>vendas</strong> da Pacto ("Faturamento por Período"). Ele nunca entra no cálculo —
+    traz o contrato inteiro em vez da parcela — e serve só para conferência.</p>
+    <p>A aba tem <strong>duas listas, e a diferença entre elas é o mês</strong>:</p>
+    <ul>
+      <li>🕰️ <strong>Vendas de meses anteriores ainda sem pagamento</strong> — as mais atrasadas. É por aqui
+      que a cobrança começa, e cada linha mostra <strong>há quantos dias está parada</strong>.</li>
+      <li>⏳ <strong>Vendas do mês aberto ainda sem pagamento</strong> — fechadas agora; muitas nem venceram.</li>
+    </ul>
+    <p><strong>Quando o cliente paga, a venda sai da lista sozinha</strong> e passa a mostrar "Pago em tal dia".
+    Você não precisa marcar nada — e é bom que ela mostre a data em vez de simplesmente sumir.</p>
+  </div>
+
+  <div class="card">
+    <h3>❓ Quando o sistema fica em dúvida (só Admin decide)</h3>
+    <p>Às vezes o cliente pagou, mas <strong>em outro número de contrato</strong>. O caso típico é a renovação:
+    a Pacto cria um contrato novo e a cobrança continua caindo no antigo. O sistema percebe que é a
+    <strong>mesma pessoa</strong>, mostra o pagamento que encontrou, e pergunta:</p>
+    <ul>
+      <li><strong>É este pagamento</strong> — a venda sai da fila, e fica registrado qual dinheiro a explicou.</li>
+      <li><strong>Não é este pagamento</strong> — a venda continua na fila, e o sistema para de perguntar por
+      aquele pagamento.</li>
+      <li><strong>Cliente desistiu</strong> — a venda sai da fila porque o dinheiro não vem. É o único botão que
+      aparece quando não há pagamento nenhum na mesa.</li>
+    </ul>
+    <p>Em toda decisão fica gravado <strong>quem decidiu, quando e por quê</strong>. Duas regras que valem a pena
+    saber:</p>
+    <ul>
+      <li><strong>O mesmo pagamento não explica duas vendas.</strong> Se você tentar, o sistema recusa e diz em
+      qual venda ele já está.</li>
+      <li><strong>O dinheiro sempre ganha.</strong> Se você marcar "cliente desistiu" e ele pagar depois, a venda
+      volta a contar como paga — e a tela avisa que havia marcação em contrário.</li>
+    </ul>
+    <p>⚠️ <strong>Nenhuma dessas marcações paga comissão.</strong> Quem paga é o dinheiro que aparece no
+    relatório da Pacto; a marcação só explica a venda.</p>
   </div>
 
   <h2 id="admin">⚙️ 12. Administração do sistema</h2>
