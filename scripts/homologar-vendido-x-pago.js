@@ -156,11 +156,22 @@ async function arrasto(unitId, mesAtual) {
 // TECNOFIT` (contrato C7117, R$ 150, no nome do Rodrigo) e registro de teste
 // e passou a sair da conta em `cruzar`. Nao mexeu em dinheiro nenhum - ele
 // nunca gerou item de comissao, e o Rodrigo e nao comissionado.
+//
+// ⚠️ SO MES FECHADO E COBRADO. Congelar numero de mes CORRENTE e armadilha: ele
+// muda a cada arquivo que sobe, entao a falha vermelha nao denuncia defeito
+// nenhum - so avisa que o tempo passou. Mes corrente sai informativo.
+//
+// Agosto foi remedido em 09/09/2026, depois do upload do mes FECHADO
+// (`faturamento-recebido_01 a 310826.xls`) e do fim do diferimento:
+//   · CP 73->74 vendidas (o relatorio de vendas novo trouxe a MARIANA MOTA
+//     SANTOS, renovacao de R$ 3.732,30 ainda sem pagamento);
+//   · PP 16->8 aguardando: a JULIANA COSTA e a JAQUELINE FREIBERGER sairam
+//     porque diferido passou a contar como pago; a ROBERTA MORAIS DIAS porque
+//     o arquivo do mes fechado trouxe o pagamento dela; e a JULIANA DA SILVA
+//     LUZ porque sumiu do relatorio de vendas novo.
 const ESPERADO = {
-  '2026-08': { cp: { vendidas: 73, pagas: 68, aguardando: 3, conferir: 2 },
-               pp: { vendidas: 59, pagas: 43, aguardando: 16, conferir: 0 } },
-  '2026-09': { cp: { vendidas: 14, pagas: 0, aguardando: 14, conferir: 0 },
-               pp: { vendidas: 11, pagas: 0, aguardando: 11, conferir: 0 } },
+  '2026-08': { cp: { vendidas: 74, pagas: 72, aguardando: 2, conferir: 0 },
+               pp: { vendidas: 61, pagas: 53, aguardando: 8, conferir: 0 } },
 };
 
 // Nenhum registro de teste pode sobrar em grupo nenhum, em periodo nenhum.
@@ -230,7 +241,10 @@ const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': {
 
     const mes = d.year + '-' + String(d.month).padStart(2, '0');
     const sigla = periodId.replace(/_.*/, '').replace(/^unit-/, '');
-    const esp = (ESPERADO[mes] || {})[sigla];
+    const esp = d.fechado ? (ESPERADO[mes] || {})[sigla] : null;
+    if (!d.fechado && (ESPERADO[mes] || {})[sigla]) {
+      console.log('  (mes corrente) numero nao e cobrado: ele muda a cada arquivo que sobe');
+    }
     if (esp) {
       // A tabela ESPERADO so vale contra o banco onde foi medida (producao).
       // No staging o mesmo periodo tem outro dado (outro upload, outro
