@@ -178,10 +178,16 @@
      * casamento por pedaço que fez o BIANUAL ser lido como ANUAL em produção
      * (commit 6f0a15b). Um falso positivo aqui apaga a venda de alguém.
      *
+     * ⚠️ A regra mora no `PactoAdapter` e é lida daqui, uma cópia só. Ela
+     * precisa valer nos DOIS caminhos — o da venda (esta tela) e o do
+     * recebimento, que alimenta o `commission.js`. Enquanto existiu só aqui, o
+     * mesmo fantasma passou pelo outro lado e somou 1 ativação e R$ 768,00 ao
+     * caixa do Príncipe em setembro/2026.
+     *
      * @param {Object} venda  item de `extrair`
      */
     ehTeste(venda) {
-      return /(^|[^A-Za-zÀ-ÿ])TESTES?([^A-Za-zÀ-ÿ]|$)/i.test(String((venda && venda.cliente) || ''));
+      return PA.ehNomeDeTeste((venda && venda.cliente) || '');
     },
 
     /**

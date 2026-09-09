@@ -2376,10 +2376,6 @@
                 <div style="font-size:11px; font-weight:700; color:var(--blue); margin-bottom:4px;">⚡ Ativações</div>
                 <div style="font-size:10px; color:var(--text3); line-height:1.5;">Lista completa das suas ativações do período (contratos, renovações, retornos e vouchers), separando o que conta e o que não conta como ativação.</div>
               </div>
-              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--yellow);">
-                <div style="font-size:11px; font-weight:700; color:var(--yellow); margin-bottom:4px;">⏳ Diferidos</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Mostra comissões adiadas deste período (plano com início além de 30 dias) e comissões de períodos anteriores que chegaram agora.</div>
-              </div>
             </div>
           </div>
 
@@ -2448,10 +2444,6 @@
               <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--text2);">
                 <div style="font-size:11px; font-weight:700; color:var(--text2); margin-bottom:4px;">Relatório por Vendedor</div>
                 <div style="font-size:10px; color:var(--text3); line-height:1.5;">Visão individual exportável com todos os dados de comissão para análise ou impressão.</div>
-              </div>
-              <div style="background:var(--bg); border-radius:6px; padding:10px; border-left:2px solid var(--purple);">
-                <div style="font-size:11px; font-weight:700; color:var(--purple); margin-bottom:4px;">⏳ Diferidos</div>
-                <div style="font-size:10px; color:var(--text3); line-height:1.5;">Comissões adiadas para o futuro (regra dos 30 dias) e comissões de períodos anteriores chegando agora. Tabelas separadas com status de aplicação.</div>
               </div>
             </div>
           </div>
@@ -3224,7 +3216,6 @@
           <button class="tab-btn" onclick="switchVendorTab('vtabComissoes',this)">Comissões</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabAtivacoes',this)">Ativações</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabAReceber',this)">💰 A receber</button>
-          <button class="tab-btn" onclick="switchVendorTab('vtabDiferidos',this)">⏳ Diferidos</button>
           <button class="tab-btn" onclick="switchVendorTab('vtabHistorico',this)">📋 Histórico</button>
         </div>
         <div id="vtabResumo">
@@ -3262,12 +3253,12 @@
        usuário roda o JS antigo depois do deploy e nada muda — e no upload isso
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
-  <script src="commission.js?v=20260912"></script>
+  <script src="commission.js?v=20260914"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
-  <script src="pacto-adapter.js?v=20260912"></script>
-  <script src="estorno-comissao.js?v=20260912"></script>
-  <script src="vendas-aguardando.js?v=20260912"></script>
+  <script src="pacto-adapter.js?v=20260914"></script>
+  <script src="estorno-comissao.js?v=20260914"></script>
+  <script src="vendas-aguardando.js?v=20260914"></script>
 
   <script>
     // ═══════════════════════════════════════════════════════════════
@@ -4227,6 +4218,7 @@
       const migrados = daUnidade(pacto.migrados);
       const descartadas = daUnidade(pacto.descartadas);
       const jaPagos = daUnidade(pacto.jaPagos);
+      const testes = daUnidade(pacto.testes);
       const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
       const avisos = pacto.avisos || [];
       const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
@@ -4251,6 +4243,8 @@
           descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
         ${bloco('🔁', 'Parcela seguinte — o contrato já pagou comissão antes', jaPagos,
           jaPagos.map(j => `<div>${j.cliente} — R$ ${fmt(j.valor)} · contrato ${j.contrato}</div>`).join(''))}
+        ${bloco('🧪', 'Registro de teste da Pacto, fora do cálculo', testes,
+          testes.map(t => `<div>${t.cliente} — R$ ${fmt(t.valor)}</div>`).join(''))}
         ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
           marcadas.map(v => `<div>${v['Cliente']} — R$ ${fmt(v['Valor Quitado/Recibo'])} · ${v['Itens'].replace(/\s*\(.*\)$/, '')}</div>`).join(''))}
         ${!avisos.length ? '' : `
@@ -4274,11 +4268,28 @@
     // ⚠️ Só código de CONTRATO (`C...`) entra. O `A...` é a matrícula do cliente:
     //    guardá-lo bloquearia, em silêncio, a segunda aula que a pessoa comprasse.
 
-    /** Os códigos de contrato comissionados num conjunto de itens do período */
+    /**
+     * Os códigos de contrato cujo dinheiro já entrou, num conjunto de itens.
+     *
+     * ⚠️ `deferred` conta como pago, e isso não é detalhe. Diferido é venda
+     * PAGA cuja comissão foi empurrada para o mês em que o plano começa — o
+     * cliente pagou. Deixá-lo de fora dava dois estragos ao mesmo tempo:
+     *
+     *   • a aba "A receber" mandava cobrar quem já tinha pago. Em 08/09/2026 o
+     *     Príncipe listava a JULIANA COSTA (C4652, R$ 3.150 pagos em 28/08) e a
+     *     JAQUELINE FREIBERGER (C4636, R$ 199 em 24/08) entre as vendas que
+     *     "merecem conversa";
+     *   • e o contrato voltaria a pagar comissão se reaparecesse no relatório
+     *     do mês do início do plano — por cima da diferida já agendada.
+     *
+     * ⚠️ `excluded` NÃO entra, de propósito: item excluído não gerou comissão
+     *    nenhuma, e bloqueá-lo negaria em silêncio uma comissão devida.
+     */
     function codigosDeContrato(itens) {
+      const PAGO = new Set(['processed', 'deferred']);
       const s = new Set();
       (itens || []).forEach(d => {
-        if ((d.type || 'processed') !== 'processed') return;
+        if (!PAGO.has(d.type || 'processed')) return;
         const m = String(d.codigo || '').trim().match(/^C\d+/i);
         if (m) s.add(m[0].toUpperCase());
       });
@@ -4552,7 +4563,6 @@
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${result.dupes.length}</div></div>
             <div class="stat"><div class="s-label">Processados</div><div class="s-value">${result.processed.length}</div></div>
             <div class="stat"><div class="s-label">Excluídos</div><div class="s-value" style="color:var(--red)">${result.excluded.length}</div></div>
-            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(result.deferred || []).length}</div></div>
             <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${result.unitTotals.unitAtivacoes}</div></div>
             <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(result.unitTotals.unitCaixa)}</div></div>
           </div>
@@ -4657,7 +4667,6 @@
             <div class="stat"><div class="s-label">Duplicados removidos</div><div class="s-value" style="color:${pendingUpload.result.dupes.length > 0 ? 'var(--yellow)' : 'var(--green)'}">${pendingUpload.result.dupes.length}</div></div>
             <div class="stat"><div class="s-label">Processados</div><div class="s-value">${processed.length}</div></div>
             <div class="stat"><div class="s-label">Excluídos</div><div class="s-value" style="color:var(--red)">${pendingUpload.result.excluded.length}</div></div>
-            <div class="stat"><div class="s-label">Diferidos</div><div class="s-value" style="color:var(--yellow)">${(pendingUpload.result.deferred || []).length}</div></div>
             <div class="stat accent"><div class="s-label">Ativações</div><div class="s-value">${unitAtivacoes}</div></div>
             <div class="stat"><div class="s-label">Caixa Total</div><div class="s-value mono">R$ ${fmt(unitCaixa)}</div></div>
         `;
@@ -6146,7 +6155,6 @@
         <button class="tab-btn" onclick="switchDashTab('tabRelatorio',this)">Relatório por Vendedor</button>
         <button class="tab-btn" onclick="switchDashTab('tabDivisoes',this)">🔀 Divisões</button>
         <button class="tab-btn" onclick="switchDashTab('tabAReceber',this)">💰 A Receber</button>
-        <button class="tab-btn" onclick="switchDashTab('tabDiferidos',this)">⏳ Diferidos</button>
         <button class="tab-btn" onclick="switchDashTab('tabHistorico',this)">📋 Histórico</button>
       </div>
 
@@ -8223,7 +8231,8 @@
           </div>
         </div>
         <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--text2);line-height:1.6">
-          <strong style="color:var(--orange)">Regra dos 30 dias:</strong> Se o plano começa mais de 30 dias após o pagamento, a comissão é adiada para o mês do início do plano.
+          <strong style="color:var(--orange)">Regra encerrada em agosto/2026.</strong> A comissão passou a ser do mês em que o
+          cliente pagou, não importa quando o plano começa. O que está abaixo é registro do que valia antes.
         </div>`;
 
         if (deferredFrom.length > 0) {
@@ -8375,9 +8384,12 @@
           </div>
         </div>`;
 
-        // Explanation
+        // Explicação
         html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:20px;font-size:12px;color:var(--text2);line-height:1.7">
-          <strong style="color:var(--orange)">Regra dos 30 dias:</strong> Se um aluno pagou o plano mas a data de início é superior a 30 dias após o pagamento, a comissão é <strong>diferida</strong> para o mês de início do plano. As 3 condições para ativação válida são: <strong>1)</strong> Pagamento confirmado, <strong>2)</strong> Data de início em até 30 dias, <strong>3)</strong> Comissão calculada para aquele mês.
+          <strong style="color:var(--orange)">Regra encerrada em agosto/2026.</strong> Até julho/2026, a venda cujo plano
+          começava mais de 30 dias depois do pagamento tinha a comissão adiada para o mês do início. Com o regime de caixa,
+          a comissão passou a ser do mês em que o dinheiro entrou — quando o aluno começa a treinar não entra na conta.
+          <strong>Estes registros nunca foram somados a pagamento nenhum</strong>; são histórico.
         </div>`;
 
         // Table: deferred FROM this period

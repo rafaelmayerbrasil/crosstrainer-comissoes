@@ -58,7 +58,12 @@ periodos/{periodId}/historico/{snapshotId}
     — Disponível para uploads a partir de 2026-04-19.
 
 comissoes_diferidas/{id}
-  Comissões de planos com ativação futura (>30 dias após pagamento).
+  ⚠️ HISTÓRICO. A regra foi ENCERRADA em agosto/2026 (CommissionEngine.FIM_DO_DIFERIMENTO).
+  Até julho/2026: comissões de planos com ativação futura (>30 dias após pagamento) saíam do
+  mês do pagamento e eram registradas aqui, marcadas para o mês de início do plano.
+  Sob regime de caixa a comissão é do mês em que o dinheiro entrou, e nada mais é gravado aqui.
+  ⚠️ NADA NUNCA LEU ESTA COLEÇÃO PARA PAGAR: os 91 registros de produção estão todos com
+  status "pendente" desde jan/2025 (R$ 6.318,17 que saíram da folha e não voltaram).
   sourcePeriodId, unitId, status ("pendente"|"ativado")
 ```
 
@@ -79,7 +84,8 @@ comissoes_diferidas/{id}
 6. **Deletar fisicamente** os itens removidos do Firestore (batch delete, 400/lote)
 7. Coletar `activeItemsForSnapshot` (foto compacta dos itens processados)
 7. Salvar snapshot no histórico com `activeSnapshot` (`saveHistoricoSnapshot`)
-8. Salvar comissões diferidas em `comissoes_diferidas`
+8. Salvar comissões diferidas em `comissoes_diferidas` — ⚠️ inerte desde agosto/2026: o motor não
+   produz mais nenhuma diferida (ver `FIM_DO_DIFERIMENTO`)
 9. Atualizar `uploadId` e meta do período
 10. Chamar `recalculatePeriod` para recomputar totais e `vendorSummary`
 

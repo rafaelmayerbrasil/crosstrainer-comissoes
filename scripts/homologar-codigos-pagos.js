@@ -25,7 +25,9 @@ const { readXlsx } = require('./lib-xlsx-min.js');
 
 // ─── as funções da tela, extraídas do index.html (nada reescrito à mão) ───
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ini = html.indexOf('    /** Os códigos de contrato comissionados num conjunto de itens do período */');
+// ⚠️ Âncora na ASSINATURA, não no comentário: ancorar no JSDoc quebrou este
+// script em 08/09/2026, quando o texto foi reescrito e o código não mudou.
+const ini = html.indexOf('    function codigosDeContrato(');
 const fim = html.indexOf('    function handleFile(file) {');
 if (ini < 0 || fim < ini) { console.error('bloco não encontrado no index.html'); process.exit(1); }
 const tela = new Function('db', 'window', 'console', html.slice(ini, fim) +
@@ -68,10 +70,18 @@ const nok = (m) => { falhas++; console.log('  ❌ ' + m); };
   console.log('\n═══ 4. O recorte por mês ═══');
   const paraSet = await tela.carregarCodigosPagosAnteriores('unit-cp', '2026-09');
   const paraAgo = await tela.carregarCodigosPagosAnteriores('unit-cp', '2026-08');
-  if (paraSet.length === antes['unit-cp_2026-08'].length) ok(`setembro enxerga os ${paraSet.length} contratos de agosto`);
-  else nok(`setembro viu ${paraSet.length}, esperava ${antes['unit-cp_2026-08'].length}`);
-  if (paraAgo.length === 0) ok('agosto NÃO enxerga os próprios códigos (re-upload seguro)');
-  else nok(`agosto viu ${paraAgo.length} códigos dele mesmo — re-upload barraria as próprias linhas`);
+  // ⚠️ O que importa é a RELAÇÃO entre as listas, não o tamanho delas. Contar
+  // assumia um staging onde só existe agosto — e como julho tem códigos lá, o
+  // script reprovava um comportamento correto (agosto DEVE enxergar julho).
+  // Gritar lobo é pior que não avisar: ensina a ignorar o vermelho.
+  const deAgosto = new Set(antes['unit-cp_2026-08']);
+  const faltouEmSet = [...deAgosto].filter(c => !paraSet.includes(c));
+  if (!faltouEmSet.length) ok(`setembro enxerga os ${deAgosto.size} contratos de agosto (e mais ${paraSet.length - deAgosto.size} de meses anteriores)`);
+  else nok(`setembro não viu ${faltouEmSet.length} contrato(s) de agosto: ${faltouEmSet.slice(0, 5).join(', ')}`);
+
+  const proprios = paraAgo.filter(c => deAgosto.has(c));
+  if (!proprios.length) ok(`agosto NÃO enxerga os próprios códigos (re-upload seguro) — só os ${paraAgo.length} de meses anteriores`);
+  else nok(`agosto viu ${proprios.length} códigos dele mesmo — re-upload barraria as próprias linhas`);
   const pp = await tela.carregarCodigosPagosAnteriores('unit-pp', '2026-09');
   const cruzou = pp.filter(c => paraSet.includes(c));
   if (!cruzou.length) ok('uma unidade não enxerga os contratos da outra');
@@ -83,8 +93,12 @@ const nok = (m) => { falhas++; console.log('  ❌ ' + m); };
   const linhas = Object.keys(aba).map(Number).sort((a, b) => a - b).map(k => aba[k]);
   const rAgo = PA.traduzir(linhas, { mes: '2026-08', codigosPagos: paraAgo });
   const somaCP = (rAgo.porUnidade['CP'] || []).reduce((s, v) => s + (v['Valor Quitado/Recibo'] || 0), 0);
-  if ((rAgo.jaPagos || []).length === 0) ok(`re-upload de agosto: 0 linhas barradas · CP segue com ${(rAgo.porUnidade['CP']||[]).length} linhas, ${brl(somaCP)}`);
-  else nok(`re-upload de agosto barrou ${rAgo.jaPagos.length} linhas — não deveria barrar nenhuma`);
+  // Barrar contrato que pagou em JULHO está certo — é a regra funcionando. O
+  // que não pode acontecer é agosto barrar linha por causa de um código que ele
+  // mesmo gravou: aí re-subir o arquivo zeraria o próprio mês.
+  const barradasDeAgosto = (rAgo.jaPagos || []).filter(j => deAgosto.has('C' + j.contrato));
+  if (!barradasDeAgosto.length) ok(`re-upload de agosto: nenhuma linha barrada por código do próprio mês · ${(rAgo.jaPagos || []).length} barrada(s) por meses anteriores · CP segue com ${(rAgo.porUnidade['CP']||[]).length} linhas, ${brl(somaCP)}`);
+  else nok(`re-upload de agosto barrou ${barradasDeAgosto.length} linha(s) com código do próprio mês`);
 
   console.log('\n═══ 6. O mesmo arquivo como se fosse setembro ═══');
   // Empurra as datas de lançamento para setembro: simula as parcelas voltando.

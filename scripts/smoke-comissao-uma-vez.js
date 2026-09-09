@@ -223,7 +223,10 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 }
 
 // ─── Executa as funções da tela de verdade ───
-const inicio = html.indexOf('    /** Os códigos de contrato comissionados num conjunto de itens do período */');
+// ⚠️ A âncora é a ASSINATURA, não o comentário acima dela. Ancorar no texto do
+// JSDoc quebrou este smoke em 08/09/2026, quando o comentário foi reescrito para
+// explicar por que `deferred` conta como pago — o código não tinha mudado.
+const inicio = html.indexOf('    function codigosDeContrato(');
 const fim = html.indexOf('    function handleFile(file) {');
 assert.ok(inicio > 0 && fim > inicio, 'bloco das funções de códigos pagos localizado no index.html');
 const fonte = html.slice(inicio, fim);

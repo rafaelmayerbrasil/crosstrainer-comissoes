@@ -178,6 +178,17 @@ const SEM_TESTE_EM_LUGAR_NENHUM = true;
 // roda do mesmo jeito nos dois ambientes: ali o que se testa e a REGRA
 // (opiniao() classifica certo quem tem esse formato de venda+pagamento), nao
 // um numero medido - e regra vale em qualquer banco onde o caso aparecer.
+//
+// ⚠️ ATUALIZADO EM 08/09/2026: as duas SAIRAM de "conferir" — e por bom motivo.
+// O Rodrigo foi na Pacto e conferiu: a Amandha pagou a primeira do anual em
+// 04/09 e a Catia em 03/09, no CONTRATO NOVO. Com o arquivo de setembro subido,
+// as duas viraram `pagas`. Exigir que apareçam em "conferir" passou a cobrar um
+// estado que a propria tela existe para resolver.
+//
+// A afirmacao que continua valendo, e que e a que importa, e outra: elas nunca
+// podem estar em `aguardando`. Ou o dinheiro entrou (paga), ou a decisao ainda
+// e humana (conferir) — "aguardando" seria a tela dizendo que ninguem pagou
+// nada, que e exatamente a mentira de R$ 4.776 que este caso existe para pegar.
 const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': { apelido: 'Catia', achado: false } };
 
 (async () => {
@@ -291,6 +302,21 @@ const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': {
     // o dado mudou - as duas merecem os olhos de alguem antes de publicar.
     const normalizaContrato = c => String(c || '').replace(/^C/i, '').toUpperCase();
     Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
+      const emEspera = d.cruzado.aguardando.find(x => normalizaContrato(x.contrato) === num);
+      if (emEspera) {
+        caso.achado = true;
+        conferir(false, periodId + ': ' + caso.apelido + '/C' + num + ' caiu em "aguardando" — '
+          + 'a tela estaria dizendo que ninguem pagou nada num contrato de R$ 2.388');
+        return;
+      }
+      const paga = d.cruzado.pagas.find(x => normalizaContrato(x.contrato) === num);
+      if (paga) {
+        caso.achado = true;
+        console.log('  OK   ' + periodId + ': ' + caso.apelido + '/C' + num + ' esta PAGA'
+          + (paga.pagoEm && paga.pagoEm.mes ? ' (dinheiro entrou em ' + paga.pagoEm.mes + ')' : '')
+          + ' — o Rodrigo confirmou na Pacto em 08/09');
+        return;
+      }
       const v = d.cruzado.conferir.find(x => normalizaContrato(x.contrato) === num);
       if (!v) return; // pode nao estar neste periodo/unidade - cada uma so existe em um
       caso.achado = true;
@@ -318,12 +344,12 @@ const CASOS_OPINIAO = { '7070': { apelido: 'Amandha', achado: false }, '7130': {
   // regra, so sobre o acaso de o banco de staging ter ou nao aquela copia.
   if (PROJETO === 'production') {
     Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
-      conferir(caso.achado, 'caso real de opiniao C' + num + ' (' + caso.apelido + ') apareceu em "conferir" em algum periodo');
+      conferir(caso.achado, 'caso real de opiniao C' + num + ' (' + caso.apelido + ') foi encontrado em algum periodo (paga ou em conferencia)');
     });
   } else {
     Object.entries(CASOS_OPINIAO).forEach(([num, caso]) => {
       console.log('  (staging, informativo) caso real C' + num + ' (' + caso.apelido + ') '
-        + (caso.achado ? 'apareceu em "conferir" - sorte de o staging ter copia do dado' : 'nao apareceu neste banco - normal em staging'));
+        + (caso.achado ? 'apareceu - sorte de o staging ter copia do dado' : 'nao apareceu neste banco - normal em staging'));
     });
   }
 

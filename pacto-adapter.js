@@ -246,6 +246,35 @@ const PactoAdapter = {
     return out;
   },
 
+  /**
+   * Registro de teste da própria Pacto — não é cliente, não é venda.
+   *
+   * O `TESTE ENDEREÇO TECNOFIT` saiu da tela de vendas em 07/09/2026, mas a
+   * regra morava só em `VendasAguardando`, que o `commission.js` não conhece.
+   * O mesmo fantasma aparece no relatório de RECEBIDOS, e esse alimenta o
+   * cálculo: em setembro/2026 ele somava **1 ativação e R$ 768,00** ao caixa do
+   * Príncipe e era a causa do aviso "registros sem vendedor identificado".
+   *
+   * ⚠️ PALAVRA INTEIRA, e isso não é preciosismo: existe uma cliente de verdade
+   *    chamada `ESTEFANE COUTINHO CAMPOS`. Foi casamento por pedaço que fez
+   *    BIANUAL ser lido como ANUAL em produção (`6f0a15b`) — e aqui um falso
+   *    positivo apaga a venda de alguém, sem erro na tela.
+   *
+   * Duas portas para a MESMA regex, porque os dois lados chegam com formas
+   * diferentes: o recebimento traz a linha crua, a venda já traz o nome
+   * extraído. A regra em si existe uma vez só.
+   *
+   * @param {string} nome  nome do cliente
+   */
+  ehNomeDeTeste(nome) {
+    return /(^|[^A-Za-zÀ-ÿ])TESTES?([^A-Za-zÀ-ÿ]|$)/i.test(String(nome || ''));
+  },
+
+  /** @param {Array} l  linha crua do export */
+  ehRegistroDeTeste(l) {
+    return this.ehNomeDeTeste(this.campo(l, 'nome'));
+  },
+
   /** Acerto de contrato cancelado — entra caixa, mas não é venda */
   ehQuitacaoCancelamento(l) {
     const p = this.campo(l, 'produto').toUpperCase();
@@ -464,7 +493,7 @@ const PactoAdapter = {
     // parcela, sem erro nenhum na tela.
     const jaComissionados = this.contratosDe(o.codigosPagos);
 
-    const descartadas = [], migrados = [], jaPagos = [], uteis = [];
+    const descartadas = [], migrados = [], jaPagos = [], testes = [], uteis = [];
     doMes.forEach(l => {
       const resumo = {
         cliente: this.campo(l, 'nome'), produto: this.campo(l, 'produto'),
@@ -472,6 +501,13 @@ const PactoAdapter = {
         inicio: this.campo(l, 'inicio'), duracao: this.campo(l, 'duracao'),
         unidade: this.unidadeDe(l),
       };
+      // Registro de teste da Pacto: não é cliente, não é dinheiro da academia.
+      // Sai num balde próprio para a tela poder DIZER que tirou — sumir calado
+      // é o que faz a gestão procurar a diferença entre a tela e a conta dela.
+      if (this.ehRegistroDeTeste(l)) {
+        testes.push({ ...resumo, motivo: 'registro de teste da Pacto — não é venda' });
+        return;
+      }
       // Gateway antigo + contrato que começou antes = dinheiro de contrato velho.
       // O gateway SOZINHO não descarta: venda nova também é cobrada por ele.
       if (this.ehRecebimentoTecnofit(l) && this.comecouForaDoMes(l, mes)) {
@@ -589,7 +625,7 @@ const PactoAdapter = {
     const porUnidade = { CP: [], PP: [], '': [] };
     vendas.forEach(v => (porUnidade[v._unidade] || porUnidade['']).push(v));
 
-    return { vendas, marcadas, descartadas, migrados, jaPagos, avisos, porUnidade, mes, meses,
+    return { vendas, marcadas, descartadas, migrados, jaPagos, testes, avisos, porUnidade, mes, meses,
              relatorio: this.detectarRelatorio(linhas) };
   },
 
