@@ -7,25 +7,42 @@
 
 ### ▶️▶️ RETOMAR AQUI
 
-🔴 **SETEMBRO EM PRODUÇÃO ESTÁ COM O REGISTRO DE TESTE DENTRO DA CONTA — e o conserto é da gestão:
-re-subir o arquivo de setembro pela tela**, o mesmo gesto que consertou agosto.
+🔴 **AS METAS DE SETEMBRO — combinado com o Rodrigo para amanhã (10/09).** Duas coisas na mesa:
+definir a de setembro, e **avaliar se o sistema pode propor a meta sozinho** (pedido do Rafael em
+09/09). O Rafael vai chamar o Rodrigo para tirar dúvidas.
 
-O arquivo `faturamento-recebido_01 a 080926.xls` foi subido às **20:58** de 08/09. A correção que
-tira o `TESTE ENDEREÇO TECNOFIT` do cálculo foi commitada às **21:21** — 23 minutos depois. Os 4
-registros do teste ficaram lá, marcados como venda boa:
+⚠️ **A armadilha está armada agora.** Setembro **não tem `metasMensais`** em nenhuma das duas
+unidades, então o mês está rodando com o **padrão da unidade — que é IGUAL para as duas**:
 
-| | Campeche | Príncipe |
-|---|---:|---:|
-| ativação falsa | 1 (de 20) | 1 (de 22) |
-| caixa fantasma | R$ 434,00 | R$ 768,00 |
-| comissão fantasma | R$ 0,00 | **R$ 83,40** (como "Sem Vendedor") |
+| | padrão herdado | meta própria de agosto | realizado em agosto |
+|---|---:|---:|---:|
+| Campeche | meta 50 · super 57 · gold 65 · **minRenov 25** | 50 · 57 · 65 | **63 ativ** · 33 novos · 16 renov |
+| Príncipe | meta 50 · super 57 · gold 65 · **minRenov 25** | **28** · 32 · 37 | **41 ativ** · 22 novos · 15 renov |
 
-Rodei o código de hoje sobre o **mesmo arquivo**: o filtro pega. Segundo motivo para re-subir:
-setembro foi calculado às 20:58 e **agosto foi re-subido às 22:53, depois dele** — a lista de
-"contratos que já pagaram" que setembro usou é de um agosto que mudou em seguida.
+Para o Príncipe o padrão é inalcançável (meta própria dele era 28; e minRenov 25 contra 15 feitas).
+**É exatamente o que já zerou o P3 do Príncipe antes** — ver [[metas-sao-definidas-por-mes]]. Note
+também que `minAtivacoesIndivP3` **não existe** no padrão da unidade, só na meta do mês.
 
-Depois disso, as **metas de setembro** (cobrança do Rodrigo, herdada da sessão 68) — que hoje seriam
-lidas em cima desse setembro com ativação falsa.
+⚠️ **Não projetar por regra de três** com os 8 dias de setembro: até o dia 8 de agosto o Campeche
+tinha feito 40% do mês e o Príncipe **7%** — a conta linear daria 301 ativações no Príncipe. O
+caminho é bottom-up (renovações que vencem no mês + média de novos).
+
+### ✅ Setembro foi reprocessado e está limpo (09/09, ~00:37)
+
+O registro de teste tinha entrado porque o arquivo foi subido às **20:58** de 08/09 e a correção que
+o remove foi commitada às **21:21** — 23 minutos depois. O Rafael re-subiu, e a correção bateu
+**exatamente** com o que estava medido, sem resíduo:
+
+| | antes | agora | diferença |
+|---|---:|---:|---:|
+| Campeche — ativações | 20 | **19** | −1 |
+| Campeche — caixa | R$ 7.008,95 | **R$ 6.574,95** | **−R$ 434,00** |
+| Príncipe — ativações | 22 | **21** | −1 |
+| Príncipe — caixa | R$ 7.872,20 | **R$ 7.104,20** | **−R$ 768,00** |
+
+A **comissão fantasma de R$ 83,40** do Príncipe sumiu junto: não existe mais linha "Sem Vendedor" no
+mês. Setembro hoje (01→08/09, mês pela metade): **Campeche R$ 679,00 / 19 ativações** · **Príncipe
+R$ 529,89 / 21 ativações**.
 
 ### ✅ A pendência da sessão 68 já estava resolvida
 
