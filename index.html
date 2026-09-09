@@ -7660,13 +7660,19 @@
       // arquivo da Pacto reescreve o período, e a decisão sumiria em silêncio.
       const confSnap = await db.collection('vendas_conferencia')
         .where('unitId', '==', unitId).get();
-      const conferencias = {};
-      confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+      // Dois tipos de registro na mesma coleção: o que decide sobre uma VENDA
+      // (tem `contrato`) e o que descarta um PAGAMENTO (`tipo: 'pagamento'`).
+      const conferencias = {}, descartes = {};
+      confSnap.forEach(d => {
+        const x = d.data();
+        if (x.tipo === 'pagamento' && x.pagamento) descartes[x.pagamento] = x;
+        else if (x.contrato) conferencias[x.contrato] = x;
+      });
 
       // Aplicar ANTES de resumir e de contar por vendedora — senão a venda é
       // contada no grupo errado.
       const cruzado = VendasAguardando.aplicarConferencias(
-        VendasAguardando.cruzar(vendas, pagos, clientesPagantes), conferencias);
+        VendasAguardando.cruzar(vendas, pagos, clientesPagantes), conferencias, descartes);
 
       currentVendidoXPago = {
         ...base, temLista: true, cruzado, conferencias,
@@ -7712,12 +7718,12 @@
       // mão. A vendedora não vê: é assunto de quem administra.
       const testes = ((d.cruzado && d.cruzado.testes) || []).length;
 
-      // A venda dada por perdida foi vendida de verdade: sai das que ainda
-      // esperam dinheiro, não da história do mês. Por isso é nota, não número.
-      const perdidas = (d.resumo && d.resumo.naoCobrar) || 0;
+      // A venda em que o cliente desistiu foi vendida de verdade: sai das que
+      // ainda esperam dinheiro, não da história do mês. Por isso é nota, não número.
+      const perdidas = (d.resumo && d.resumo.canceladas) || 0;
       const notaPerdidas = perdidas ? `
         <div style="font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-          ${perdidas} venda${perdidas > 1 ? 's' : ''} que não ${perdidas > 1 ? 'serão' : 'será'} cobrada${perdidas > 1 ? 's' : ''}, por decisão da gestão.
+          ${perdidas} venda${perdidas > 1 ? 's em que os clientes desistiram' : ' em que o cliente desistiu'}.
         </div>` : '';
       const notaTeste = (testes && !o.soDe) ? `
         <div style="font-size:10.5px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
@@ -7786,14 +7792,18 @@
       // senão essa lista só cresce até virar ruído que ninguém olha.
       const confSnap = await db.collection('vendas_conferencia')
         .where('unitId', '==', unitId).get();
-      const conferencias = {};
-      confSnap.forEach(d => { const x = d.data(); if (x.contrato) conferencias[x.contrato] = x; });
+      const conferencias = {}, descartes = {};
+      confSnap.forEach(d => {
+        const x = d.data();
+        if (x.tipo === 'pagamento' && x.pagamento) descartes[x.pagamento] = x;
+        else if (x.contrato) conferencias[x.contrato] = x;
+      });
 
       const fora = [];
       const hoje = new Date();
       docs.sort((a, b) => a.mes.localeCompare(b.mes)).forEach(pr => {
         const r = VendasAguardando.aplicarConferencias(
-          VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []), conferencias);
+          VendasAguardando.cruzar(pr.vendasDoMes || [], pagos, []), conferencias, descartes);
         r.aguardando.forEach(v => {
           const [dd, mm, aa] = String(v.data || '').split('/');
           const quando = aa ? new Date(Number(aa), Number(mm) - 1, Number(dd)) : null;
@@ -7824,7 +7834,7 @@
         conferir: VendasAguardando.daVendedora(d.cruzado.conferir, soDe),
         // Sem isso a venda dela marcada "não vamos cobrar" some da vida dela
         // sem nota nenhuma — dado antigo pode não ter o grupo, daí o `|| []`.
-        naoCobrar: VendasAguardando.daVendedora(d.cruzado.naoCobrar || [], soDe),
+        canceladas: VendasAguardando.daVendedora(d.cruzado.canceladas || [], soDe),
       };
       return { ...d, cruzado, resumo: VendasAguardando.resumo(cruzado) };
     }
@@ -7838,7 +7848,7 @@
     // venda dividida: ela conta para as duas, porque a comissão dela é
     // dividida. Está certo — a nota no rodapé diz isso, para ninguém "corrigir".
     //
-    // A coluna "Não cobrar" só aparece quando alguma vendedora tem uma —
+    // A coluna "Desistiu" só aparece quando alguma vendedora tem uma —
     // mesmo padrão da coluna "Convertido" (só aparece com o mês fechado):
     // não poluir a tabela nos meses em que ninguém marcou nada.
     //
@@ -7852,7 +7862,7 @@
       if (soDe) return '';
       const linhas = Object.entries(porVendedora || {}).sort((a, b) => b[1].vendidas - a[1].vendidas);
       if (!linhas.length) return '';
-      const temNaoCobrar = linhas.some(([, v]) => v.naoCobrar);
+      const temCanceladas = linhas.some(([, v]) => v.canceladas);
       return `<div class="table-wrap" style="margin-bottom:18px">
         <table style="width:100%">
           <thead><tr>
@@ -7861,7 +7871,7 @@
             <th style="text-align:right">Pagas</th>
             <th style="text-align:right">Aguardando</th>
             <th style="text-align:right">Conferir</th>
-            ${temNaoCobrar ? '<th style="text-align:right">Não cobrar</th>' : ''}
+            ${temCanceladas ? '<th style="text-align:right">Desistiu</th>' : ''}
             ${fechado ? '<th style="text-align:right">Convertido</th>' : ''}
           </tr></thead>
           <tbody>
@@ -7872,7 +7882,7 @@
               <td style="text-align:right;color:var(--green)">${v.pagas}</td>
               <td style="text-align:right;color:${v.aguardando ? 'var(--orange)' : 'var(--text3)'}">${v.aguardando}</td>
               <td style="text-align:right;color:${v.conferir ? 'var(--yellow)' : 'var(--text3)'}">${v.conferir}</td>
-              ${temNaoCobrar ? `<td style="text-align:right;color:var(--text3)">${v.naoCobrar || 0}</td>` : ''}
+              ${temCanceladas ? `<td style="text-align:right;color:var(--text3)">${v.canceladas || 0}</td>` : ''}
               ${fechado ? `<td style="text-align:right">${v.naoComissionado ? '—'
                 : Math.round((v.pagas / v.vendidas) * 100) + '%'}</td>` : ''}
             </tr>`).join('')}
@@ -7880,7 +7890,7 @@
         </table>
         <div style="font-size:11px;color:var(--text3);margin-top:8px">
           Venda dividida conta para as duas vendedoras — por isso a coluna soma mais que o total do mês.
-          ${temNaoCobrar ? ' "Não cobrar" é venda que a gestão decidiu não cobrar mais — conta como vendida, nunca vira paga.' : ''}
+          ${temCanceladas ? ' "Desistiu" é venda em que o cliente desistiu — conta como vendida, nunca vira paga.' : ''}
           ${fechado ? '' : ' A coluna de conversão aparece quando o mês fecha: no mês corrente a cobrança ainda está caindo.'}
         </div>
       </div>`;
@@ -7925,9 +7935,25 @@
     // Autocontida de propósito: nada de `db`, `userProfile` ou DOM aqui dentro.
     // Recebe a venda e se quem olha é Admin, e devolve HTML.
     //
-    // @param {Object} v        venda de aguardando/conferir/naoCobrar/pagas
+    // @param {Object} v        venda de aguardando/conferir/canceladas/pagas
     // @param {boolean} admin   quem olha pode registrar?
     // @returns {string} HTML
+    /**
+     * "setembro de 2026" — o mês por extenso, para o título dizer DE QUE MÊS é
+     * a lista.
+     *
+     * Existe porque os dois blocos da aba "A receber" descreviam a mesma
+     * situação ("sem pagamento identificado") e a única diferença entre eles —
+     * o mês da venda — não aparecia em lugar nenhum. O Rafael leu a tela em uso
+     * e não conseguiu dizer qual era qual.
+     */
+    function mesPorExtenso(year, month) {
+      const nomes = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+                     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+      const m = Number(month);
+      return (nomes[m] || '') + (year ? ' de ' + year : '') || 'deste mês';
+    }
+
     function linhaConferencia(v, admin) {
       const esc = s => String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -7952,8 +7978,8 @@
       // 🚨 O dinheiro ganhou de uma marcação em contrário: a tela TEM que dizer,
       // senão parece que o sistema esqueceu o que a gestão decidiu.
       if (v.marcacaoIgnorada) {
-        const q = { paga_outro_contrato: 'já foi paga', a_receber: 'ainda a receber',
-                    nao_cobrar: 'não vamos cobrar' }[v.marcacaoIgnorada.desfecho] || v.marcacaoIgnorada.desfecho;
+        const q = { paga: 'já foi paga', cancelada: 'cliente desistiu' }[v.marcacaoIgnorada.desfecho]
+                  || v.marcacaoIgnorada.desfecho;
         return nota(`💰 O pagamento entrou${v.pagoEm && v.pagoEm.data ? ' em <strong>' + esc(v.pagoEm.data) + '</strong>' : ''}, `
           + `apesar de esta venda estar marcada como <strong>"${esc(q)}"</strong>`
           + `${v.marcacaoIgnorada.por ? ' por ' + esc(v.marcacaoIgnorada.por) : ''}. O pagamento vale.`);
@@ -7981,9 +8007,8 @@
         // dos atributos `data-`).
         return `<div class="linha-conferencia">${notaConferida}
           <div class="mudar-opcoes" style="display:none;margin-top:6px">
-            ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}
-            ${b('a_receber', 'Ainda a receber', 'var(--orange)')}
-            ${b('nao_cobrar', 'Não vamos cobrar', 'var(--red)')}
+            ${v.pagamentoQueBateu ? b('paga', 'É este pagamento', 'var(--green)') : ''}
+            ${b('cancelada', 'Cliente desistiu', 'var(--red)')}
           </div>
         </div>`;
       }
@@ -8000,10 +8025,19 @@
 
       if (!admin) return html;
 
+      // ⚠️ O QUE APARECE DEPENDE DE HAVER PAGAMENTO NA MESA.
+      //
+      // Sem pagamento (a venda simplesmente não recebeu), o único desfecho que
+      // faz sentido é o cliente ter desistido: "já foi paga" sem apontar
+      // dinheiro nenhum seria marcação no vazio, e "ainda a receber" é o estado
+      // em que ela JÁ está. Correção do Rafael em 09/09/2026.
+      //
+      // Com pagamento (bateu o nome, não bateu o contrato), aí sim cabe a
+      // pergunta de verdade: é este pagamento, ou não é?
       return html + `<div style="margin-top:6px">
-        ${b('paga_outro_contrato', 'Já foi paga', 'var(--green)')}
-        ${b('a_receber', 'Ainda a receber', 'var(--orange)')}
-        ${b('nao_cobrar', 'Não vamos cobrar', 'var(--red)')}
+        ${v.pagamentoQueBateu ? b('paga', 'É este pagamento', 'var(--green)') : ''}
+        ${v.pagamentoQueBateu ? b('sem_venda', 'Não é este pagamento', 'var(--orange)') : ''}
+        ${b('cancelada', 'Cliente desistiu', 'var(--red)')}
       </div>`;
     }
 
@@ -8028,27 +8062,95 @@
      */
     async function registrarConferencia(contrato, desfecho) {
       if (userProfile?.role !== 'admin') return;
-      const rotulo = { paga_outro_contrato: 'Já foi paga', a_receber: 'Ainda a receber',
-                       nao_cobrar: 'Não vamos cobrar' }[desfecho] || desfecho;
-      const observacao = prompt(`"${rotulo}" — contrato ${contrato}.\n\nObservação (opcional):`, '');
-      if (observacao === null) return;   // cancelou
 
       const dados = currentVendidoXPago || {};
       const todas = [].concat(dados.cruzado?.aguardando || [], dados.cruzado?.conferir || [],
-                              dados.cruzado?.naoCobrar || []);
+                              dados.cruzado?.canceladas || []);
       const v = todas.find(x => String(x.contrato) === String(contrato)) || {};
+
+      // "Não é este pagamento" cala a pergunta sobre o PAGAMENTO — a venda
+      // continua na fila, porque ela não foi paga; só não foi por aquele dinheiro.
+      // Sem este registro a pergunta volta amanhã: a lista é recalculada a cada
+      // abertura da tela.
+      if (desfecho === 'sem_venda') {
+        const p = v.pagamentoQueBateu || {};
+        if (!p.codigo) { alert('Este desfecho só existe quando há um pagamento em dúvida.'); return; }
+        const obs = prompt(`"Não é este pagamento" — pagamento ${p.codigo}, de ${v.cliente || ''}.\n\n`
+          + `A venda continua na fila; o sistema só para de perguntar por este pagamento.\n\n`
+          + `Observação (opcional):`, '');
+        if (obs === null) return;
+        try {
+          await db.collection('vendas_conferencia').doc(currentUnitId + '_pg-' + p.codigo).set({
+            unitId: currentUnitId, tipo: 'pagamento', pagamento: p.codigo,
+            cliente: v.cliente || '', desfecho: 'sem_venda', observacao: obs || '',
+            por: userProfile?.name || currentUser?.email || '—',
+            porUid: currentUser?.uid || '',
+            em: new Date().toLocaleDateString('pt-BR'),
+            emTs: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+          await logAudit('conferencia_venda', { pagamento: p.codigo, desfecho, observacao: obs });
+          renderAReceberTab('aReceberContent', currentPeriodId, '');
+        } catch (e) { alert('Não foi possível registrar: ' + e.message); }
+        return;
+      }
+
+      const rotulo = { paga: 'É este pagamento', cancelada: 'Cliente desistiu' }[desfecho] || desfecho;
+      const pagamento = desfecho === 'paga' ? (v.pagamentoQueBateu || null) : null;
+      if (desfecho === 'paga' && !pagamento) {
+        alert('Só dá para marcar como paga apontando um pagamento do relatório.');
+        return;
+      }
+
+      // 🔒 O MESMO DINHEIRO NÃO EXPLICA DOIS CONTRATOS. Sem esta trava, o
+      // pagamento de R$ 199 da Cátia poderia explicar a renovação E outra venda
+      // dela, e a conferência passaria a mentir sobre o que já foi recebido.
+      //
+      // A checagem lê as conferências da unidade e compara em memória (são
+      // poucas dezenas), em vez de consulta com filtro composto: índice novo do
+      // Firestore já derrubou Comissões uma vez, e aqui não pagaria o custo.
+      if (pagamento) {
+        try {
+          const snap = await db.collection('vendas_conferencia')
+            .where('unitId', '==', currentUnitId).get();
+          const jaMarcadas = {};
+          snap.forEach(d => { const x = d.data(); if (x.contrato) jaMarcadas[x.contrato] = x; });
+          const conflito = VendasAguardando.pagamentoJaApontado(jaMarcadas, pagamento.codigo, contrato);
+          if (conflito) {
+            alert(`Este pagamento (${pagamento.codigo}) já explica a venda do contrato `
+              + `${conflito.contrato}${conflito.cliente ? ' — ' + conflito.cliente : ''}.\n\n`
+              + `O mesmo dinheiro não pode explicar duas vendas. Desfaça a outra marcação antes.`);
+            return;
+          }
+        } catch (e) { alert('Não foi possível conferir se este pagamento já foi usado: ' + e.message); return; }
+      }
+
+      const observacao = prompt(`"${rotulo}" — contrato ${contrato}.`
+        + (pagamento ? `\n\nPagamento apontado: R$ ${fmt(pagamento.valor)} em ${pagamento.data || '—'}`
+            + ` · contrato ${pagamento.codigo}.` : '')
+        + `\n\nObservação (opcional):`, '');
+      if (observacao === null) return;   // cancelou
+
       try {
         await db.collection('vendas_conferencia').doc(currentUnitId + '_' + contrato).set({
           unitId: currentUnitId, contrato, cliente: v.cliente || '',
           mesDaVenda: (dados.year || '') + '-' + String(dados.month || '').padStart(2, '0'),
           valorContrato: v.valorContrato || 0,
           desfecho, observacao: observacao || '',
+          // ⚠️ QUAL dinheiro explicou esta venda. Sem guardar, a decisão morre
+          // na cabeça de quem decidiu — e não há como travar o mesmo pagamento
+          // sendo usado numa segunda venda.
+          ...(pagamento ? { pagamentoApontado: {
+            codigo: pagamento.codigo || '', valor: pagamento.valor || 0,
+            data: pagamento.data || '', vendedor: pagamento.vendedor || '',
+            cliente: pagamento.cliente || '',
+          } } : {}),
           por: userProfile?.name || currentUser?.email || '—',
           porUid: currentUser?.uid || '',
           em: new Date().toLocaleDateString('pt-BR'),
           emTs: firebase.firestore.FieldValue.serverTimestamp(),
         });
-        await logAudit('conferencia_venda', { contrato, desfecho, observacao, cliente: v.cliente });
+        await logAudit('conferencia_venda', { contrato, desfecho, observacao, cliente: v.cliente,
+          pagamento: pagamento ? pagamento.codigo : '' });
         renderAReceberTab('aReceberContent', currentPeriodId, '');
       } catch (e) {
         alert('Não foi possível registrar: ' + e.message);
@@ -8104,16 +8206,22 @@
         if (soDe) velhas = VendasAguardando.daVendedora(velhas, soDe);
         const cabecalho = blocoVendidoXPago(visaoDe(dados, soDe), { soDe, arrasto: velhas.length });
         const tabela = tabelaPorVendedora(dados.porVendedora, dados.fechado, soDe);
+        // ⚠️ OS MESMOS BOTÕES DO MÊS ABERTO. Este bloco dizia "são estas que
+        // merecem conversa" e não oferecia botão nenhum: para decidir sobre uma
+        // venda de agosto era preciso adivinhar que se devia trocar o período.
+        // A regra sempre aceitou a decisão daqui — o arrasto já aplica as
+        // conferências —, só a tela não oferecia. Mesmo defeito das trocas de
+        // professor, em que a regra permitia e a tela não.
         const blocoArrasto = !velhas.length ? '' : `
           <div style="background:var(--red-bg);border:1px solid var(--red);border-radius:10px;padding:16px;margin:18px 0">
             <div style="font-size:13px;font-weight:700;margin-bottom:4px">
-              🕰️ ${velhas.length} venda(s) arrastando de meses anteriores
+              🕰️ ${velhas.length} venda(s) de meses anteriores ainda sem pagamento
             </div>
             <div style="font-size:12px;color:var(--text2);margin-bottom:10px">
-              Fechadas antes deste mês e até hoje sem pagamento identificado. São estas que merecem conversa.
+              São as mais atrasadas — é aqui que a cobrança começa.
             </div>
             <div style="font-size:12px">
-              ${velhas.map(v => `<div style="padding:3px 0">• <strong>${v.cliente}</strong> — contrato ${v.contrato} · ${v._mes} · ${v._diasParada != null ? v._diasParada + ' dias parada' : 'sem data'}${v.vendedores.length ? ' · ' + v.vendedores.join(', ') : ''}</div>`).join('')}
+              ${velhas.map(v => `<div style="padding:6px 0;border-top:1px solid var(--border)">• <strong>${v.cliente}</strong> — contrato ${v.contrato} · ${v._mes} · ${v._diasParada != null ? v._diasParada + ' dias parada' : 'sem data'}${v.vendedores.length ? ' · ' + v.vendedores.join(', ') : ''}${linhaConferencia(v, userProfile?.role === 'admin')}</div>`).join('')}
             </div>
           </div>`;
 
@@ -8154,11 +8262,11 @@
           ${!lista.length ? '' : `
           <div style="background:var(--orange-dim);border:1px solid var(--orange);border-radius:10px;padding:16px;margin-bottom:16px">
             <div style="font-size:13px;font-weight:700;margin-bottom:4px">
-              ⏳ ${lista.length} venda(s) fechada(s) sem pagamento identificado
+              ⏳ ${lista.length} venda(s) de ${mesPorExtenso(dados.year, dados.month)} ainda sem pagamento
             </div>
             <div style="font-size:12px;color:var(--text2)">
-              A comissão nasce quando o cliente paga. Estas continuam ${soDe ? 'suas' : 'na fila'} — quando o dinheiro entrar,
-              elas caem no fechamento daquele mês, sem ninguém precisar avisar.
+              Fechadas neste mês — muitas nem venceram. A comissão nasce quando o cliente paga: quando o dinheiro
+              entrar, elas caem no fechamento daquele mês, sem ninguém precisar avisar.
             </div>
             ${Object.keys(porVend).length ? `<div style="font-size:12px;margin-top:10px">${
               Object.entries(porVend).sort((a,b)=>b[1]-a[1])

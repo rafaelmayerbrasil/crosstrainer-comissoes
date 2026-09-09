@@ -350,22 +350,28 @@ const venda = (contrato, cliente, extra) => ({
   assert.strictEqual(zero.pagas.length, 1);
   assert.strictEqual(zero.aguardando.length, 2);
   assert.strictEqual(zero.conferir.length, 1);
-  assert.strictEqual(zero.naoCobrar.length, 0);
+  assert.strictEqual(zero.canceladas.length, 0);
 
-  // (b) "já foi paga" vira paga; "não vamos cobrar" sai dos três
+  // (b) "paga" (com o pagamento apontado) vira paga; "cancelada" sai dos três.
+  //     ⚠️ Não existe mais marcação para "ainda a receber": esse é o estado em
+  //     que a venda JÁ está, e o botão só repetia o óbvio (correção do Rafael em
+  //     09/09/2026). A C3 fica sem marcação nenhuma e continua aguardando.
   const marcado = VA.aplicarConferencias(cruzado, {
-    C4: { desfecho: 'paga_outro_contrato', por: 'Rafael', em: '07/09/2026' },
-    C2: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'cliente desistiu' },
-    C3: { desfecho: 'a_receber', por: 'Rafael', em: '07/09/2026' },
+    C4: { desfecho: 'paga', pagamentoApontado: { codigo: 'C900', valor: 199 }, por: 'Rafael', em: '07/09/2026' },
+    C2: { desfecho: 'cancelada', por: 'Rafael', em: '07/09/2026', observacao: 'cliente desistiu' },
   });
   assert.deepStrictEqual(marcado.pagas.map(v => v.contrato), ['C1', 'C4']);
   assert.deepStrictEqual(marcado.aguardando.map(v => v.contrato), ['C3']);
   assert.strictEqual(marcado.conferir.length, 0);
-  assert.deepStrictEqual(marcado.naoCobrar.map(v => v.contrato), ['C2']);
+  assert.deepStrictEqual(marcado.canceladas.map(v => v.contrato), ['C2']);
 
   // a venda marcada carrega o registro, para a tela poder mostrar quem e quando
-  assert.strictEqual(marcado.aguardando[0].conferencia.por, 'Rafael');
-  assert.strictEqual(marcado.naoCobrar[0].conferencia.observacao, 'cliente desistiu');
+  assert.strictEqual(marcado.canceladas[0].conferencia.observacao, 'cliente desistiu');
+  const c4 = marcado.pagas.find(v => v.contrato === 'C4');
+  assert.strictEqual(c4.conferencia.pagamentoApontado.codigo, 'C900',
+    'a venda explicada carrega QUAL pagamento a explicou');
+  // e a venda sem marcação não ganha campo nenhum de conferência
+  assert.strictEqual(marcado.aguardando[0].conferencia, undefined);
 
   // (c) 🚨 O DINHEIRO SEMPRE GANHA: marcada "não vamos cobrar", mas o contrato
   //     apareceu nos recebimentos → volta a contar como paga, e a tela DIZ que
@@ -374,23 +380,23 @@ const venda = (contrato, cliente, extra) => ({
     ...cruzado,
     pagas: [venda('C1', 'ANA'), venda('C2', 'BIA')],   // a C2 foi paga de verdade
     aguardando: [venda('C3', 'CLARA')],
-  }, { C2: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026' } });
+  }, { C2: { desfecho: 'cancelada', por: 'Rafael', em: '07/09/2026' } });
 
   assert.deepStrictEqual(comDinheiro.pagas.map(v => v.contrato), ['C1', 'C2'],
     'pagamento de verdade GANHA da marcação humana');
-  assert.strictEqual(comDinheiro.naoCobrar.length, 0);
+  assert.strictEqual(comDinheiro.canceladas.length, 0);
   const c2 = comDinheiro.pagas.find(v => v.contrato === 'C2');
-  assert.strictEqual(c2.marcacaoIgnorada.desfecho, 'nao_cobrar',
+  assert.strictEqual(c2.marcacaoIgnorada.desfecho, 'cancelada',
     'a tela precisa DIZER que havia uma marcação em contrário');
 
   // (d) a soma sempre fecha
   const soma = marcado.pagas.length + marcado.aguardando.length
-             + marcado.conferir.length + marcado.naoCobrar.length;
-  assert.strictEqual(soma, 4, 'vendidas = pagas + aguardando + conferir + naoCobrar');
+             + marcado.conferir.length + marcado.canceladas.length;
+  assert.strictEqual(soma, 4, 'vendidas = pagas + aguardando + conferir + canceladas');
 
   // (e) marcação de contrato que não existe no mês é ignorada, sem quebrar
-  const fantasma = VA.aplicarConferencias(cruzado, { C999: { desfecho: 'nao_cobrar' } });
-  assert.strictEqual(fantasma.naoCobrar.length, 0);
+  const fantasma = VA.aplicarConferencias(cruzado, { C999: { desfecho: 'cancelada' } });
+  assert.strictEqual(fantasma.canceladas.length, 0);
 
   // (f) desfecho desconhecido não move a venda de lugar
   const estranho = VA.aplicarConferencias(cruzado, { C2: { desfecho: 'sei_la' } });
@@ -406,13 +412,13 @@ const venda = (contrato, cliente, extra) => ({
 // dinheiro, não da história do mês.
 {
   const r = VA.resumo({
-    pagas: [1, 2, 3], aguardando: [4], conferir: [5], naoCobrar: [6, 7],
+    pagas: [1, 2, 3], aguardando: [4], conferir: [5], canceladas: [6, 7],
   });
-  assert.deepStrictEqual(r, { vendidas: 7, pagas: 3, aguardando: 1, conferir: 1, naoCobrar: 2 });
+  assert.deepStrictEqual(r, { vendidas: 7, pagas: 3, aguardando: 1, conferir: 1, canceladas: 2 });
 
   // sem o grupo novo, continua valendo como antes
   const velho = VA.resumo({ pagas: [1], aguardando: [2], conferir: [] });
-  assert.deepStrictEqual(velho, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, naoCobrar: 0 });
+  assert.deepStrictEqual(velho, { vendidas: 2, pagas: 1, aguardando: 1, conferir: 0, canceladas: 0 });
 
   ok('o resumo conta o "não vamos cobrar" à parte, sem tirar de vendidas');
 }
@@ -498,9 +504,12 @@ const venda = (contrato, cliente, extra) => ({
     pagamentoQueBateu: { codigo: 'C6867', valor: 199, data: '12/08/2026' },
   });
 
-  // (a) Admin vê os três botões e a opinião
+  // (a) Admin vê os três botões e a opinião. Com um pagamento na mesa a
+  //     pergunta é de verdade — é este pagamento, ou não é? —, e ainda cabe a
+  //     desistência.
   const adm = linha(catia, true);
-  assert.ok(/Já foi paga/.test(adm) && /Ainda a receber/.test(adm) && /Não vamos cobrar/.test(adm),
+  assert.ok(/É este pagamento/.test(adm) && /Não é este pagamento/.test(adm)
+    && /Cliente desistiu/.test(adm),
     'Admin precisa dos três botões: ' + adm);
   assert.ok(/antes desta venda existir/.test(adm), 'a opinião tem que aparecer: ' + adm);
   assert.ok(/C6867/.test(adm), 'a prova (o contrato que pagou) tem que aparecer');
@@ -512,7 +521,7 @@ const venda = (contrato, cliente, extra) => ({
 
   // (c) venda já marcada mostra quem decidiu e quando, e não repete os botões
   const marcada = linha({ ...catia,
-    conferencia: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' } },
+    conferencia: { desfecho: 'cancelada', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' } },
     true);
   assert.ok(/Rafael/.test(marcada) && /07\/09\/2026/.test(marcada),
     'tem que dizer quem decidiu e quando: ' + marcada);
@@ -520,10 +529,10 @@ const venda = (contrato, cliente, extra) => ({
 
   // (d) 🚨 marcação atropelada pelo dinheiro tem que APARECER
   const atropelada = linha({ ...catia,
-    marcacaoIgnorada: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026' },
+    marcacaoIgnorada: { desfecho: 'cancelada', por: 'Rafael', em: '07/09/2026' },
     pagoEm: { mes: '2026-09', data: '12/09/2026' } }, true);
   assert.ok(/12\/09\/2026/.test(atropelada), 'a data do pagamento tem que aparecer');
-  assert.ok(/n[ãa]o vamos cobrar|marcad/i.test(atropelada),
+  assert.ok(/cliente desistiu|marcad/i.test(atropelada),
     'a tela tem que DIZER que havia marcação em contrário: ' + atropelada);
 
   ok('a tela mostra opinião para todos, botões só para Admin, e o pagamento ganha');
@@ -562,11 +571,15 @@ const venda = (contrato, cliente, extra) => ({
   const contratoMalicioso = "C7130'+alert(1)+'";
   const venenosa = venda(contratoMalicioso, 'FULANA', { valorContrato: 1000 });
 
-  // (a) Admin: os três botões saem, e NENHUM onclick carrega pedaço do
-  // contrato — o onclick é sempre o mesmo texto fixo, lendo do dataset.
+  // (a) Admin: os botões saem, e NENHUM onclick carrega pedaço do contrato —
+  // o onclick é sempre o mesmo texto fixo, lendo do dataset.
+  //
+  // ⚠️ Sem pagamento na mesa sai UM botão só ("cliente desistiu"). Marcar
+  // "já foi paga" sem apontar dinheiro nenhum deixou de existir em 09/09/2026:
+  // era marcação no vazio. Com pagamento, saem três (caso (d), abaixo).
   const adm = linha(venenosa, true);
   const onclicks = [...adm.matchAll(/onclick="([^"]*)"/g)].map(m => m[1]);
-  assert.strictEqual(onclicks.length, 3, 'os três botões têm que sair: ' + adm);
+  assert.strictEqual(onclicks.length, 1, 'sem pagamento, só o botão de desistência: ' + adm);
   for (const oc of onclicks) {
     assert.strictEqual(oc, 'registrarConferencia(this.dataset.contrato, this.dataset.desfecho)',
       'o onclick não pode carregar nada do contrato, tem que ser sempre o mesmo texto fixo: ' + oc);
@@ -578,51 +591,64 @@ const venda = (contrato, cliente, extra) => ({
   // (b) o contrato continua chegando ao botão, só que por data-contrato,
   // escapado por esc() — que é onde a proteção passou a morar.
   const dataContratos = [...adm.matchAll(/data-contrato="([^"]*)"/g)].map(m => m[1]);
-  assert.strictEqual(dataContratos.length, 3, 'os três botões precisam do data-contrato: ' + adm);
+  assert.strictEqual(dataContratos.length, 1, 'o botão precisa do data-contrato: ' + adm);
   for (const dc of dataContratos) {
     assert.strictEqual(dc, contratoMalicioso,
       'o data-contrato tem que trazer o contrato completo (aspas simples inclusive): ' + dc);
   }
   const dataDesfechos = [...adm.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]);
-  assert.deepStrictEqual(dataDesfechos, ['paga_outro_contrato', 'a_receber', 'nao_cobrar'],
+  assert.deepStrictEqual(dataDesfechos, ['cancelada'],
     'cada botão precisa do seu próprio data-desfecho: ' + adm);
 
   // (c) quem não é Admin continua sem nenhum botão, contrato malicioso ou não
   const vend = linha(venenosa, false);
   assert.ok(!/<button/i.test(vend), 'quem não é Admin não pode ter botão: ' + vend);
 
+  // (d) COM pagamento em dúvida, a pergunta é de verdade e saem os três:
+  //     é este pagamento · não é este pagamento · cliente desistiu.
+  const comDuvida = linha({ ...venenosa, pagamentoQueBateu: {
+    codigo: 'C6867', valor: 199, data: '12/08/2026', cliente: 'FULANA',
+  } }, true);
+  const desfechosDuvida = [...comDuvida.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]);
+  assert.deepStrictEqual(desfechosDuvida, ['paga', 'sem_venda', 'cancelada'],
+    'com pagamento na mesa, os três desfechos: ' + comDuvida);
+  for (const oc of [...comDuvida.matchAll(/onclick="([^"]*)"/g)].map(m => m[1])) {
+    assert.strictEqual(oc, 'registrarConferencia(this.dataset.contrato, this.dataset.desfecho)',
+      'a proteção contra injeção vale para os botões novos também: ' + oc);
+  }
+
   ok('contrato com aspas simples não injeta JS no onclick — vai por data-contrato');
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 16. `contarPorVendedora` conta `naoCobrar`, e a invariante vale por pessoa
+// 16. `contarPorVendedora` conta `canceladas`, e a invariante vale por pessoa
 // ════════════════════════════════════════════════════════════════════
 // Achado da revisão final: `contarPorVendedora` chamava `contar()` para
-// pagas/aguardando/conferir e esquecia `naoCobrar` — nem em campo próprio,
+// pagas/aguardando/conferir e esquecia `canceladas` — nem em campo próprio,
 // nem em `vendidas`. Reproduzido em produção: resumo do mês dizia
-// `{ vendidas: 2, naoCobrar: 1, ... }` e a linha da KALI saía `{ vendidas: 1 }`
+// `{ vendidas: 2, canceladas: 1, ... }` e a linha da KALI saía `{ vendidas: 1 }`
 // — a soma da tabela ficava MENOR que o total, sem nenhuma nota explicando.
 {
   const cruzado = {
     pagas:      [venda('C1', 'ANA', { vendedores: ['ANA'] })],
     aguardando: [venda('C2', 'ANA', { vendedores: ['ANA'] })],
     conferir:   [venda('C3', 'ANA', { vendedores: ['ANA'] })],
-    naoCobrar:  [venda('C4', 'ANA', { vendedores: ['ANA'] })],
+    canceladas:  [venda('C4', 'ANA', { vendedores: ['ANA'] })],
   };
   const porVendedora = VA.contarPorVendedora(cruzado, []);
   assert.deepStrictEqual(porVendedora['ANA'],
-    { vendidas: 4, pagas: 1, aguardando: 1, conferir: 1, naoCobrar: 1, naoComissionado: false });
+    { vendidas: 4, pagas: 1, aguardando: 1, conferir: 1, canceladas: 1, naoComissionado: false });
   assert.strictEqual(porVendedora['ANA'].vendidas,
     porVendedora['ANA'].pagas + porVendedora['ANA'].aguardando
-    + porVendedora['ANA'].conferir + porVendedora['ANA'].naoCobrar,
-    'vendidas = pagas + aguardando + conferir + naoCobrar, POR PESSOA');
+    + porVendedora['ANA'].conferir + porVendedora['ANA'].canceladas,
+    'vendidas = pagas + aguardando + conferir + canceladas, POR PESSOA');
 
-  // sem `naoCobrar` no cruzado (dado antigo / mês sem marcação), não quebra
+  // sem `canceladas` no cruzado (dado antigo / mês sem marcação), não quebra
   // e o campo sai zerado
   const semGrupo = VA.contarPorVendedora({ pagas: [venda('C5', 'BIA', { vendedores: ['BIA'] })] }, []);
-  assert.strictEqual(semGrupo['BIA'].naoCobrar, 0);
+  assert.strictEqual(semGrupo['BIA'].canceladas, 0);
 
-  ok('contarPorVendedora conta naoCobrar, e vendidas fecha por pessoa');
+  ok('contarPorVendedora conta canceladas, e vendidas fecha por pessoa');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -637,7 +663,7 @@ const venda = (contrato, cliente, extra) => ({
   // (a) uma vendedora, uma paga e uma não cobrada: soma bate exato
   const semDivisao = {
     pagas:     [venda('C10', 'KALI', { vendedores: ['KALI'] })],
-    naoCobrar: [venda('C11', 'KALI', { vendedores: ['KALI'] })],
+    canceladas: [venda('C11', 'KALI', { vendedores: ['KALI'] })],
   };
   const r1 = VA.resumo(semDivisao);
   const soma1 = Object.values(VA.contarPorVendedora(semDivisao, []))
@@ -650,7 +676,7 @@ const venda = (contrato, cliente, extra) => ({
   // fica MAIOR, nunca menor
   const comDivisaoENaoCobrar = {
     pagas:     [venda('C12', 'KALI', { vendedores: ['KALI', 'BIA'] })],
-    naoCobrar: [venda('C13', 'KALI', { vendedores: ['KALI'] })],
+    canceladas: [venda('C13', 'KALI', { vendedores: ['KALI'] })],
   };
   const r2 = VA.resumo(comDivisaoENaoCobrar);
   const soma2 = Object.values(VA.contarPorVendedora(comDivisaoENaoCobrar, []))
@@ -659,15 +685,15 @@ const venda = (contrato, cliente, extra) => ({
   assert.strictEqual(soma2, 3, 'a mesma venda conta para as duas vendedoras na tabela');
   assert.ok(soma2 >= r2.vendidas, 'a divergência é só para MAIS, nunca para menos');
 
-  ok('a soma da tabela por vendedora nunca fica menor que o total do mês, mesmo com naoCobrar');
+  ok('a soma da tabela por vendedora nunca fica menor que o total do mês, mesmo com canceladas');
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 18. `visaoDe` filtra `naoCobrar` — a vendedora vê a dela, não a da colega
+// 18. `visaoDe` filtra `canceladas` — a vendedora vê a dela, não a da colega
 // ════════════════════════════════════════════════════════════════════
-// Achado da revisão: `visaoDe` não filtrava `naoCobrar` por nome, então a
+// Achado da revisão: `visaoDe` não filtrava `canceladas` por nome, então a
 // venda perdida da vendedora sumia da vida dela sem nota nenhuma, e
-// `notaPerdidas` (que lê `d.resumo.naoCobrar`) nunca aparecia pra ela — e
+// `notaPerdidas` (que lê `d.resumo.canceladas`) nunca aparecia pra ela — e
 // isso viola a decisão do dono de que "a vendedora vê o desfecho e a
 // observação nas vendas dela, sem poder mexer". Roda a função DE VERDADE,
 // recortada do index.html por contagem de chaves (nunca `indexOf('\n }\n')`
@@ -696,7 +722,7 @@ const venda = (contrato, cliente, extra) => ({
       pagas:      [venda('C20', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
       aguardando: [venda('C21', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
       conferir:   [],
-      naoCobrar: [
+      canceladas: [
         venda('C22', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] }),
         venda('C23', 'OUTRA VENDEDORA', { vendedores: ['OUTRA VENDEDORA'] }),
       ],
@@ -704,26 +730,26 @@ const venda = (contrato, cliente, extra) => ({
   };
 
   const daKali = visaoDe(d, 'KALI DUTRA');
-  assert.strictEqual(daKali.cruzado.naoCobrar.length, 1, 'a Kali vê só a venda dela marcada');
-  assert.strictEqual(daKali.cruzado.naoCobrar[0].contrato, 'C22');
-  assert.strictEqual(daKali.resumo.naoCobrar, 1,
-    'o resumo dela tem que contar a naoCobrar — é o que acende notaPerdidas na tela dela');
+  assert.strictEqual(daKali.cruzado.canceladas.length, 1, 'a Kali vê só a venda dela marcada');
+  assert.strictEqual(daKali.cruzado.canceladas[0].contrato, 'C22');
+  assert.strictEqual(daKali.resumo.canceladas, 1,
+    'o resumo dela tem que contar a canceladas — é o que acende notaPerdidas na tela dela');
 
   const daOutra = visaoDe(d, 'OUTRA VENDEDORA');
-  assert.strictEqual(daOutra.cruzado.naoCobrar.length, 1);
-  assert.strictEqual(daOutra.cruzado.naoCobrar[0].contrato, 'C23',
+  assert.strictEqual(daOutra.cruzado.canceladas.length, 1);
+  assert.strictEqual(daOutra.cruzado.canceladas[0].contrato, 'C23',
     'a Kali não pode ver a venda perdida da colega');
 
-  // dado antigo sem o grupo `naoCobrar` não pode quebrar `visaoDe`
+  // dado antigo sem o grupo `canceladas` não pode quebrar `visaoDe`
   const dadoAntigo = { temLista: true, cruzado: {
     pagas: [venda('C24', 'KALI DUTRA', { vendedores: ['KALI DUTRA'] })],
     aguardando: [], conferir: [],
   } };
   assert.doesNotThrow(() => visaoDe(dadoAntigo, 'KALI DUTRA'),
-    'd.cruzado.naoCobrar undefined não pode explodir');
-  assert.strictEqual(visaoDe(dadoAntigo, 'KALI DUTRA').cruzado.naoCobrar.length, 0);
+    'd.cruzado.canceladas undefined não pode explodir');
+  assert.strictEqual(visaoDe(dadoAntigo, 'KALI DUTRA').cruzado.canceladas.length, 0);
 
-  ok('visaoDe filtra naoCobrar por vendedora, sem quebrar em dado antigo');
+  ok('visaoDe filtra canceladas por vendedora, sem quebrar em dado antigo');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -753,18 +779,27 @@ const venda = (contrato, cliente, extra) => ({
 
   const jaConferida = venda('C30', 'FULANA', {
     vendedores: ['FULANA'],
-    conferencia: { desfecho: 'nao_cobrar', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' },
+    conferencia: { desfecho: 'cancelada', por: 'Rafael', em: '07/09/2026', observacao: 'desistiu' },
   });
 
-  // (a) Admin ganha o link "mudar" e os três botões (escondidos até o clique)
+  // (a) Admin ganha o link "mudar" e os botões (escondidos até o clique).
+  //     ⚠️ Sem pagamento na mesa, o único desfecho para o qual dá para mudar é
+  //     a desistência: "já foi paga" precisa de um pagamento REAL para apontar,
+  //     e sem ele o botão não existe (correção do Rafael em 09/09/2026).
   const adm = linha(jaConferida, true);
   assert.ok(/mudar/i.test(adm), 'Admin precisa do link "mudar": ' + adm);
   assert.ok(/mostrarMudar\(this\)/.test(adm), 'o link tem que chamar mostrarMudar(this), sem dado interpolado');
   assert.ok(/mudar-opcoes/.test(adm) && /display:\s*none/.test(adm),
     'os botões ficam escondidos até o clique: ' + adm);
   const dataDesfechosAdm = [...adm.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]);
-  assert.deepStrictEqual(dataDesfechosAdm, ['paga_outro_contrato', 'a_receber', 'nao_cobrar'],
-    'os três desfechos têm que estar disponíveis para escolher de novo');
+  assert.deepStrictEqual(dataDesfechosAdm, ['cancelada'],
+    'sem pagamento apontável, só dá para mudar para desistência');
+
+  // e COM um pagamento em dúvida, o "mudar" oferece os dois
+  const comPgto = linha({ ...jaConferida,
+    pagamentoQueBateu: { codigo: 'C6867', valor: 199, data: '12/08/2026' } }, true);
+  assert.deepStrictEqual([...comPgto.matchAll(/data-desfecho="([^"]*)"/g)].map(m => m[1]),
+    ['paga', 'cancelada'], 'com pagamento na mesa, dá para mudar para "é este pagamento"');
   const dataContratosAdm = [...adm.matchAll(/data-contrato="([^"]*)"/g)].map(m => m[1]);
   assert.ok(dataContratosAdm.every(c => c === 'C30'),
     'os botões de "mudar" têm que registrar para o MESMO contrato');
@@ -779,7 +814,7 @@ const venda = (contrato, cliente, extra) => ({
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 20. A tabela por vendedora mostra "Não cobrar" só quando existe alguma
+// 20. A tabela por vendedora mostra "Desistiu" só quando existe alguma
 // ════════════════════════════════════════════════════════════════════
 // Mesmo padrão da coluna "Convertido": aparecer sempre poluiria a tabela nos
 // meses em que ninguém marcou nada. Roda a função de verdade.
@@ -802,17 +837,17 @@ const venda = (contrato, cliente, extra) => ({
   const tabela = sandbox.tabelaPorVendedora;
 
   const comNaoCobrar = { 'KALI DUTRA':
-    { vendidas: 5, pagas: 2, aguardando: 1, conferir: 0, naoCobrar: 2, naoComissionado: false } };
+    { vendidas: 5, pagas: 2, aguardando: 1, conferir: 0, canceladas: 2, naoComissionado: false } };
   const htmlCom = tabela(comNaoCobrar, false, '');
-  assert.ok(/N[ãa]o cobrar/.test(htmlCom), 'a coluna tem que aparecer quando existe naoCobrar: ' + htmlCom);
-  assert.ok(/>2</.test(htmlCom), 'o número de naoCobrar tem que aparecer na linha');
+  assert.ok(/Desistiu/.test(htmlCom), "a coluna tem que aparecer quando existe canceladas: " + htmlCom);
+  assert.ok(/>2</.test(htmlCom), 'o número de canceladas tem que aparecer na linha');
 
   const semNaoCobrar = { 'KALI DUTRA':
-    { vendidas: 3, pagas: 2, aguardando: 1, conferir: 0, naoCobrar: 0, naoComissionado: false } };
+    { vendidas: 3, pagas: 2, aguardando: 1, conferir: 0, canceladas: 0, naoComissionado: false } };
   const htmlSem = tabela(semNaoCobrar, false, '');
-  assert.ok(!/N[ãa]o cobrar/.test(htmlSem), 'sem ninguém com naoCobrar, a coluna não pode aparecer: ' + htmlSem);
+  assert.ok(!/Desistiu/.test(htmlSem), 'sem ninguém com canceladas, a coluna não pode aparecer: ' + htmlSem);
 
-  ok('a tabela por vendedora mostra "Não cobrar" só quando o mês tem alguma');
+  ok('a tabela por vendedora mostra "Desistiu" só quando o mês tem alguma');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

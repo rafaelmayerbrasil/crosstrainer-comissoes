@@ -277,42 +277,109 @@
      * é o que impede esta tela de mentir.
      *
      * @param {{pagas, aguardando, conferir}} cruzado  saída de `cruzar`
-     * @param {Object<string, {desfecho: string, observacao?: string, por?: string, em?: string}>} conferencias
-     *        contrato → marcação da gestão. `desfecho` é um de
-     *        'paga_outro_contrato' | 'a_receber' | 'nao_cobrar'; qualquer
-     *        outro valor (ou ausente) é tratado como "sem marcação"
-     * @returns {{pagas, aguardando, conferir, naoCobrar, testes, porVendedora}}
-     *        mesma forma de `cruzar`, com o grupo novo `naoCobrar`; a venda
+     * @param {Object<string, {desfecho: string, pagamentoApontado?: Object, observacao?: string, por?: string, em?: string}>} conferencias
+     *        contrato → marcação da gestão. `desfecho` é `'paga'` (a venda foi
+     *        explicada por um pagamento REAL, que vem em `pagamentoApontado`)
+     *        ou `'cancelada'` (o cliente desistiu). Qualquer outro valor — ou
+     *        ausente — é tratado como "sem marcação", e a venda fica onde
+     *        estava.
+     * @param {Object<string, {desfecho: string}>} [descartes]
+     *        código do PAGAMENTO → marcação de que ele não é de venda nenhuma
+     *        (`desfecho: 'sem_venda'`). É o que faz o sistema parar de
+     *        perguntar por um pagamento já conferido: sem isso a pergunta
+     *        volta amanhã, porque a lista é recalculada a cada abertura.
+     * @returns {{pagas, aguardando, conferir, canceladas, testes, porVendedora}}
+     *        mesma forma de `cruzar`, com o grupo novo `canceladas`; a venda
      *        marcada carrega `conferencia` (o registro inteiro), e a que teve
      *        a marcação ignorada pelo dinheiro carrega `marcacaoIgnorada`
      */
-    aplicarConferencias(cruzado, conferencias) {
+    aplicarConferencias(cruzado, conferencias, descartes) {
       const c = cruzado || {};
       const marcas = conferencias || {};
+      const semVenda = descartes || {};
       const de = v => marcas[v.contrato] || marcas[String(v.contrato).replace(/^C/i, '')] || null;
 
       // (1) quem já está em `pagas` veio dos recebimentos: nada mexe nisso —
       // só leva o aviso de que existia marcação em contrário, se existir.
       const pagas = (c.pagas || []).map(v => {
         const m = de(v);
-        return (m && m.desfecho !== 'paga_outro_contrato') ? { ...v, marcacaoIgnorada: m } : v;
+        return (m && m.desfecho !== 'paga') ? { ...v, marcacaoIgnorada: m } : v;
       });
-      const aguardando = [], conferir = [], naoCobrar = [];
+      const aguardando = [], conferir = [], canceladas = [];
 
       // (2) e (3) para o resto: o automático de `cruzar` só vale quando a
       // gestão não marcou nada (ou marcou um desfecho que o código não conhece).
       [].concat(c.aguardando || [], c.conferir || []).forEach(v => {
         const m = de(v);
         const eraConferir = (c.conferir || []).indexOf(v) >= 0;
-        if (!m) { (eraConferir ? conferir : aguardando).push(v); return; }
+        // O pagamento que levantou a dúvida já foi conferido e descartado:
+        // a venda continua na fila, mas a pergunta não volta.
+        const paraFila = eraConferir
+          && v.pagamentoQueBateu
+          && semVenda[String(v.pagamentoQueBateu.codigo)];
+        if (!m) { (eraConferir && !paraFila ? conferir : aguardando).push(v); return; }
         const vm = { ...v, conferencia: m };
-        if (m.desfecho === 'paga_outro_contrato') pagas.push(vm);
-        else if (m.desfecho === 'nao_cobrar') naoCobrar.push(vm);
-        else if (m.desfecho === 'a_receber') aguardando.push(vm);
-        else (eraConferir ? conferir : aguardando).push(v);   // desfecho desconhecido: não move
+        if (m.desfecho === 'paga') pagas.push(vm);
+        else if (m.desfecho === 'cancelada') canceladas.push(vm);
+        else (eraConferir && !paraFila ? conferir : aguardando).push(v);   // desconhecido: não move
       });
 
-      return { ...c, pagas, aguardando, conferir, naoCobrar };
+      return { ...c, pagas, aguardando, conferir, canceladas };
+    },
+
+    /**
+     * As dúvidas vistas do lado do DINHEIRO — um pagamento, as vendas que ele
+     * pode estar explicando.
+     *
+     * A tela pergunta *"este pagamento é de qual venda?"*, e não *"esta venda
+     * foi paga?"*. A diferença não é cosmética: partindo da venda, dá para
+     * marcar "paga" sem lastro nenhum; partindo do dinheiro, só existe pergunta
+     * onde existe um recebimento de verdade no relatório. Foi a correção do
+     * Rafael em 09/09/2026.
+     *
+     * O mesmo pagamento pode ter mais de uma venda candidata (a pessoa fechou
+     * duas coisas no mês) — e aí é UMA pergunta com duas opções, não duas
+     * perguntas.
+     *
+     * @param {{conferir}} cruzado  saída de `cruzar`/`aplicarConferencias`
+     * @returns {Array<{pagamento: Object, candidatas: Array}>}
+     */
+    duvidasPorPagamento(cruzado) {
+      const porCodigo = new Map();
+      ((cruzado || {}).conferir || []).forEach(v => {
+        const p = v.pagamentoQueBateu;
+        if (!p) return;
+        const k = String(p.codigo || p.cliente || '');
+        if (!porCodigo.has(k)) porCodigo.set(k, { pagamento: p, candidatas: [] });
+        porCodigo.get(k).candidatas.push(v);
+      });
+      return [...porCodigo.values()];
+    },
+
+    /**
+     * O mesmo dinheiro não explica dois contratos.
+     *
+     * Sem esta trava, a gestão poderia apontar o pagamento de R$ 199 da Cátia
+     * como sendo da renovação E de outra venda dela — e a conferência passaria
+     * a mentir sobre o que já foi recebido.
+     *
+     * @param {Object} conferencias  contrato → marcação
+     * @param {string} codigoPagamento  o pagamento que se quer apontar
+     * @param {string} contratoDaVenda  a venda que o está apontando agora
+     * @returns {?{contrato: string, cliente: string}} a venda que já o usa, ou null
+     */
+    pagamentoJaApontado(conferencias, codigoPagamento, contratoDaVenda) {
+      const alvo = String(codigoPagamento || '');
+      if (!alvo) return null;
+      const meu = String(contratoDaVenda || '').replace(/^C/i, '');
+      for (const [contrato, m] of Object.entries(conferencias || {})) {
+        if (!m || m.desfecho !== 'paga' || !m.pagamentoApontado) continue;
+        if (String(m.pagamentoApontado.codigo || '') !== alvo) continue;
+        // A própria venda reapontando o mesmo pagamento não é conflito.
+        if (String(contrato).replace(/^C/i, '') === meu) continue;
+        return { contrato, cliente: m.cliente || '' };
+      }
+      return null;
     },
 
     /**
@@ -460,10 +527,10 @@
      * paga. Por isso a soma desta tabela é MAIOR que o total do mês (ver
      * `resumo`), e isso não é bug: são perguntas diferentes.
      *
-     * @param {{pagas, aguardando, conferir, naoCobrar}} cruzado  saída de `cruzar`/`aplicarConferencias`
+     * @param {{pagas, aguardando, conferir, canceladas}} cruzado  saída de `cruzar`/`aplicarConferencias`
      * @param {Array<string>} naoComissionaveis  `cfg.naoComissionaveis` do motor
-     * @returns {Object} nome → {vendidas, pagas, aguardando, conferir, naoCobrar, naoComissionado}
-     *        `vendidas = pagas + aguardando + conferir + naoCobrar` — por pessoa,
+     * @returns {Object} nome → {vendidas, pagas, aguardando, conferir, canceladas, naoComissionado}
+     *        `vendidas = pagas + aguardando + conferir + canceladas` — por pessoa,
      *        não só no total do mês (ver `resumo`). Sem isso a soma da tabela por
      *        vendedora fica MENOR que o total, e a tela não explica por quê.
      */
@@ -474,7 +541,7 @@
         const nomes = (v.vendedores && v.vendedores.length) ? v.vendedores : ['(sem vendedora)'];
         nomes.forEach(nome => {
           const x = out[nome] = out[nome] || {
-            vendidas: 0, pagas: 0, aguardando: 0, conferir: 0, naoCobrar: 0,
+            vendidas: 0, pagas: 0, aguardando: 0, conferir: 0, canceladas: 0,
             // mesma regra do motor: `vendedor.includes(n)`
             naoComissionado: naoCom.some(nc => String(nome).toUpperCase().includes(nc)),
           };
@@ -485,7 +552,7 @@
       contar(cruzado && cruzado.pagas, 'pagas');
       contar(cruzado && cruzado.aguardando, 'aguardando');
       contar(cruzado && cruzado.conferir, 'conferir');
-      contar(cruzado && cruzado.naoCobrar, 'naoCobrar');
+      contar(cruzado && cruzado.canceladas, 'canceladas');
       return out;
     },
 
@@ -498,12 +565,12 @@
       const pagas = (c.pagas || []).length;
       const aguardando = (c.aguardando || []).length;
       const conferir = (c.conferir || []).length;
-      // A venda dada por perdida foi vendida de verdade: sai das que ainda
-      // esperam dinheiro, não da história do mês. Por isso ela continua em
-      // `vendidas` e aparece como nota, fora dos três números.
-      const naoCobrar = (c.naoCobrar || []).length;
-      return { vendidas: pagas + aguardando + conferir + naoCobrar,
-               pagas, aguardando, conferir, naoCobrar };
+      // A venda em que o cliente DESISTIU foi vendida de verdade: sai das que
+      // ainda esperam dinheiro, não da história do mês. Por isso ela continua
+      // em `vendidas` e aparece como nota, fora dos três números.
+      const canceladas = (c.canceladas || []).length;
+      return { vendidas: pagas + aguardando + conferir + canceladas,
+               pagas, aguardando, conferir, canceladas };
     },
 
     /**
