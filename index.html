@@ -4227,6 +4227,7 @@
       const migrados = daUnidade(pacto.migrados);
       const descartadas = daUnidade(pacto.descartadas);
       const jaPagos = daUnidade(pacto.jaPagos);
+      const testes = daUnidade(pacto.testes);
       const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
       const avisos = pacto.avisos || [];
       const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
@@ -4251,6 +4252,8 @@
           descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
         ${bloco('🔁', 'Parcela seguinte — o contrato já pagou comissão antes', jaPagos,
           jaPagos.map(j => `<div>${j.cliente} — R$ ${fmt(j.valor)} · contrato ${j.contrato}</div>`).join(''))}
+        ${bloco('🧪', 'Registro de teste da Pacto, fora do cálculo', testes,
+          testes.map(t => `<div>${t.cliente} — R$ ${fmt(t.valor)}</div>`).join(''))}
         ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
           marcadas.map(v => `<div>${v['Cliente']} — R$ ${fmt(v['Valor Quitado/Recibo'])} · ${v['Itens'].replace(/\s*\(.*\)$/, '')}</div>`).join(''))}
         ${!avisos.length ? '' : `
@@ -4274,11 +4277,28 @@
     // ⚠️ Só código de CONTRATO (`C...`) entra. O `A...` é a matrícula do cliente:
     //    guardá-lo bloquearia, em silêncio, a segunda aula que a pessoa comprasse.
 
-    /** Os códigos de contrato comissionados num conjunto de itens do período */
+    /**
+     * Os códigos de contrato cujo dinheiro já entrou, num conjunto de itens.
+     *
+     * ⚠️ `deferred` conta como pago, e isso não é detalhe. Diferido é venda
+     * PAGA cuja comissão foi empurrada para o mês em que o plano começa — o
+     * cliente pagou. Deixá-lo de fora dava dois estragos ao mesmo tempo:
+     *
+     *   • a aba "A receber" mandava cobrar quem já tinha pago. Em 08/09/2026 o
+     *     Príncipe listava a JULIANA COSTA (C4652, R$ 3.150 pagos em 28/08) e a
+     *     JAQUELINE FREIBERGER (C4636, R$ 199 em 24/08) entre as vendas que
+     *     "merecem conversa";
+     *   • e o contrato voltaria a pagar comissão se reaparecesse no relatório
+     *     do mês do início do plano — por cima da diferida já agendada.
+     *
+     * ⚠️ `excluded` NÃO entra, de propósito: item excluído não gerou comissão
+     *    nenhuma, e bloqueá-lo negaria em silêncio uma comissão devida.
+     */
     function codigosDeContrato(itens) {
+      const PAGO = new Set(['processed', 'deferred']);
       const s = new Set();
       (itens || []).forEach(d => {
-        if ((d.type || 'processed') !== 'processed') return;
+        if (!PAGO.has(d.type || 'processed')) return;
         const m = String(d.codigo || '').trim().match(/^C\d+/i);
         if (m) s.add(m[0].toUpperCase());
       });

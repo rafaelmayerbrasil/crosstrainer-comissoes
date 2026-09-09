@@ -25,7 +25,9 @@ const { readXlsx } = require('./lib-xlsx-min.js');
 
 // ─── as funções da tela, extraídas do index.html (nada reescrito à mão) ───
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const ini = html.indexOf('    /** Os códigos de contrato comissionados num conjunto de itens do período */');
+// ⚠️ Âncora na ASSINATURA, não no comentário: ancorar no JSDoc quebrou este
+// script em 08/09/2026, quando o texto foi reescrito e o código não mudou.
+const ini = html.indexOf('    function codigosDeContrato(');
 const fim = html.indexOf('    function handleFile(file) {');
 if (ini < 0 || fim < ini) { console.error('bloco não encontrado no index.html'); process.exit(1); }
 const tela = new Function('db', 'window', 'console', html.slice(ini, fim) +

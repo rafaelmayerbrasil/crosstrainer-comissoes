@@ -128,6 +128,18 @@ justamente a venda que não converteu. **Ela vendeu e não converteu.**
    nunca bate num anual parcelado) · quebrar `cruzar` em helpers, que já está com seis
    responsabilidades · e revisitar se a forma "lista de string" de `pagos` ainda precisa existir.
 
+### 📨 Recado enviado ao grupo (08/09) — 3 pedidos com a gestão
+
+O texto foi enviado e está guardado em `docs/rodrigo-recado-conferencia-vendas.md`. Ele pede:
+**(1)** passar o olho nas **21 vendas de agosto sem pagamento identificado** (5 CP · 16 PP) — é o
+**primeiro uso real dos três botões**; **(2)** conferir **Amandha Marcela e Cátia Terezinha** na
+Pacto (a anual de setembro cai no contrato novo ou no antigo?); **(3)** limpar o nome da **Mariana
+Minghelli Becker** na Pacto.
+
+⚠️ **As 6 perguntas do texto de 07/09 (`docs/rodrigo-agosto-conferencia-listas.md`) seguem sem
+resposta** e não estão neste recado — inclusive **fechar agosto com R$ 4.118,66** e as **9 vendas do
+Príncipe** que decidem se a folha vai a R$ 4.423,49.
+
 Desenho: `docs/superpowers/specs/2026-09-07-conferencia-de-vendas-design.md`.
 Plano: `docs/superpowers/plans/2026-09-07-conferencia-de-vendas.md`.
 ⚠️ Buster em **`?v=20260912`** — cinco deploys em dois dias; ver [[dois-deploys-no-mesmo-dia]].
