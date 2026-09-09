@@ -3,6 +3,81 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 69 (09/09/2026) — ✍️ A CONFERÊNCIA PARTE DO PAGAMENTO · ✅ PUBLICADO (`f3b4356..9a18f57`)
+
+### ▶️▶️ RETOMAR AQUI
+
+🔴 **SETEMBRO EM PRODUÇÃO ESTÁ COM O REGISTRO DE TESTE DENTRO DA CONTA — e o conserto é da gestão:
+re-subir o arquivo de setembro pela tela**, o mesmo gesto que consertou agosto.
+
+O arquivo `faturamento-recebido_01 a 080926.xls` foi subido às **20:58** de 08/09. A correção que
+tira o `TESTE ENDEREÇO TECNOFIT` do cálculo foi commitada às **21:21** — 23 minutos depois. Os 4
+registros do teste ficaram lá, marcados como venda boa:
+
+| | Campeche | Príncipe |
+|---|---:|---:|
+| ativação falsa | 1 (de 20) | 1 (de 22) |
+| caixa fantasma | R$ 434,00 | R$ 768,00 |
+| comissão fantasma | R$ 0,00 | **R$ 83,40** (como "Sem Vendedor") |
+
+Rodei o código de hoje sobre o **mesmo arquivo**: o filtro pega. Segundo motivo para re-subir:
+setembro foi calculado às 20:58 e **agosto foi re-subido às 22:53, depois dele** — a lista de
+"contratos que já pagaram" que setembro usou é de um agosto que mudou em seguida.
+
+Depois disso, as **metas de setembro** (cobrança do Rodrigo, herdada da sessão 68) — que hoje seriam
+lidas em cima desse setembro com ativação falsa.
+
+### ✅ A pendência da sessão 68 já estava resolvida
+
+Não precisa fazer nada: o Rafael subiu agosto às 22:53 de 08/09 e as diferidas do marco zero estão
+zeradas (`nada a apagar`). Conferido item a item — agosto em produção bate com o arquivo subido:
+**63 ativações no Campeche, 41 no Príncipe**, e o **Marcelo/Francini com os R$ 33,98** que a sessão
+68 disse que voltariam.
+
+⚠️ **Não confundir com o teste automatizado**, que fala em "44 ativações no Príncipe": ele mede um
+export mais antigo (o de 01/09) e sem o filtro de "cada contrato paga uma vez só". Para o arquivo
+que está em produção, **41 é o número certo**.
+
+### A homologação em staging que faltava — e os dois defeitos que ela achou
+
+A entrega de 08/09 (`09720fb`) tinha suíte e smokes, mas **nenhuma homologação contra banco real**,
+ao contrário de todas as sessões anteriores. Feita agora, achou duas coisas.
+
+**1. A venda já conferida mostrava o código cru.** Depois de decidir, a linha saía `✓ paga` e
+`✓ cancelada` — código de banco na cara da gestão, no momento em que ela quer conferir se acertou o
+clique. O mapa de rótulos era o **único ponto da tela** que ficou com o vocabulário do desenho
+antigo (`paga_outro_contrato` / `a_receber` / `nao_cobrar`); botões, "mudar" e o aviso de marcação
+ignorada já falavam o novo. Não deu erro porque cai num `||` — mostrou o valor cru, calado.
+
+**2. `pagamentoApontado.vendedor` gravava vazio, sempre.** Achado conferindo o que o **primeiro
+clique humano** gravou. A lista de quem pagou no mês era montada sem a vendedora, então o campo
+nunca existia. Com isso o desenho prometia algo inexistente — *"venda e pagamento com vendedoras
+diferentes → a tela mostra os dois nomes"* estava **listado como teste e não existia**, e a massa de
+teste ainda preenchia o campo, o que fazia parecer coberto. Agora a prova sai como *"pagamento no
+contrato C6867, recebido no nome de KALI DUTRA"*, e **só quando difere** de quem vendeu.
+
+### Validação
+
+`scripts/homologar-conferencia-pelo-pagamento.js` — **29 verificações**, só staging (projeto
+hardcoded, porque **escreve**). Roda contra o Firestore real, onde estão os dois casos do desenho: a
+**Cátia** (venda C7130, pagamento C6867 de R$ 199) e a **Amandha** (C7070, pagamento C5044). Escreve
+marcação de verdade, confere o efeito e devolve o banco, com checagem de que não sobrou fixture.
+
+**Provado por mutação:** ignorar os descartes derruba a verificação da Amandha; zerar o alvo da
+trava derruba a dela. Contra o código de `origin/main` o script nem sobe. Regras por **REST
+autenticado** (o Admin SDK ignora Security Rules): **8/8**. Suíte **78/78**, smoke da conferência
+**18/18**, os dois casos novos vistos falhando antes.
+
+**O Rafael clicou de verdade** — "É este pagamento" na Cátia, no staging. Gravou `desfecho: 'paga'`
+apontando o pagamento C6867 · R$ 199 · 12/08; as perguntas caíram de 2 para 1; as pagas foram de 62
+para 63; a Amandha ficou onde estava; `codigosPagos` seguiu 69, intacto. Registro depois removido —
+o staging voltou ao estado limpo.
+
+Desenho: `docs/superpowers/specs/2026-09-09-conferencia-parte-do-pagamento-design.md`.
+Memórias: [[conferencia-parte-do-pagamento]] · [[mapa-de-rotulos-fica-para-tras]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 68 (08–09/09/2026) — 🧾 O DIFERIMENTO ACABOU · ✅ NO AR EM PRODUÇÃO (`9388454..7d125da`)
 
 ### ▶️▶️ RETOMAR AQUI
