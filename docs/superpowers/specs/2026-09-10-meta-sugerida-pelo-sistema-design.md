@@ -77,6 +77,55 @@ trava dura (abaixo dela o P3 é zero). Por isso o fator sai da **prática recent
 
 ---
 
+### 5. 🔄 A resposta do Rodrigo (10/09) — o que foi medido antes de mexer no desenho
+
+Ele aprovou a régua (item 1) e os mínimos calculados (item 5), pediu a trava (item 4) e levantou
+duas coisas que **atacavam a fundação da conta**. As duas foram medidas contra a produção:
+
+**(a) Sazonalidade** — *"meses de alta: set, out, nov, jan, fev, mar, abr; os outros têm que ser
+olhado um a um"*. Backtest walk-forward das réguas concorrentes:
+
+| erro médio (ativações) | média 6 meses | **com fator sazonal** | mesmo mês do ano anterior | média 3 meses |
+|---|---:|---:|---:|---:|
+| Campeche | **13,0** | 14,3 | 24,5 | 11,8 |
+| Príncipe | **8,3** | 9,2 | 21,3 | 10,9 |
+
+O ajuste sazonal **piora nas duas unidades**, e o dado diz por quê: a sazonalidade existiu em 2025
+(baixa 27,5 × alta 50,0 no CP) e **sumiu em 2026** — mai–ago (baixa) deram média 57,5 contra 53,3 de
+jan–abr (alta). A academia cresceu por cima da estação.
+
+✅ **Mas o pedido dele não morre — ele se resolve pelo item 4 dele.** *"Olhado um a um"* é
+exatamente o que a validação obrigatória faz. A conta propõe; nos meses fora do padrão a gestão
+corrige. Não vira fórmula.
+
+**(b) Dados contaminados pela migração** — *"ainda ocorrem alguns pagamentos duplicados"*. Varredura
+de jul/ago/set nas duas unidades:
+
+| | contratos repetidos | dos quais **split legítimo** | duplicidade real |
+|---|---:|---:|---:|
+| CP jul | 6 | 4 | **2** |
+| PP jul | 10 | 10 | **0** |
+| CP/PP ago e set | 0 | — | **0** |
+
+Efeito na meta: **menos de meia ativação** contra um erro típico de 8 a 13. A bagunça é real na
+Pacto, mas **não move o número**. Julho fica na base.
+
+### 6. O fator recente da gestão é 0,95 — não 1,00
+
+Medindo `meta definida ÷ média dos 6 meses anteriores` nos últimos 3 meses com meta:
+
+| | fatores | média |
+|---|---|---:|
+| Campeche | 1,08 · 0,88 · 0,90 | **0,95** |
+| Príncipe | 0,90 · 1,21 · 0,75 | **0,95** |
+
+As duas unidades convergem no mesmo número, por caminhos diferentes. **O desenho usa 1,00 na meta**
+(só os mínimos usam fator recente) — aplicar 0,95 daria Campeche 55 e Príncipe 36. Fica registrado
+como calibragem possível; **não foi adotada**, porque a régua declarada ao Rodrigo é a média pura e
+mudar isso agora quebraria a explicação que ele acabou de receber.
+
+---
+
 ## A conta
 
 Roda sobre os **6 meses completos anteriores**.
@@ -132,6 +181,88 @@ número nasce rotulado e o aviso existe.
 
 ---
 
+### 🔴 A proposta de SETEMBRO — enviada ao Rodrigo em 10/09
+
+Setembro não sai da conta automática (o mês já está aberto e rodando com o padrão herdado de 50).
+Foi montado à mão, com a mesma régua, e mandado para ele decidir:
+
+| | Campeche | Príncipe |
+|---|---:|---:|
+| meta | **58** | **37** |
+| superMeta · metaGold | 67 · 75 | 43 · 48 |
+| minNovos | 18 | **15** ⚠️ |
+| minRenov | 16 | 14 |
+| minVoucher | 5 | 3 |
+| minAtivacoesIndivP3 | 10 | 7 |
+
+**Dois desvios conscientes da conta, ditos a ele:**
+
+1. **Príncipe 37 e não 38.** A conta dá 37,7. Arredondado para baixo por causa da ressalva dele
+   sobre a base migrada — é onde a preocupação dele entra sem quebrar a régua.
+2. **`minNovos` do Príncipe 15 e não 16.** A conta dá 16,2, e o Príncipe fez **exatamente 16** em
+   agosto — passaria raspando. `minNovos` é a **única trava dura** (`commission.js:671` faz `return`
+   e o P3 vai a zero); `minRenov` e `minVoucher` só aplicam redutor (×0,70 e ×0,85). Não se põe uma
+   trava dura na linha exata do último realizado.
+
+**O que sustenta o 58 e o 37:** as duas ficam em ~92% do realizado de agosto (63 e 41) — a régua que
+a gestão já pratica. E o mês em curso confirma: até 08/09 o Campeche tinha 19 ativações, e ele faz
+mediana de 28% do mês até o dia 8, o que aponta ~67. ⚠️ **O mesmo cálculo no Príncipe daria 66 e foi
+descartado**: a dispersão dele até o dia 8 vai de 10% (agosto) a 45% (fevereiro), então a projeção
+não sustenta nada.
+
+🟡 **Achado de brinde, avisado ao Rodrigo:** o Campeche não vendeu **nenhum** mês-degustação até
+08/09, contra 14 em agosto inteiro. Com `minVoucher` 5, o P3 da unidade inteira levaria ×0,85. Não é
+efeito do regime de caixa — a degustação custa R$ 89 e aparece no relatório normalmente.
+
+---
+
+## 🔎 A lista de renovações (pedido do Rodrigo) — medida contra o PDF dele
+
+Ele mandou o PDF que monta à mão (`Renovações CP MAI26`) e pediu a mesma lista dentro do sistema, com
+a consultora indicada manualmente. **A viabilidade foi medida, não estimada:** os 53 contratos do PDF
+foram conferidos um a um contra o que o sistema sabia **antes de maio/2026**.
+
+| seção do PDF | no PDF | o sistema acha | com o mesmo vencimento |
+|---|---:|---:|---:|
+| Renovações do mês | 30 | **26** | 22 |
+| Antecipação (até dia 15) | 15 | **14** | 9 |
+| Vouchers degustação | 8 | **8** | 7 |
+| **total** | **53** | **48 (91%)** | |
+
+**Os 5 que faltam têm uma causa única e consertável: meses que nunca foram carregados.**
+
+| unidade | meses ausentes | consequência |
+|---|---|---|
+| Campeche | `2025-05` | anuais de mai/2025 → venciam em mai/2026 (já passou) |
+| Príncipe | `2025-05`, **`2025-11`** | 🔴 anuais de nov/2025 vencem em **nov/2026 — daqui a 2 meses** |
+
+**O inverso também foi medido:** o sistema listaria 62 vencimentos em maio, 30 a mais que o PDF — e
+quase todos são o que o próprio Rodrigo mandou excluir: **10 planos de crédito** (`4 AULAS`,
+`15 AULAS`), **5 recorrentes**, 3 degustações. Sobram ~6 anuais de alunos que já tinham saído —
+**o buraco honesto: o sistema não enxerga cancelamento, só pagamento.**
+
+**Duas coisas que a tela faria melhor que o PDF:**
+
+- a coluna da consultora **nasce preenchida** com o `vendedor` do contrato original;
+- a coluna "Renovou?" **se fecha sozinha** no upload seguinte — ⚠️ casando **por nome do cliente, não
+  por número de contrato**, porque a Pacto cria contrato novo na renovação (a lógica já existe em
+  `vendas-aguardando.js`). É o que dá a taxa de renovação real, que ele hoje calcula na mão (usa 60%,
+  quer chegar a 70%).
+
+**`IMPORTAÇÃO` é problema pequeno:** 5 contratos no Campeche, **os 5** com o nome do plano legível em
+outro registro do mesmo cliente; **zero** no Príncipe. Dá para puxar do TecnoFit como ele pediu — o
+histórico do TecnoFit está dentro do nosso próprio sistema.
+
+⚠️ **Requisito operacional que ninguém tinha visto:** o ritual dele é dias **01, 07 e 15**, e a lista
+**cresce durante o mês** (os mensais só entram quando são vendidos) — hoje a lista de out/2026 tem 19
+nomes no CP e 14 no PP, contra os 30 do PDF de maio. Para as três fotos existirem, **o arquivo da
+Pacto precisa subir nesses três dias**; hoje sobe uma vez por mês.
+
+**Status:** não construir ainda. Foi perguntado ao Rodrigo o que ele prefere primeiro — a meta
+automática (que destrava a folha de outubro) ou esta tela.
+
+---
+
 ## Onde vive
 
 Módulo puro **`metas-sugeridas.js`**, no padrão de `commission.js`, `vendas-aguardando.js` e
@@ -154,20 +285,33 @@ MetasSugeridas.sugerir(historico, metasAnteriores) → {
 Ao abrir um período **sem `metasMensais`**, a tela calcula e grava, com `origem: 'sistema'` e
 `revisadaPor: null`.
 
-**Decisão do Rafael: não trava nada.** O recibo sai normalmente com a meta calculada. A visibilidade
-fica por conta de duas coisas:
+### 🔄 REVISTO EM 10/09 — agora TRAVA
+
+O desenho original dizia *"não trava nada"* (decisão do Rafael em 09/09). **O Rodrigo pediu o
+contrário** — *"Melhor fazer essa sugestão, mas a ser validada pela gestão"* — e o Rafael acatou em
+10/09: **passa a travar.**
+
+**A trava:** enquanto `revisadaPor` for `null`, **o recibo não sai** naquele mês/unidade. É a mesma
+natureza da trava de trocas em aberto no fechamento de professores: a regra sempre permitiu seguir,
+o que faltava era alguém decidir.
+
+⚠️ **O efeito prático foi dito ao Rodrigo por escrito:** se ninguém clicar, a folha não fecha. Sem
+isso a trava vira surpresa em 15/10.
+
+A visibilidade continua sendo a mesma:
 
 1. **O rótulo** "posta pelo sistema" acompanha a meta onde ela aparecer, enquanto ninguém revisou.
 2. **O aviso na home da gestão**, no mesmo lugar das outras pendências:
 
 ```
-ℹ️ A meta de outubro (58) foi calculada pelo sistema
-   e ninguém revisou ainda. Erro típico da conta: ~10 ativações.
+⚠️ A meta de outubro (58) foi calculada pelo sistema e ninguém
+   revisou. Erro típico da conta: ~10 ativações.
+   O recibo deste mês não sai até alguém confirmar.
    [ Revisar ]        [ Está bom ]
 ```
 
-Qualquer um dos dois botões marca `revisadaPor` e o aviso some para sempre naquele mês. **[Revisar]**
-abre a tela de metas; **[Está bom]** só carimba.
+Qualquer um dos dois botões marca `revisadaPor`, destrava o recibo e o aviso some para sempre
+naquele mês. **[Revisar]** abre a tela de metas; **[Está bom]** só carimba.
 
 `metasMensais` sobrevive ao re-upload do arquivo (`set(..., { merge: true })`) — verificado no código
 e comprovado no dado: agosto foi re-subido em 08/09 e manteve a meta.
@@ -191,9 +335,14 @@ e comprovado no dado: agosto foi re-subido em 08/09 e manteve a meta.
 
 ## O que este desenho NÃO faz
 
-- **não trava nada** — nem o recibo, nem o fechamento (decisão explícita do Rafael, tomada com o
-  tamanho do erro na mesa);
-- **não usa vencimento de contrato** para prever a meta — foi medido e reprovado;
+- ~~**não trava nada**~~ → **revisto em 10/09: TRAVA o recibo** enquanto ninguém revisar (pedido do
+  Rodrigo, acatado pelo Rafael). **O fechamento continua não sendo travado**;
+- **não usa vencimento de contrato** para prever a meta — foi medido e reprovado. ⚠️ Isso vale só
+  para a **meta**: o vencimento é a matéria-prima da **lista de renovações**, que é outra entrega;
+- **não aplica fator sazonal** — medido em 10/09 e reprovado (piora nas duas unidades). A
+  sazonalidade que o Rodrigo pediu entra pela validação da gestão, mês a mês;
+- **não aplica o fator recente 0,95 na meta** (só nos mínimos), embora as duas unidades convirjam
+  nele — a régua declarada ao Rodrigo é a média pura;
 - não mexe no `commission.js` nem em como o P3 é calculado: só decide **quais números** entram em
   `cfg`;
 - não altera meses passados que já têm meta;
@@ -218,6 +367,8 @@ Escritos antes do código, no módulo puro, e com o caminho de tela recortado po
 | mês já com meta | não é sobrescrito, nem no recálculo nem no re-upload |
 | o rótulo | some quando `revisadaPor` é preenchido |
 | o aviso | aparece só enquanto ninguém revisou, e nas duas unidades separadamente |
+| **a trava** | o recibo **não sai** com `revisadaPor: null`, e **sai** assim que qualquer um dos dois botões carimba — nas duas unidades separadamente |
+| **a trava não vaza** | o fechamento de professores e o resto do mês seguem funcionando; só o recibo trava |
 | fracionário | `47,3` ativações não quebram a média |
 | o porquê | cada campo devolve a explicação, e ela cita os números que usou |
 
