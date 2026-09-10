@@ -3,9 +3,43 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 69 (09/09/2026) — ✍️ A CONFERÊNCIA PARTE DO PAGAMENTO · ✅ PUBLICADO (`f3b4356..9a18f57`)
+## 🔖 ONDE PARAMOS — sessão 70 (10/09/2026) — 📩 A RESPOSTA DO RODRIGO MEDIDA · ⏸️ ESPERANDO ELE (`52e299f..8f36559`)
 
 ### ▶️▶️ RETOMAR AQUI
+
+⏸️ **A BOLA ESTÁ COM O RODRIGO.** O texto foi escrito e entregue ao Rafael para mandar
+(`scratchpad/texto-rodrigo-metas.txt` da sessão — efêmero; o conteúdo está no desenho). **Três
+perguntas esperando resposta:**
+
+1. **Fecha setembro em 58 (CP) e 37 (PP)?** — é o que trava a folha de 15/10.
+2. **O que vem primeiro: a meta automática ou a tela de Previsão de Renovação?**
+3. **Ele sobe os arquivos de mai/2025 (as duas unidades) e nov/2025 (Príncipe)?**
+
+✅ **Decisões tomadas nesta sessão, já no desenho** (`docs/superpowers/specs/2026-09-10-meta-sugerida-pelo-sistema-design.md`):
+
+- 🔄 **A meta passa a TRAVAR o recibo** até a gestão revisar. O desenho de 09/09 dizia "não trava
+  nada"; o Rodrigo pediu validação e o Rafael acatou. **O fechamento de professores segue sem trava.**
+- ❌ **Sazonalidade medida e reprovada** — piora nas duas unidades. O que ele quer ("olhado um a um")
+  é a própria validação da gestão.
+- ❌ **"Dados contaminados" medido e descartado** — ago e set têm ZERO contrato repetido; dos 16 de
+  julho, 14 são split legítimo. Efeito na meta: < meia ativação.
+- 🟡 **Fator recente 0,95** (as duas unidades convergem) fica registrado mas **não adotado** — mudaria
+  a régua que acabou de ser explicada a ele.
+
+🔎 **A lista de renovações foi medida contra o PDF dele, não estimada:** o sistema acha **48 dos 53
+(91%)**. Os 5 que faltam são de **meses nunca carregados** — daí o pedido dos arquivos. 🔴 **nov/2025
+do Príncipe urge:** anual vendido lá vence em **nov/2026**, daqui a dois meses.
+
+⚠️ **Requisito operacional novo, que ninguém tinha visto:** o ritual dele é dias **01, 07 e 15**, mas
+a lista **cresce durante o mês** e o arquivo da Pacto sobe **uma vez só** — as três fotos seriam
+idênticas. Ou o upload passa a ser 3×/mês, ou o ritual muda.
+
+🟡 **Para olhar quando setembro fechar:** o Campeche não vendeu **nenhum** mês-degustação até 08/09
+(contra 14 em agosto inteiro). Com `minVoucher` 5, o P3 da unidade inteira leva ×0,85.
+
+---
+
+## 🔖 Sessão 69 (09/09/2026) — ✍️ A CONFERÊNCIA PARTE DO PAGAMENTO · ✅ PUBLICADO (`f3b4356..9a18f57`)
 
 🔴 **AS METAS DE SETEMBRO — combinado com o Rodrigo para amanhã (10/09).** Duas coisas na mesa:
 definir a de setembro, e **avaliar se o sistema pode propor a meta sozinho** (pedido do Rafael em
