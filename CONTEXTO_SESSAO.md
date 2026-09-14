@@ -3,7 +3,87 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 70 (10/09/2026) — 📩 A RESPOSTA DO RODRIGO MEDIDA · ⏸️ ESPERANDO ELE (`52e299f..8f36559`)
+## 🔖 ONDE PARAMOS — sessão 71 (13/09/2026) — 🔌 API DA PACTO EM MODO SOMBRA · ✅ HOMOLOGADO NO STAGING (branch `pacto-api-modo-sombra`, `5977b12..3009a6d`)
+
+### ▶️▶️ RETOMAR AQUI
+
+1. **Conferir que a busca da madrugada rodou sozinha** (04h de 14/09, staging):
+   `firebase functions:log --only buscarPactoSombra --project staging` → linha `pacto sombra` com
+   `CP/PP 2026-09-11..13 buscado`. A conta de serviço não tem permissão no Cloud Scheduler (403),
+   então não deu para forçar a execução; a publicação e o horário estão confirmados.
+2. **O Rafael abre `https://crosstrainer-comissoes-staging.web.app/pacto-sombra.html`, entra e
+   arrasta o `faturamento-recebido` de agosto.** Números esperados abaixo. O login e o arrasto são
+   dele — não autentico pelo navegador com token.
+3. **Esperando o suporte da Pacto** (mensagem enviada pelo Rafael em 13/09): contratos do Campeche
+   vindo vazios no `resumoPeriodo` e como ler o índice de renovação das unidades.
+4. **Não vai para produção nem para o `main`** sem conversa. O arquivo exportado continua oficial.
+
+### O que aconteceu
+
+A pergunta era *"dá para puxar tudo pela API da Pacto em vez de exportar planilha?"*. **Dá.** Pesquisa,
+desenho, construção e homologação na mesma sessão. Detalhe técnico:
+`memory/pacto-api-integracao.md` · desenho: `docs/superpowers/specs/2026-09-13-pacto-api-modo-sombra-design.md`
+· plano: `docs/superpowers/plans/2026-09-13-pacto-api-modo-sombra.md`.
+
+**A pesquisa (o que destravou):**
+- A credencial só nasce na Administração, e a CrossTainer é uma **rede de três bancos** com chave
+  própria cada. O **gateway** preenche a chave sozinho e zera o faturamento com `status: sucesso`.
+  **O núcleo direto (`app.pactosolucoes.com.br/api/prest`) aceita a chave da unidade no caminho** e,
+  com a mesma credencial, lê cada unidade. A pista veio da tela "Acesso sistema" que o Rafael mandou.
+- `resumoPeriodo` traz pagamentos, contratos, avulsas e **estornos com consultora e plano** (o
+  export não traz estorno). **No Campeche o bloco de contratos vem sempre vazio** — defeito da
+  Pacto; contorno por `consultarContratos` por cliente, que **não traz consultora**.
+- Correção de registro: o upload **não é mensal** — sobe sempre que alguém exporta. O problema é ser manual.
+
+**O que foi construído (caminho A, decisão do Rafael):** a API monta **linhas iguais às do export**
+e o `pacto-adapter.js` e o `commission.js` existentes fazem o resto, **sem alteração**. Peças:
+`pacto-api-linhas.js` (gêmeo) · `functions/pacto-api-cliente.js` · `functions/pacto-sombra.js` ·
+functions `buscarPactoSombra` (04h, 3 dias anteriores) e `buscarPactoSombraManual` (admin) ·
+coleções `pacto_sombra_dias` e `pacto_contratos` (só admin lê, ninguém grava pelo navegador) ·
+tela `pacto-sombra.html` (fora do `index.html`) com `pacto-sombra-comparacao.js`. Credencial no
+Secret Manager do staging (`PACTO_API_KEY`), colocada pelo Rafael.
+
+### Homologação no staging — agosto real
+
+| agosto | recebido API × arquivo | ativações API × arquivo | cliente+dia batem |
+|---|---|---|---|
+| **PP** | 65.694,64 × 65.609,98 (**+84,66**) | **46 × 46**, idêntico por categoria | 247 de 277 |
+| **CP** | 69.237,88 × 69.408,38 (**−170,50**) | **64 × 65** | 262 de 277 |
+
+- **PP +84,66** = +311,16 parcela renegociada (API = cobrado, arquivo = original) − 226,50 vendinha de balcão.
+- **CP −170,50** = −420,50 balcão + 150 avulsas só na API + 100 renegociada; o −96,14 da conta à mão
+  menos os 74,36 pagos com crédito em conta.
+- **A 1 ativação do CP é o contrato 7129**: renovação paga com crédito; o export **remaneja** o
+  pagamento de 03/08 para o contrato novo e conta em agosto; a API mostra o primeiro dinheiro novo
+  em **03/09**. No regime de caixa, a API é a mais fiel.
+- **43 dias × 2 unidades, zero falha**; 3 dias "vazio, conferir" no PP (01, 02 e 09/08), **confirmados
+  vazios também no arquivo**. **Zero CPF** em 1.454 documentos. Regras provadas por REST **8/8**.
+
+### 🐛 Quatro defeitos pegos pela prova e pela homologação — nenhum pelos testes verdes
+1. **Total de "vendinha sem recibo" enganoso** (R$ 1.864 no PP): só 3 de 148 itens estão no arquivo. Retirado.
+2. **Ativação contada por parcela**: PP dava **60 × 46**. Um contrato com duas parcelas no mês virava
+   duas ativações. Agora a comparação consolida por contrato (o dinheiro segue por dia).
+3. **Parcela de R$ 0,00** (brinde, voucher grátis) entrava e o motor contava voucher. Agora fica de fora.
+4. **Tempo**: a primeira carga passa de 300 s por semana e o `fetch` do Node desiste. A função
+   continua no servidor; limites subiram (manual 60 min, agendada 30 min) e a tela avisa.
+Mais: a sabotagem achou a verificação de escrita da tela cega para `doc(x).update(` — corrigida.
+**17 mutações, todas mortas. Suíte 83/83.**
+
+### Números de referência para o arrasto do Rafael
+A tela, com o export de agosto, tem que mostrar exatamente a tabela acima. Script que dá o mesmo
+resultado lendo o banco: `node scripts/conferir-sombra-staging.js "relatorios pacto/faturamento-recebido_01 a 310826.xls" 2026-08`.
+
+### 🔴 O que falta / fica aberto
+- **Consultora do Campeche**: a Pacto não entrega (suporte). A tela não compara vendedora no CP.
+- **Vendedora no PP ainda não bate** (ex.: 12 "Sem Vendedor" na API): a consultora só é conhecida
+  quando o contrato aparece como lançado num dia buscado. Buscar julho deve reduzir; não investigado.
+- **Relatório de renovações das unidades**: o `bi-ms` exige login de pessoa (401 com a api key).
+- **Decisão para o Rodrigo**, quando a integração virar oficial: comissão da parcela renegociada
+  sobre o valor cobrado (API) ou o original (arquivo).
+
+---
+
+## 🔖 Sessão 70 (10/09/2026) — 📩 A RESPOSTA DO RODRIGO MEDIDA · ⏸️ ESPERANDO ELE (`52e299f..8f36559`)
 
 ### ▶️▶️ RETOMAR AQUI
 
