@@ -144,6 +144,16 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     assert.strictEqual(JSON.parse(doc.linhas).length, 1, 'rebusca substitui, não soma');
     assert.strictEqual(doc.totais.recebido, 30);
     ok('rebuscar o mesmo dia substitui o documento inteiro');
+
+    // rebusca que FALHA não pode deixar as linhas do sucesso anterior no documento
+    const pFalha = pactoFalsa([[/resumoPeriodo/, { status: 500, body: 'fora do ar' }]]);
+    const cFalha = criarCliente({ fetch: pFalha.fetch, credencial: CRED, ...semPausa });
+    await S.buscarDia({ db, cliente: cFalha, unidade: 'CP', dia: '2026-09-10' });
+    const falhou = (await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
+    assert.strictEqual(falhou.situacao, 'falhou');
+    assert.strictEqual(falhou.linhas, undefined, 'dia que falhou ficou com linhas velhas');
+    assert.strictEqual(falhou.totais, undefined, 'dia que falhou ficou com totais velhos');
+    ok('rebusca que falha apaga as linhas e os totais do sucesso anterior');
   }
   {
     const db = makeFakeDb();
@@ -198,5 +208,5 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('dias a buscar: os últimos 3, intervalo cortado em ontem, máximo de 62');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/13');
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/14');
 })().catch(e => { console.error(e); process.exit(1); });

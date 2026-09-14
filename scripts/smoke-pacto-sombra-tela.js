@@ -100,7 +100,9 @@ for (const { f } of nossos.filter(x => x.f !== 'firebase-config.js')) {
 {
   const js = fs.readFileSync(path.join(raiz, 'pacto-sombra.js'), 'utf8');
   // escrita no Firestore; `classList.add/remove` é só estilo e fica de fora
-  const escritas = [...js.matchAll(/(\w+)\.(set|add|update|delete)\(/g)].filter(m => m[1] !== 'classList').map(m => m[0]);
+  // pega `doc(x).update(` também, não só `ref.update(` — a mutação de 13/09 escapou assim
+  const escritas = [...js.matchAll(/([\w)\]]+)\s*\.\s*(set|add|update|delete)\s*\(/g)]
+    .filter(m => !/classList$/.test(m[1])).map(m => m[0]);
   assert.deepStrictEqual(escritas, [], 'pacto-sombra.js não pode gravar: ' + escritas.join(', '));
   for (const proibido of ['batch(', 'runTransaction']) assert.ok(!js.includes(proibido), 'pacto-sombra.js não pode chamar ' + proibido);
   const callables = [...js.matchAll(/httpsCallable\('([^']+)'/g)].map(m => m[1]);
