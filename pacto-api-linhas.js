@@ -120,9 +120,6 @@ const PactoApiLinhas = {
     const produtoDaParcela = new Map();
     avulsas.forEach(v => (v.vendaAvulsaParcela || []).forEach(p => produtoDaParcela.set(String(p.codigo), v.produto || '')));
 
-    const parcelasComRecibo = new Set();
-    pagamentos.forEach(p => (p.parcelasPagas || []).forEach(x => parcelasComRecibo.add(String(x.codigo))));
-
     let recebido = 0, pagamentosUsados = 0, parcelas = 0;
 
     pagamentos.forEach(p => {
@@ -187,16 +184,11 @@ const PactoApiLinhas = {
       });
     });
 
-    // Vendinha de balcão paga sem recibo: fica num bloco separado da API e,
-    // somada sem cuidado, duplicaria. Só informativo — não mexe em ativação.
-    const semRecibo = avulsas.filter(v => {
-      const ps = v.vendaAvulsaParcela || [];
-      return ps.length && ps.some(p => p.situacao === 'PG') && !ps.some(p => parcelasComRecibo.has(String(p.codigo)));
-    });
-    semRecibo.forEach(v => foraDeProposito.push({
-      motivo: 'venda de balcão sem recibo — só informativo', venda: v.codigo, produto: v.produto || '',
-      valor: Math.round((Number(v.totalFinal) || 0) * 100) / 100,
-    }));
+    // ⚠️ NÃO somar `vendaAvulsa` paga sem recibo. Parecia ser a vendinha de
+    // balcão que o arquivo mostra e a API não — mas conferido contra agosto
+    // real (13/09/2026): dos 148 itens do PP só 3 estão no arquivo, e dos 57 do
+    // CP nenhum. É outro conjunto, que nenhum dos dois relatórios conta como
+    // dinheiro recebido. Mostrar esse total induziria a erro.
 
     return {
       linhas, foraDeProposito, avisos,
@@ -204,7 +196,6 @@ const PactoApiLinhas = {
         recebido: Math.round(recebido * 100) / 100,
         pagamentos: pagamentosUsados,
         parcelas,
-        vendinhasSemRecibo: { qtd: semRecibo.length, valor: this._soma(semRecibo, v => v.totalFinal) },
         estornos: { qtd: (r.estornos || []).length, valor: this._soma(r.estornos, e => e.pgtoEstornado) },
         estornosContrato: { qtd: (r.estornosContrato || []).length, valor: this._soma(r.estornosContrato, e => e.valorPagoEstornado) },
       },

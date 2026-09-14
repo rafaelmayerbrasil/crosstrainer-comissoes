@@ -81,7 +81,7 @@ PactoApiLinhas.montar({ resumo, contratos, unidade, dia }) → {
   linhas:   [ [...22 posições no formato do export] ],
   foraDeProposito: [ { motivo, valor, recibo, contrato? } ],
   avisos:   [ { motivo, contrato?, recibo? } ],
-  totais:   { recebido, pagamentos, parcelas, vendinhasSemRecibo: {qtd, valor},
+  totais:   { recebido, pagamentos, parcelas,
               estornos: {qtd, valor}, estornosContrato: {qtd, valor} },
 }
 ```
@@ -172,8 +172,12 @@ Uma linha **por parcela paga** de cada recibo do dia:
 
 ### Fica de fora de propósito (vai para `foraDeProposito`, a tela lista)
 1. **Recibo pago só com `CREDITO CONTA CLIENTE`** — não é dinheiro novo.
-2. **Vendinhas de balcão sem recibo** (`vendaAvulsa` sem parcela em `pagamentos`) — somadas sem
-   cuidado duplicariam. Só total informativo. **Não mexem em ativação.**
+2. ~~**Vendinhas de balcão sem recibo** como total informativo~~ — **retirado na construção
+   (13/09).** A prova com agosto real mostrou que a `vendaAvulsa` paga sem recibo **não é** a
+   vendinha que o arquivo mostra e a API não: dos 148 itens do PP só 3 estão no arquivo; dos 57 do
+   CP, nenhum. É outro conjunto, que nenhum dos dois relatórios conta como dinheiro recebido — o
+   total (R$ 1.864,47 no PP) induziria a erro. A vendinha que aparece **só no arquivo** continua
+   nomeada na comparação, como causa *vendinha de balcão*.
 3. **Estornos** — contados e somados nos totais, não viram linha (o arquivo também não os tem).
 
 ### Diferenças conhecidas, que a tela nomeia
@@ -211,7 +215,7 @@ Uma linha **por parcela paga** de cada recibo do dia:
 
 | arquivo | prova |
 |---|---|
-| `scripts/smoke-pacto-api-linhas.js` | recibo simples · duas parcelas · avulsa com nome do produto · crédito em conta fora · vendinha sem recibo fora · estorno só nos totais · contrato migrado vira linha que o adapter reconhece como migrado · CP sem consultor · **nenhum CPF, nascimento ou telefone em nenhuma saída** · as cópias raiz × `functions/` dão o mesmo resultado |
+| `scripts/smoke-pacto-api-linhas.js` | recibo simples · duas parcelas · avulsa com nome do produto · crédito em conta fora · avulsa sem recibo não entra nem soma · estorno só nos totais · contrato migrado vira linha que o adapter reconhece como migrado · CP sem consultor · **nenhum CPF, nascimento ou telefone em nenhuma saída** · as cópias raiz × `functions/` dão o mesmo resultado |
 | `scripts/smoke-pacto-sombra-ponta-a-ponta.js` | linhas convertidas → `PactoAdapter.traduzir` real → `CommissionEngine` real → contagem de ativações, **chamando as funções** |
 | `scripts/smoke-pacto-sombra-busca.js` | com Pacto falsa e Firestore falso: `vazio_conferir`, `credencial_recusada` para tudo, `limite` para tudo, `falhou` guarda motivo, rebuscar substitui, caderninho evita consulta repetida, uma consulta por cliente |
 | `scripts/smoke-pacto-sombra-comparacao.js` | as seis causas de divergência reconhecidas; CP não compara vendedora; totais e ativações dos dois lados |

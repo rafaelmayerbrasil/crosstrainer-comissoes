@@ -77,11 +77,11 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   assert.strictEqual(pp.linhas.length, 4, 'A (1) + B (2) + C (1) = 4 linhas: ' + pp.linhas.length);
   assert.ok(pp.foraDeProposito.some(f => f.recibo === 4 && /crédito da conta/.test(f.motivo)),
     'recibo pago só com crédito em conta fica de fora');
-  assert.ok(pp.foraDeProposito.some(f => /balcão sem recibo/.test(f.motivo) && f.valor === 12),
-    'vendinha paga sem recibo fica de fora');
-  assert.ok(!pp.foraDeProposito.some(f => f.valor === 90), 'venda em aberto (EA) não é vendinha paga');
-  assert.deepStrictEqual(pp.totais.vendinhasSemRecibo, { qtd: 1, valor: 12 });
-  ok('quatro linhas; crédito em conta e vendinha sem recibo ficam de fora, com motivo');
+  assert.strictEqual(pp.foraDeProposito.length, 1, 'só o crédito em conta fica de fora');
+  assert.ok(!pp.linhas.some(l => /SOFT BAR|CAMISETA/.test(l[L.COL.produto])),
+    'venda avulsa sem recibo não vira linha: não é dinheiro recebido em nenhum dos dois relatórios');
+  assert.strictEqual(pp.totais.vendinhasSemRecibo, undefined, 'e não vira total — mediu-se que não é a vendinha do arquivo');
+  ok('quatro linhas; só o crédito em conta fica de fora; avulsa sem recibo nem entra nem soma');
 }
 
 /* 2. a linha de contrato tem o que o tradutor precisa */
