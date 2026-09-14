@@ -179,8 +179,30 @@ Uma linha **por parcela paga** de cada recibo do dia:
    total (R$ 1.864,47 no PP) induziria a erro. A vendinha que aparece **só no arquivo** continua
    nomeada na comparação, como causa *vendinha de balcão*.
 3. **Estornos** — contados e somados nos totais, não viram linha (o arquivo também não os tem).
+4. **Parcela de R$ 0,00** — *acrescentado na homologação (13/09).* Camiseta de brinde na
+   renovação, voucher de degustação grátis, parcela zerada de contrato migrado: 21 linhas em
+   ago–set. O relatório de recebimentos não lista nenhuma, e o motor aceita degustação com valor
+   zero — o voucher grátis 4638 do PP virava ativação que o arquivo não tem.
+
+### Ativação conta por CONTRATO, não por parcela (acrescentado na homologação, 13/09)
+Na API cada parcela paga é uma linha com o nome do plano. Um contrato com duas parcelas pagas no
+mesmo mês virava **duas linhas de plano, e o motor contava duas ativações**: o PP de agosto deu
+**60 pela API contra 46 do arquivo**. O export junta as parcelas do contrato numa linha.
+
+A correção fica no **conversor** (`PactoApiLinhas.consolidarPorContrato`, gêmeo), nunca no adapter:
+antes de contar ativação de um período, as linhas da API do mesmo contrato viram uma (valor somado,
+data mais antiga). **O dinheiro por cliente+dia continua usando as linhas cruas**, com a data real
+de cada pagamento. Depois da correção: **PP 47 × 46 e CP 64 × 65**, com as duas sobras explicadas
+abaixo.
 
 ### Diferenças conhecidas, que a tela nomeia
+- **Renovação paga com crédito da conta (contrato 7129, CP, agosto)**: o cliente assinou um
+  recorrente em 03/08 (R$ 429 no contrato 7038) e em 27/08 trocou para anual (7129) usando
+  R$ 74,36 de crédito. **O export gerado depois remaneja** os R$ 74,36 do pagamento de 03/08 para o
+  contrato novo e conta a renovação em **agosto**. A API mostra o que aconteceu: R$ 429 no 7038 em
+  03/08 e o **primeiro dinheiro novo do 7129 em 03/09**. No regime de caixa a API é a mais fiel —
+  a renovação é de setembro. Consequência: o export muda de conteúdo conforme a data em que é tirado.
+- **Voucher grátis (4638, PP)**: resolvido pela regra 4 acima.
 - **Matrícula junto da primeira parcela**: no arquivo são duas linhas, na API uma. A ativação conta
   igual; a comissão por linha muda.
 - **Parcela renegociada**: API = valor cobrado, arquivo = valor original. **Decisão pendente com o
@@ -208,6 +230,12 @@ Uma linha **por parcela paga** de cada recibo do dia:
 - Uma unidade falhar não derruba a outra (exceto `credencial_recusada` e `limite`, que valem para a
   credencial inteira).
 - Dia vermelho com mais de 3 dias só se refaz pelo botão; a tela lista quais são.
+- **Tempo (medido na homologação, 13/09):** a primeira carga consulta cada cliente novo, com 2 s
+  de pausa — a semana 01→07/08 levou **296 s**, e 08→14/08 passou de 300 s. Por isso a busca manual
+  tem limite de **60 min** e a agendada de **30 min**. O `fetch` do Node desiste de esperar em
+  **300 s** e o navegador pode desistir antes — **a função continua no servidor e grava os dias**.
+  A homologação busca em blocos de 3 dias; a tela, quando para de esperar, diz que a busca segue no
+  servidor e manda clicar em "Carregar" depois. Com o caderninho cheio, 3 dias levam segundos.
 
 ---
 
