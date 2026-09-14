@@ -2114,3 +2114,79 @@ function fmtCF(val) {
   if (typeof val !== 'number' || isNaN(val)) return '—';
   return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODO SOMBRA DA API DA PACTO (13/09/2026)
+// ═══════════════════════════════════════════════════════════════════════
+// Busca os pagamentos das duas unidades direto na API da Pacto, em PARALELO com
+// o arquivo exportado — que continua sendo o oficial. Grava só em
+// `pacto_sombra_dias` e `pacto_contratos`; não toca em comissão nem em folha.
+// Desenho: docs/superpowers/specs/2026-09-13-pacto-api-modo-sombra-design.md
+//
+// A credencial mora no Secret Manager (`PACTO_API_KEY`) e nunca vai para log.
+const { defineSecret } = require('firebase-functions/params');
+const PACTO_API_KEY = defineSecret('PACTO_API_KEY');
+const pactoSombra = require('./pacto-sombra.js');
+const pactoCliente = require('./pacto-api-cliente.js');
+
+/** Hoje em São Paulo, 'AAAA-MM-DD' — a Cloud Function roda em UTC */
+function hojeSaoPaulo() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
+async function rodarSombra(dias, unidades) {
+  const cliente = pactoCliente.criarCliente({ fetch, credencial: PACTO_API_KEY.value() });
+  const r = await pactoSombra.buscar({
+    db: db(), cliente, dias, unidades,
+    agora: () => admin.firestore.FieldValue.serverTimestamp(),
+  });
+  logger.info('pacto sombra', {
+    dias: dias.length, chamadas: cliente.chamadas, parouPor: r.parouPor || null,
+    situacoes: r.resultados.map(x => x.unidade + ' ' + x.dia + ' ' + x.situacao),
+  });
+  return r;
+}
+
+// Todo dia às 4h: rebusca os 3 dias anteriores (pega lançamento retroativo e
+// refaz o dia que falhou). O dia corrente nunca entra.
+exports.buscarPactoSombra = onSchedule({
+  schedule: '0 4 * * *',
+  timeZone: 'America/Sao_Paulo',
+  secrets: [PACTO_API_KEY],
+  timeoutSeconds: 540,
+  memory: '512MiB',
+}, async () => {
+  const dias = pactoSombra.diasParaBuscar({ hoje: hojeSaoPaulo(), ultimos: 3 });
+  await rodarSombra(dias, ['CP', 'PP']);
+});
+
+// Botão "buscar agora" — só admin. Serve para a carga inicial e para refazer
+// dia vermelho com mais de 3 dias. No máximo 62 dias por chamada.
+exports.buscarPactoSombraManual = onCall({
+  secrets: [PACTO_API_KEY],
+  timeoutSeconds: 540,
+  memory: '512MiB',
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const callerDoc = await db().collection('users').doc(request.auth.uid).get();
+  const callerData = callerDoc.exists ? callerDoc.data() : {};
+  const callerProfiles = callerData.profiles || (callerData.role ? [callerData.role] : []);
+  if (!callerProfiles.includes('admin')) {
+    throw new HttpsError('permission-denied', 'Apenas admin pode buscar dados da Pacto.');
+  }
+  const data = request.data || {};
+  const unidades = Array.isArray(data.unidades) && data.unidades.length
+    ? data.unidades.filter(u => u === 'CP' || u === 'PP')
+    : ['CP', 'PP'];
+  let dias;
+  try {
+    dias = pactoSombra.diasParaBuscar({ hoje: hojeSaoPaulo(), de: data.de, ate: data.ate });
+  } catch (e) {
+    throw new HttpsError('invalid-argument', e.message);
+  }
+  if (!dias.length) throw new HttpsError('invalid-argument', 'Nenhum dia a buscar (o dia de hoje nunca é buscado).');
+  const r = await rodarSombra(dias, unidades);
+  return { dias: dias.length, parouPor: r.parouPor || null, resultados: r.resultados };
+});

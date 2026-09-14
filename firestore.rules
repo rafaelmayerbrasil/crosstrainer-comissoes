@@ -239,6 +239,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Modo sombra da API da Pacto (13/09/2026) ──
+    // O que a busca diária trouxe da Pacto, por unidade/dia, e o caderninho de
+    // contratos. Tem nome de cliente e valor pago: SÓ ADMIN LÊ. Quem grava é só
+    // a Cloud Function (Admin SDK ignora as regras) — o navegador nunca escreve.
+    match /pacto_sombra_dias/{id} {
+      allow read:  if isAuth() && isAdmin();
+      allow write: if false;
+    }
+    match /pacto_contratos/{id} {
+      allow read:  if isAuth() && isAdmin();
+      allow write: if false;
+    }
+
     // ─── Banco de horas do estagiário (bloco 2, 07/08/2026) ───────────
     // Quem escreve é SÓ o fechamento, pela Cloud Function (Admin SDK ignora
     // estas regras). Ninguém edita saldo pelo app — nem o admin: o saldo é
