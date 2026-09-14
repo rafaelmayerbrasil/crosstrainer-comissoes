@@ -19,10 +19,13 @@ const arg = k => { const i = process.argv.indexOf(k); return i > 0 ? process.arg
 const PROJECT = 'crosstrainer-comissoes-staging';
 const REGIAO = 'us-central1';
 const de = arg('--de'), ate = arg('--ate');
-const bloco = Number(arg('--semana') || 7);
+// 3 dias por chamada: o `fetch` do Node desiste de esperar a resposta em 300 s
+// (visto em 13/09 — a semana 08→14/08 passou disso). A função no servidor
+// termina mesmo assim, mas o script perde o resultado.
+const bloco = Number(arg('--semana') || 3);
 const soResumo = process.argv.includes('--so-resumo');
 if (!soResumo && (!/^\d{4}-\d{2}-\d{2}$/.test(de || '') || !/^\d{4}-\d{2}-\d{2}$/.test(ate || ''))) {
-  console.error('Uso: node scripts/homologar-pacto-sombra.js --de AAAA-MM-DD --ate AAAA-MM-DD [--semana 7] [--so-resumo]');
+  console.error('Uso: node scripts/homologar-pacto-sombra.js --de AAAA-MM-DD --ate AAAA-MM-DD [--semana 3] [--so-resumo]');
   process.exit(1);
 }
 

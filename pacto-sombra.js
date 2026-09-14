@@ -267,7 +267,12 @@
         (d.parouPor ? ` — PAROU: ${SITUACAO_ROTULO[d.parouPor] || d.parouPor}` : '');
       await carregarMes();
     } catch (err) {
-      $('buscaStatus').textContent = 'Erro: ' + err.message;
+      // Navegador ou rede desistem de esperar antes da função terminar — mas ela
+      // continua no servidor e grava os dias. Dizer isso, não só "erro".
+      const demorou = /deadline|timeout|timed out|network|failed to fetch|internal/i.test(String(err.code || '') + ' ' + err.message);
+      $('buscaStatus').textContent = demorou
+        ? 'A página parou de esperar, mas a busca provavelmente continua no servidor. Clique em "Carregar" daqui a alguns minutos para ver os dias que entraram.'
+        : 'Erro: ' + err.message;
     } finally {
       $('buscarAgora').disabled = false;
     }
