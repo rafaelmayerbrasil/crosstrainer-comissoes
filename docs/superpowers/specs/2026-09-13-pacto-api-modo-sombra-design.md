@@ -143,7 +143,7 @@ Só admin entra (quem não é vê "acesso restrito").
     dia* · *parcela renegociada* · *vendinha de balcão* · *crédito em conta* · *só na API* ·
     *só no arquivo*;
   - no **Campeche, a vendedora não é comparada** e a tela diz o porquê.
-- **Não grava nada.** Não chama nenhuma função que escreva.
+- **A comparação não grava nada.** O único caminho de escrita da tela é o botão **"Buscar este mês agora"**, que chama `buscarPactoSombraManual` — e ela só grava as coleções da sombra. O smoke da tela garante que não existe `set/add/update/delete` no arquivo e que a única função chamada é essa.
 
 `pacto-sombra-comparacao.js` é puro: `comparar({ linhasApi, linhasArquivo, mes, unidade, config })`.
 A tela só desenha o que ele devolve.
