@@ -2153,7 +2153,7 @@ exports.buscarPactoSombra = onSchedule({
   schedule: '0 4 * * *',
   timeZone: 'America/Sao_Paulo',
   secrets: [PACTO_API_KEY],
-  timeoutSeconds: 540,
+  timeoutSeconds: 1800,   // 3 dias costumam levar segundos; folga para dia com muito contrato novo
   memory: '512MiB',
 }, async () => {
   const dias = pactoSombra.diasParaBuscar({ hoje: hojeSaoPaulo(), ultimos: 3 });
@@ -2164,7 +2164,9 @@ exports.buscarPactoSombra = onSchedule({
 // dia vermelho com mais de 3 dias. No máximo 62 dias por chamada.
 exports.buscarPactoSombraManual = onCall({
   secrets: [PACTO_API_KEY],
-  timeoutSeconds: 540,
+  // Carga inicial: cada cliente novo é uma consulta, com 2 s de pausa entre elas.
+  // Um mês sem caderninho passa de 20 minutos — 60 min é o teto do Firebase.
+  timeoutSeconds: 3600,
   memory: '512MiB',
 }, async (request) => {
   if (!request.auth || !request.auth.uid) {

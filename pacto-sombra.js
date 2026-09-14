@@ -255,9 +255,9 @@
     const fim = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).toISOString().slice(0, 10);
     if (mes + '-01' >= hoje) { $('buscaStatus').textContent = 'Este mês ainda não tem dia fechado para buscar.'; return; }
     $('buscarAgora').disabled = true;
-    $('buscaStatus').textContent = 'Buscando na Pacto… (com pausa entre as consultas; um mês leva alguns minutos)';
+    $('buscaStatus').textContent = 'Buscando na Pacto… com pausa entre as consultas. Na primeira vez um mês pode levar até meia hora; depois, segundos. Pode deixar a página aberta.';
     try {
-      const fn = firebase.functions().httpsCallable('buscarPactoSombraManual', { timeout: 540000 });
+      const fn = firebase.functions().httpsCallable('buscarPactoSombraManual', { timeout: 3600000 });
       const r = await fn({ de: mes + '-01', ate: fim });   // o servidor corta em ontem
       const d = r.data || {};
       const cont = {};
