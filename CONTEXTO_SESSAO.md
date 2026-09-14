@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 71 (13/09/2026) — 🔌 API DA PACTO EM MODO SOMBRA · ✅ HOMOLOGADO NO STAGING (branch `pacto-api-modo-sombra`, `5977b12..3009a6d`)
+## 🔖 ONDE PARAMOS — sessão 71 (13/09/2026) — 🔌 API DA PACTO EM MODO SOMBRA · ✅ HOMOLOGADO NO STAGING (branch `pacto-api-modo-sombra`, `5977b12..9c94c8e`, enviado ao GitHub)
 
 ### ▶️▶️ RETOMAR AQUI
 
@@ -17,6 +17,18 @@
 3. **Esperando o suporte da Pacto** (mensagem enviada pelo Rafael em 13/09): contratos do Campeche
    vindo vazios no `resumoPeriodo` e como ler o índice de renovação das unidades.
 4. **Não vai para produção nem para o `main`** sem conversa. O arquivo exportado continua oficial.
+   O branch foi **enviado ao GitHub** em 13/09 a pedido do Rafael (`origin/pacto-api-modo-sombra`),
+   **sem pull request**. Antes do envio foi conferido: credencial ausente de todo o diff,
+   `pacto-credencial.txt` não rastreado, os únicos CPFs são os inventados dos testes.
+5. **Pergunta que ficou com o Rafael:** depois de conferir a tela, investigar a vendedora do PP
+   (12 "Sem Vendedor" pela API) ou esperar a resposta da Pacto?
+
+**Para retomar do zero:** `git checkout pacto-api-modo-sombra`. Staging já tem as duas functions,
+as regras, a tela e os dados de 01/08 a 12/09. Scripts úteis: `scripts/homologar-pacto-sombra.js`
+(busca manual em blocos de 3 dias + resumo dos dias gravados, `--so-resumo` só lista),
+`scripts/conferir-sombra-staging.js` (números da tela), `scripts/varrer-cpf-sombra.js`,
+`scripts/validar-regras-pacto-sombra.js`. Suíte: 83/83. As respostas brutas da pesquisa (com CPF)
+foram **apagadas**; `scripts/conferir-sombra-agosto.js` só roda de novo se a pesquisa for refeita.
 
 ### O que aconteceu
 
