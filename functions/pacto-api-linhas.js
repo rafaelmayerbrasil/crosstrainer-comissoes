@@ -29,6 +29,19 @@ const PactoApiLinhas = {
   },
   TAMANHO_LINHA: 22,
 
+  // O cabeçalho do export real, posição por posição (com os espaços e o
+  // `Responsável` duplicado que a Pacto manda). O adapter reconhece o arquivo
+  // por `Nome Cliente` + `Data Lançamento` — sem isto as linhas não entram.
+  CABECALHO: ['', 'Matrícula', 'Nome Cliente', 'Data Cadastro', 'Responsável ', 'Responsável ',
+    'Produto', 'Contrato', 'Data Início', 'Data Término', 'Duração', 'Modalidades', 'Plano',
+    'Situação Contrato', 'Data Lançamento', 'Valor', 'Forma Pagamento', 'Condição Pagamento',
+    'Empresa', 'Turma', 'Categoria', 'Consultor '],
+
+  /** As linhas prontas para `PactoAdapter.traduzir`, cabeçalho na frente */
+  comCabecalho(linhas) {
+    return [this.CABECALHO.slice(), ...(linhas || [])];
+  },
+
   EMPRESA: {
     CP: 'CROSSTAINER UNID. CAMPECHE (CP)',
     PP: 'CROSSTAINER UNID. PEQ PRÍNCIPE (PP)',

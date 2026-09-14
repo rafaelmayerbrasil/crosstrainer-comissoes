@@ -187,4 +187,15 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('consultora sai dos contratos lançados, indexada pelo número do contrato');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/10');
+/* 11. o cabeçalho é o do export real */
+{
+  const entrada = L.comCabecalho(pp.linhas);
+  assert.strictEqual(entrada[0][L.COL.nome], 'Nome Cliente');
+  assert.strictEqual(entrada[0][L.COL.lancamento], 'Data Lançamento');
+  assert.ok(PA.ehExportPacto(entrada), 'o adapter reconhece como export da Pacto');
+  assert.strictEqual(PA.detectarRelatorio(entrada), 'recebido', 'e como o faturamento-recebido');
+  assert.notStrictEqual(L.comCabecalho([])[0], L.CABECALHO, 'devolve cópia, não a constante');
+  ok('o cabeçalho faz o adapter reconhecer as linhas como faturamento-recebido');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/11');
