@@ -147,6 +147,7 @@
       foraApi: foraDosDias(estado.docs),
       Adapter: window.PactoAdapter || PactoAdapter,
       Engine: window.CommissionEngine || CommissionEngine,
+      ApiLinhas: window.PactoApiLinhas,
     });
   }
 

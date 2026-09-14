@@ -72,7 +72,7 @@ for (const { f } of nossos.filter(x => x.f !== 'firebase-config.js')) {
   const CE = vm.runInContext('CommissionEngine', sandbox);
   const arquivo = L.comCabecalho(linhas.map(l => l.slice()));
   const r = sandbox.PactoSombraComparacao.comparar({ linhasApi: linhas, linhasArquivo: arquivo, mes: '2026-08', unidade: 'PP',
-    foraApi: T.foraDosDias(docs), Adapter: PA, Engine: CE });
+    foraApi: T.foraDosDias(docs), Adapter: PA, Engine: CE, ApiLinhas: L });
   assert.strictEqual(r.api.recebido, 259);
   assert.strictEqual(r.api.ativacoes.total, 1, 'o motor carregado como <script> conta a ativação');
   assert.strictEqual(r.divergencias.length, 0);

@@ -45,11 +45,14 @@ const PactoSombraComparacao = {
     });
   },
 
-  _lado(linhas, { Adapter, Engine, unidade, mes, config }) {
+  _lado(linhas, { Adapter, Engine, unidade, mes, config }, consolidar) {
     const doMes = this._doMes(linhas, Adapter, unidade, mes);
     const recebido = this._r2(doMes.reduce((s, l) => s + Adapter.valorBR(Adapter.campo(l, 'valor')), 0));
 
-    const t = Adapter.traduzir(doMes, { mes });
+    // A API tem uma linha por PARCELA; o export, uma por contrato. Para contar
+    // ativação, as parcelas do mesmo contrato viram uma linha (senão um contrato
+    // com duas parcelas pagas no mês vira duas ativações).
+    const t = Adapter.traduzir(consolidar ? consolidar(doMes) : doMes, { mes });
     const vendas = (t.porUnidade && t.porUnidade[unidade]) || [];
     const rows = vendas.length ? Engine.cleanRawData([Adapter.CABECALHO_SAIDA, ...Adapter.paraPlanilha(vendas)]) : [];
     const cfg = Object.assign({}, Engine.defaultConfig, config || {});
@@ -98,11 +101,12 @@ const PactoSombraComparacao = {
    * @param {Object} [a.config]        metas do mês, se houver
    * @param {Object} a.Adapter         PactoAdapter
    * @param {Object} a.Engine          CommissionEngine
+   * @param {Object} a.ApiLinhas       PactoApiLinhas (consolida as parcelas da API por contrato)
    */
-  comparar({ linhasApi, linhasArquivo, mes, unidade, foraApi, config, Adapter, Engine }) {
-    if (!Adapter || !Engine) throw new Error('comparar: Adapter e Engine são obrigatórios');
+  comparar({ linhasApi, linhasArquivo, mes, unidade, foraApi, config, Adapter, Engine, ApiLinhas }) {
+    if (!Adapter || !Engine || !ApiLinhas) throw new Error('comparar: Adapter, Engine e ApiLinhas são obrigatórios');
     const ctx = { Adapter, Engine, unidade, mes, config };
-    const api = this._lado(linhasApi, ctx);
+    const api = this._lado(linhasApi, ctx, l => ApiLinhas.consolidarPorContrato(l));
     const arquivo = this._lado(linhasArquivo, ctx);
 
     const gA = this._grupos(api._doMes, Adapter);

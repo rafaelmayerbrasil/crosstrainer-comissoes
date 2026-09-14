@@ -25,6 +25,7 @@ const XLSX = require(path.join(raiz, 'vendor', 'xlsx.full.min.js')) || global.XL
 const PA = require(path.join(raiz, 'pacto-adapter.js'));
 const CE = require(path.join(raiz, 'commission.js'));
 const C = require(path.join(raiz, 'pacto-sombra-comparacao.js'));
+const L = require(path.join(raiz, 'pacto-api-linhas.js'));
 
 const args = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const [exportPath, mesArg] = args;
@@ -48,7 +49,7 @@ const brl = v => (v < 0 ? '−' : '+') + 'R$ ' + Math.abs(v).toFixed(2).replace(
     const linhasApi = docs.flatMap(d => (d.linhas ? JSON.parse(d.linhas) : []));
     const foraApi = docs.flatMap(d => d.foraDeProposito || []);
     const avisos = docs.flatMap(d => d.avisos || []);
-    const r = C.comparar({ linhasApi, linhasArquivo: json, mes, unidade, foraApi, Adapter: PA, Engine: CE });
+    const r = C.comparar({ linhasApi, linhasArquivo: json, mes, unidade, foraApi, Adapter: PA, Engine: CE, ApiLinhas: L });
     const sit = {};
     docs.forEach(d => { sit[d.situacao] = (sit[d.situacao] || 0) + 1; });
 

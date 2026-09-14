@@ -142,8 +142,19 @@ const PactoApiLinhas = {
       const forma = formas.map(f => f.formaPagamento).filter(Boolean).join(' + ');
 
       (p.parcelasPagas || []).forEach(x => {
-        parcelas++;
         const contrato = x.codigoContrato ? String(x.codigoContrato) : '0';
+        // Parcela de R$ 0,00 (camiseta de brinde, voucher grátis, parcela zerada
+        // de contrato migrado): o relatório de recebimentos não lista. Deixá-la
+        // entrar contava voucher a mais — o motor aceita degustação com valor zero.
+        if (!(Number(x.valor) > 0)) {
+          foraDeProposito.push({
+            motivo: 'parcela de R$ 0,00 — o relatório de recebimentos não lista',
+            recibo: p.codigo, valor: 0, contrato: contrato === '0' ? '' : contrato,
+            produto: contrato === '0' ? (produtoDaParcela.get(String(x.codigo)) || x.descricao || '') : ((cad.get(contrato) || {}).nomePlano || x.descricao || ''),
+          });
+          return;
+        }
+        parcelas++;
         const l = new Array(this.TAMANHO_LINHA).fill('');
         const put = (k, v) => { l[this.COL[k]] = v == null ? '' : v; };
 
@@ -200,6 +211,41 @@ const PactoApiLinhas = {
         estornosContrato: { qtd: (r.estornosContrato || []).length, valor: this._soma(r.estornosContrato, e => e.valorPagoEstornado) },
       },
     };
+  },
+
+  /** '1.234,56' → 1234.56 */
+  _valor(txt) {
+    const n = parseFloat(String(txt || '').replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : n;
+  },
+
+  /**
+   * Junta as parcelas do MESMO CONTRATO numa linha só — como o export faz.
+   *
+   * Para contar ATIVAÇÃO de um período com mais de um dia. Na API cada parcela
+   * paga é uma linha com o nome do plano; um contrato com duas parcelas pagas no
+   * mês virava duas linhas de plano e o motor contava duas ativações (13 a mais
+   * no PP em agosto/2026, achado na homologação de 13/09). O export junta.
+   *
+   * Soma o valor, fica com a data mais antiga e as formas das duas. Não mexe
+   * em linha avulsa (contrato 0) nem na entrada.
+   */
+  consolidarPorContrato(linhas) {
+    const C = this.COL;
+    const iso = d => { const m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + m[2] + m[1] : ''; };
+    const saida = [];
+    const porContrato = new Map();
+    (linhas || []).forEach(l => {
+      const c = String(l[C.contrato] || '');
+      if (!c || c === '0') { saida.push(l); return; }
+      const atual = porContrato.get(c);
+      if (!atual) { const copia = l.slice(); porContrato.set(c, copia); saida.push(copia); return; }
+      atual[C.valor] = this.valorBR(this._valor(atual[C.valor]) + this._valor(l[C.valor]));
+      if (iso(l[C.lancamento]) && iso(l[C.lancamento]) < iso(atual[C.lancamento])) atual[C.lancamento] = l[C.lancamento];
+      const formas = new Set(String(atual[C.forma] || '').split(' + ').concat(String(l[C.forma] || '').split(' + ')).filter(Boolean));
+      atual[C.forma] = [...formas].join(' + ');
+    });
+    return saida;
   },
 
   /**

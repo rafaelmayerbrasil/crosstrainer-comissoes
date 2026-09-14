@@ -198,4 +198,42 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('o cabeçalho faz o adapter reconhecer as linhas como faturamento-recebido');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/11');
+/* 12. parcela de R$ 0,00 não vira linha */
+{
+  const r = resumoBase();
+  r.pagamentos[2].parcelasPagas.push({ codigo: 556, codigoContrato: null, descricao: 'VENDA AVULSA', valor: 0 });
+  r.vendaAvulsa.push({ codigo: 73, produto: 'CAMISETA RENOVAÇÃO', totalFinal: 0, vendaAvulsaParcela: [{ codigo: 556, situacao: 'PG', valor: 0 }] });
+  r.pagamentos[0].parcelasPagas.push({ codigo: 12, codigoContrato: 9001, descricao: 'PARCELA RENEGOCIADA', valor: 0 });
+  const s = L.montar({ resumo: r, contratos: caderninho(), unidade: 'PP', dia: '2026-08-05' });
+  assert.strictEqual(s.linhas.length, 4, 'as duas parcelas zeradas não viram linha');
+  const zeradas = s.foraDeProposito.filter(f => /R\$ 0,00/.test(f.motivo));
+  assert.strictEqual(zeradas.length, 2);
+  assert.ok(zeradas.some(f => f.produto === 'CAMISETA RENOVAÇÃO' && f.contrato === ''));
+  assert.ok(zeradas.some(f => f.contrato === '9001'));
+  assert.strictEqual(s.totais.parcelas, 4, 'parcela zerada não conta');
+  ok('parcela de R$ 0,00 (brinde, voucher grátis) fica de fora, como no relatório de recebimentos');
+}
+
+/* 13. consolidar por contrato: uma linha por contrato, data mais antiga, valor somado */
+{
+  const lin = (contrato, dia, valor, forma) => {
+    const l = new Array(22).fill('');
+    l[L.COL.contrato] = contrato; l[L.COL.lancamento] = dia; l[L.COL.valor] = valor; l[L.COL.forma] = forma; l[L.COL.nome] = 'X';
+    return l;
+  };
+  const entrada = [lin('4509', '25/08/2026', '508,30', 'PIX'), lin('0', '20/08/2026', '5,00', 'PIX'),
+    lin('4509', '20/08/2026', '254,15', 'CARTÃO'), lin('0', '21/08/2026', '5,00', 'PIX'), lin('7000', '01/08/2026', '1.200,00', 'PIX')];
+  const copia = JSON.stringify(entrada);
+  const c = L.consolidarPorContrato(entrada);
+  assert.strictEqual(JSON.stringify(entrada), copia, 'não mexe na entrada');
+  assert.strictEqual(c.length, 4, 'as duas do 4509 viram uma; avulsas continuam separadas');
+  const x = c.find(l => l[L.COL.contrato] === '4509');
+  assert.strictEqual(x[L.COL.valor], '762,45');
+  assert.strictEqual(x[L.COL.lancamento], '20/08/2026', 'fica com a data mais antiga');
+  assert.strictEqual(x[L.COL.forma], 'PIX + CARTÃO');
+  assert.strictEqual(c.find(l => l[L.COL.contrato] === '7000')[L.COL.valor], '1.200,00');
+  assert.strictEqual(L._valor('1.234,56'), 1234.56);
+  ok('consolidar por contrato: uma linha por contrato, valor somado, data mais antiga, avulsa intacta');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/13');

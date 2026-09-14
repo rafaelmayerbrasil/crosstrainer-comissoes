@@ -52,7 +52,7 @@ for (const unidade of ['PP', 'CP']) {
   const resumo = JSON.parse(t.slice(t.indexOf('{')));
 
   const m = L.montar({ resumo, contratos: new Map(), unidade, dia: mes });
-  const r = C.comparar({ linhasApi: m.linhas, linhasArquivo, mes, unidade, foraApi: m.foraDeProposito, Adapter: PA, Engine: CE });
+  const r = C.comparar({ linhasApi: m.linhas, linhasArquivo, mes, unidade, foraApi: m.foraDeProposito, Adapter: PA, Engine: CE, ApiLinhas: L });
 
   // A conta à mão de 13/09 somou as FORMAS de todos os recibos; o conversor
   // soma as PARCELAS e tira o crédito em conta. Mostra as duas para a

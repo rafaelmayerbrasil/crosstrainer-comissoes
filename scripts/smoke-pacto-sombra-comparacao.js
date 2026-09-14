@@ -30,7 +30,7 @@ function linha(o) {
 const contrato = (nome, num, dia, valor, extra) => linha({ nome, contrato: String(num), produto: ANUAL, plano: ANUAL,
   situacao: 'Matrícula', inicio: '01/08/2026', termino: '31/07/2027', duracao: '12', lancamento: dia, valor, ...(extra || {}) });
 
-const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE };
+const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE, ApiLinhas: L };
 
 /* 1. tudo igual: nenhuma divergência, ativações iguais */
 {
@@ -103,6 +103,18 @@ const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE };
   ok('matrícula em linha separada no arquivo: mesma soma e mesma ativação');
 }
 
+/* 3b. duas parcelas do mesmo contrato em dias diferentes = UMA ativação */
+{
+  const api = [contrato('CLIENTE DUAS', 800, '12/08/2026', '259,00'), contrato('CLIENTE DUAS', 800, '28/08/2026', '259,00')];
+  const arquivo = [contrato('CLIENTE DUAS', 800, '12/08/2026', '518,00')];
+  const r = C.comparar({ ...base, linhasApi: api, linhasArquivo: arquivo });
+  assert.strictEqual(r.api.ativacoes.total, 1, 'duas parcelas não podem virar duas ativações: ' + r.api.ativacoes.total);
+  assert.deepStrictEqual(r.api.ativacoes, r.arquivo.ativacoes);
+  assert.strictEqual(r.api.recebido, 518, 'o dinheiro continua somado');
+  assert.ok(r.divergencias.length && r.divergencias.every(d => d.causa === C.CAUSAS.DIA), 'e a divergência por dia continua com a data real');
+  ok('duas parcelas do mesmo contrato no mês contam uma ativação, e o dinheiro segue por dia');
+}
+
 /* 4. só a unidade e o mês pedidos */
 {
   const api = [contrato('CLIENTE PP', 700, '05/08/2026', '100,00'),
@@ -126,7 +138,8 @@ const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE };
 /* 6. sem Adapter/Engine é erro, não silêncio */
 {
   assert.throws(() => C.comparar({ mes: '2026-08', unidade: 'PP', linhasApi: [], linhasArquivo: [] }), /obrigatórios/);
+  assert.throws(() => C.comparar({ ...base, ApiLinhas: undefined, linhasApi: [], linhasArquivo: [] }), /ApiLinhas/);
   ok('sem o adapter e o motor a comparação recusa');
 }
 
-console.log('\n✅ smoke-pacto-sombra-comparacao: ' + n + '/8');
+console.log('\n✅ smoke-pacto-sombra-comparacao: ' + n + '/9');
