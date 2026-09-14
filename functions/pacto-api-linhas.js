@@ -51,7 +51,7 @@ const PactoApiLinhas = {
   },
 
   _norm(s) {
-    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+    return String(s || '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().trim();
   },
 
   _soma(lista, f) {
