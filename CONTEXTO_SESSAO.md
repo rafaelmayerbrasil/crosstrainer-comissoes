@@ -31,8 +31,10 @@ perguntas esperando resposta:**
 do Príncipe urge:** anual vendido lá vence em **nov/2026**, daqui a dois meses.
 
 ⚠️ **Requisito operacional novo, que ninguém tinha visto:** o ritual dele é dias **01, 07 e 15**, mas
-a lista **cresce durante o mês** e o arquivo da Pacto sobe **uma vez só** — as três fotos seriam
-idênticas. Ou o upload passa a ser 3×/mês, ou o ritual muda.
+a lista **cresce durante o mês**, e a foto de cada dia só existe se alguém tiver exportado e subido
+o arquivo naquele dia. ⚠️ *Corrigido em 13/09 pelo Rafael:* o upload **não** é mensal — sobe toda vez
+que ele ou o Rodrigo exportam e arrastam na tela. O problema é ser **manual**; a meta é **automático e
+diário** (pesquisa da API da Pacto proposta em 13/09).
 
 🟡 **Para olhar quando setembro fechar:** o Campeche não vendeu **nenhum** mês-degustação até 08/09
 (contra 14 em agosto inteiro). Com `minVoucher` 5, o P3 da unidade inteira leva ×0,85.

@@ -137,8 +137,9 @@ grande. Quando outubro começar, setembro será um mês passado — mas o arquiv
 sistema hoje cobre **1 a 8/09**, com 19 ativações no Campeche. Entrando na média assim, a meta de
 outubro cairia de **58 para 49** — e ninguém veria por quê.
 
-Isso não é hipótese: **é o estado atual da produção.** O arquivo do mês só é re-subido inteiro no
-fim do mês, e nada garante que alguém lembre.
+Isso não é hipótese: **é o estado atual da produção.** O arquivo sobe toda vez que alguém (Rafael
+ou Rodrigo) exporta da Pacto e arrasta na tela — é manual, então o mês só fica completo se alguém
+subir de novo depois do último dia, e nada garante que isso aconteça.
 
 **A regra:** um mês entra na média quando (a) é anterior ao mês corrente **e** (b) o dado dele
 **alcança o último dia do mês** — o maior `data` dos itens é comparado com o fim do mês. Mês que não
@@ -256,7 +257,9 @@ histórico do TecnoFit está dentro do nosso próprio sistema.
 ⚠️ **Requisito operacional que ninguém tinha visto:** o ritual dele é dias **01, 07 e 15**, e a lista
 **cresce durante o mês** (os mensais só entram quando são vendidos) — hoje a lista de out/2026 tem 19
 nomes no CP e 14 no PP, contra os 30 do PDF de maio. Para as três fotos existirem, **o arquivo da
-Pacto precisa subir nesses três dias**; hoje sobe uma vez por mês.
+Pacto precisa ter subido naqueles dias**. ⚠️ *Corrigido em 13/09 pelo Rafael:* o upload **não** é
+mensal — sobe toda vez que ele ou o Rodrigo exportam e arrastam na tela. O problema real é ser
+**manual**; o objetivo é que vire **automático e diário** (via API da Pacto).
 
 **Status:** não construir ainda. Foi perguntado ao Rodrigo o que ele prefere primeiro — a meta
 automática (que destrava a folha de outubro) ou esta tela.
