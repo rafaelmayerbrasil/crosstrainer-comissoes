@@ -67,6 +67,62 @@ const PactoAdapter = {
   PREFIXOS_GENERICOS: [/^PACTO\b/],
 
   // ─── Helpers de leitura ───
+  // Nome de cada coluna no cabeçalho, na ordem de `COL` (sem acento, maiúsculo).
+  // `Responsável` aparece duas vezes: a 1ª ocorrência é resp1, a 2ª é resp2.
+  ROTULOS: {
+    matricula: 'MATRICULA', nome: 'NOME CLIENTE', cadastro: 'DATA CADASTRO',
+    resp1: 'RESPONSAVEL', resp2: 'RESPONSAVEL', produto: 'PRODUTO',
+    contrato: 'CONTRATO', inicio: 'DATA INICIO', termino: 'DATA TERMINO',
+    duracao: 'DURACAO', modalidades: 'MODALIDADES', plano: 'PLANO',
+    situacao: 'SITUACAO CONTRATO', lancamento: 'DATA LANCAMENTO', valor: 'VALOR',
+    forma: 'FORMA PAGAMENTO', condicao: 'CONDICAO PAGAMENTO', empresa: 'EMPRESA',
+    turma: 'TURMA', categoria: 'CATEGORIA', consultor: 'CONSULTOR',
+  },
+
+  /**
+   * Devolve as linhas no layout de `COL`, achando cada coluna pelo NOME do
+   * cabeçalho. Existe porque em setembro/2026 a Pacto inseriu `Quantidade`
+   * depois de `Produto` e tudo andou uma casa — o arquivo deixou de ser
+   * reconhecido ("Nenhum dado encontrado no arquivo"). Se a assinatura tivesse
+   * casado por acaso, leria a situação no lugar da data e a data no lugar do
+   * valor, sem erro nenhum.
+   *
+   *  • Layout já igual ao de `COL`, ou linhas sem cabeçalho (as da API no modo
+   *    sombra) → devolve o MESMO array, sem cópia.
+   *  • Falta alguma coluna → devolve como veio; a assinatura não casa e o
+   *    arquivo é recusado. Não adivinhar campo que sumiu.
+   *  • Colunas desconhecidas vão para o fim da linha, depois das de `COL`.
+   */
+  normalizarColunas(linhas) {
+    if (!Array.isArray(linhas)) return linhas;
+    const chave = c => String(c == null ? '' : c).normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/\s+/g, ' ').trim();
+    const iCab = linhas.slice(0, 5).findIndex(l => Array.isArray(l)
+      && l.some(c => chave(c) === 'NOME CLIENTE') && l.some(c => chave(c) === 'DATA LANCAMENTO'));
+    if (iCab < 0) return linhas;
+
+    const cab = linhas[iCab].map(chave);
+    const usadas = new Set();
+    const pos = {};
+    for (const k of Object.keys(this.COL)) {
+      const i = cab.findIndex((c, j) => !usadas.has(j) && c === this.ROTULOS[k]);
+      if (i < 0) return linhas;
+      usadas.add(i);
+      pos[k] = i;
+    }
+    if (Object.keys(pos).every(k => pos[k] === this.COL[k])) return linhas;
+
+    const largura = Math.max(...Object.values(this.COL)) + 1;
+    const extras = cab.map((_, j) => j).filter(j => !usadas.has(j) && cab[j]);
+    return linhas.map(l => {
+      if (!Array.isArray(l)) return l;
+      const n = new Array(largura).fill('');
+      Object.keys(pos).forEach(k => { n[this.COL[k]] = l[pos[k]] === undefined ? '' : l[pos[k]]; });
+      extras.forEach(j => n.push(l[j] === undefined ? '' : l[j]));
+      return n;
+    });
+  },
+
   campo(linha, nome) { return String(linha[this.COL[nome]] === undefined ? '' : linha[this.COL[nome]]).trim(); },
 
   /** "1.234,56" → 1234.56 · "" → 0 */
@@ -124,6 +180,7 @@ const PactoAdapter = {
    * juntas, porque só uma delas casaria com planilha de outro assunto.
    */
   ehExportPacto(linhas) {
+    linhas = this.normalizarColunas(linhas);
     return (linhas || []).slice(0, 5).some(l => {
       if (!l) return false;
       const nome = String(l[this.COL.nome] || '').trim().toUpperCase();
@@ -152,6 +209,7 @@ const PactoAdapter = {
    * @returns {'recebido'|'faturamento'|'desconhecido'}
    */
   detectarRelatorio(linhas) {
+    linhas = this.normalizarColunas(linhas);
     const dados = (linhas || []).filter(l => l && this.campo(l, 'nome')
       && !/^nome\s+cliente$/i.test(this.campo(l, 'nome'))
       && /^\d{2}\/\d{2}\/\d{4}/.test(this.campo(l, 'lancamento')));
@@ -474,6 +532,7 @@ const PactoAdapter = {
    */
   traduzir(linhas, opts) {
     const o = opts || {};
+    linhas = this.normalizarColunas(linhas);
     const dados = (linhas || []).filter(l => {
       if (!l) return false;
       const nome = this.campo(l, 'nome');
