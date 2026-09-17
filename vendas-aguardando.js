@@ -83,6 +83,7 @@
      * @returns {Object} { 'CP|2026-08': [venda, …], … }
      */
     extrair(linhas) {
+      linhas = PA.normalizarColunas(linhas);   // a Pacto já inseriu coluna no meio
       const dados = (linhas || []).filter(l => {
         if (!l) return false;
         const nome = PA.campo(l, 'nome');
