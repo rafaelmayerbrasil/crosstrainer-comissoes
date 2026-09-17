@@ -3,18 +3,19 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 72 (17/09/2026) — 🧩 A PACTO INSERIU UMA COLUNA E O UPLOAD PAROU · ✅ CORRIGIDO NO STAGING, falta produção
+## 🔖 ONDE PARAMOS — sessão 72 (17/09/2026) — 🧩 A PACTO INSERIU UMA COLUNA E O UPLOAD PAROU · ✅ NO AR EM PRODUÇÃO (`17e8eb2..7c18068`)
 
 ### ▶️▶️ RETOMAR AQUI
-1. **O Rafael arrasta `relatorios pacto/faturamento-recebido_01 a 160926.xls` no staging** (CP e PP) e dá o OK.
-2. Com o OK: publicar a branch **`fix-pacto-coluna-quantidade`** (sai do `origin/main`, commit `7c18068`, só a correção — sem o modo sombra) → merge no `main` + `git push origin main`. O `?v=` já foi para `20260917`.
+1. ✅ **Rafael homologou no staging** (arrastou setembro, subiu certo) e autorizou produção.
+2. ✅ **Em produção 17/09:** `fix-pacto-coluna-quantidade` → `main` por fast-forward (`7c18068`). Conferido no github.io: HTML com `?v=20260917`, `pacto-adapter.js` servido com `normalizarColunas`, 0 erro de console. Nada muda no Firebase.
+3. A branch `pacto-api-modo-sombra` tem a mesma correção em outro commit (`9ce3ccd`) — ao juntar com o `main`, o conteúdo é igual e não deve dar conflito.
 
 ### O que aconteceu
 Upload de setembro dava **"Nenhum dado encontrado no arquivo."** A Pacto acrescentou a coluna **`Quantidade`** entre `Produto` e `Contrato` nos dois relatórios (recebido e faturamento). O `pacto-adapter.js` lia **por posição**: a assinatura (`Data Lançamento` na 14) não casava, o arquivo não era reconhecido e caía no caminho do TecnoFit, que não acha nada. **Se a assinatura casasse por acaso, leria a situação no lugar da data e a data no lugar do valor, calado.**
 
 **Correção:** `PactoAdapter.normalizarColunas()` acha cada coluna pelo **nome do cabeçalho** (os dois `Responsável` pela ordem) e rearruma no layout de `COL`. Chamada em `ehExportPacto`, `detectarRelatorio`, `traduzir` e `VendasAguardando.extrair`. Layout antigo e linhas sem cabeçalho (API do modo sombra) passam **sem cópia**; coluna **faltando** continua recusada. Colunas desconhecidas vão pro fim da linha. `Quantidade` não muda a conta: só passa de 1 em lanchonete, e o `Valor` já vem somado.
 
-**Provas:** `scripts/smoke-pacto-coluna-nova.js` 8/8 · suíte 84/85 (o `smoke-9.js` só pede `--project`) · **dado real:** 01–08/09 no export antigo × no novo — **PP idêntico (177 linhas, R$ 8.088,00)**, CP sem perder nada (+6 linhas lançadas no dia 08 depois da 1ª exportação). Setembro até 16/09: CP 123 linhas, PP 223 para o motor. Staging servindo `pacto-adapter.js?v=20260917`, conferido no navegador, 0 erro de console. ⚠️ **Sem clique humano ainda.**
+**Provas:** `scripts/smoke-pacto-coluna-nova.js` 8/8 · suíte 84/85 (o `smoke-9.js` só pede `--project`) · **dado real:** 01–08/09 no export antigo × no novo — **PP idêntico (177 linhas, R$ 8.088,00)**, CP sem perder nada (+6 linhas lançadas no dia 08 depois da 1ª exportação). Setembro até 16/09: CP 123 linhas, PP 223 para o motor. Staging servindo `pacto-adapter.js?v=20260917`, conferido no navegador, 0 erro de console. Clique humano no staging feito pelo Rafael.
 
 Hosting do staging publicado a partir da branch `pacto-api-modo-sombra` (commits `9ce3ccd` + `3051b03`), para não tirar a tela do modo sombra do ar. Nenhuma branch foi enviada ao GitHub nesta sessão.
 
