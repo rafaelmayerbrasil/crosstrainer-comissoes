@@ -3,6 +3,65 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 74 (23/09/2026) — 🔍 AUDITORIA DAS COMISSÕES EM PRODUÇÃO · o modo sombra já roda no Firebase de produção · "recebimentos até —" corrigido no staging
+
+### ▶️▶️ RETOMAR AQUI
+1. 🔴 **Rafael homologa no staging a correção da data do upload** (`fix-data-do-upload`, `10c9959`; na branch
+   `pacto-api-modo-sombra` como `e336b92`; hosting do staging publicado a partir desta branch). Como conferir:
+   subir qualquer arquivo em Upload no staging → o painel "vendido × pago" (home ou aba A receber) deve dizer
+   **"recebimentos até <data>"**, não "—". Com o OK dele: `fix-data-do-upload` → `main` (fast-forward sobre
+   `7c18068`) + `git push origin main`. Só `index.html` muda, sem `?v=` (o código é inline). Nada no Firebase.
+2. **PP de setembro continua sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado para todas).
+   **Decisão do Rafael (23/09): deixar como está** — dá para configurar até o dia do pagamento (15/10).
+3. O resto da sessão 73 continua valendo (mensagem para a Pacto, 6 contratos do PP sem consultora).
+
+### ⚠️ Registro que faltava: o modo sombra RODA EM PRODUÇÃO desde 22/09 23:30
+Outra sessão publicou no Firebase de produção, na noite de 22/09, e **não registrou aqui** (confirmado pelo
+Rafael em 23/09). Conferido por mim, só leitura:
+- **Regras** vivas trocadas às 23:19 (ruleset `61aacefa…`). Diferença para o `firestore.rules` do `main`:
+  **só** os blocos `pacto_sombra_dias`, `pacto_contratos`, `pacto_termometro`, `pacto_termometro_equipe`.
+  As regras de Comissões são iguais às do `main`.
+- **Functions** `buscarPactoSombra` (4h, 30 min) e `buscarPactoSombraManual` publicadas às 23:30, com
+  `PACTO_API_KEY` do Secret Manager de **produção**. Código baixado e comparado com a branch: **idêntico**,
+  inclusive a correção "erro da Pacto virava dia vazio" (`7c6f655`, salva 39 s depois do deploy).
+- **Dados:** carga de 01/07 a 22/09 (168 dias, 1.645 contratos, 241 consultoras). **A das 4h de 23/09 rodou**
+  às 04:06 e releu 01–22/09 das duas unidades, zero falha.
+- **Termômetro de produção × oficial:** PP set 40 = 40, ago 41 = 41; CP set 55 × 53 (o arquivo oficial corta no
+  dia 21, o termômetro já tem o 22 — não conferido venda a venda), ago 62 × 63 (o 7129 de sempre).
+- **As telas NÃO estão acessíveis em produção:** `termometro.html` e `pacto-sombra.html` dão 404 no GitHub
+  Pages; no `crosstrainer-comissoes.web.app` o endereço cai no index (e esse host fala com o staging).
+  `pacto-credencial.txt` não está exposto. Ou seja: roda e grava, mas ninguém lê ainda.
+
+### A auditoria: a comissão de setembro em produção está certa
+Refeito setembro a partir do **mesmo arquivo** subido em 22/09 21:19 (`faturamento-recebido_01 a 220926.xls`),
+com os `codigosPagos` e as metas de produção, e comparado item a item com o gravado:
+
+| | ativações app × refeito | comissão app × refeito |
+|---|---|---|
+| CP | 53 × 53 (29 · 20 · 4) | R$ 1.716,36 × R$ 1.718,66 (−2,30) |
+| PP | 40 × 40 (25 · 12 · 3) | R$ 1.215,09 × R$ 1.226,67 (−11,59) |
+
+Toda a diferença são vendas de bar repetidas no mesmo dia colapsando no id ([[venda-repetida-colapsa-no-id]]
+— setembro parcial já passa agosto inteiro, R$ 13,89 × R$ 6,31). Nenhum contrato pago duas vezes, zero "Sem
+Vendedor", zero TESTE, zero diferido. Site do github.io **idêntico** ao `main`, arquivo por arquivo.
+CP com P3 zerado por **29/30** novos+retorno (o termômetro já mostra 30 com o dia 22 — deve destravar no próximo upload).
+Scripts da auditoria (só leitura) ficaram no scratchpad da sessão; o equivalente versionado é
+`scripts/conferir-upload-gravado.js` (fixo em agosto).
+
+### 🐛 "recebimentos até —": a data do upload nunca foi data
+O painel vendido × pago dizia sempre "recebimentos até —". Todos os **40 períodos de produção** guardam
+`uploadDate` como o mapa `{_methodName: "FieldValue.serverTimestamp"}`: a limpeza de campos vazios do
+`confirmUpload` reconhecia o marcador do Firebase pelo nome da classe (`FieldValueImpl`), e no SDK minificado
+o nome é **`sl`** (visto no navegador do staging). Vem desde o primeiro commit. **Correção:** a data entra depois
+da limpeza; `dataDoUpload()` lê o Timestamp e, nos períodos antigos, tira a data do `uploadId` (Date.now em base
+36, gravado no mesmo clique) — conferida nos 40 períodos de produção, todas coerentes com o arquivo. O próprio
+teste pegou uma folga minha (`zzzzzzzz` virava 2059) → o limite é "nunca no futuro". `smoke-data-do-upload.js`
+7/7 **executando** os trechos do `index.html`; contra o `main` antigo falha no 1º caso. Suíte 79 + os 2 de
+integração de sempre (`smoke-9`, `smoke-grade-horarios`), que não tocam no `index.html`.
+Memória: [[producao-tem-duas-portas]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 73 (22/09/2026) — 🔌 SETEMBRO API × ARQUIVO · a busca diária perde pagamento lançado com atraso · staging
 
 ### ▶️▶️ RETOMAR AQUI
