@@ -107,7 +107,9 @@ const PactoSombraComparacao = {
     if (!Adapter || !Engine || !ApiLinhas) throw new Error('comparar: Adapter, Engine e ApiLinhas são obrigatórios');
     const ctx = { Adapter, Engine, unidade, mes, config };
     const api = this._lado(linhasApi, ctx, l => ApiLinhas.consolidarPorContrato(l));
-    const arquivo = this._lado(linhasArquivo, ctx);
+    // O export muda de layout (set/2026: `Quantidade` depois de `Produto`); sem
+    // isto o arquivo inteiro era lido fora de posição e somava R$ 0,00 calado.
+    const arquivo = this._lado(Adapter.normalizarColunas(linhasArquivo), ctx);
 
     const gA = this._grupos(api._doMes, Adapter);
     const gX = this._grupos(arquivo._doMes, Adapter);

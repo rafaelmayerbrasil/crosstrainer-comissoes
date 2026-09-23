@@ -142,4 +142,17 @@ const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE, ApiLinhas
   ok('sem o adapter e o motor a comparação recusa');
 }
 
-console.log('\n✅ smoke-pacto-sombra-comparacao: ' + n + '/9');
+/* 7. export de setembro/2026: a Pacto inseriu `Quantidade` depois de `Produto`.
+      A comparação lia por posição e o arquivo inteiro virava R$ 0,00 — sem erro. */
+{
+  const linhas = [contrato('CLIENTE UM', 100, '05/08/2026', '239,00'), linha({ nome: 'CLIENTE DOIS', produto: 'ÁGUA', valor: '5,00' })];
+  const pos = PA.COL.produto + 1;
+  const novo = [L.CABECALHO, ...linhas].map((l, i) => { const c = l.slice(); c.splice(pos, 0, i === 0 ? 'Quantidade' : '1'); return c; });
+  const r = C.comparar({ ...base, linhasApi: linhas, linhasArquivo: novo });
+  assert.strictEqual(r.arquivo.recebido, 244, 'o arquivo com a coluna nova tem que somar igual');
+  assert.strictEqual(r.divergencias.length, 0, JSON.stringify(r.divergencias));
+  assert.deepStrictEqual(r.api.ativacoes, r.arquivo.ativacoes);
+  ok('export com a coluna Quantidade: mesmo recebido, mesmas ativações, zero divergência');
+}
+
+console.log('\n✅ smoke-pacto-sombra-comparacao: ' + n + '/10');

@@ -3,7 +3,40 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 72 (17/09/2026) — 🧩 A PACTO INSERIU UMA COLUNA E O UPLOAD PAROU · ✅ NO AR EM PRODUÇÃO (`17e8eb2..7c18068`)
+## 🔖 ONDE PARAMOS — sessão 73 (22/09/2026) — 🔌 SETEMBRO API × ARQUIVO · a busca diária perde pagamento lançado com atraso · staging
+
+### ▶️▶️ RETOMAR AQUI
+1. **Decisão do Rafael pendente:** quanto a busca diária deve reler. Hoje relê só os **3 dias anteriores**,
+   e o Campeche tinha **17 pagamentos (R$ 4.284,00)** lançados na Pacto dias depois, com a data antiga
+   (cobrança recorrente). Proposta: reler o **mês corrente inteiro** todo dia (e o mês anterior até o dia 10).
+   Medido: 21 dias × 2 unidades = **2 min 48 s**, com o caderninho cheio.
+2. **Mensagem para a Pacto** (via Rodrigo) com os 2 pontos que ela NÃO respondeu: contratos vazios do
+   Campeche (sem consultora) e renovação das unidades. A resposta de 22/09 ("consultar por unidade, com a
+   chave de cada uma") é o que já fazemos desde 13/09.
+3. **Vendedora do Príncipe não bate** em setembro (API × arquivo): Rodrigo 3 × 16, Kali 17 × 23,
+   "Sem Vendedor" 23 × 0. Não investigado.
+4. Nada commitado nesta sessão: `pacto-sombra-comparacao.js`, `pacto-sombra.html` (`?v=20260922`),
+   `scripts/smoke-pacto-sombra-comparacao.js` (10/10). **Hosting do staging publicado** com isso.
+
+### O que aconteceu
+- **A busca das 4h roda sozinha** (52 dias gravados, 01/08→21/09). O log do Firebase não respondeu; conferido pelo banco.
+- **Defeito na tela de conferência:** a comparação lia o arquivo por posição e nunca passou pelo
+  `normalizarColunas` da sessão 72 → com a coluna `Quantidade`, **o arquivo de setembro somava R$ 0,00**,
+  calado. Corrigido (1 linha) + caso de teste. O `smoke-pacto-sombra-tela.js` já falhava desde a sessão 72,
+  porque só o `?v=` do adapter tinha subido; todos os scripts da tela agora em `20260922`.
+- **Setembro (01–21/09, export de 22/09 cortado no dia 21), depois de reler o mês:**
+
+| | recebido API × arquivo | ativações API × arquivo |
+|---|---|---|
+| **PP** | 45.993,13 × 46.658,68 (**−665,55** = −725,55 balcão + 60 renegociada) | **52 × 52**, idêntico por categoria |
+| **CP** | 51.052,54 × 51.019,84 (**+32,70**) | **64 × 63** (1 retorno a mais na API) |
+
+  Antes de reler, o CP dava **−4.258,32**: os 17 pagamentos atrasados. Reconsulta pontual (só leitura)
+  confirmou que a API passa a trazê-los — é lançamento tardio, não falta de dado.
+
+---
+
+## 🔖 Sessão 72 (17/09/2026) — 🧩 A PACTO INSERIU UMA COLUNA E O UPLOAD PAROU · ✅ NO AR EM PRODUÇÃO (`17e8eb2..7c18068`)
 
 ### ▶️▶️ RETOMAR AQUI
 1. ✅ **Rafael homologou no staging** (arrastou setembro, subiu certo) e autorizou produção.
