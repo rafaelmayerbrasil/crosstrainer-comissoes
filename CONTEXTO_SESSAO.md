@@ -6,11 +6,16 @@
 ## 🔖 ONDE PARAMOS — sessão 74 (23/09/2026) — 🔍 AUDITORIA DAS COMISSÕES EM PRODUÇÃO · o modo sombra já roda no Firebase de produção · "recebimentos até —" corrigido no staging
 
 ### ▶️▶️ RETOMAR AQUI
-1. 🔴 **Rafael homologa no staging a correção da data do upload** (`fix-data-do-upload`, `10c9959`; na branch
-   `pacto-api-modo-sombra` como `e336b92`; hosting do staging publicado a partir desta branch). Como conferir:
-   subir qualquer arquivo em Upload no staging → o painel "vendido × pago" (home ou aba A receber) deve dizer
-   **"recebimentos até <data>"**, não "—". Com o OK dele: `fix-data-do-upload` → `main` (fast-forward sobre
-   `7c18068`) + `git push origin main`. Só `index.html` muda, sem `?v=` (o código é inline). Nada no Firebase.
+1. ✅ **Data do upload gravada como data — NO AR EM PRODUÇÃO (23/09, `7c18068..10c9959`)**, homologada pelo
+   Rafael no staging. Conferido no github.io.
+   🔴 **Falta homologar a 2ª parte, no staging (`d81b2c5`; na branch da Pacto por cherry-pick):** ao homologar,
+   o Rafael viu que "recebimentos até 23/09" estava errado — o export era de 22/09, e **23 é o dia em que ele
+   SUBIU**. O "vendas até" tinha o mesmo defeito desde que nasceu. Agora o quadro mostra o **último dia que
+   aparece em cada relatório** (`ultimoDia()`; recebimentos contam todas as linhas do mês, inclusive as
+   excluídas) e a hora do upload vai para a dica ao passar o mouse. Esperado no staging, CP setembro:
+   **"vendas até 22/09/2026 · recebimentos até 22/09/2026"**. Em produção vai mostrar CP 22/09 · 22/09 e
+   PP 21/09 · 22/09. Com o OK: `fix-data-do-upload` → `main` (fast-forward sobre `10c9959`) + push.
+   Smoke 10/10 executando carregador e quadro com banco falso; suíte 79/79.
 2. **PP de setembro continua sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado para todas).
    **Decisão do Rafael (23/09): deixar como está** — dá para configurar até o dia do pagamento (15/10).
 3. O resto da sessão 73 continua valendo (mensagem para a Pacto, 6 contratos do PP sem consultora).
