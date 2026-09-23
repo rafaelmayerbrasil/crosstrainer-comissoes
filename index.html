@@ -4962,7 +4962,7 @@
         // Define period object
         const rawPeriodData = {
           unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
-          fileName, uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+          fileName,
           uploadedBy: currentUser.uid,
           uploadId,
           totals: result.unitTotals,
@@ -5003,7 +5003,14 @@
           return clean;
         }
 
-        const periodData = removeUndefinedFields(rawPeriodData);
+        // ⚠️ A data do upload entra DEPOIS da limpeza. O marcador do Firebase
+        // (serverTimestamp) passava pela limpeza, que não o reconhecia (o nome
+        // da classe vem minificado no SDK) e o copiava campo a campo: o banco
+        // guardava o mapa {_methodName: ...} no lugar da data, desde sempre.
+        const periodData = {
+          ...removeUndefinedFields(rawPeriodData),
+          uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
+        };
 
         // Save period summary (include uploadId)
         console.log('[confirmUpload] Salvando resumo do período:', periodId);
@@ -7585,6 +7592,21 @@
       } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:20px">Erro: ${e.message}</div>`; }
     }
 
+    // Quando o arquivo de recebimentos subiu, como Date (ou null se não há como saber).
+    //
+    // Até set/2026 o upload gravava `uploadDate` como o mapa {_methodName: ...}
+    // no lugar da data (ver confirmUpload), então todo período antigo está
+    // assim. O `uploadId` salva: começa pelo Date.now() em base 36 (8 dígitos
+    // até 2059), gravado no MESMO clique. Fora da faixa plausível (antes de
+    // 2024 ou no futuro), não chuta — devolve null e a tela diz "—".
+    function dataDoUpload(pData) {
+      const u = pData && pData.uploadDate;
+      if (u && typeof u.toDate === 'function') return u.toDate();
+      const ms = parseInt(String((pData && pData.uploadId) || '').slice(0, 8), 36);
+      if (ms > Date.UTC(2024, 0, 1) && ms <= Date.now() + 86400000) return new Date(ms);
+      return null;
+    }
+
     // ══════════════════════════════════════════════════════════════════
     // Painel "vendido × pago" — a leitura única
     // ══════════════════════════════════════════════════════════════════
@@ -7604,7 +7626,7 @@
       const base = {
         unitId, year: pData.year, month: pData.month,
         vendasAtualizadasEm: pData.vendasAtualizadasEm || null,
-        recebidosAtualizadosEm: pData.uploadDate || null,
+        recebidosAtualizadosEm: dataDoUpload(pData),
         fechado: VendasAguardando.mesFechado(pData.year, pData.month),
       };
 
@@ -7723,7 +7745,11 @@
       }
 
       const r = d.resumo;
-      const dt = ts => { try { return ts.toDate().toLocaleDateString('pt-BR'); } catch (e) { return '—'; } };
+      // Aceita o Timestamp do Firestore (vendas) e o Date de dataDoUpload (recebimentos).
+      const dt = ts => {
+        const d = ts && typeof ts.toDate === 'function' ? ts.toDate() : ts;
+        return d instanceof Date && !isNaN(d) ? d.toLocaleDateString('pt-BR') : '—';
+      };
       const pct = r.vendidas ? Math.round((r.pagas / r.vendidas) * 100) : 0;
 
       // Registro de teste fica fora da conta — mas a gestão precisa saber que
