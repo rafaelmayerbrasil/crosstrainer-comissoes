@@ -6,17 +6,19 @@
 ## 🔖 ONDE PARAMOS — sessão 73 (22/09/2026) — 🔌 SETEMBRO API × ARQUIVO · a busca diária perde pagamento lançado com atraso · staging
 
 ### ▶️▶️ RETOMAR AQUI
-1. **Decisão do Rafael pendente:** quanto a busca diária deve reler. Hoje relê só os **3 dias anteriores**,
-   e o Campeche tinha **17 pagamentos (R$ 4.284,00)** lançados na Pacto dias depois, com a data antiga
-   (cobrança recorrente). Proposta: reler o **mês corrente inteiro** todo dia (e o mês anterior até o dia 10).
-   Medido: 21 dias × 2 unidades = **2 min 48 s**, com o caderninho cheio.
-2. **Mensagem para a Pacto** (via Rodrigo) com os 2 pontos que ela NÃO respondeu: contratos vazios do
+Três commits na branch `pacto-api-modo-sombra` (`33df5ed`, `7356f33`, `55ef314`), **tudo no staging**,
+nada no `main` nem em produção. **Não enviados ao GitHub.**
+1. ✅ **A busca das 4h relê o mês inteiro** (e o anterior até o dia 10) — `diasDaRotina`. Autorizado pelo
+   Rafael. Com 3 dias, o CP perdeu **17 pagamentos (R$ 4.284,00)** em setembro: a Pacto lança a cobrança
+   recorrente dias depois, com a data antiga. Medido: 21 dias × 2 unidades = **2 min 48 s**.
+   **Conferir na manhã de 23/09** que a das 4h rodou (no banco: `buscadoEm` dos dias de setembro).
+2. ✅ **Vendedora do Príncipe** (ver abaixo) — corrigida e relida no staging.
+3. **Mensagem para a Pacto** (via Rodrigo) com os 2 pontos que ela NÃO respondeu: contratos vazios do
    Campeche (sem consultora) e renovação das unidades. A resposta de 22/09 ("consultar por unidade, com a
    chave de cada uma") é o que já fazemos desde 13/09.
-3. **Vendedora do Príncipe não bate** em setembro (API × arquivo): Rodrigo 3 × 16, Kali 17 × 23,
-   "Sem Vendedor" 23 × 0. Não investigado.
-4. Nada commitado nesta sessão: `pacto-sombra-comparacao.js`, `pacto-sombra.html` (`?v=20260922`),
-   `scripts/smoke-pacto-sombra-comparacao.js` (10/10). **Hosting do staging publicado** com isso.
+4. **6 contratos do PP não têm consultora nem na API** (código de consultor 0 na lista de lançados), mas o
+   export mostra um nome — o export tira de outro lugar (cadastro do aluno?). Ficam "Sem Vendedor" pela API.
+   Pergunta candidata para a Pacto.
 
 ### O que aconteceu
 - **A busca das 4h roda sozinha** (52 dias gravados, 01/08→21/09). O log do Firebase não respondeu; conferido pelo banco.
@@ -33,6 +35,22 @@
 
   Antes de reler, o CP dava **−4.258,32**: os 17 pagamentos atrasados. Reconsulta pontual (só leitura)
   confirmou que a API passa a trazê-los — é lançamento tardio, não falta de dado.
+
+### 🧑‍💼 Vendedora do Príncipe — dois defeitos, 31 de 52 ativações de setembro erradas
+- **A consultora só vem na lista de LANÇADOS do dia em que o contrato nasce**, e só era guardada se o
+  pagamento caísse no mesmo dia. 25 dos 31 tinham a consultora certa na Pacto. Agora cada dia guarda os
+  lançados em **`pacto_consultoras`** (número, consultora, quem lançou, dia — nada do aluno; 241 docs,
+  zero CPF; sem regra própria = negado ao navegador pela regra final).
+- **Sem consultora, a venda ia para a recepção, calada** (8 casos): a API punha quem registrou o
+  PAGAMENTO nas duas colunas Responsável e o tradutor caía nelas. No export, **Responsável 1 = quem lançou
+  o contrato, 2 = quem registrou o pagamento**. Agora é assim; sem consultora, as duas ficam vazias (só a
+  marca `RECORRENCIA` fica) e a venda sai "Sem Vendedor", com aviso. **O mesmo valia para TODO contrato do
+  CP** — o teste "não usa quem lançou o pagamento" só conferia a coluna Consultor.
+- Relido o PP de 01/07 a 21/09 no staging (12 blocos, zero falha). **Setembro: 45 de 52 iguais** (antes
+  21), ativações e dinheiro sem mudança. Sobram 6 sem consultora **na própria Pacto** (código de
+  consultor 0) e 1 divergente (**4558**: lançado por Erica, o export diz Kali — o export parece mostrar a
+  consultora de hoje, não a do lançamento). Agosto: 5 sem vendedora, resto próximo.
+- `homologar-pacto-sombra.js` ganhou `--unidade`.
 
 ---
 
