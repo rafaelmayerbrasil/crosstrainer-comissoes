@@ -122,6 +122,9 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   assert.ok(cp.linhas.every(l => campo(l, 'consultor') === ''), 'CP nunca preenche consultora');
   assert.ok(cp.linhas.every(l => campo(l, 'empresa') === 'CROSSTAINER UNID. CAMPECHE (CP)'));
   assert.ok(!cp.avisos.some(a => /consultora/.test(a.motivo)), 'no CP a falta é conhecida, não vira aviso');
+  // e quem registrou o PAGAMENTO não vira vendedora pela porta dos fundos (Responsável)
+  cp.linhas.filter(l => PA.ehLinhaDeContrato(l)).forEach(l =>
+    assert.strictEqual(PA.vendedorDe(l, true).vendedor, '', 'CP: contrato ' + campo(l, 'contrato') + ' saiu com vendedora'));
   ok('no Campeche a consultora fica vazia e não usa quem lançou o pagamento');
 }
 
@@ -236,4 +239,47 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('consolidar por contrato: uma linha por contrato, valor somado, data mais antiga, avulsa intacta');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/13');
+/* 14. quem registrou o pagamento NUNCA vira vendedora de contrato.
+       No export, Responsável 1 = quem lançou o CONTRATO e Responsável 2 = quem
+       registrou o PAGAMENTO. A API punha o do pagamento nas duas; sem consultora,
+       o tradutor caía nele — set/2026 no PP, 8 vendas no nome errado, calado. */
+{
+  const r = resumoBase();
+  r.contratosLancados.push({ codigo: 9005, consultor: '', responsavelLancamento: 'CONSULTORA TESTE UM', aluno: aluno(507, 'X') });
+  r.pagamentos.push(
+    { codigo: 5, data: '05/08/2026', responsavelLancamento: 'CONSULTORA TESTE DOIS', unidadeCodigo: 1,
+      aluno: aluno(507, 'CLIENTE FICTICIO F'), formas: [{ formaPagamento: 'PIX', valor: 100 }],
+      parcelasPagas: [{ codigo: 51, codigoContrato: 9005, descricao: 'PARCELA 1', valor: 100 }] },
+    { codigo: 6, data: '05/08/2026', responsavelLancamento: 'CONSULTORA TESTE DOIS', unidadeCodigo: 1,
+      aluno: aluno(508, 'CLIENTE FICTICIO G'), formas: [{ formaPagamento: 'PIX', valor: 100 }],
+      parcelasPagas: [{ codigo: 61, codigoContrato: 9006, descricao: 'PARCELA 1', valor: 100 }] });
+  const cad = caderninho();
+  const plano = { situacaoContrato: 'Matrícula', nomePlano: 'HIIT/MAROMBINHA | ANUAL | LOCAL', numeroMeses: 12 };
+  cad.set('9005', L.limparContrato({ codigo: 9005, ...plano }, 'PP', null, 'CONSULTORA TESTE UM'));      // Pacto sem consultora
+  cad.set('9006', L.limparContrato({ codigo: 9006, ...plano }, 'PP', 'CONSULTORA TESTE TRES', 'CONSULTORA TESTE UM'));
+  const m = L.montar({ resumo: r, contratos: cad, unidade: 'PP', dia: '2026-08-05' });
+  const linha = c => m.linhas.find(l => campo(l, 'contrato') === c);
+
+  // sem consultora: nem quem lançou o contrato, nem quem registrou o pagamento
+  assert.strictEqual(PA.vendedorDe(linha('9005'), true).vendedor, '', 'sem consultora a venda fica sem vendedora');
+  assert.ok(m.avisos.some(a => a.contrato === '9005' && /consultora/.test(a.motivo)), 'e avisa');
+  // o robô do cartão continua marcado (é o que denuncia a cobrança recorrente)
+  assert.strictEqual(campo(linha('9002'), 'resp2'), 'RECORRENCIA');
+  assert.ok(PA.ehCobrancaRecorrente(linha('9002')));
+  assert.strictEqual(PA.vendedorDe(linha('9002'), true).vendedor, '');
+  // com consultora: as colunas repetem o export
+  assert.strictEqual(campo(linha('9006'), 'resp1'), 'CONSULTORA TESTE UM', 'Responsável 1 = quem lançou o contrato');
+  assert.strictEqual(campo(linha('9006'), 'resp2'), 'CONSULTORA TESTE DOIS', 'Responsável 2 = quem registrou o pagamento');
+  assert.strictEqual(PA.vendedorDe(linha('9006'), true).vendedor, 'CONSULTORA TESTE TRES');
+  // avulsa segue com quem vendeu no balcão
+  assert.strictEqual(PA.vendedorDe(pp.linhas.find(l => campo(l, 'nome') === 'CLIENTE FICTICIO C'), false).vendedor, 'CONSULTORA TESTE DOIS');
+
+  // a lista de lançados guarda consultora E quem lançou, inclusive sem consultora
+  const lanc = L.lancadosDoDia(r);
+  assert.deepStrictEqual(lanc.get('9005'), { consultor: null, lancou: 'CONSULTORA TESTE UM' });
+  assert.deepStrictEqual(lanc.get('9001'), { consultor: 'CONSULTORA TESTE UM', lancou: null });
+  assert.ok(!JSON.stringify([...lanc.values()]).includes(CPF));
+  ok('quem registrou o pagamento nunca vira vendedora de contrato; com consultora, Responsável 1 e 2 como no export');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/14');

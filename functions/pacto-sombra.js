@@ -6,7 +6,8 @@
 // Desenho: docs/superpowers/specs/2026-09-13-pacto-api-modo-sombra-design.md
 //
 // Grava em `pacto_sombra_dias/{CP|PP}_{AAAA-MM-DD}` e mantém o caderninho
-// `pacto_contratos/{CP|PP}_{codigo}`. Nada aqui toca em `periodos`, comissão
+// `pacto_contratos/{CP|PP}_{codigo}` (+ `pacto_consultoras`, a consultora do dia
+// em que o contrato foi lançado). Nada aqui toca em `periodos`, comissão
 // ou folha: o arquivo exportado continua sendo o oficial.
 //
 // Regras que o desenho fixou e os testes guardam:
@@ -24,6 +25,7 @@ const PACTO_UNIDADES = {
 };
 const COL_DIAS = 'pacto_sombra_dias';
 const COL_CONTRATOS = 'pacto_contratos';
+const COL_CONSULTORAS = 'pacto_consultoras';
 const MAX_DIAS = 62;
 const PARA_TUDO = ['credencial_recusada', 'limite'];
 
@@ -90,7 +92,25 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
     return { situacao: r.situacao, consultas: 0 };
   }
   const resumo = r.dados || {};
-  const lancados = L.consultoresLancados(resumo);
+  const lancados = L.lancadosDoDia(resumo);
+
+  // A consultora (e quem lançou o contrato) só vem na lista de LANÇADOS do dia
+  // em que o contrato nasce, e o pagamento costuma cair em outro dia. Guarda
+  // todos os do dia (número, consultora, quem lançou e dia — nada do aluno)
+  // para o pagamento que vier depois. Set/2026 no PP: 25 de 52 ativações
+  // ficavam sem consultora sem isto.
+  if (unidade !== 'CP') {
+    for (const [codigo, x] of lancados) {
+      await db.collection(COL_CONSULTORAS).doc(unidade + '_' + codigo).set({ codigo, unidade, ...x, dia });
+    }
+  }
+  const nada = { consultor: null, lancou: null };
+  const doLancamento = async codigo => {
+    if (unidade === 'CP') return nada;
+    if (lancados.has(codigo)) return lancados.get(codigo);
+    const s = await db.collection(COL_CONSULTORAS).doc(unidade + '_' + codigo).get();
+    return s.exists ? { consultor: s.data().consultor || null, lancou: s.data().lancou || null } : nada;
+  };
 
   // Contratos das parcelas pagas: o que o caderninho já tem e o que falta
   const alunoDoContrato = new Map();
@@ -104,10 +124,13 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
     const snap = await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).get();
     if (snap.exists) {
       let c = snap.data();
-      const doLancado = unidade !== 'CP' ? lancados.get(codigo) : null;
-      if (doLancado && !c.consultor) {                 // consultora apareceu depois
-        c = { ...c, consultor: doLancado };
-        await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(c);
+      if (!c.consultor || !c.lancou) {                 // consultora apareceu depois
+        const g = await doLancamento(codigo);
+        const novo = { ...c, consultor: c.consultor || g.consultor, lancou: c.lancou || g.lancou || null };
+        if (novo.consultor !== c.consultor || novo.lancou !== (c.lancou || null)) {
+          c = novo;
+          await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(c);
+        }
       }
       contratos.set(codigo, c);
     } else if (aluno != null) {
@@ -128,8 +151,8 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
     for (const bruto of rc.dados) {
       if (bruto == null || bruto.codigo == null) continue;
       const codigo = String(bruto.codigo);
-      const consultor = unidade !== 'CP' ? (lancados.get(codigo) || null) : null;
-      const limpo = { ...L.limparContrato(bruto, unidade, consultor), atualizadoEm: quando };
+      const g = await doLancamento(codigo);
+      const limpo = { ...L.limparContrato(bruto, unidade, g.consultor, g.lancou), atualizadoEm: quando };
       await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(limpo);
       contratos.set(codigo, limpo);
     }
@@ -163,4 +186,4 @@ async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
   return { resultados };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias };

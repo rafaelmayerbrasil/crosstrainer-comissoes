@@ -208,6 +208,47 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('dias a buscar: os últimos 3, intervalo cortado em ontem, máximo de 62');
   }
   {
+    // O contrato é LANÇADO num dia e PAGO em outro. A consultora só vem na lista de
+    // lançados do dia do lançamento — antes, só era guardada se o pagamento caísse
+    // no mesmo dia. Set/2026 no PP: 25 de 52 ativações sem consultora por isso.
+    const db = makeFakeDb();
+    let dia = '';
+    const p = pactoFalsa([
+      [/resumoPeriodo/, () => ({ body: dia === '2026-09-08'
+        ? resumoCom([], { contratosLancados: [{ codigo: 7010, consultor: 'CONSULTORA TESTE DOIS', aluno: aluno(510, 'X') }] })
+        : resumoCom([pagamento(1, 510, 7010, 239)]) })],
+      [/consultarContratos\?cliente=510/, { body: { return: [contratoBruto(7010)] } }],
+    ]);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const consultoraDoDia = async d => {
+      const doc = (await db.collection('pacto_sombra_dias').doc('PP_' + d).get()).data();
+      return JSON.parse(doc.linhas).map(l => l[21]);
+    };
+
+    // pago ANTES de o dia do lançamento ser buscado: fica sem consultora (e avisa)
+    dia = '2026-09-10'; await S.buscarDia({ db, cliente: c, unidade: 'PP', dia });
+    assert.deepStrictEqual(await consultoraDoDia('2026-09-10'), ['']);
+
+    // busca o dia do lançamento: a consultora fica guardada, sem CPF
+    dia = '2026-09-08'; await S.buscarDia({ db, cliente: c, unidade: 'PP', dia });
+    const guardada = (await db.collection('pacto_consultoras').doc('PP_7010').get()).data();
+    assert.strictEqual(guardada.consultor, 'CONSULTORA TESTE DOIS');
+    assert.ok(!JSON.stringify(guardada).includes('999.888.777-66'), 'CPF na coleção de consultoras');
+
+    // relê o dia do pagamento: agora sai com a consultora, e o caderninho aprende
+    dia = '2026-09-10'; await S.buscarDia({ db, cliente: c, unidade: 'PP', dia });
+    assert.deepStrictEqual(await consultoraDoDia('2026-09-10'), ['CONSULTORA TESTE DOIS']);
+    assert.strictEqual((await db.collection('pacto_contratos').doc('PP_7010').get()).data().consultor, 'CONSULTORA TESTE DOIS');
+
+    // contrato novo (fora do caderninho) pago depois do lançamento: já sai certo
+    const db2 = makeFakeDb();
+    dia = '2026-09-08'; await S.buscarDia({ db: db2, cliente: c, unidade: 'PP', dia });
+    dia = '2026-09-10'; await S.buscarDia({ db: db2, cliente: c, unidade: 'PP', dia });
+    const l2 = JSON.parse((await db2.collection('pacto_sombra_dias').doc('PP_2026-09-10').get()).data().linhas);
+    assert.strictEqual(l2[0][21], 'CONSULTORA TESTE DOIS');
+    ok('consultora do dia do lançamento vale para o pagamento de outro dia');
+  }
+  {
     // A Pacto lança a cobrança recorrente DIAS depois, com a data antiga: em set/2026
     // o CP perdeu 17 pagamentos (R$ 4.284,00) relendo só os 3 dias anteriores.
     // A rotina relê o mês inteiro; até o dia 10, o mês anterior junto (a virada).
@@ -236,5 +277,5 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('a busca das 4h usa a rotina do mês');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/16');
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/17');
 })().catch(e => { console.error(e); process.exit(1); });

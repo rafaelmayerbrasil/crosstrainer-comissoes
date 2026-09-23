@@ -3,7 +3,7 @@
 // Homologação do modo sombra no STAGING — chama a busca manual e resume
 // ═══════════════════════════════════════════════════════════════════════
 //
-//   node scripts/homologar-pacto-sombra.js --de 2026-08-01 --ate 2026-09-12 [--semana 7] [--so-resumo]
+//   node scripts/homologar-pacto-sombra.js --de 2026-08-01 --ate 2026-09-12 [--semana 7] [--unidade PP] [--so-resumo]
 //
 // Chama `buscarPactoSombraManual` como um admin de verdade (token temporário
 // gerado pelo Admin SDK, sem senha), em blocos de N dias — a primeira carga
@@ -54,7 +54,7 @@ async function chamar(tk, deBloco, ateBloco) {
   const t0 = Date.now();
   const r = await fetch(`https://${REGIAO}-${PROJECT}.cloudfunctions.net/buscarPactoSombraManual`, {
     method: 'POST', headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data: { de: deBloco, ate: ateBloco } }),
+    body: JSON.stringify({ data: { de: deBloco, ate: ateBloco, ...(arg('--unidade') ? { unidades: [arg('--unidade')] } : {}) } }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.error) throw new Error(`HTTP ${r.status} ${JSON.stringify(j.error || j).slice(0, 300)}`);

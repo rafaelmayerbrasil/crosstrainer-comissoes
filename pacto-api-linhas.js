@@ -75,7 +75,7 @@ const PactoApiLinhas = {
    * O que o caderninho de contratos guarda. Lista branca: só estes campos saem,
    * venha o que vier da Pacto.
    */
-  limparContrato(c, unidade, consultor) {
+  limparContrato(c, unidade, consultor, lancou) {
     return {
       codigo: String(c.codigo),
       unidade,
@@ -86,7 +86,23 @@ const PactoApiLinhas = {
       vigenciaAte: c.vigenciaAteAjustada || c.vigenciaAte || '',
       numeroMeses: c.numeroMeses == null ? null : c.numeroMeses,
       consultor: consultor || null,
+      lancou: lancou || null,          // quem lançou o contrato (Responsável 1 do export)
     };
+  },
+
+  /**
+   * contratosLancados → Map número do contrato → {consultor, lancou}. Entra
+   * também o contrato sem consultora (a Pacto devolve vazio em alguns). Nada
+   * do aluno sai daqui.
+   */
+  lancadosDoDia(resumo) {
+    const m = new Map();
+    ((resumo && resumo.contratosLancados) || []).forEach(c => {
+      if (c && c.codigo != null) {
+        m.set(String(c.codigo), { consultor: c.consultor || null, lancou: c.responsavelLancamento || null });
+      }
+    });
+    return m;
   },
 
   /** contratosLancados → Map número do contrato → consultora (vazio no Campeche) */
@@ -183,10 +199,24 @@ const PactoApiLinhas = {
           }
           // No Campeche a Pacto não entrega consultora (contratosLancados vem
           // vazio). NÃO usar quem lançou o pagamento: daria nome errado calado.
+          const consultor = unidade !== 'CP' ? (c && c.consultor) : null;
           if (unidade !== 'CP') {
-            const consultor = c && c.consultor;
             put('consultor', consultor || '');
             if (!consultor) avisos.push({ motivo: 'sem consultora conhecida para o contrato', contrato, recibo: p.codigo });
+          }
+          // As colunas Responsável também decidem vendedora quando a consultora
+          // falta (ou é o robô da Pacto). Com consultora: como no export, 1 = quem
+          // lançou o contrato, 2 = quem registrou o pagamento. Sem consultora:
+          // vazias — só o robô do cartão fica, porque é ele que marca a cobrança
+          // recorrente. Antes as duas levavam quem registrou o pagamento, e a
+          // venda saía no nome da recepção (set/2026, PP: 8 vendas).
+          const quemRegistrou = p.responsavelLancamento || '';
+          if (consultor) {
+            put('resp1', (c && c.lancou) || quemRegistrou);
+            put('resp2', quemRegistrou);
+          } else {
+            put('resp1', '');
+            put('resp2', /^RECORR[EÊ]NCIA$/i.test(quemRegistrou.trim()) ? quemRegistrou : '');
           }
         } else {
           put('produto', produtoDaParcela.get(String(x.codigo)) || x.descricao || '');
