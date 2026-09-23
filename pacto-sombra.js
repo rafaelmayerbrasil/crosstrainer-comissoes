@@ -77,9 +77,17 @@
     if (dias.some(d => d.situacao === 'credencial_recusada')) {
       alertas.push({ tipo: 'erro', texto: 'A Pacto recusou a credencial. Nenhuma busca vai funcionar até ela ser trocada no cofre do Firebase.' });
     }
-    const antigos = vermelhos.filter(d => d.dia < somarDias(hoje, -3));
+    // Mesma janela de `diasDaRotina` (functions/pacto-sombra.js): a madrugada relê
+    // o mês inteiro, e o anterior até o dia 10.
+    let inicioRotina = hoje.slice(0, 8) + '01';
+    if (Number(hoje.slice(8)) <= 10) inicioRotina = somarDias(inicioRotina, -1).slice(0, 8) + '01';
+    const antigos = vermelhos.filter(d => d.dia < inicioRotina);
+    const recentes = vermelhos.filter(d => d.dia >= inicioRotina);
     if (antigos.length) {
-      alertas.push({ tipo: 'erro', texto: `${antigos.length} dia(s) com falha há mais de 3 dias — a madrugada não refaz sozinha. Use "Buscar este mês agora": ${antigos.map(d => d.dia.slice(8)).join(', ')}.` });
+      alertas.push({ tipo: 'erro', texto: `${antigos.length} dia(s) com falha que a madrugada não relê mais. Use "Buscar este mês agora": ${antigos.map(d => d.dia.slice(8)).join(', ')}.` });
+    }
+    if (recentes.length) {
+      alertas.push({ tipo: 'aviso', texto: `${recentes.length} dia(s) com falha — a madrugada tenta de novo sozinha: ${recentes.map(d => d.dia.slice(8)).join(', ')}.` });
     }
     const vazios = dias.filter(d => d.situacao === 'vazio_conferir');
     if (vazios.length) {

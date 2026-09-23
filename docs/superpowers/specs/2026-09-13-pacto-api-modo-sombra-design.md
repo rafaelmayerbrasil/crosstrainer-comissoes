@@ -112,7 +112,7 @@ PactoApiLinhas.montar({ resumo, contratos, unidade, dia }) → {
 ### 4. Cloud Functions (em `functions/index.js`)
 | função | quando | o que faz |
 |---|---|---|
-| `buscarPactoSombra` | `onSchedule` todo dia 04:00 (America/Sao_Paulo) | rebusca **os 3 dias anteriores** das duas unidades |
+| `buscarPactoSombra` | `onSchedule` todo dia 04:00 (America/Sao_Paulo) | relê **o mês inteiro até ontem** (e o anterior, até o dia 10) das duas unidades — era 3 dias até 22/09, ver abaixo |
 | `buscarPactoSombraManual` | `onCall`, **só admin** | `{ de, ate, unidades? }`, no máximo 62 dias por chamada; `ate` é cortado em **ontem** |
 
 Credencial via `defineSecret('PACTO_API_KEY')`. As chaves das unidades não são segredo e ficam no
@@ -225,11 +225,11 @@ abaixo.
 | `limite` | a Pacto avisou limite — a busca para **na hora**, não insiste |
 | `parcial` | o resumo veio, mas algum contrato não pôde ser consultado; as linhas sem plano vão para `avisos` e **não contam como ativação** |
 
-- A madrugada **rebusca os 3 dias anteriores**; rebuscar **substitui**.
+- A madrugada **relê o mês inteiro** (e o anterior até o dia 10); rebuscar **substitui**. **Mudou em 22/09/2026:** com 3 dias, o CP perdeu 17 pagamentos (R$ 4.284,00) em setembro — a Pacto lança a cobrança recorrente dias depois, com a data antiga. 21 dias × 2 unidades levam ~3 min com o caderninho cheio.
 - **O dia corrente nunca é buscado.**
 - Uma unidade falhar não derruba a outra (exceto `credencial_recusada` e `limite`, que valem para a
   credencial inteira).
-- Dia vermelho com mais de 3 dias só se refaz pelo botão; a tela lista quais são.
+- Dia vermelho de antes da janela da madrugada só se refaz pelo botão; a tela lista quais são (os de dentro, ela avisa que a madrugada tenta de novo).
 - **Tempo (medido na homologação, 13/09):** a primeira carga consulta cada cliente novo, com 2 s
   de pausa — a semana 01→07/08 levou **296 s**, e 08→14/08 passou de 300 s. Por isso a busca manual
   tem limite de **60 min** e a agendada de **30 min**. O `fetch` do Node desiste de esperar em

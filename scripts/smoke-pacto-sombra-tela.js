@@ -88,12 +88,18 @@ for (const { f } of nossos.filter(x => x.f !== 'firebase-config.js')) {
   ok('a grade vai até ontem e dia sem documento aparece como "não buscado", nunca como zero');
 
   const alertas = T.alertasDosDias(dias, '2026-08-10');
-  assert.ok(alertas.some(a => a.tipo === 'erro' && /mais de 3 dias/.test(a.texto) && /02/.test(a.texto)), 'falha antiga vira alerta');
+  // A madrugada relê o mês inteiro (e o anterior até o dia 10): falha dentro dessa
+  // janela ela refaz sozinha; só a de antes precisa do botão.
+  assert.ok(alertas.some(a => a.tipo === 'aviso' && /madrugada tenta de novo/.test(a.texto) && /02/.test(a.texto)), 'falha dentro da releitura: aviso');
+  assert.ok(!alertas.some(a => a.tipo === 'erro'), 'falha dentro da releitura não é erro');
+  const fora = T.alertasDosDias([{ dia: '2026-08-02', situacao: 'falhou' }], '2026-09-15');
+  assert.ok(fora.some(a => a.tipo === 'erro' && /não relê mais/.test(a.texto) && /02/.test(a.texto)), 'falha fora da releitura vira erro');
+  assert.ok(T.alertasDosDias([{ dia: '2026-08-02', situacao: 'falhou' }], '2026-09-10').every(a => a.tipo !== 'erro'), 'até o dia 10 o mês anterior ainda é relido');
   assert.ok(alertas.some(a => /sem nenhum pagamento/.test(a.texto) && /03/.test(a.texto)), 'vazio vira alerta');
   const cred = T.alertasDosDias([{ dia: '2026-08-09', situacao: 'credencial_recusada' }], '2026-08-10');
   assert.ok(cred.some(a => /recusou a credencial/.test(a.texto)));
   assert.strictEqual(T.alertasDosDias([{ dia: '2026-08-09', situacao: 'buscado' }], '2026-08-10').length, 0);
-  ok('alertas: falha com mais de 3 dias, dia vazio e credencial recusada; dia bom não alerta');
+  ok('alertas: falha fora da releitura da madrugada, dia vazio e credencial recusada; dia bom não alerta');
 }
 
 /* 4. a tela só escreve por um caminho: a função manual da sombra */

@@ -57,6 +57,19 @@ function diasParaBuscar({ hoje, de, ate, ultimos }) {
   return dias;
 }
 
+/**
+ * Dias que a busca das 4h relê: do dia 1º do mês até ontem; até o dia 10, do
+ * dia 1º do mês ANTERIOR. A Pacto lança a cobrança recorrente dias depois, com
+ * a data antiga — relendo só os 3 dias anteriores, o CP perdeu 17 pagamentos
+ * (R$ 4.284,00) em set/2026. Pior caso: 31 + 9 = 40 dias, dentro de MAX_DIAS.
+ */
+function diasDaRotina(hoje) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(hoje))) throw new Error('diasDaRotina: hoje inválido');
+  let ini = hoje.slice(0, 8) + '01';
+  if (Number(hoje.slice(8)) <= 10) ini = somarDias(ini, -1).slice(0, 8) + '01';
+  return diasParaBuscar({ hoje, de: ini });
+}
+
 async function gravarDia(db, unidade, dia, doc) {
   // `set` sem merge: o dia rebuscado substitui o anterior inteiro
   await db.collection(COL_DIAS).doc(unidade + '_' + dia).set({ unidade, dia, ...doc });
@@ -150,4 +163,4 @@ async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
   return { resultados };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, MAX_DIAS, diasParaBuscar, buscarDia, buscar, somarDias };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias };

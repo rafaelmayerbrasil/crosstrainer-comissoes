@@ -2147,16 +2147,17 @@ async function rodarSombra(dias, unidades) {
   return r;
 }
 
-// Todo dia às 4h: rebusca os 3 dias anteriores (pega lançamento retroativo e
-// refaz o dia que falhou). O dia corrente nunca entra.
+// Todo dia às 4h: relê o mês inteiro até ontem (e o anterior, até o dia 10).
+// A Pacto lança cobrança recorrente dias depois com a data antiga — relendo só
+// 3 dias, o CP perdeu R$ 4.284,00 em set/2026. O dia corrente nunca entra.
 exports.buscarPactoSombra = onSchedule({
   schedule: '0 4 * * *',
   timeZone: 'America/Sao_Paulo',
   secrets: [PACTO_API_KEY],
-  timeoutSeconds: 1800,   // 3 dias costumam levar segundos; folga para dia com muito contrato novo
+  timeoutSeconds: 1800,   // 21 dias × 2 unidades levaram 2min48s com o caderninho cheio; pior caso 40 dias
   memory: '512MiB',
 }, async () => {
-  const dias = pactoSombra.diasParaBuscar({ hoje: hojeSaoPaulo(), ultimos: 3 });
+  const dias = pactoSombra.diasDaRotina(hojeSaoPaulo());
   await rodarSombra(dias, ['CP', 'PP']);
 });
 

@@ -207,6 +207,34 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     assert.throws(() => S.diasParaBuscar({ hoje: '13/09/2026', ultimos: 3 }), /inválido/);
     ok('dias a buscar: os últimos 3, intervalo cortado em ontem, máximo de 62');
   }
+  {
+    // A Pacto lança a cobrança recorrente DIAS depois, com a data antiga: em set/2026
+    // o CP perdeu 17 pagamentos (R$ 4.284,00) relendo só os 3 dias anteriores.
+    // A rotina relê o mês inteiro; até o dia 10, o mês anterior junto (a virada).
+    const r22 = S.diasDaRotina('2026-09-22');
+    assert.strictEqual(r22[0], '2026-09-01');
+    assert.strictEqual(r22[r22.length - 1], '2026-09-21', 'nunca hoje');
+    assert.strictEqual(r22.length, 21);
+    const r10 = S.diasDaRotina('2026-09-10');
+    assert.strictEqual(r10[0], '2026-08-01', 'até o dia 10 relê o mês anterior');
+    assert.strictEqual(r10[r10.length - 1], '2026-09-09');
+    assert.strictEqual(S.diasDaRotina('2026-09-11')[0], '2026-09-01', 'do dia 11 em diante, só o mês');
+    const r1 = S.diasDaRotina('2026-10-01');
+    assert.strictEqual(r1[0], '2026-09-01'); assert.strictEqual(r1[r1.length - 1], '2026-09-30');
+    const jan = S.diasDaRotina('2027-01-05');
+    assert.strictEqual(jan[0], '2026-12-01', 'vira o ano');
+    // o pior caso cabe no limite de dias por vez
+    assert.strictEqual(S.diasDaRotina('2026-08-10').length, 31 + 9);
+    assert.throws(() => S.diasDaRotina('22/09/2026'), /inválido/);
+    ok('rotina diária: relê o mês inteiro, e o anterior até o dia 10');
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/14');
+    // e é ela que a função agendada usa
+    const idx = require('fs').readFileSync(fn('index.js'), 'utf8');
+    const agendada = idx.slice(idx.indexOf('exports.buscarPactoSombra ='), idx.indexOf('exports.buscarPactoSombraManual'));
+    assert.ok(/diasDaRotina\(hojeSaoPaulo\(\)\)/.test(agendada), 'a agendada chama diasDaRotina');
+    assert.ok(!/ultimos:/.test(agendada), 'a agendada não usa mais a janela de N dias');
+    ok('a busca das 4h usa a rotina do mês');
+  }
+
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/16');
 })().catch(e => { console.error(e); process.exit(1); });
