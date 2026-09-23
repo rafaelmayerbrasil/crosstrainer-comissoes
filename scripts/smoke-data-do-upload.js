@@ -93,4 +93,91 @@ caso('o painel usa dataDoUpload, não o campo cru', () => {
   assert.ok(/recebidosAtualizadosEm:\s*dataDoUpload\(pData\)/.test(corpo), 'recebidosAtualizadosEm não passa por dataDoUpload');
 });
 
-console.log(`\nsmoke-data-do-upload: ${passos}/${passos} ✅`);
+// ─── 3. "até" é o último dia DENTRO do relatório, não o dia do upload ─
+// O Rafael pegou ao homologar (23/09/2026): export tirado em 22/09 e subido
+// em 23/09 aparecia como "recebimentos até 23/09" — e não há nada do dia 23.
+const vm = require('vm');
+const recortar = nome => {
+  const ini = html.indexOf(nome);
+  assert.ok(ini >= 0, nome + ' não existe no index.html');
+  let nivel = 0, fim = -1;
+  for (let j = html.indexOf('{', ini); j < html.length; j++) {
+    if (html[j] === '{') nivel++;
+    else if (html[j] === '}') { nivel--; if (!nivel) { fim = j + 1; break; } }
+  }
+  return html.slice(ini, fim);
+};
+const ctx = {
+  console,
+  VendasAguardando: require(path.join(__dirname, '..', 'vendas-aguardando.js')),
+  CommissionEngine: require(path.join(__dirname, '..', 'commission.js')),
+  unitConfig: {}, currentUnitId: 'cp', currentVendidoXPago: null, db: null,
+};
+vm.createContext(ctx);
+['function dataDoUpload(', 'function ultimoDia(', 'async function carregarVendidoXPago(', 'function blocoVendidoXPago(']
+  .forEach(n => vm.runInContext(recortar(n), ctx));
+
+caso('ultimoDia pega o dia mais recente e ignora o que não é data', () => {
+  const d = ctx.ultimoDia(['01/09/2026', '22/09/2026', '', null, 'lixo', '15/09/2026 10:30']);
+  assert.strictEqual(d.toLocaleDateString('pt-BR'), '22/09/2026');
+  assert.strictEqual(ctx.ultimoDia([]), null);
+  assert.strictEqual(ctx.ultimoDia(undefined), null);
+  // atravessa o mês e o ano sem comparar texto (texto diria 31/08 > 01/09)
+  assert.strictEqual(ctx.ultimoDia(['31/08/2026', '01/09/2026']).toLocaleDateString('pt-BR'), '01/09/2026');
+});
+
+// banco falso, só o que o carregador usa
+const snapDe = docs => ({ forEach: fn => docs.forEach(fn), docs, size: docs.length });
+const docDe = (id, dados) => ({ id, exists: !!dados, data: () => dados });
+const fakeDb = (periodos, itens) => ({
+  collection(nome) {
+    if (nome === 'periodos') return {
+      doc: id => ({
+        get: async () => docDe(id, periodos[id]),
+        collection: () => ({ get: async () => snapDe((itens[id] || []).map((x, i) => docDe('i' + i, x))) }),
+      }),
+      where: (campo, _op, valor) => ({ get: async () =>
+        snapDe(Object.entries(periodos).filter(([, p]) => p[campo] === valor).map(([id, p]) => docDe(id, p))) }),
+    };
+    if (nome === 'vendas_conferencia') return { where: () => ({ get: async () => snapDe([]) }) };
+    throw new Error('coleção inesperada: ' + nome);
+  },
+});
+
+(async () => {
+  const venda = (contrato, cliente, data) => ({ contrato, cliente, clienteOriginal: cliente, vendedores: ['ERICA'],
+    data, inicio: data, situacao: 'Matrícula', plano: 'X | MENSAL', valorContrato: 100 });
+  ctx.db = fakeDb({
+    'cp_2026-09': {
+      unitId: 'cp', year: 2026, month: 9,
+      uploadId: 'mudcvd06gfirr', uploadDate: { _methodName: 'FieldValue.serverTimestamp' },
+      // subido em 23/09. O Date nasce DENTRO do contexto, como no navegador
+      // (um Date de fora falha no `instanceof Date` de lá).
+      vendasAtualizadasEm: { toDate: () => vm.runInContext('new Date(2026, 8, 23, 20, 40)', ctx) },
+      vendasDoMes: [venda('C1', 'ANA', '01/09/2026'), venda('C2', 'BIA', '21/09/2026')],
+      codigosPagos: ['C1'],
+    },
+  }, {
+    'cp_2026-09': [
+      { type: 'processed', codigo: 'C1', cliente: 'ANA', data: '01/09/2026', valorCaixa: 100, vendedor: 'ERICA' },
+      { type: 'processed', codigo: 'A9', cliente: 'PASSANTE', data: '20/09/2026', valorCaixa: 5 },
+      { type: 'excluded', codigo: 'C3', cliente: 'CARLA', data: '22/09/2026', valorCaixa: 7 },
+    ],
+  });
+  const d = await ctx.carregarVendidoXPago('cp_2026-09');
+
+  caso('o carregador devolve o último dia de cada relatório', () => {
+    assert.strictEqual(d.vendasAte.toLocaleDateString('pt-BR'), '21/09/2026');
+    // a linha excluída também estava no arquivo
+    assert.strictEqual(d.recebidosAte.toLocaleDateString('pt-BR'), '22/09/2026');
+  });
+  caso('o quadro diz "até" com o dia DOS DADOS, e o dia do upload fica só na dica', () => {
+    const bloco = ctx.blocoVendidoXPago(d, {});
+    const visivel = bloco.replace(/title="[^"]*"/g, '');
+    assert.ok(/vendas até 21\/09\/2026 · recebimentos até 22\/09\/2026/.test(visivel),
+      'texto visível errado: ' + (visivel.match(/vendas até[^<]*/) || [''])[0].trim());
+    assert.ok(!/23\/09\/2026/.test(visivel), 'o dia do upload (23/09) não pode aparecer como "até"');
+    assert.ok(/title="[^"]*subidos em[^"]*23\/09\/2026/.test(bloco), 'a dica deve dizer quando o arquivo subiu: ' + (bloco.match(/title="[^"]*"/g) || []).join(' | '));
+  });
+  console.log(`\nsmoke-data-do-upload: ${passos}/${passos} ✅`);
+})().catch(e => { console.error(e); process.exit(1); });

@@ -7607,6 +7607,24 @@
       return null;
     }
 
+    // O dia mais recente entre datas "dd/mm/aaaa" (Date ou null).
+    //
+    // É isto que o painel chama de "até": o último dia que APARECE no
+    // relatório. A data do upload não serve — um export tirado em 22/09 e
+    // subido em 23/09 não tem nada do dia 23 (o Rafael pegou isso ao
+    // homologar, 23/09/2026). Dia sem movimento no fim (domingo) faz a data
+    // cair antes do corte, e continua verdade: não há dado depois dela.
+    function ultimoDia(datas) {
+      let max = null;
+      (datas || []).forEach(s => {
+        const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (!m) return;
+        const d = new Date(+m[3], +m[2] - 1, +m[1]);
+        if (!max || d > max) max = d;
+      });
+      return max;
+    }
+
     // ══════════════════════════════════════════════════════════════════
     // Painel "vendido × pago" — a leitura única
     // ══════════════════════════════════════════════════════════════════
@@ -7617,7 +7635,9 @@
     //
     // @param {string} periodId
     // @returns {{temLista, cruzado, resumo, porVendedora, fechado,
-    //            vendasAtualizadasEm, recebidosAtualizadosEm, unitId, year, month}}
+    //            vendasAtualizadasEm, recebidosAtualizadosEm,   ← quando cada arquivo SUBIU
+    //            vendasAte, recebidosAte,                       ← último dia DENTRO de cada arquivo
+    //            unitId, year, month}}
     async function carregarVendidoXPago(periodId) {
       const pDoc = await db.collection('periodos').doc(periodId).get();
       const pData = pDoc.exists ? pDoc.data() : {};
@@ -7673,8 +7693,12 @@
       // Vai o lançamento INTEIRO, não só o nome: é ele que a tela mostra como
       // prova ao lado da pergunta, em vez de mandar a gestão procurar na Pacto.
       const clientesPagantes = [];
+      const datasRecebidas = [];
       itensSnap.forEach(d => {
         const it = d.data();
+        // Toda linha do arquivo conta para saber até que dia ele vai — a
+        // excluída também estava lá.
+        datasRecebidas.push(it.data);
         if ((it.type || 'processed') !== 'processed') return;
         if (!/^C\d+/i.test(String(it.codigo || ''))) return;
         // `vendedor` vai junto de propósito: quando o dinheiro entrou no nome
@@ -7711,6 +7735,8 @@
 
       currentVendidoXPago = {
         ...base, temLista: true, cruzado, conferencias,
+        vendasAte: ultimoDia(vendas.map(v => v.data)),
+        recebidosAte: ultimoDia(datasRecebidas),
         resumo: VendasAguardando.resumo(cruzado),
         porVendedora: VendasAguardando.contarPorVendedora(cruzado, cfg.naoComissionaveis),
       };
@@ -7779,8 +7805,8 @@
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:18px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:12px">
           <div style="font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">${titulo}</div>
-          <div style="font-size:10.5px;color:var(--text3)">
-            vendas até ${dt(d.vendasAtualizadasEm)} · recebimentos até ${dt(d.recebidosAtualizadosEm)}
+          <div style="font-size:10.5px;color:var(--text3)" title="Último dia que aparece em cada relatório. Arquivos subidos em: vendas ${dt(d.vendasAtualizadasEm)} · recebimentos ${dt(d.recebidosAtualizadosEm)}">
+            vendas até ${dt(d.vendasAte)} · recebimentos até ${dt(d.recebidosAte)}
           </div>
         </div>
         <div style="display:flex;justify-content:space-around;align-items:flex-start">
