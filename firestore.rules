@@ -251,6 +251,14 @@ service cloud.firestore {
       allow read:  if isAuth() && isAdmin();
       allow write: if false;
     }
+    // Termômetro do mês (22/09/2026): SÓ totais da unidade, sem nome de cliente
+    // nem de vendedora — por isso a supervisão também lê. Quem grava é a Cloud
+    // Function. `pacto_consultoras` não tem regra de propósito: fica fechada
+    // pela regra final (só a Function usa).
+    match /pacto_termometro/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv());
+      allow write: if false;
+    }
 
     // ─── Banco de horas do estagiário (bloco 2, 07/08/2026) ───────────
     // Quem escreve é SÓ o fechamento, pela Cloud Function (Admin SDK ignora

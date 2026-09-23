@@ -16,7 +16,22 @@ nada no `main` nem em produção. **Enviados ao GitHub em 22/09** (`origin/pacto
 3. **Mensagem para a Pacto** (via Rodrigo) com os 2 pontos que ela NÃO respondeu: contratos vazios do
    Campeche (sem consultora) e renovação das unidades. A resposta de 22/09 ("consultar por unidade, com a
    chave de cada uma") é o que já fazemos desde 13/09.
-4. **6 contratos do PP não têm consultora nem na API** (código de consultor 0 na lista de lançados), mas o
+5. 🌡️ **Termômetro do mês — NO STAGING** (pedido do Rafael: "pode construir no staging, só pra gestão").
+   `https://crosstrainer-comissoes-staging.web.app/termometro.html` — página separada (o `index.html` não
+   foi tocado; **perguntar se quer atalho lá dentro**). Por unidade: ativações contra Meta/Super/Gold e quanto
+   falta, as 3 travas do prêmio (novos+retorno, renovações, vouchers) com quanto o prêmio cai, dinheiro
+   recebido, até que dia há dado, se a meta do mês foi configurada. **Nada por vendedora, nada de comissão.**
+   Calculado na Cloud Function depois de cada busca → `pacto_termometro/{CP|PP}_{mês}` (só totais; lê admin e
+   supervisão, REST 16/16 com usuários de teste criados e apagados). Mesma conta do upload oficial, **com o
+   regime de caixa**; gêmeos `functions/pacto-adapter.js`, `functions/commission.js`,
+   `functions/pacto-termometro.js` guardados por teste. **Prova contra o oficial de produção (só leitura):
+   setembro com os contratos já pagos de produção dá CP 53 (29·20·4) e PP 40 (25·12·3) — idêntico ao
+   período oficial.** No staging aparece 54 e 42 porque o histórico de pagos de lá é outro. Testes:
+   `smoke-pacto-termometro.js` 9/9 (6 sabotagens, todas pegas), `smoke-termometro-tela.js` 9/9; suíte 86/87
+   (só o `smoke-9.js`, que pede `--project`). Olhado no celular e no computador por prévia local; **o login
+   de verdade na página é do Rafael**. Para produção: homologação dele + credencial da Pacto no cofre de
+   produção + deploy de regras (rodar `validate-rules-comissoes.js` antes) e das functions.
+6. **6 contratos do PP não têm consultora nem na API** (código de consultor 0 na lista de lançados), mas o
    export mostra um nome — o export tira de outro lugar (cadastro do aluno?). Ficam "Sem Vendedor" pela API.
    Pergunta candidata para a Pacto.
 

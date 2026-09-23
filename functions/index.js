@@ -2144,6 +2144,18 @@ async function rodarSombra(dias, unidades) {
     dias: dias.length, chamadas: cliente.chamadas, parouPor: r.parouPor || null,
     situacoes: r.resultados.map(x => x.unidade + ' ' + x.dia + ' ' + x.situacao),
   });
+  // Termômetro do mês (só totais, lido pela gestão). Falhar aqui não pode
+  // derrubar a busca, que já gravou os dias.
+  try {
+    const meses = [...new Set(dias.map(d => d.slice(0, 7)))];
+    const feitos = await pactoSombra.atualizarTermometro({
+      db: db(), unidades, meses, hoje: hojeSaoPaulo(),
+      agora: () => admin.firestore.FieldValue.serverTimestamp(),
+    });
+    logger.info('pacto termometro', { docs: feitos.map(f => f.id) });
+  } catch (e) {
+    logger.error('pacto termometro falhou', { erro: String(e && e.message || e) });
+  }
   return r;
 }
 

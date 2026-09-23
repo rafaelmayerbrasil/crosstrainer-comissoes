@@ -26,6 +26,7 @@ const PACTO_UNIDADES = {
 const COL_DIAS = 'pacto_sombra_dias';
 const COL_CONTRATOS = 'pacto_contratos';
 const COL_CONSULTORAS = 'pacto_consultoras';
+const COL_TERMOMETRO = 'pacto_termometro';
 const MAX_DIAS = 62;
 const PARA_TUDO = ['credencial_recusada', 'limite'];
 
@@ -173,6 +174,50 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
   return { situacao, consultas };
 }
 
+/**
+ * Termômetro do mês: grava `pacto_termometro/{CP|PP}_{AAAA-MM}` só com totais
+ * da unidade (lido pela supervisão — nenhum nome). Mesma configuração que o
+ * `index.html` soma: padrão do motor + `units/{id}.config` + `metasMensais` do
+ * período do mês; e os contratos comissionados nos meses ANTERIORES (o recorte
+ * é o mesmo do upload: os códigos do próprio mês não barram as próprias linhas).
+ * Desenho: docs/superpowers/specs/2026-09-22-termometro-do-mes-design.md
+ */
+async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, agora }) {
+  const PA = require('./pacto-adapter.js');
+  const CE = require('./commission.js');
+  const T = require('./pacto-termometro.js');
+  const quando = agora ? agora() : new Date().toISOString();
+  const units = (await db.collection('units').get()).docs;
+  const feitos = [];
+  for (const unidade of unidades) {
+    const u = units.find(d => PA.siglaDaUnidade(d.id, [unidade]) === unidade);
+    const unitId = u ? u.id : null;
+    const unitConfig = (u && u.data().config) || {};
+    const periodos = unitId ? (await db.collection('periodos').where('unitId', '==', unitId).get()).docs : [];
+    const docs = (await db.collection(COL_DIAS).where('unidade', '==', unidade).get()).docs.map(d => d.data());
+    for (const mes of meses) {
+      const codigosPagos = [];
+      let metasMensais = null;
+      periodos.forEach(p => {
+        const m = String(p.id).match(/(\d{4}-\d{2})$/);
+        if (!m) return;
+        if (m[1] < mes) (p.data().codigosPagos || []).forEach(c => codigosPagos.push(c));
+        if (p.id === unitId + '_' + mes) metasMensais = p.data().metasMensais || null;
+      });
+      const metaDoMes = !!(metasMensais && Object.keys(metasMensais).length);
+      const r = T.calcularMes({
+        docs, mes, unidade, hoje, codigosPagos,
+        config: { ...unitConfig, ...(metasMensais || {}) }, metaDoMes,
+        Adapter: PA, Engine: CE, ApiLinhas: L,
+      });
+      const id = unidade + '_' + mes;
+      await db.collection(COL_TERMOMETRO).doc(id).set({ ...r, unitId, hoje, atualizadoEm: quando });
+      feitos.push({ id });
+    }
+  }
+  return feitos;
+}
+
 /** Percorre dias × unidades; para tudo na primeira credencial recusada ou limite. */
 async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
   const resultados = [];
@@ -186,4 +231,4 @@ async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
   return { resultados };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias, atualizarTermometro };

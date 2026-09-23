@@ -13,7 +13,9 @@
 //  • admin LÊ pacto_sombra_dias e pacto_contratos;
 //  • professor (não admin) NÃO lê;
 //  • ninguém grava pelo navegador, nem admin;
-//  • sem login, nada.
+//  • sem login, nada;
+//  • termômetro (só totais): admin e SUPERVISÃO leem; professor e vendedora não;
+//  • pacto_consultoras não tem regra: ninguém lê pelo navegador, nem admin.
 
 const fs = require('fs');
 const path = require('path');
@@ -72,6 +74,9 @@ async function usuarioComPerfil(perfil, semPerfil) {
   const DIA = 'zzfix_2026-08-01', CONTRATO = 'zzfix_1';
   await db.collection('pacto_sombra_dias').doc(DIA).set({ _fixture: true, unidade: 'zz', dia: '2026-08-01', situacao: 'buscado' });
   await db.collection('pacto_contratos').doc(CONTRATO).set({ _fixture: true, codigo: '1' });
+  const TERMO = 'zzfix_2026-08', CONSULTORA = 'zzfix_1', SUP = 'zzfix-supervisao', VEND = 'zzfix-vendedora';
+  await db.collection('pacto_termometro').doc(TERMO).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
+  await db.collection('pacto_consultoras').doc(CONSULTORA).set({ _fixture: true, codigo: '1' });
   try {
     const uidAdmin = await usuarioComPerfil('admin');
     const uidProf = await usuarioComPerfil('professor', ['admin', 'supervisao']);
@@ -86,11 +91,30 @@ async function usuarioComPerfil(perfil, semPerfil) {
     expect('admin NÃO grava pacto_sombra_dias pelo navegador', await gravar(tkAdmin, `pacto_sombra_dias/${DIA}`), 'NEGADO');
     expect('admin NÃO grava pacto_contratos pelo navegador', await gravar(tkAdmin, `pacto_contratos/${CONTRATO}`), 'NEGADO');
     expect('sem login NÃO lê', await ler(null, `pacto_sombra_dias/${DIA}`), 'NEGADO');
+    // Staging não tem usuário SÓ de supervisão nem só vendedora: fixtures, apagadas no fim
+    await db.collection('users').doc(SUP).set({ _fixture: true, name: 'ZZ FIXTURE SUPERVISAO', profiles: ['supervisao'], status: 'ativo' });
+    await db.collection('users').doc(VEND).set({ _fixture: true, name: 'ZZ FIXTURE VENDEDORA', role: 'vendedor', profiles: ['vendedor'], status: 'ativo' });
+    const tkSup = await tokenDe(SUP);
+    const uidVend = VEND;
+    expect('admin lê pacto_termometro', await ler(tkAdmin, `pacto_termometro/${TERMO}`), 'OK');
+    expect('supervisão lê pacto_termometro', await ler(tkSup, `pacto_termometro/${TERMO}`), 'OK');
+    expect('supervisão NÃO lê pacto_sombra_dias (tem nome de cliente)', await ler(tkSup, `pacto_sombra_dias/${DIA}`), 'NEGADO');
+    expect('professor NÃO lê pacto_termometro', await ler(tkProf, `pacto_termometro/${TERMO}`), 'NEGADO');
+    if (uidVend) expect('vendedora NÃO lê pacto_termometro', await ler(await tokenDe(uidVend), `pacto_termometro/${TERMO}`), 'NEGADO');
+    expect('admin NÃO grava pacto_termometro pelo navegador', await gravar(tkAdmin, `pacto_termometro/${TERMO}`), 'NEGADO');
+    expect('supervisão NÃO grava pacto_termometro', await gravar(tkSup, `pacto_termometro/${TERMO}`), 'NEGADO');
+    expect('admin NÃO lê pacto_consultoras pelo navegador', await ler(tkAdmin, `pacto_consultoras/${CONSULTORA}`), 'NEGADO');
     const intacto = (await db.collection('pacto_sombra_dias').doc(DIA).get()).data();
     expect('a tentativa de gravação não alterou o documento', intacto.invasao === undefined, true);
   } finally {
     await db.collection('pacto_sombra_dias').doc(DIA).delete();
     await db.collection('pacto_contratos').doc(CONTRATO).delete();
+    await db.collection('pacto_termometro').doc(TERMO).delete();
+    await db.collection('pacto_consultoras').doc(CONSULTORA).delete();
+    for (const uid of [SUP, VEND]) {
+      await db.collection('users').doc(uid).delete();
+      await admin.auth().deleteUser(uid).catch(() => {});   // o login por token cria a conta no Auth
+    }
     console.log('\nfixture removida');
   }
   console.log(`\n${checks - fails}/${checks} verificações passaram`);
