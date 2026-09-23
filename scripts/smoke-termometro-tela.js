@@ -118,4 +118,31 @@ const doc = {
   ok('a página só lê pacto_termometro');
 }
 
-console.log('\n✅ smoke-termometro-tela: ' + n + '/9');
+/* 9. o atalho no menu de Comissões: a função REAL do index.html, chamada com
+      admin e com vendedora (recorte por regex, não por '\n    }\n' — o arquivo
+      pode estar em CRLF) */
+{
+  const idx = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
+  const fonte = idx.match(/function buildSidebar\(\) \{[\s\S]*?\n\s*function sbItem\([\s\S]*?\n\s*\}\r?\n/);
+  assert.ok(fonte, 'não achei buildSidebar + sbItem no index.html');
+  const menuDe = perfil => {
+    const nav = { innerHTML: '' };
+    const sb = {
+      document: { getElementById: id => (id === 'sidebarNav' ? nav : null) },
+      userProfile: perfil, currentUser: { email: 'x@x' }, currentPage: 'dashboard',
+      isOwner: () => false, UserModel: { deriveUserModel: () => ({ moduleAccess: { comissoes: true } }) },
+    };
+    vm.createContext(sb);
+    vm.runInContext(fonte[0] + '\nbuildSidebar();', sb);
+    return nav.innerHTML;
+  };
+  const admin = menuDe({ role: 'admin', profiles: ['admin'] });
+  assert.ok(/href="termometro\.html"/.test(admin), 'admin vê o atalho');
+  assert.ok(admin.indexOf('termometro.html') > admin.indexOf("'upload'") && admin.indexOf('termometro.html') < admin.indexOf('sb-section">Admin'),
+    'o atalho fica na seção Gestão, depois do Upload');
+  assert.ok(!/termometro/.test(menuDe({ role: 'vendedor', profiles: ['vendedor'] })), 'vendedora não vê');
+  assert.ok(/href="index\.html"/.test(html), 'o termômetro tem o caminho de volta para Comissões');
+  ok('menu de Comissões: atalho para o termômetro só na gestão; e o termômetro volta para Comissões');
+}
+
+console.log('\n✅ smoke-termometro-tela: ' + n + '/10');

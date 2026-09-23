@@ -17,8 +17,9 @@ nada no `main` nem em produção. **Enviados ao GitHub em 22/09** (`origin/pacto
    Campeche (sem consultora) e renovação das unidades. A resposta de 22/09 ("consultar por unidade, com a
    chave de cada uma") é o que já fazemos desde 13/09.
 5. 🌡️ **Termômetro do mês — NO STAGING** (pedido do Rafael: "pode construir no staging, só pra gestão").
-   `https://crosstrainer-comissoes-staging.web.app/termometro.html` — página separada (o `index.html` não
-   foi tocado; **perguntar se quer atalho lá dentro**). Por unidade: ativações contra Meta/Super/Gold e quanto
+   `https://crosstrainer-comissoes-staging.web.app/termometro.html` — página separada, com **atalho no menu
+   de Comissões** (seção Gestão, depois do Upload, só admin — autorizado pelo Rafael; 2 linhas no `index.html`,
+   testadas chamando o `buildSidebar` real com admin e com vendedora) e "← Comissões" para voltar. Por unidade: ativações contra Meta/Super/Gold e quanto
    falta, as 3 travas do prêmio (novos+retorno, renovações, vouchers) com quanto o prêmio cai, dinheiro
    recebido, até que dia há dado, se a meta do mês foi configurada. **Nada por vendedora, nada de comissão.**
    Calculado na Cloud Function depois de cada busca → `pacto_termometro/{CP|PP}_{mês}` (só totais; lê admin e
