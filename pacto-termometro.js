@@ -86,9 +86,11 @@ const PactoTermometro = {
 
     const esperados = this.diasEsperados(mes, hoje);
     const porDia = new Map(doMes.map(d => [d.dia, d.situacao || 'nao_buscado']));
+    // dia bom cuja última busca falhou: os números valem, mas são da busca anterior
+    const naoAtualizado = new Set(doMes.filter(d => d.ultimaFalha).map(d => d.dia));
     const COM_RESPOSTA = ['buscado', 'vazio_conferir', 'parcial'];
     const problemas = esperados
-      .map(dia => ({ dia, situacao: porDia.get(dia) || 'nao_buscado' }))
+      .map(dia => ({ dia, situacao: porDia.get(dia) === 'buscado' && naoAtualizado.has(dia) ? 'nao_atualizado' : (porDia.get(dia) || 'nao_buscado') }))
       .filter(p => p.situacao !== 'buscado');
     const comResposta = esperados.filter(dia => COM_RESPOSTA.includes(porDia.get(dia)));
 

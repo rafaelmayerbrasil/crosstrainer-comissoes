@@ -40,11 +40,18 @@ function classificar(status, texto, credencial) {
   }
   if (status >= 500) return { situacao: 'falhou', motivo: 'HTTP ' + status + ' ' + limpo(texto) };
   if (status !== 200) return { situacao: 'falhou', motivo: 'HTTP ' + status + ' ' + limpo(texto) };
+  let dados;
   try {
-    return { situacao: 'ok', dados: JSON.parse(texto) };
+    dados = JSON.parse(texto);
   } catch (e) {
     return { situacao: 'falhou', motivo: 'resposta não é JSON: ' + limpo(texto).slice(0, 80) };
   }
+  // `{"erro": "..."}` com HTTP 200 (visto em 22/09/2026, intermitente). Lido como
+  // resposta boa, virava "dia sem nenhum pagamento" e era gravado por cima.
+  if (dados && typeof dados === 'object' && !Array.isArray(dados) && typeof dados.erro === 'string') {
+    return { situacao: 'falhou', motivo: 'a Pacto respondeu erro: ' + limpo(dados.erro).slice(0, 120) };
+  }
+  return { situacao: 'ok', dados };
 }
 
 function criarCliente({ fetch, credencial, pausaMs = 2000, dormir, base = BASE }) {
@@ -53,7 +60,14 @@ function criarCliente({ fetch, credencial, pausaMs = 2000, dormir, base = BASE }
   const esperar = dormir || (ms => new Promise(r => setTimeout(r, ms)));
   let chamadas = 0;
 
+  // A falha da Pacto costuma ser passageira: tenta de novo UMA vez (com a mesma
+  // pausa). Credencial recusada e limite de uso não se repetem — insistir piora.
   async function chamar(url) {
+    const r = await chamarUmaVez(url);
+    return r.situacao === 'falhou' ? chamarUmaVez(url) : r;
+  }
+
+  async function chamarUmaVez(url) {
     if (chamadas > 0 && pausaMs > 0) await esperar(pausaMs);   // nunca em rajada
     chamadas++;
     let res, texto;

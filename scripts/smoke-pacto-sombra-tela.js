@@ -99,6 +99,13 @@ for (const { f } of nossos.filter(x => x.f !== 'firebase-config.js')) {
   const cred = T.alertasDosDias([{ dia: '2026-08-09', situacao: 'credencial_recusada' }], '2026-08-10');
   assert.ok(cred.some(a => /recusou a credencial/.test(a.texto)));
   assert.strictEqual(T.alertasDosDias([{ dia: '2026-08-09', situacao: 'buscado' }], '2026-08-10').length, 0);
+  // dia bom cuja última busca falhou (22/09/2026): os números valem, mas avisa;
+  // e credencial recusada continua gritando mesmo com o dia preservado
+  const dFalha = puro(T.resumirDias([{ dia: '2026-08-09', situacao: 'buscado', ultimaFalha: { situacao: 'credencial_recusada', motivo: 'HTTP 401' } }], '2026-08', '2026-08-10'));
+  assert.strictEqual(dFalha[8].ultimaFalha.situacao, 'credencial_recusada', 'o resumo do dia carrega a falha');
+  const aF = T.alertasDosDias(dFalha, '2026-08-10');
+  assert.ok(aF.some(a => /recusou a credencial/.test(a.texto)), 'credencial recusada na última busca alerta');
+  assert.ok(aF.some(a => a.tipo === 'aviso' && /não atualizado/.test(a.texto) && /09/.test(a.texto)), 'dia não atualizado avisa');
   ok('alertas: falha fora da releitura da madrugada, dia vazio e credencial recusada; dia bom não alerta');
 }
 

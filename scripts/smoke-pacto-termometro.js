@@ -100,7 +100,12 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
   assert.strictEqual(prob['2026-09-01'], 'nao_buscado', 'dia sem documento aparece, nunca vira zero calado');
   assert.strictEqual(prob['2026-09-07'], 'nao_buscado');
   assert.ok(!prob['2026-09-02'], 'dia bom não é problema');
-  ok('dias: último com dado, falha, vazio e não buscado listados');
+  // dia bom cuja última busca falhou: os números valem, mas estão da busca anterior
+  const comFalha = docs.map(d => (d.dia === '2026-09-03' ? { ...d, ultimaFalha: { situacao: 'falhou', motivo: 'x', em: 'y' } } : d));
+  const rf = T.calcularMes({ ...base, hoje: '2026-09-08', docs: comFalha, codigosPagos: ['C6500'], config: {}, metaDoMes: true });
+  assert.strictEqual(Object.fromEntries(rf.dias.problemas.map(p => [p.dia, p.situacao]))['2026-09-03'], 'nao_atualizado');
+  assert.strictEqual(rf.ativacoes.total, r.ativacoes.total, 'as linhas do dia continuam contando');
+  ok('dias: último com dado, falha, vazio, não buscado e "não atualizado na última busca" listados');
 }
 
 /* 5. nenhum nome no resultado — ele vai para quem não é admin */

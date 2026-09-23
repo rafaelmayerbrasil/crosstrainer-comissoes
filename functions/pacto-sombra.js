@@ -12,6 +12,7 @@
 //
 // Regras que o desenho fixou e os testes guardam:
 //  • dia que falhou nunca vira dia sem venda (`situacao` sempre gravada);
+//  • falha não apaga o dia que já tinha resposta boa (guarda `ultimaFalha`);
 //  • rebuscar SUBSTITUI o dia, nunca soma;
 //  • `credencial_recusada` e `limite` param a busca inteira na hora;
 //  • o dia corrente nunca é buscado;
@@ -79,6 +80,25 @@ async function gravarDia(db, unidade, dia, doc) {
   await db.collection(COL_DIAS).doc(unidade + '_' + dia).set({ unidade, dia, ...doc });
 }
 
+const COM_RESPOSTA = ['buscado', 'vazio_conferir', 'parcial'];
+
+/**
+ * Falha NÃO apaga o dia que já tinha resposta da Pacto (22/09/2026): com a
+ * madrugada relendo o mês inteiro, uma falha passageira zerava dias bons e
+ * derrubava o termômetro até a noite seguinte. O dia bom fica como estava e
+ * ganha `ultimaFalha`; a próxima busca boa substitui tudo e a marca some.
+ * Dia sem resposta anterior grava a falha — nunca vira "dia sem venda".
+ */
+async function gravarFalha(db, unidade, dia, situacao, motivo, quando) {
+  const ref = db.collection(COL_DIAS).doc(unidade + '_' + dia);
+  const atual = await ref.get();
+  if (atual.exists && COM_RESPOSTA.includes(atual.data().situacao)) {
+    await ref.set({ ultimaFalha: { situacao, motivo: motivo || '', em: quando } }, { merge: true });
+    return;
+  }
+  await gravarDia(db, unidade, dia, { situacao, motivo: motivo || '', buscadoEm: quando });
+}
+
 /**
  * Busca um dia de uma unidade e grava.
  * @returns {{situacao, consultas}}
@@ -90,7 +110,7 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
 
   const r = await cliente.resumoDoDia(chave, dia);
   if (r.situacao !== 'ok') {
-    await gravarDia(db, unidade, dia, { situacao: r.situacao, motivo: r.motivo || '', buscadoEm: quando });
+    await gravarFalha(db, unidade, dia, r.situacao, r.motivo, quando);
     return { situacao: r.situacao, consultas: 0 };
   }
   const resumo = r.dados || {};
@@ -146,7 +166,7 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
     const rc = await cliente.contratosDoCliente(chave, aluno);
     consultas++;
     if (PARA_TUDO.includes(rc.situacao)) {
-      await gravarDia(db, unidade, dia, { situacao: rc.situacao, motivo: rc.motivo || '', buscadoEm: quando });
+      await gravarFalha(db, unidade, dia, rc.situacao, rc.motivo, quando);
       return { situacao: rc.situacao, consultas };
     }
     if (rc.situacao !== 'ok') continue;                 // o contrato fica sem dados → aviso no conversor

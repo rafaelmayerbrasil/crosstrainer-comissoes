@@ -145,15 +145,56 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     assert.strictEqual(doc.totais.recebido, 30);
     ok('rebuscar o mesmo dia substitui o documento inteiro');
 
-    // rebusca que FALHA não pode deixar as linhas do sucesso anterior no documento
+    // Rebusca que FALHA não apaga o dia que estava bom (mudou em 22/09/2026: com a
+    // madrugada relendo o mês inteiro, uma falha passageira da Pacto zerava dias
+    // bons e derrubava o termômetro). O dia guarda a falha em `ultimaFalha`.
     const pFalha = pactoFalsa([[/resumoPeriodo/, { status: 500, body: 'fora do ar' }]]);
     const cFalha = criarCliente({ fetch: pFalha.fetch, credencial: CRED, ...semPausa });
-    await S.buscarDia({ db, cliente: cFalha, unidade: 'CP', dia: '2026-09-10' });
-    const falhou = (await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
-    assert.strictEqual(falhou.situacao, 'falhou');
-    assert.strictEqual(falhou.linhas, undefined, 'dia que falhou ficou com linhas velhas');
-    assert.strictEqual(falhou.totais, undefined, 'dia que falhou ficou com totais velhos');
-    ok('rebusca que falha apaga as linhas e os totais do sucesso anterior');
+    const rf = await S.buscarDia({ db, cliente: cFalha, unidade: 'CP', dia: '2026-09-10', agora: () => 'DEPOIS' });
+    assert.strictEqual(rf.situacao, 'falhou', 'quem chamou fica sabendo que falhou');
+    const mantido = (await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
+    assert.strictEqual(mantido.situacao, 'buscado', 'o dia bom continua bom');
+    assert.strictEqual(JSON.parse(mantido.linhas).length, 1, 'as linhas boas ficam');
+    assert.strictEqual(mantido.totais.recebido, 30);
+    assert.strictEqual(mantido.ultimaFalha.situacao, 'falhou');
+    assert.ok(/500/.test(mantido.ultimaFalha.motivo));
+    assert.strictEqual(mantido.ultimaFalha.em, 'DEPOIS');
+    ok('rebusca que falha NÃO apaga o dia bom: guarda a falha em ultimaFalha');
+
+    // e a próxima busca boa limpa a marca
+    await S.buscarDia({ db, cliente: c, unidade: 'CP', dia: '2026-09-10' });
+    assert.strictEqual((await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data().ultimaFalha, undefined);
+    ok('a busca boa seguinte limpa a marca de falha');
+  }
+  {
+    // A Pacto às vezes responde {"erro": "..."} com HTTP 200 (visto em 22/09/2026,
+    // intermitente). Era lido como "dia sem pagamento" e gravava vazio por cima.
+    const e = classificar(200, '{"erro":"A JSONObject text must begin with \'{\' at 1"}');
+    assert.strictEqual(e.situacao, 'falhou');
+    assert.ok(/erro/i.test(e.motivo) && /JSONObject/.test(e.motivo), e.motivo);
+    assert.strictEqual(classificar(200, '{"pagamentos":[]}').situacao, 'ok', 'resposta sem pagamento continua ok');
+
+    // intermitente: tenta de novo uma vez antes de desistir
+    let n = 0;
+    const p = pactoFalsa([[/resumoPeriodo/, () => (++n === 1 ? { body: { erro: 'falha passageira' } } : { body: resumoCom([pagamento(1, 501, 0, 10)]) })]]);
+    const cl = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const r = await cl.resumoDoDia(S.PACTO_UNIDADES.CP, '2026-09-10');
+    assert.strictEqual(r.situacao, 'ok');
+    assert.strictEqual(p.chamadas.length, 2, 'uma nova tentativa');
+    // se falhar de novo, desiste (sem laço)
+    const p2 = pactoFalsa([[/resumoPeriodo/, { body: { erro: 'fora' } }]]);
+    const c2 = criarCliente({ fetch: p2.fetch, credencial: CRED, ...semPausa });
+    assert.strictEqual((await c2.resumoDoDia('x', '2026-09-10')).situacao, 'falhou');
+    assert.strictEqual(p2.chamadas.length, 2, 'duas tentativas no máximo');
+    // credencial recusada e limite NÃO tentam de novo
+    const p3 = pactoFalsa([[/resumoPeriodo/, { status: 401, body: 'x' }]]);
+    await criarCliente({ fetch: p3.fetch, credencial: CRED, ...semPausa }).resumoDoDia('x', '2026-09-10');
+    assert.strictEqual(p3.chamadas.length, 1);
+    // e o dia sem dado anterior grava "falhou", nunca "vazio"
+    const db = makeFakeDb();
+    await S.buscarDia({ db, cliente: c2, unidade: 'CP', dia: '2026-09-10' });
+    assert.strictEqual((await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data().situacao, 'falhou');
+    ok('resposta {"erro"} com HTTP 200 é falha, tenta de novo uma vez e nunca vira dia vazio');
   }
   {
     const db = makeFakeDb();
@@ -177,7 +218,8 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
   }
   {
     const db = makeFakeDb();
-    const p = pactoFalsa([[/resumoPeriodo/, (url, i) => (i === 1 ? { status: 500, body: 'fora do ar' } : { body: resumoCom([pagamento(1, 501, 0, 10)]) })]]);
+    // o Campeche falha SEMPRE (a nova tentativa também); o Príncipe responde
+    const p = pactoFalsa([[/resumoPeriodo/, url => (url.includes(S.PACTO_UNIDADES.CP) ? { status: 500, body: 'fora do ar' } : { body: resumoCom([pagamento(1, 501, 0, 10)]) })]]);
     const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
     const r = await S.buscar({ db, cliente: c, dias: ['2026-09-10'], unidades: ['CP', 'PP'] });
     assert.deepStrictEqual(r.resultados.map(x => x.situacao), ['falhou', 'buscado'], 'uma unidade falhar não derruba a outra');
@@ -277,5 +319,5 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('a busca das 4h usa a rotina do mês');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/17');
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/19');
 })().catch(e => { console.error(e); process.exit(1); });

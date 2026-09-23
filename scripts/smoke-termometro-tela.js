@@ -89,6 +89,8 @@ const doc = {
   assert.ok(/meta deste mês ainda não foi configurada/i.test(h), 'avisa quando vale o padrão da unidade');
   assert.ok(/05/.test(h) && /sem resposta da Pacto/i.test(h), 'dia que falhou');
   assert.ok(/sem nenhum pagamento/i.test(h), 'dia vazio');
+  const na = lido(T.cartao({ ...doc, dias: { ...doc.dias, problemas: [{ dia: '2026-09-07', situacao: 'nao_atualizado' }] } }));
+  assert.ok(/1 dia\(s\) não atualizado\(s\) na última busca \(07\/09\)/.test(na), 'dia não atualizado: ' + na);
   ok('cartão: ativações, faixa, quanto falta, travas com o efeito no prêmio, dinheiro, até quando e os avisos');
 
   const gold = T.cartao({ ...doc, ativacoes: { ...doc.ativacoes, total: 70 }, faixaAtual: 'gold', faltaPara: { meta: 0, superMeta: 0, metaGold: 0 }, metaDoMes: true, dias: { esperados: 21, ateDia: '2026-09-21', problemas: [] } });

@@ -98,6 +98,8 @@
     if (vazio.length) out.push(`<div class="aviso">${vazio.length} dia(s) em que a Pacto respondeu sem nenhum pagamento (${esc(lista(vazio))}) — conferir.</div>`);
     const nao = de('nao_buscado');
     if (nao.length) out.push(`<div class="aviso">${nao.length} dia(s) ainda não buscados (${esc(lista(nao))}).</div>`);
+    const velho = de('nao_atualizado');
+    if (velho.length) out.push(`<div class="aviso">${velho.length} dia(s) não atualizado(s) na última busca (${esc(lista(velho))}) — a Pacto falhou; valem os números da busca anterior.</div>`);
     return out.join('');
   }
 

@@ -51,6 +51,7 @@
         motivo: doc ? (doc.motivo || '') : '',
         recebido: doc && doc.totais ? doc.totais.recebido : null,
         avisos: doc && doc.avisos ? doc.avisos.length : 0,
+        ultimaFalha: doc && doc.ultimaFalha ? doc.ultimaFalha : null,
       });
     }
     return dias;
@@ -74,7 +75,8 @@
   function alertasDosDias(dias, hoje) {
     const alertas = [];
     const vermelhos = dias.filter(d => VERMELHAS.includes(d.situacao));
-    if (dias.some(d => d.situacao === 'credencial_recusada')) {
+    // a credencial recusada pode estar só na última busca de um dia bom (preservado)
+    if (dias.some(d => d.situacao === 'credencial_recusada' || (d.ultimaFalha && d.ultimaFalha.situacao === 'credencial_recusada'))) {
       alertas.push({ tipo: 'erro', texto: 'A Pacto recusou a credencial. Nenhuma busca vai funcionar até ela ser trocada no cofre do Firebase.' });
     }
     // Mesma janela de `diasDaRotina` (functions/pacto-sombra.js): a madrugada relê
@@ -92,6 +94,10 @@
     const vazios = dias.filter(d => d.situacao === 'vazio_conferir');
     if (vazios.length) {
       alertas.push({ tipo: 'aviso', texto: `${vazios.length} dia(s) em que a Pacto respondeu sem nenhum pagamento. O cartão recorrente cobra todo dia, então isso é suspeito: ${vazios.map(d => d.dia.slice(8)).join(', ')}.` });
+    }
+    const velhos = dias.filter(d => d.ultimaFalha && !VERMELHAS.includes(d.situacao));
+    if (velhos.length) {
+      alertas.push({ tipo: 'aviso', texto: `${velhos.length} dia(s) não atualizado(s) na última busca — a Pacto falhou; valem os números da busca anterior: ${velhos.map(d => d.dia.slice(8)).join(', ')}.` });
     }
     const nao = dias.filter(d => d.situacao === 'nao_buscado');
     if (nao.length) alertas.push({ tipo: 'aviso', texto: `${nao.length} dia(s) ainda não buscados.` });
