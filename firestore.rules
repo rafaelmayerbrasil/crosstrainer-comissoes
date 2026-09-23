@@ -259,6 +259,13 @@ service cloud.firestore {
       allow read:  if isAuth() && (isAdmin() || isSuperv());
       allow write: if false;
     }
+    // Cópia da equipe (22/09/2026): o mesmo termômetro SEM o dinheiro recebido
+    // (faturamento da unidade), para as vendedoras acompanharem o mês sem
+    // depender do upload. As duas unidades, por decisão do Rafael.
+    match /pacto_termometro_equipe/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv() || hasP('vendedor'));
+      allow write: if false;
+    }
 
     // ─── Banco de horas do estagiário (bloco 2, 07/08/2026) ───────────
     // Quem escreve é SÓ o fechamento, pela Cloud Function (Admin SDK ignora

@@ -46,6 +46,14 @@ termômetro **não mostra nada por pessoa** e **não mexe em comissão**.
 `pacto_termometro`: lê **admin e supervisão**; ninguém grava pelo navegador. `pacto_sombra_dias`
 continua só do admin (tem nome de cliente).
 
+**Vendedoras (22/09, pedido do Rafael: "para elas irem acompanhando, não dependendo da carga"):** leem
+`pacto_termometro_equipe`, a MESMA coisa **sem o dinheiro recebido** (é o faturamento da unidade; nenhuma
+tela da vendedora mostra o caixa da unidade hoje — conferido 22/09. Regra do Firestore não esconde
+campo, então o dinheiro não pode estar no documento). ⚠️ **Não é segredo de verdade hoje:** a regra de
+`periodos` libera leitura a quem tem o módulo de Comissões, e o período guarda `totals.unitCaixa` — a
+vendedora consegue ler pelo banco. Esconder aqui é escolha de tela. As duas unidades, por decisão do Rafael. Atalho no menu lateral (Meu Espaço) e
+como 5º botão da barra do celular. Liberar o dinheiro para elas = gravar o campo na cópia da equipe.
+
 ## Fora deste passo
-Comissão por pessoa pela API (depende da Pacto); atalho dentro do `index.html` (depende de autorização);
+Comissão por pessoa pela API (depende da Pacto); atalho no módulo de Professores (o Rafael não quer);
 produção (depende da homologação e da credencial no cofre de produção).

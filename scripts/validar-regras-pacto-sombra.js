@@ -15,6 +15,7 @@
 //  • ninguém grava pelo navegador, nem admin;
 //  • sem login, nada;
 //  • termômetro (só totais): admin e SUPERVISÃO leem; professor e vendedora não;
+//  • cópia da equipe (sem o dinheiro): gestão e VENDEDORA leem; professor não;
 //  • pacto_consultoras não tem regra: ninguém lê pelo navegador, nem admin.
 
 const fs = require('fs');
@@ -76,6 +77,7 @@ async function usuarioComPerfil(perfil, semPerfil) {
   await db.collection('pacto_contratos').doc(CONTRATO).set({ _fixture: true, codigo: '1' });
   const TERMO = 'zzfix_2026-08', CONSULTORA = 'zzfix_1', SUP = 'zzfix-supervisao', VEND = 'zzfix-vendedora';
   await db.collection('pacto_termometro').doc(TERMO).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
+  await db.collection('pacto_termometro_equipe').doc(TERMO).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
   await db.collection('pacto_consultoras').doc(CONSULTORA).set({ _fixture: true, codigo: '1' });
   try {
     const uidAdmin = await usuarioComPerfil('admin');
@@ -100,7 +102,14 @@ async function usuarioComPerfil(perfil, semPerfil) {
     expect('supervisão lê pacto_termometro', await ler(tkSup, `pacto_termometro/${TERMO}`), 'OK');
     expect('supervisão NÃO lê pacto_sombra_dias (tem nome de cliente)', await ler(tkSup, `pacto_sombra_dias/${DIA}`), 'NEGADO');
     expect('professor NÃO lê pacto_termometro', await ler(tkProf, `pacto_termometro/${TERMO}`), 'NEGADO');
-    if (uidVend) expect('vendedora NÃO lê pacto_termometro', await ler(await tokenDe(uidVend), `pacto_termometro/${TERMO}`), 'NEGADO');
+    const tkVend = await tokenDe(uidVend);
+    expect('vendedora NÃO lê pacto_termometro (tem o dinheiro da unidade)', await ler(tkVend, `pacto_termometro/${TERMO}`), 'NEGADO');
+    expect('vendedora lê pacto_termometro_equipe (sem o dinheiro)', await ler(tkVend, `pacto_termometro_equipe/${TERMO}`), 'OK');
+    expect('admin lê pacto_termometro_equipe', await ler(tkAdmin, `pacto_termometro_equipe/${TERMO}`), 'OK');
+    expect('supervisão lê pacto_termometro_equipe', await ler(tkSup, `pacto_termometro_equipe/${TERMO}`), 'OK');
+    expect('professor NÃO lê pacto_termometro_equipe', await ler(tkProf, `pacto_termometro_equipe/${TERMO}`), 'NEGADO');
+    expect('sem login NÃO lê pacto_termometro_equipe', await ler(null, `pacto_termometro_equipe/${TERMO}`), 'NEGADO');
+    expect('vendedora NÃO grava pacto_termometro_equipe', await gravar(tkVend, `pacto_termometro_equipe/${TERMO}`), 'NEGADO');
     expect('admin NÃO grava pacto_termometro pelo navegador', await gravar(tkAdmin, `pacto_termometro/${TERMO}`), 'NEGADO');
     expect('supervisão NÃO grava pacto_termometro', await gravar(tkSup, `pacto_termometro/${TERMO}`), 'NEGADO');
     expect('admin NÃO lê pacto_consultoras pelo navegador', await ler(tkAdmin, `pacto_consultoras/${CONSULTORA}`), 'NEGADO');
@@ -110,6 +119,7 @@ async function usuarioComPerfil(perfil, semPerfil) {
     await db.collection('pacto_sombra_dias').doc(DIA).delete();
     await db.collection('pacto_contratos').doc(CONTRATO).delete();
     await db.collection('pacto_termometro').doc(TERMO).delete();
+    await db.collection('pacto_termometro_equipe').doc(TERMO).delete();
     await db.collection('pacto_consultoras').doc(CONSULTORA).delete();
     for (const uid of [SUP, VEND]) {
       await db.collection('users').doc(uid).delete();

@@ -27,6 +27,7 @@ const COL_DIAS = 'pacto_sombra_dias';
 const COL_CONTRATOS = 'pacto_contratos';
 const COL_CONSULTORAS = 'pacto_consultoras';
 const COL_TERMOMETRO = 'pacto_termometro';
+const COL_TERMOMETRO_EQUIPE = 'pacto_termometro_equipe';
 const MAX_DIAS = 62;
 const PARA_TUDO = ['credencial_recusada', 'limite'];
 
@@ -211,7 +212,13 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
         Adapter: PA, Engine: CE, ApiLinhas: L,
       });
       const id = unidade + '_' + mes;
-      await db.collection(COL_TERMOMETRO).doc(id).set({ ...r, unitId, hoje, atualizadoEm: quando });
+      const doc = { ...r, unitId, hoje, atualizadoEm: quando };
+      await db.collection(COL_TERMOMETRO).doc(id).set(doc);
+      // Cópia da EQUIPE (vendedoras leem, 22/09/2026): sem o dinheiro recebido,
+      // que é o faturamento da unidade. Regra do Firestore não esconde campo —
+      // o dinheiro não pode estar no documento que elas leem.
+      const { recebido, ...semDinheiro } = doc;
+      await db.collection(COL_TERMOMETRO_EQUIPE).doc(id).set(semDinheiro);
       feitos.push({ id });
     }
   }
@@ -231,4 +238,4 @@ async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
   return { resultados };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias, atualizarTermometro };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias, atualizarTermometro };

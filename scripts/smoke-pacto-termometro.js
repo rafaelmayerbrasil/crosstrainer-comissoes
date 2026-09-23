@@ -144,6 +144,16 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
   assert.ok(!JSON.stringify(t).includes('CLIENTE'), 'nome de cliente no documento');
   ok('o servidor lê a config da unidade, a meta do mês e os contratos pagos antes do mês, e grava só totais');
 
+  // cópia da EQUIPE (vendedoras leem): a mesma coisa, sem o dinheiro da unidade —
+  // regra do Firestore não esconde campo, então o dinheiro não pode estar no doc
+  const eq = (await db.collection('pacto_termometro_equipe').doc('PP_2026-09').get()).data();
+  assert.ok(eq, 'grava a cópia da equipe');
+  assert.ok(!('recebido' in eq), 'a cópia da equipe não tem o dinheiro');
+  const { recebido, ...semDinheiro } = t;
+  assert.deepStrictEqual(eq, semDinheiro, 'o resto é idêntico ao da gestão');
+  assert.ok((await db.collection('pacto_termometro_equipe').doc('CP_2026-09').get()).exists);
+  ok('grava também a cópia da equipe, idêntica e sem o dinheiro recebido');
+
   // o id da unidade em produção é `cp`/`pp`, não `unit-cp`
   const db2 = makeFakeDb();
   await db2.collection('units').doc('pp').set({ config: { meta: 33 } });
@@ -158,5 +168,5 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
   assert.ok(/atualizarTermometro\(/.test(rodar), 'rodarSombra atualiza o termômetro');
   ok('as duas buscas (4h e botão) atualizam o termômetro');
 
-  console.log('\n✅ smoke-pacto-termometro: ' + n + '/9');
+  console.log('\n✅ smoke-pacto-termometro: ' + n + '/10');
 })().catch(e => { console.error(e); process.exit(1); });

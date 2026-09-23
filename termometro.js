@@ -4,9 +4,10 @@
 //
 // Desenho: docs/superpowers/specs/2026-09-22-termometro-do-mes-design.md
 //
-// Só gestão (admin e supervisão). Só LÊ `pacto_termometro`, que a Cloud
-// Function grava depois de cada busca na API da Pacto — nenhuma conta mora
-// aqui. É prévia: o cálculo oficial da comissão continua sendo o arquivo.
+// Gestão (admin e supervisão) lê `pacto_termometro`; vendedora (22/09/2026)
+// lê `pacto_termometro_equipe`, a mesma coisa SEM o dinheiro da unidade. A
+// Cloud Function grava os dois depois de cada busca na API da Pacto — nenhuma
+// conta mora aqui. É prévia: o cálculo oficial da comissão continua sendo o arquivo.
 //
 // As funções que desenham ficam em `window.TermometroTela` para o smoke
 // chamá-las num sandbox.
@@ -33,11 +34,15 @@
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   }
 
-  /** Admin ou supervisão — as mesmas duas portas da regra do Firestore. */
-  function ehGestao(u) {
-    if (!u) return false;
+  const COLECAO = { gestao: 'pacto_termometro', equipe: 'pacto_termometro_equipe' };
+
+  /** 'gestao' (admin, supervisão) · 'equipe' (vendedora) · null — as mesmas portas das regras. */
+  function perfilDe(u) {
+    if (!u) return null;
     const perfis = [].concat(u.profiles || [], u.role ? [u.role] : []);
-    return perfis.indexOf('admin') >= 0 || perfis.indexOf('supervisao') >= 0;
+    if (perfis.indexOf('admin') >= 0 || perfis.indexOf('supervisao') >= 0) return 'gestao';
+    if (perfis.indexOf('vendedor') >= 0) return 'equipe';
+    return null;
   }
 
   /** O mês de ontem: no dia 1º ainda não há dia do mês novo. */
@@ -112,6 +117,8 @@
       : '<span class="faixa">abaixo da meta</span>';
     const falta = prox && prox.falta > 0 ? `<p class="falta">Faltam <b>${esc(prox.falta)}</b> para a ${esc(prox.nome)}.</p>` : '';
     const semNovos = a.novosRetorno < fx.minNovos;
+    // a cópia da equipe não tem o dinheiro (é o faturamento da unidade)
+    const comDinheiro = typeof t.recebido === 'number';
 
     return `<section class="card unidade">
       <h2>${esc(nome)}</h2>
@@ -134,19 +141,20 @@
         <span>Retornos</span><span>${esc(a.retorno)}</span>
         <span>Renovações</span><span>${esc(a.renovacao)}</span>
         <span>Vouchers</span><span>${esc(a.voucher)}</span>
-        <span>Dinheiro recebido</span><span>${esc(brl(t.recebido))}</span>
+        ${comDinheiro ? `<span>Dinheiro recebido</span><span>${esc(brl(t.recebido))}</span>` : ''}
       </div>
-      <p class="muted pequeno">O dinheiro não inclui a vendinha de balcão (água, lanche), que a Pacto não entrega pela API.</p>
+      ${comDinheiro ? '<p class="muted pequeno">O dinheiro não inclui a vendinha de balcão (água, lanche), que a Pacto não entrega pela API.</p>' : ''}
       ${avisosDosDias(t)}
     </section>`;
   }
 
-  window.TermometroTela = { cartao, ehGestao, mesPadrao };
+  window.TermometroTela = { cartao, perfilDe, mesPadrao, COLECAO };
 
   // ─── A página ───
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;
 
   const $ = id => document.getElementById(id);
+  let perfil = null;
 
   function mostrar(qual) {
     ['telaLogin', 'telaRestrita', 'app'].forEach(id => { $(id).hidden = id !== qual; });
@@ -156,7 +164,7 @@
     const mes = $('mes').value;
     $('cartoes').innerHTML = '<p class="muted">Carregando…</p>';
     try {
-      const col = firebase.firestore().collection('pacto_termometro');
+      const col = firebase.firestore().collection(COLECAO[perfil]);
       const [cp, pp] = await Promise.all(['CP', 'PP'].map(u => col.doc(u + '_' + mes).get()));
       $('cartoes').innerHTML = cartao(cp.exists ? cp.data() : null, 'CP') + cartao(pp.exists ? pp.data() : null, 'PP');
     } catch (err) {
@@ -197,7 +205,8 @@
       if (!user) { mostrar('telaLogin'); return; }
       try {
         const snap = await firebase.firestore().collection('users').doc(user.uid).get();
-        if (!ehGestao(snap.exists ? snap.data() : null)) { mostrar('telaRestrita'); return; }
+        perfil = perfilDe(snap.exists ? snap.data() : null);
+        if (!perfil) { mostrar('telaRestrita'); return; }
       } catch (err) { mostrar('telaRestrita'); return; }
       mostrar('app');
       carregar();

@@ -19,7 +19,10 @@ nada no `main` nem em produção. **Enviados ao GitHub em 22/09** (`origin/pacto
 5. 🌡️ **Termômetro do mês — NO STAGING** (pedido do Rafael: "pode construir no staging, só pra gestão").
    `https://crosstrainer-comissoes-staging.web.app/termometro.html` — página separada, com **atalho no menu
    de Comissões** (seção Gestão, depois do Upload, só admin — autorizado pelo Rafael; 2 linhas no `index.html`,
-   testadas chamando o `buildSidebar` real com admin e com vendedora) e "← Comissões" para voltar. Por unidade: ativações contra Meta/Super/Gold e quanto
+   testadas chamando o `buildSidebar` real com admin e com vendedora) e "← Comissões" para voltar.
+   **Vendedoras também veem** (pedido do Rafael, as duas unidades): leem `pacto_termometro_equipe`, a mesma
+   coisa **sem o dinheiro recebido** (decisão minha, pelo lado seguro — perguntar se libera). Atalho no
+   Meu Espaço e 5º botão da barra do celular. REST 22/22. **NÃO vai no módulo de Professores** (Rafael, 22/09). Por unidade: ativações contra Meta/Super/Gold e quanto
    falta, as 3 travas do prêmio (novos+retorno, renovações, vouchers) com quanto o prêmio cai, dinheiro
    recebido, até que dia há dado, se a meta do mês foi configurada. **Nada por vendedora, nada de comissão.**
    Calculado na Cloud Function depois de cada busca → `pacto_termometro/{CP|PP}_{mês}` (só totais; lê admin e

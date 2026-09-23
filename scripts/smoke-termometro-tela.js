@@ -36,19 +36,24 @@ vm.runInContext(js, sandbox, { filename: 'termometro.js' });
 const T = sandbox.TermometroTela;
 const lido = x => x.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');   // o que a pessoa lê, sem as marcações
 {
-  assert.ok(T && typeof T.cartao === 'function' && typeof T.ehGestao === 'function' && typeof T.mesPadrao === 'function');
+  assert.ok(T && typeof T.cartao === 'function' && typeof T.perfilDe === 'function' && typeof T.mesPadrao === 'function');
   ok('termometro.js roda como <script> e expõe TermometroTela');
 }
 
 /* 3. quem entra: admin e supervisão; vendedora e professor não */
 {
-  assert.strictEqual(T.ehGestao({ profiles: ['admin'] }), true);
-  assert.strictEqual(T.ehGestao({ profiles: ['supervisao', 'professor'] }), true);
-  assert.strictEqual(T.ehGestao({ role: 'admin' }), true, 'perfil antigo (role)');
-  assert.strictEqual(T.ehGestao({ role: 'vendedor', profiles: ['vendedor'] }), false);
-  assert.strictEqual(T.ehGestao({ profiles: ['professor'] }), false);
-  assert.strictEqual(T.ehGestao(null), false);
-  ok('só admin e supervisão entram');
+  // gestão lê o termômetro inteiro; vendedora (22/09) lê a cópia sem o dinheiro
+  assert.strictEqual(T.perfilDe({ profiles: ['admin'] }), 'gestao');
+  assert.strictEqual(T.perfilDe({ profiles: ['supervisao', 'professor'] }), 'gestao');
+  assert.strictEqual(T.perfilDe({ role: 'admin' }), 'gestao', 'perfil antigo (role)');
+  assert.strictEqual(T.perfilDe({ role: 'admin', profiles: ['admin', 'vendedor'] }), 'gestao', 'gestão ganha de vendedora');
+  assert.strictEqual(T.perfilDe({ role: 'vendedor', profiles: ['vendedor'] }), 'equipe');
+  assert.strictEqual(T.perfilDe({ role: 'vendedor' }), 'equipe', 'vendedora antiga só com role');
+  assert.strictEqual(T.perfilDe({ profiles: ['professor'] }), null);
+  assert.strictEqual(T.perfilDe(null), null);
+  assert.strictEqual(T.COLECAO.gestao, 'pacto_termometro');
+  assert.strictEqual(T.COLECAO.equipe, 'pacto_termometro_equipe');
+  ok('gestão e vendedoras entram (cada uma na sua coleção); professor não');
 }
 
 /* 4. mês padrão: o de ontem (no dia 1º, o mês que acabou) */
@@ -95,6 +100,15 @@ const doc = {
   ok('cartão: Meta Gold, abaixo da meta e a regra de ouro dos novos');
 }
 
+/* 5b. a cópia da equipe não tem o dinheiro: nem a linha, nem a nota do balcão */
+{
+  const { recebido, ...semDinheiro } = doc;
+  const h = lido(T.cartao(semDinheiro));
+  assert.ok(!/Dinheiro recebido/.test(h) && !/R\$/.test(h) && !/balcão/.test(h), 'dinheiro na visão da equipe: ' + h);
+  assert.ok(/52/.test(h) && /Faltam 5 para a Super Meta/.test(h), 'o resto continua');
+  ok('visão da equipe: sem nenhuma linha de dinheiro');
+}
+
 /* 6. sem documento: diz que ainda não há, nunca mostra zero */
 {
   const h = T.cartao(null, 'CP');
@@ -114,8 +128,8 @@ const doc = {
 {
   assert.ok(!/\.(set|update|add|delete)\(/.test(js.replace(/classList\.add\(|\.delete\(\s*\)\s*\/\/ ?Map/g, '')), 'a página grava algo');
   assert.ok(!/httpsCallable/.test(js));
-  assert.ok(/collection\('pacto_termometro'\)/.test(js) && !/pacto_sombra_dias/.test(js), 'só lê o termômetro');
-  ok('a página só lê pacto_termometro');
+  assert.ok(/collection\(COLECAO\[/.test(js) && !/pacto_sombra_dias/.test(js), 'só lê o termômetro, pela coleção do perfil');
+  ok('a página só lê o termômetro, na coleção do perfil');
 }
 
 /* 9. o atalho no menu de Comissões: a função REAL do index.html, chamada com
@@ -140,9 +154,26 @@ const doc = {
   assert.ok(/href="termometro\.html"/.test(admin), 'admin vê o atalho');
   assert.ok(admin.indexOf('termometro.html') > admin.indexOf("'upload'") && admin.indexOf('termometro.html') < admin.indexOf('sb-section">Admin'),
     'o atalho fica na seção Gestão, depois do Upload');
-  assert.ok(!/termometro/.test(menuDe({ role: 'vendedor', profiles: ['vendedor'] })), 'vendedora não vê');
+  const vend = menuDe({ role: 'vendedor', profiles: ['vendedor'] });
+  assert.ok(/href="termometro\.html"/.test(vend), 'vendedora vê o atalho (22/09)');
+  assert.ok(vend.indexOf('termometro.html') > vend.indexOf("'meu-painel'"), 'no Meu Espaço, depois do Meu Painel');
   assert.ok(/href="index\.html"/.test(html), 'o termômetro tem o caminho de volta para Comissões');
-  ok('menu de Comissões: atalho para o termômetro só na gestão; e o termômetro volta para Comissões');
+  ok('menu de Comissões: atalho para a gestão e para a vendedora; e o termômetro volta para Comissões');
+
+  // a vendedora usa o celular pela barra de baixo: o atalho tem que estar lá
+  const fonteMob = idx.match(/function buildMobileNav\(\) \{[\s\S]*?\n\s*function mobileNavTo\(/);
+  assert.ok(fonteMob, 'não achei buildMobileNav no index.html');
+  const barraDe = perfil => {
+    const nav = { innerHTML: '' };
+    const sb = { document: { getElementById: id => (id === 'mobileNav' ? nav : null) }, userProfile: perfil };
+    vm.createContext(sb);
+    vm.runInContext(fonteMob[0].replace(/function mobileNavTo\($/, '') + '\nbuildMobileNav();', sb);
+    return nav.innerHTML;
+  };
+  const barraVend = barraDe({ role: 'vendedor' });
+  assert.ok(/termometro\.html/.test(barraVend), 'barra do celular da vendedora tem o termômetro');
+  assert.strictEqual((barraVend.match(/mobile-nav-item/g) || []).length, 5, 'cinco botões na barra');
+  ok('barra do celular da vendedora: termômetro como 5º botão');
 }
 
-console.log('\n✅ smoke-termometro-tela: ' + n + '/10');
+console.log('\n✅ smoke-termometro-tela: ' + n + '/12');

@@ -3503,6 +3503,9 @@
           <div class="mobile-nav-item" id="mnav-vtab-ativacoes" onclick="mobileNavTo('meu-painel');switchVendorTab('vtabAtivacoes',this)">
             <span class="mn-icon">⚡</span>Ativações
           </div>
+          <div class="mobile-nav-item" id="mnav-termometro" onclick="location.href='termometro.html'">
+            <span class="mn-icon">🌡️</span>Termômetro
+          </div>
           <div class="mobile-nav-item" id="mnav-rules" onclick="openRulesModal()">
             <span class="mn-icon">📖</span>Regras
           </div>`;
@@ -3633,6 +3636,8 @@
       } else {
         html += '<div class="sb-section">Meu Espaço</div>';
         html += sbItem('meu-painel', '📊', 'Meu Painel');
+        // Termômetro do mês (22/09/2026): a vendedora acompanha o mês sem esperar o upload
+        html += `<a class="sb-item" href="termometro.html" style="text-decoration:none;color:inherit;"><span class="icon">🌡️</span>Termômetro do mês</a>`;
       }
       html += '<div class="sb-section">Ajuda & Regras</div>';
       html += `<div class="sb-item" onclick="openRulesModal()"><span class="icon">📖</span>Regras da Comissão</div>`;
