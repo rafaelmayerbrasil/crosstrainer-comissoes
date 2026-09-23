@@ -7,7 +7,7 @@
 
 ### ▶️▶️ RETOMAR AQUI
 Três commits na branch `pacto-api-modo-sombra` (`33df5ed`, `7356f33`, `55ef314`), **tudo no staging**,
-nada no `main` nem em produção. **Não enviados ao GitHub.**
+nada no `main` nem em produção. **Enviados ao GitHub em 22/09** (`origin/pacto-api-modo-sombra`, sem pull request).
 1. ✅ **A busca das 4h relê o mês inteiro** (e o anterior até o dia 10) — `diasDaRotina`. Autorizado pelo
    Rafael. Com 3 dias, o CP perdeu **17 pagamentos (R$ 4.284,00)** em setembro: a Pacto lança a cobrança
    recorrente dias depois, com a data antiga. Medido: 21 dias × 2 unidades = **2 min 48 s**.
