@@ -41,7 +41,11 @@ const agora = () => admin.firestore.FieldValue.serverTimestamp();
 const hojeSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
 (async () => {
-  const dias = S.diasParaBuscar({ hoje: hojeSP, de, ate: ate });   // corta em ontem
+  // Os dias, cortados em ontem. Sem o teto de 62 do `diasParaBuscar` (ele protege o
+  // botão da tela): aqui a carga vai em blocos de 7 e pode cobrir vários meses.
+  const ontem = S.somarDias(hojeSP, -1);
+  const dias = [];
+  for (let d = de; d <= ate && d <= ontem; d = S.somarDias(d, 1)) dias.push(d);
   console.log(`${ALVO} · ${dias.length} dia(s) · ${unidades.join('+')}`);
   const cliente = criarCliente({ fetch, credencial });
   let parou = null;
