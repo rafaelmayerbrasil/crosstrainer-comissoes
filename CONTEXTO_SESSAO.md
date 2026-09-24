@@ -3,75 +3,38 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 74 (23/09/2026) — 🔍 AUDITORIA DAS COMISSÕES EM PRODUÇÃO · o modo sombra já roda no Firebase de produção · "recebimentos até" corrigido · ✅ NO AR EM PRODUÇÃO (`7c18068..d81b2c5`)
+## 🔖 ONDE PARAMOS — sessão 74 (23/09/2026) — 🔍 AUDITORIA DAS COMISSÕES · 🌡️ TERMÔMETRO EM PRODUÇÃO · 📅 "até" do quadro de vendas · 🧑‍💼 a lista da Kali e o consultor da Pacto
 
 ### ▶️▶️ RETOMAR AQUI
-1. ✅ **Data do upload gravada como data — NO AR EM PRODUÇÃO (23/09, `7c18068..10c9959`)**, homologada pelo
-   Rafael no staging. Conferido no github.io.
-   ✅ **2ª parte NO AR EM PRODUÇÃO (23/09, `10c9959..d81b2c5`), homologada pelo Rafael no staging (viu 22/09):** ao homologar,
-   o Rafael viu que "recebimentos até 23/09" estava errado — o export era de 22/09, e **23 é o dia em que ele
-   SUBIU**. O "vendas até" tinha o mesmo defeito desde que nasceu. Agora o quadro mostra o **último dia que
-   aparece em cada relatório** (`ultimoDia()`; recebimentos contam todas as linhas do mês, inclusive as
-   excluídas) e a hora do upload vai para a dica ao passar o mouse. Esperado no staging, CP setembro:
-   **"vendas até 22/09/2026 · recebimentos até 22/09/2026"**. Em produção vai mostrar CP 22/09 · 22/09 e
-   PP 21/09 · 22/09. Conferido no github.io: index.html idêntico ao `main`, 0 erro de console.
-   Smoke 10/10 executando carregador e quadro com banco falso; suíte 79/79.
-1b. ✅ **TERMÔMETRO DO MÊS NO AR EM PRODUÇÃO (23/09, `d81b2c5..32314cc`)** — pedido do Rafael: "era pra isso",
-   acompanhar sem subir o relatório todo dia. Foram `termometro.html` + `termometro.js` + os 3 atalhos do
-   `index.html` (menu da gestão, Meu Espaço da vendedora, barra do celular), **idênticos ao staging** que ele
-   usou. Conferido no github.io: a página diz PRODUÇÃO, projeto `crosstrainer-comissoes`, 0 erro.
-   🐛 **Antes de publicar, achei e corrigi um defeito da busca** (`8471b47`, functions em staging → produção):
-   troca de plano quitada com **crédito em conta + SALDO DEVEDOR** virava ativação (Ismael Aguero, C7027, CP
-   03/09) — o termômetro dava **30** novos+retorno contra **29** do oficial, justo o mínimo do P3 do CP (30):
-   mostraria a trava OK com o oficial zerando. Único caso em 84 dias das duas unidades; o arquivo lista como
-   "QUITAÇÃO DE DINHEIRO - CANCELAMENTO" e o motor exclui. Setembro relido em produção (01–22/09, 44 chamadas):
-   **termômetro × arquivo cortado em 22/09: CP 55 (29·22·4) e PP 40 (25·12·3), idêntico.**
-   ⚠️ O termômetro vai até **ontem** (a busca é às 4h); e quem estiver sem login vê só o aviso de prévia.
-1c. ✅ **Lista de agosto da Kali (PP) ANALISADA (23/09) — ⏸️ decisão do Rodrigo, nada alterado.** Causa única:
-   no Príncipe a Pacto põe **RODRIGO ROJAIS no `Consultor`** de contratos que a **Kali lançou** (Responsável 1);
-   o sistema paga pelo Consultor e o Rodrigo não recebe → **a venda não paga ninguém**. Dos 16 contestados:
-   9 pagos em agosto no nome do Rodrigo (Kali tem razão pelo dado) · 2 divisões (Freiberger Rodrigo→50/50
-   Kali/Babi; Jessica Dalla Lana 100% Bárbara→70/30) · 3 pagos só em **setembro** (Pizzolo, Moara, Eduardo
-   Santana — também no nome do Rodrigo) · 3 ainda sem pagamento (Chris Mitchell e Diego Panella já no nome
-   dela; Gian Pantaleoni no do Rodrigo). **Agosto PP com a lista:** Kali 773,52→1.319,26 · Bárbara
-   699,55→562,36 · folha +408,55. **Setembro: 12 contratos da Kali no nome do Rodrigo até 23/09** — decidir
-   antes de 15/10. É a mesma pergunta de 07/09 (`docs/rodrigo-agosto-conferencia-listas.md`), sem resposta.
-   Agosto **foi pago por fora do sistema**, mas o Rafael diz que ainda dá para ajustar. Memória: [[consultor-rodrigo-no-principe]].
-   🔎 **Por que fica no nome do Rodrigo (medido):** só acontece com **aluno migrado do TecnoFit** (cadastro
-   24/07/2026) — PP 37 de 64 contratos de migrados, CP 23 de 75; **aluno novo: zero** (PP 0/50, CP 0/80). A API
-   já diz Rodrigo no dia do lançamento (31/31), então não é defeito do export: o "Consultor" parece ser a
-   **consultora da ficha do aluno (carteira)**, que a Pacto preenche em todo contrato novo, e a migração deu o
-   Rodrigo a parte da base. Um contrato editado depois (Victoria Korotkova) já sai certo no export → corrigir na
-   Pacto conserta o arquivo. **No Campeche os 23 foram lançados por Erica (12) e Francini (9).** Falta confirmar
-   abrindo um aluno na Pacto. Pergunta de fundo para o Rodrigo: comissão é de **quem vendeu** ou da **dona da carteira**? ⏸️ **Mensagem enviada pelo Rafael ao Rodrigo em 23/09 — aguardando.** Com a resposta: calcular a diferença de agosto (já pago) por vendedora, incluindo Erica e Francini no CP, para acertar no próximo pagamento.
-   Lista original: 25 itens, 16 contestados (vendas que ela diz serem dela,
-   splits Kali/Babi, Kali/Erica). **A lista está em `relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
-   (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
-   [[conferir-listas-vendedoras]] se existir, e `scripts/conferir-listas-vendedoras.js`.
-2. **PP de setembro continua sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado para todas).
-   **Decisão do Rafael (23/09): deixar como está** — dá para configurar até o dia do pagamento (15/10).
-3. O resto da sessão 73 continua valendo (mensagem para a Pacto, 6 contratos do PP sem consultora).
+1. ⏸️ **ESPERANDO O RODRIGO** (mensagem enviada pelo Rafael em 23/09): as vendas que a Pacto põe no nome dele são
+   da Kali (e, no CP, da Erica e da Francini)? E a regra de fundo: **comissão é de quem vendeu ou da consultora
+   do aluno (carteira)?** Com a resposta: calcular a diferença de **agosto (já pago, por fora do sistema)** por
+   vendedora para acertar no próximo pagamento, e aplicar em setembro **antes de 15/10**. Detalhe na seção
+   "A lista da Kali" abaixo. Memória: [[consultor-rodrigo-no-principe]].
+2. 🔎 **Conferir a busca das 4h de 24/09** — primeira rodada sozinha com a correção do saldo devedor. No banco:
+   `pacto_sombra_dias` com `buscadoEm` de 24/09 e `pacto_termometro/CP_2026-09` com `ativacoes.novosRetorno`
+   igual ao do arquivo oficial cortado no mesmo dia.
+3. **PP de setembro sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado). **Decisão do Rafael:
+   deixar** — configura até 15/10.
+4. **Manual do admin atualizado nesta sessão (termômetro, "até" do quadro, o consultor da Pacto)** — publicado
+   no staging; **vai ao `main` com o OK do Rafael** (é conteúdo servido pelo site).
+5. Oferecido e **não feito**: o upload de vendas avisar antes de substituir a lista quando o arquivo não começa
+   no dia 1º ou tem bem menos vendas que a lista atual (ver "O arquivo de vendas de um dia só").
+6. Continua da sessão 73: mensagem para a Pacto (contratos do Campeche vazios, renovação das unidades); 6
+   contratos do PP sem consultora nem na API.
 
-### ⚠️ Registro que faltava: o modo sombra RODA EM PRODUÇÃO desde 22/09 23:30
-Outra sessão publicou no Firebase de produção, na noite de 22/09, e **não registrou aqui** (confirmado pelo
-Rafael em 23/09). Conferido por mim, só leitura:
-- **Regras** vivas trocadas às 23:19 (ruleset `61aacefa…`). Diferença para o `firestore.rules` do `main`:
-  **só** os blocos `pacto_sombra_dias`, `pacto_contratos`, `pacto_termometro`, `pacto_termometro_equipe`.
-  As regras de Comissões são iguais às do `main`.
-- **Functions** `buscarPactoSombra` (4h, 30 min) e `buscarPactoSombraManual` publicadas às 23:30, com
-  `PACTO_API_KEY` do Secret Manager de **produção**. Código baixado e comparado com a branch: **idêntico**,
-  inclusive a correção "erro da Pacto virava dia vazio" (`7c6f655`, salva 39 s depois do deploy).
-- **Dados:** carga de 01/07 a 22/09 (168 dias, 1.645 contratos, 241 consultoras). **A das 4h de 23/09 rodou**
-  às 04:06 e releu 01–22/09 das duas unidades, zero falha.
-- **Termômetro de produção × oficial:** PP set 40 = 40, ago 41 = 41; CP set 55 × 53 (o arquivo oficial corta no
-  dia 21, o termômetro já tem o 22 — não conferido venda a venda), ago 62 × 63 (o 7129 de sempre).
-- **As telas NÃO estão acessíveis em produção:** `termometro.html` e `pacto-sombra.html` dão 404 no GitHub
-  Pages; no `crosstrainer-comissoes.web.app` o endereço cai no index (e esse host fala com o staging).
-  `pacto-credencial.txt` não está exposto. Ou seja: roda e grava, mas ninguém lê ainda.
+### Commits desta sessão
+- **`main` (produção, GitHub Pages):** `10c9959` data do upload vira data · `d81b2c5` "até" = último dia dos
+  dados · `32314cc` termômetro do mês (tela + 3 atalhos). Publicado por fast-forward a partir de branches novas
+  (`fix-data-do-upload`, `termometro-producao`) criadas do `main`.
+- **Branch `pacto-api-modo-sombra` (local, não enviada ao GitHub nesta sessão):** as mesmas correções por
+  cherry-pick + `8471b47` saldo devedor (functions já publicadas em staging e produção) + os registros.
+- **Firebase produção:** `functions:buscarPactoSombra,buscarPactoSombraManual` (saldo devedor) e releitura de
+  01–22/09 das duas unidades. **Staging:** as mesmas functions + hosting a partir da branch da Pacto.
 
-### A auditoria: a comissão de setembro em produção está certa
+### 1. A auditoria: a comissão de setembro em produção está certa
 Refeito setembro a partir do **mesmo arquivo** subido em 22/09 21:19 (`faturamento-recebido_01 a 220926.xls`),
-com os `codigosPagos` e as metas de produção, e comparado item a item com o gravado:
+com os `codigosPagos` e as metas de produção, comparado item a item com o gravado (só leitura):
 
 | | ativações app × refeito | comissão app × refeito |
 |---|---|---|
@@ -80,22 +43,90 @@ com os `codigosPagos` e as metas de produção, e comparado item a item com o gr
 
 Toda a diferença são vendas de bar repetidas no mesmo dia colapsando no id ([[venda-repetida-colapsa-no-id]]
 — setembro parcial já passa agosto inteiro, R$ 13,89 × R$ 6,31). Nenhum contrato pago duas vezes, zero "Sem
-Vendedor", zero TESTE, zero diferido. Site do github.io **idêntico** ao `main`, arquivo por arquivo.
-CP com P3 zerado por **29/30** novos+retorno (o termômetro já mostra 30 com o dia 22 — deve destravar no próximo upload).
-Scripts da auditoria (só leitura) ficaram no scratchpad da sessão; o equivalente versionado é
-`scripts/conferir-upload-gravado.js` (fixo em agosto).
+Vendedor", zero TESTE, zero diferido. Site do github.io **idêntico** ao `main`, arquivo por arquivo. Regras de
+Comissões em produção iguais às do `main`.
 
-### 🐛 "recebimentos até —": a data do upload nunca foi data
-O painel vendido × pago dizia sempre "recebimentos até —". Todos os **40 períodos de produção** guardam
-`uploadDate` como o mapa `{_methodName: "FieldValue.serverTimestamp"}`: a limpeza de campos vazios do
-`confirmUpload` reconhecia o marcador do Firebase pelo nome da classe (`FieldValueImpl`), e no SDK minificado
-o nome é **`sl`** (visto no navegador do staging). Vem desde o primeiro commit. **Correção:** a data entra depois
-da limpeza; `dataDoUpload()` lê o Timestamp e, nos períodos antigos, tira a data do `uploadId` (Date.now em base
-36, gravado no mesmo clique) — conferida nos 40 períodos de produção, todas coerentes com o arquivo. O próprio
-teste pegou uma folga minha (`zzzzzzzz` virava 2059) → o limite é "nunca no futuro". `smoke-data-do-upload.js`
-7/7 **executando** os trechos do `index.html`; contra o `main` antigo falha no 1º caso. Suíte 79 + os 2 de
-integração de sempre (`smoke-9`, `smoke-grade-horarios`), que não tocam no `index.html`.
-Memória: [[producao-tem-duas-portas]].
+### 2. O deploy de 22/09 que não estava registrado
+Eu disse ao Rafael que o último deploy tinha sido 17/09 — **errado**: olhei só o `main`. Outra sessão publicou
+no **Firebase de produção** na noite de 22/09 (regras 23:19, `buscarPactoSombra`/`Manual` 23:30 com
+`PACTO_API_KEY` do Secret Manager de produção, carga 01/07→22/09) e não registrou. Confirmado pelo Rafael.
+Código publicado baixado do bucket da function e comparado com a branch: idêntico. Memória:
+[[producao-tem-duas-portas]] — conferir o `main` **e** o Firebase (ruleset vivo, `functions:list`, `updateTime`).
+
+### 3. O quadro "vendas do mês": a data e o "até"
+- **`10c9959` — a data do upload nunca foi data.** Os 40 períodos de produção guardavam `uploadDate` como o mapa
+  `{_methodName: "FieldValue.serverTimestamp"}`: a limpeza de campos vazios do `confirmUpload` reconhecia o
+  marcador pelo nome da classe (`FieldValueImpl`), e no SDK minificado o nome é **`sl`** (visto no navegador).
+  Desde o primeiro commit. O painel dizia sempre "recebimentos até —". Agora a data entra depois da limpeza;
+  `dataDoUpload()` recupera a dos períodos antigos pelo `uploadId` (Date.now em base 36, mesmo clique) —
+  conferida nos 40. O teste pegou uma folga minha (`zzzzzzzz` virava 2059) → limite "nunca no futuro".
+- **`d81b2c5` — "até" é o último dia DOS DADOS.** Ao homologar, o Rafael viu "recebimentos até 23/09" com um
+  export tirado em 22/09: 23 era o dia em que ele SUBIU. O "vendas até" tinha o mesmo defeito desde que nasceu.
+  `ultimoDia()` pega o dia mais recente de cada relatório (recebimentos contam todas as linhas do mês, inclusive
+  excluídas); a hora do upload foi para a dica do mouse. Produção hoje: CP 23/09 · 23/09 (arquivo de 23/09).
+- `smoke-data-do-upload.js` 10/10 **executando** carregador e quadro com banco falso; falha contra a versão
+  anterior. O quadro chega **depois** do resto da home (é assíncrono) — o Rafael achou que tinha sumido.
+
+### 4. O arquivo de vendas de um dia só
+Em 23/09 o Rafael subiu um `faturamento_01 a 230926.xls` com **só o dia 23** (29 linhas, 7 KB × 72 KB do de
+ontem) e o quadro caiu para "4 vendidas": o upload de vendas **substitui** a lista do mês inteira. Não mexe na
+comissão (a lista só alimenta o quadro e "A receber"). Ele gerou de novo e ficou 75/68/6 nas duas pontas.
+Proteção oferecida, não feita (item 5 acima).
+
+### 5. Staging × produção dão números diferentes — e é esperado
+Mesmo arquivo: CP 60 ativações no staging × 58 em produção (o staging conhece 69 contratos pagos em agosto, a
+produção 73 — dois voltam a contar como renovação) e P3 R$ 577,94 × R$ 0,00 (o staging **não tem a meta de
+setembro**; em produção a meta pede 30 novos+retorno e o CP tem 29). **Vale sempre a produção.**
+
+### 6. 🌡️ Termômetro do mês em produção (`32314cc`) — e o defeito achado antes
+Pedido do Rafael: "era pra isso" — acompanhar o mês sem subir o relatório todo dia. Foram `termometro.html` +
+`termometro.js` + 3 atalhos no `index.html` (menu da gestão depois do Upload, Meu Espaço da vendedora, barra
+do celular), **idênticos ao staging** que ele usou. Conferido no github.io: a página diz PRODUÇÃO, projeto
+`crosstrainer-comissoes`, 0 erro. Suíte 80/80, sem credencial nem CPF nos arquivos.
+
+🐛 **Antes de publicar, comparando contrato a contrato com o arquivo cortado no mesmo dia (22/09):** o
+termômetro dava **30** novos+retorno no CP contra **29** do oficial — justo o mínimo do P3 (30). Era o **C7027
+(Ismael Aguero)**: troca de plano, o contrato antigo quitado com **crédito em conta + "SALDO DEVEDOR
+(DÉBITO)"**. O export lista como "QUITAÇÃO DE DINHEIRO - CANCELAMENTO" e o motor exclui; a API mandava o nome
+do plano e virava retorno. `8471b47`: pagamento só com crédito em conta **ou saldo devedor** não é dinheiro
+novo (misturado com dinheiro de verdade continua entrando). Único caso em 84 dias das duas unidades. Staging:
+CP 30→29. Produção: functions publicadas e 01–22/09 relidos → **CP 55 (29·22·4) e PP 40 (25·12·3), idêntico
+ao arquivo.** O outro contrato divergente (C7232, renovação de 22/09) era só lançamento tardio da Pacto.
+⚠️ O termômetro vai até **ontem** (busca às 4h) e é prévia; a tela diz isso.
+
+### 7. 🧑‍💼 A lista de agosto da Kali — e por que as vendas ficam no nome do Rodrigo
+O Rodrigo repassou pelo WhatsApp (23/09) a lista da Kali "com esses erros". Guardada em
+`relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt` (**fora do git e do site**: nomes de cliente;
+atenção — a pasta `scratchpad/` do projeto **não** está no `.gitignore`, só no hosting).
+
+**Causa única:** no Príncipe a Pacto põe **RODRIGO ROJAIS no `Consultor`** de contratos que a **Kali lançou**
+(`Responsável 1`). O tradutor paga pelo Consultor (de propósito — Responsável e Consultor concordam em 46%) e o
+Rodrigo não é comissionável → **a venda não paga ninguém**. Dos 16 contestados: **9** pagos em agosto no nome
+do Rodrigo (Anthony Engel, Flávia Del Campo, José Pinheiro, Hugo Siedler, Antúrio Paiva, Roberta Morais, Kirill
+Sobolev, Jacqueline Costa, Juliana Costa — na Juliana a Pacto lista "Rodrigo, Kali" e o sistema pegou o
+primeiro) · **2 divisões** (Freiberger Rodrigo→50/50 Kali/Babi; Jessica Dalla Lana 100% Bárbara→70/30) · **3**
+pagos só em **setembro** (Pizzolo, Moara, Eduardo Santana — também no nome do Rodrigo) · **3** ainda sem
+pagamento (Chris Mitchell e Diego Panella já no nome dela; Gian Pantaleoni no do Rodrigo).
+
+**Agosto PP reatribuindo como ela pede:** Kali 773,52 → **1.319,26** · Bárbara 699,55 → **562,36** (perde a
+fatia da Jessica e parte do P3, que se reparte pelo caixa) · folha **+R$ 408,55**. Ativações da unidade não
+mudam. **Setembro: 12 contratos da Kali no nome do Rodrigo até 23/09.**
+
+**Por que (medido em ago+set, as duas unidades):** o Rodrigo só aparece em contrato de **aluno migrado do
+TecnoFit** (cadastro 24/07/2026) — PP 37 de 64, CP 23 de 75; em aluno cadastrado depois, **zero** (PP 0/50, CP
+0/80). A API já traz Rodrigo no dia do lançamento (31/31), então não é defeito do export. Entre migrados com
+outra consultora, ela muitas vezes difere de quem lançou (Leona: consultora Erica, lançou Kali). Leitura: o
+"Consultor" é a **consultora da ficha do aluno (carteira)**, preenchida em todo contrato novo; a migração deu o
+Rodrigo a parte da base. Um contrato corrigido depois na Pacto (Victoria Korotkova) já sai certo no export.
+**No CP os 23 foram lançados por Erica (12) e Francini (9)** — elas também perdem e ninguém reclamou.
+Não vi a ficha diretamente: confirmar abrindo um aluno migrado na Pacto. É a mesma pergunta de 07/09
+(`docs/rodrigo-agosto-conferencia-listas.md`, "suas 18 ativações"), nunca respondida. **Nada foi alterado.**
+
+### Lições
+- **Produção tem duas portas** (`main` e Firebase) — [[producao-tem-duas-portas]].
+- **Antes de mostrar o termômetro a alguém, comparar com o arquivo cortado no mesmo dia, contrato a contrato** —
+  o total batia em 55 e escondia uma ativação trocada de categoria no limite do P3.
+- **"Até" é lido como cobertura dos dados**, não como hora da ação — foi o Rafael quem pegou.
 
 ---
 
