@@ -23,6 +23,9 @@ ui-debug.log
 # Service Accounts (NUNCA commitar — contêm credenciais privadas)
 scripts/serviceAccount-*.json
 functions/serviceAccount-*.json
+# Credencial da API da Pacto (13/09/2026) - NUNCA commitar
+pacto-credencial*
+**/pacto-credencial*
 
 # Node
 node_modules/
