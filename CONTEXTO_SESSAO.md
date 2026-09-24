@@ -36,7 +36,14 @@
    dela; Gian Pantaleoni no do Rodrigo). **Agosto PP com a lista:** Kali 773,52→1.319,26 · Bárbara
    699,55→562,36 · folha +408,55. **Setembro: 12 contratos da Kali no nome do Rodrigo até 23/09** — decidir
    antes de 15/10. É a mesma pergunta de 07/09 (`docs/rodrigo-agosto-conferencia-listas.md`), sem resposta.
-   Nenhum recibo de agosto no sistema. Memória: [[consultor-rodrigo-no-principe]].
+   Agosto **foi pago por fora do sistema**, mas o Rafael diz que ainda dá para ajustar. Memória: [[consultor-rodrigo-no-principe]].
+   🔎 **Por que fica no nome do Rodrigo (medido):** só acontece com **aluno migrado do TecnoFit** (cadastro
+   24/07/2026) — PP 37 de 64 contratos de migrados, CP 23 de 75; **aluno novo: zero** (PP 0/50, CP 0/80). A API
+   já diz Rodrigo no dia do lançamento (31/31), então não é defeito do export: o "Consultor" parece ser a
+   **consultora da ficha do aluno (carteira)**, que a Pacto preenche em todo contrato novo, e a migração deu o
+   Rodrigo a parte da base. Um contrato editado depois (Victoria Korotkova) já sai certo no export → corrigir na
+   Pacto conserta o arquivo. **No Campeche os 23 foram lançados por Erica (12) e Francini (9).** Falta confirmar
+   abrindo um aluno na Pacto. Pergunta de fundo para o Rodrigo: comissão é de **quem vendeu** ou da **dona da carteira**?
    Lista original: 25 itens, 16 contestados (vendas que ela diz serem dela,
    splits Kali/Babi, Kali/Erica). **A lista está em `relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
    (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
