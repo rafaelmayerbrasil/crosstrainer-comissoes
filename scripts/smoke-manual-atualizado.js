@@ -200,6 +200,21 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: regime de caixa, a aba "A receber" e a conferência pelo pagamento');
 }
 {
+  // 23/09/2026: termômetro em produção; o "até" do quadro passou a ser o dia dos
+  // dados (o Rafael leu a data do upload como cobertura); e a vendedora sai do
+  // Consultor da Pacto, que em aluno migrado veio com o Rodrigo.
+  exige(admin, 'manual-admin', {
+    'o termômetro existe': 'Termômetro do mês',
+    'ele se atualiza sozinho de madrugada': 'toda madrugada',
+    'é prévia, a oficial é o upload': 'prévia',
+    '"até" é o último dia do relatório': 'último dia que',
+    'o arquivo de vendas tem que ser do mês inteiro': 'mês inteiro',
+    'de onde sai a vendedora': 'Consultor',
+    'aluno migrado veio com o Rodrigo': 'TecnoFit',
+  });
+  ok('admin: termômetro, o "até" do quadro e de quem é cada venda');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
