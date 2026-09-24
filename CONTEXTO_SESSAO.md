@@ -27,8 +27,17 @@
    "QUITAÇÃO DE DINHEIRO - CANCELAMENTO" e o motor exclui. Setembro relido em produção (01–22/09, 44 chamadas):
    **termômetro × arquivo cortado em 22/09: CP 55 (29·22·4) e PP 40 (25·12·3), idêntico.**
    ⚠️ O termômetro vai até **ontem** (a busca é às 4h); e quem estiver sem login vê só o aviso de prévia.
-1c. 🔴 **PRÓXIMA TAREFA — lista de agosto da Kali (PP)**, que o Rodrigo mandou em 23/09 dizendo que tem erros
-   ("não sei como tu puxou esses relatórios"). 25 itens, 16 contestados (vendas que ela diz serem dela,
+1c. ✅ **Lista de agosto da Kali (PP) ANALISADA (23/09) — ⏸️ decisão do Rodrigo, nada alterado.** Causa única:
+   no Príncipe a Pacto põe **RODRIGO ROJAIS no `Consultor`** de contratos que a **Kali lançou** (Responsável 1);
+   o sistema paga pelo Consultor e o Rodrigo não recebe → **a venda não paga ninguém**. Dos 16 contestados:
+   9 pagos em agosto no nome do Rodrigo (Kali tem razão pelo dado) · 2 divisões (Freiberger Rodrigo→50/50
+   Kali/Babi; Jessica Dalla Lana 100% Bárbara→70/30) · 3 pagos só em **setembro** (Pizzolo, Moara, Eduardo
+   Santana — também no nome do Rodrigo) · 3 ainda sem pagamento (Chris Mitchell e Diego Panella já no nome
+   dela; Gian Pantaleoni no do Rodrigo). **Agosto PP com a lista:** Kali 773,52→1.319,26 · Bárbara
+   699,55→562,36 · folha +408,55. **Setembro: 12 contratos da Kali no nome do Rodrigo até 23/09** — decidir
+   antes de 15/10. É a mesma pergunta de 07/09 (`docs/rodrigo-agosto-conferencia-listas.md`), sem resposta.
+   Nenhum recibo de agosto no sistema. Memória: [[consultor-rodrigo-no-principe]].
+   Lista original: 25 itens, 16 contestados (vendas que ela diz serem dela,
    splits Kali/Babi, Kali/Erica). **A lista está em `relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
    (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
    [[conferir-listas-vendedoras]] se existir, e `scripts/conferir-listas-vendedoras.js`.
