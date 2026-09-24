@@ -29,7 +29,7 @@
    ⚠️ O termômetro vai até **ontem** (a busca é às 4h); e quem estiver sem login vê só o aviso de prévia.
 1c. 🔴 **PRÓXIMA TAREFA — lista de agosto da Kali (PP)**, que o Rodrigo mandou em 23/09 dizendo que tem erros
    ("não sei como tu puxou esses relatórios"). 25 itens, 16 contestados (vendas que ela diz serem dela,
-   splits Kali/Babi, Kali/Erica). **A lista está em `scratchpad/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
+   splits Kali/Babi, Kali/Erica). **A lista está em `relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
    (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
    [[conferir-listas-vendedoras]] se existir, e `scripts/conferir-listas-vendedoras.js`.
 2. **PP de setembro continua sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado para todas).
