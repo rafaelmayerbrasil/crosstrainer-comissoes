@@ -118,6 +118,17 @@ const PactoApiLinhas = {
     return /CREDITO\s+CONTA\s+CLIENTE/.test(this._norm(forma));
   },
 
+  // "SALDO DEVEDOR (DÉBITO)" é dívida lançada na conta do aluno, não dinheiro
+  // que entrou. Aparece na troca de plano: o contrato antigo é quitado com o
+  // crédito que sobrou + saldo devedor, e o relatório de recebimentos lista o
+  // movimento como "QUITAÇÃO DE DINHEIRO - CANCELAMENTO", que o motor exclui.
+  // Pela API ele vinha com o nome do plano e virava ATIVAÇÃO (Ismael Aguero,
+  // C7027, CP 03/09/2026: o termômetro dava 30 novos+retorno contra 29 do
+  // oficial, justo no mínimo do P3). Único caso em 84 dias das duas unidades.
+  _ehSaldoDevedor(forma) {
+    return /SALDO\s+DEVEDOR/.test(this._norm(forma));
+  },
+
   /**
    * @param {Object} a
    * @param {Object} a.resumo     resposta do resumoPeriodo
@@ -142,10 +153,12 @@ const PactoApiLinhas = {
       const formas = p.formas || [];
       const valorRecibo = this._soma(formas, f => f.valor);
 
-      if (formas.length && formas.every(f => this._ehCreditoEmConta(f.formaPagamento))) {
+      if (formas.length && formas.every(f => this._ehCreditoEmConta(f.formaPagamento) || this._ehSaldoDevedor(f.formaPagamento))) {
         // Firestore recusa `undefined`: todo campo aqui tem valor
         foraDeProposito.push({
-          motivo: 'pago com crédito da conta do cliente — não é dinheiro novo',
+          motivo: formas.some(f => this._ehSaldoDevedor(f.formaPagamento))
+            ? 'pago com crédito e saldo devedor da conta do cliente (troca de plano) — não é dinheiro novo'
+            : 'pago com crédito da conta do cliente — não é dinheiro novo',
           recibo: p.codigo, valor: valorRecibo,
           contrato: (p.parcelasPagas || []).map(x => x.codigoContrato).filter(Boolean).map(String).join(','),
         });

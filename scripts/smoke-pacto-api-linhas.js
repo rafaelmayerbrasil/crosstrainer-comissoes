@@ -282,4 +282,32 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('quem registrou o pagamento nunca vira vendedora de contrato; com consultora, Responsável 1 e 2 como no export');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/14');
+/* 15. troca de plano: o contrato antigo é quitado com crédito + SALDO DEVEDOR.
+       Não é dinheiro novo; o relatório de recebimentos lista como "QUITAÇÃO DE
+       DINHEIRO - CANCELAMENTO" e o motor exclui. Pela API virava ativação
+       (caso real do CP em 03/09/2026 — aqui com dados inventados). */
+{
+  const r = resumoBase();
+  r.pagamentos = [
+    { codigo: 60, data: '03/09/2026', responsavelLancamento: 'CONSULTORA TESTE UM', unidadeCodigo: 1,
+      aluno: aluno(506, 'CLIENTE FICTICIO F'),
+      formas: [{ formaPagamento: 'CREDITO CONTA CLIENTE', valor: 20 }, { formaPagamento: 'SALDO DEVEDOR (DÉBITO)', valor: 31.25 }],
+      parcelasPagas: [{ codigo: 61, codigoContrato: 9004, descricao: 'PARCELA 2', valor: 51.25, valorJuro: 0, valorMulta: 0 }] },
+    // saldo devedor MISTURADO com dinheiro de verdade continua entrando
+    { codigo: 62, data: '03/09/2026', responsavelLancamento: 'CONSULTORA TESTE UM', unidadeCodigo: 1,
+      aluno: aluno(501, 'CLIENTE FICTICIO A'),
+      formas: [{ formaPagamento: 'SALDO DEVEDOR (DÉBITO)', valor: 10 }, { formaPagamento: 'PIX', valor: 229 }],
+      parcelasPagas: [{ codigo: 63, codigoContrato: 9001, descricao: 'PARCELA 2', valor: 239, valorJuro: 0, valorMulta: 0 }] },
+  ];
+  const m = L.montar({ resumo: r, contratos: caderninho(), unidade: 'CP', dia: '2026-09-03' });
+  assert.ok(!m.linhas.some(l => campo(l, 'contrato') === '9004'),
+    'crédito + saldo devedor não pode virar linha (viraria ativação)');
+  assert.ok(m.foraDeProposito.some(f => f.recibo === 60 && /saldo devedor/.test(f.motivo)),
+    'e fica registrado como fora de propósito, com o motivo');
+  assert.ok(m.linhas.some(l => campo(l, 'contrato') === '9001'),
+    'saldo devedor junto com PIX é dinheiro novo e continua entrando');
+  assert.strictEqual(m.totais.recebido, 239, 'só o recibo com PIX soma');
+  ok('troca de plano quitada com crédito + saldo devedor fica de fora; misturado com dinheiro, entra');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/15');
