@@ -43,7 +43,7 @@
    **consultora da ficha do aluno (carteira)**, que a Pacto preenche em todo contrato novo, e a migração deu o
    Rodrigo a parte da base. Um contrato editado depois (Victoria Korotkova) já sai certo no export → corrigir na
    Pacto conserta o arquivo. **No Campeche os 23 foram lançados por Erica (12) e Francini (9).** Falta confirmar
-   abrindo um aluno na Pacto. Pergunta de fundo para o Rodrigo: comissão é de **quem vendeu** ou da **dona da carteira**?
+   abrindo um aluno na Pacto. Pergunta de fundo para o Rodrigo: comissão é de **quem vendeu** ou da **dona da carteira**? ⏸️ **Mensagem enviada pelo Rafael ao Rodrigo em 23/09 — aguardando.** Com a resposta: calcular a diferença de agosto (já pago) por vendedora, incluindo Erica e Francini no CP, para acertar no próximo pagamento.
    Lista original: 25 itens, 16 contestados (vendas que ela diz serem dela,
    splits Kali/Babi, Kali/Erica). **A lista está em `relatorios pacto/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
    (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
