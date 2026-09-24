@@ -11,13 +11,15 @@
    do aluno (carteira)?** Com a resposta: calcular a diferença de **agosto (já pago, por fora do sistema)** por
    vendedora para acertar no próximo pagamento, e aplicar em setembro **antes de 15/10**. Detalhe na seção
    "A lista da Kali" abaixo. Memória: [[consultor-rodrigo-no-principe]].
-2. 🔎 **Conferir a busca das 4h de 24/09** — primeira rodada sozinha com a correção do saldo devedor. No banco:
-   `pacto_sombra_dias` com `buscadoEm` de 24/09 e `pacto_termometro/CP_2026-09` com `ativacoes.novosRetorno`
-   igual ao do arquivo oficial cortado no mesmo dia.
+2. ✅ **A busca das 4h de 24/09 rodou sozinha** (04:03, com a correção do saldo devedor): releu 01–23/09 das
+   duas unidades, zero falha. **Termômetro × oficial subido em 23/09: CP 58 (29·25·4) e PP 40 (25·12·3),
+   idêntico.**
 3. **PP de setembro sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado). **Decisão do Rafael:
    deixar** — configura até 15/10.
-4. **Manual do admin atualizado nesta sessão (termômetro, "até" do quadro, o consultor da Pacto)** — publicado
-   no staging; **vai ao `main` com o OK do Rafael** (é conteúdo servido pelo site).
+4. ✅ **Manual do admin no ar em produção (24/09, `32314cc..7937e8e`)** — termômetro, o "até" do quadro e de
+   quem é cada venda; conferido no github.io. Branch `pacto-api-modo-sombra` enviada ao GitHub (`ed352c4`),
+   autorizado pelo Rafael. ⚠️ O push travou uma vez esperando login do GitHub (credential manager) — com o
+   Rafael na frente do notebook, passou.
 5. Oferecido e **não feito**: o upload de vendas avisar antes de substituir a lista quando o arquivo não começa
    no dia 1º ou tem bem menos vendas que a lista atual (ver "O arquivo de vendas de um dia só").
 6. Continua da sessão 73: mensagem para a Pacto (contratos do Campeche vazios, renovação das unidades); 6
