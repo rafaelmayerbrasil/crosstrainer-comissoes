@@ -16,6 +16,22 @@
    **"vendas até 22/09/2026 · recebimentos até 22/09/2026"**. Em produção vai mostrar CP 22/09 · 22/09 e
    PP 21/09 · 22/09. Conferido no github.io: index.html idêntico ao `main`, 0 erro de console.
    Smoke 10/10 executando carregador e quadro com banco falso; suíte 79/79.
+1b. ✅ **TERMÔMETRO DO MÊS NO AR EM PRODUÇÃO (23/09, `d81b2c5..32314cc`)** — pedido do Rafael: "era pra isso",
+   acompanhar sem subir o relatório todo dia. Foram `termometro.html` + `termometro.js` + os 3 atalhos do
+   `index.html` (menu da gestão, Meu Espaço da vendedora, barra do celular), **idênticos ao staging** que ele
+   usou. Conferido no github.io: a página diz PRODUÇÃO, projeto `crosstrainer-comissoes`, 0 erro.
+   🐛 **Antes de publicar, achei e corrigi um defeito da busca** (`8471b47`, functions em staging → produção):
+   troca de plano quitada com **crédito em conta + SALDO DEVEDOR** virava ativação (Ismael Aguero, C7027, CP
+   03/09) — o termômetro dava **30** novos+retorno contra **29** do oficial, justo o mínimo do P3 do CP (30):
+   mostraria a trava OK com o oficial zerando. Único caso em 84 dias das duas unidades; o arquivo lista como
+   "QUITAÇÃO DE DINHEIRO - CANCELAMENTO" e o motor exclui. Setembro relido em produção (01–22/09, 44 chamadas):
+   **termômetro × arquivo cortado em 22/09: CP 55 (29·22·4) e PP 40 (25·12·3), idêntico.**
+   ⚠️ O termômetro vai até **ontem** (a busca é às 4h); e quem estiver sem login vê só o aviso de prévia.
+1c. 🔴 **PRÓXIMA TAREFA — lista de agosto da Kali (PP)**, que o Rodrigo mandou em 23/09 dizendo que tem erros
+   ("não sei como tu puxou esses relatórios"). 25 itens, 16 contestados (vendas que ela diz serem dela,
+   splits Kali/Babi, Kali/Erica). **A lista está em `scratchpad/lista-kali-pp-agosto-recebida-2026-09-23.txt`**
+   (fora do git: tem nome de cliente). Comparar item a item com `pp_2026-08` em produção. Ver
+   [[conferir-listas-vendedoras]] se existir, e `scripts/conferir-listas-vendedoras.js`.
 2. **PP de setembro continua sem `metasMensais`** (padrão 50/57/65, minRenov 25 → P3 zerado para todas).
    **Decisão do Rafael (23/09): deixar como está** — dá para configurar até o dia do pagamento (15/10).
 3. O resto da sessão 73 continua valendo (mensagem para a Pacto, 6 contratos do PP sem consultora).
