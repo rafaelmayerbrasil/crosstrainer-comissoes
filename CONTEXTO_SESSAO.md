@@ -3,6 +3,63 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 75 (24/09/2026) — 🧑‍💼 A REGRA DO RODRIGO: consultor padrão da migração → a venda é de quem lançou · recálculo de agosto e setembro
+
+### ▶️▶️ RETOMAR AQUI
+1. 🔴 **Rafael homologa no staging** a regra nova (`5036064`, na branch `pacto-api-modo-sombra`; hosting e functions
+   do staging já publicados). Como conferir: subir o `faturamento-recebido` de agosto no Príncipe **no staging** → a
+   prévia do upload lista "Consultor na Pacto é o Rodrigo (padrão da migração) — a venda foi para quem lançou: KALI
+   DUTRA" e os contratos da Kali (Kirill, Juliana Costa…) saem no nome dela. ⚠️ Os VALORES do staging não servem de
+   referência (histórico de contratos pagos e metas diferentes) — os de produção estão na planilha.
+2. 🔴 **Benny emite no sistema os recibos de agosto** de quem já recebeu (Erica e Francini; Bárbara a confirmar) com o
+   valor pago de fato — **ANTES** do passo 3. Pedido do Rodrigo em 24/09.
+3. Com o OK do Rafael e os recibos lançados: levar ao `main` **só** `pacto-adapter.js` + `index.html` (`?v=20260925`)
+   + `scripts/smoke-pacto-adapter.js` (branch nova a partir do `main`; o `main` não tem a pasta `functions/` da
+   Pacto) · `firebase deploy --only functions:buscarPactoSombra,functions:buscarPactoSombraManual --project production`
+   a partir da branch da Pacto · **subir de novo** agosto e setembro, CP e PP, em produção (os arquivos:
+   `faturamento-recebido_01 a 310826.xls` e `_01 a 230926.xls`, ou um mais novo para setembro).
+4. Depois do passo 3: em Pagamentos/agosto, Erica e Francini aparecem "🔴 DIVERGÊNCIA — Falta R$ X" → botão
+   **Complementar** (recibo separado, só da diferença — é o "independente e único" que o Rodrigo pediu). A Kali recebe
+   o recibo com o valor novo. Conferir os valores contra a planilha.
+5. Gestão: decidir e lançar na aba **Divisões** os rateios pedidos pela Kali (Freiberger 50/50 Babi, Jessica Dalla Lana
+   70/30 Kali/Babi, Eduardo Santana 70/30 Kali/Erica) · redistribuir na Pacto os alunos que estão com o Rodrigo.
+
+### A resposta do Rodrigo (24/09)
+O Rodrigo foi posto como **consultor padrão na importação do TecnoFit para TODOS os clientes**, para a gestão
+redistribuir depois (não aconteceu). Ele não vende nem recebe: **a comissão é de quem fez o lançamento**; rateio é
+lançado à mão pela gestão. Valer daqui para frente e recalcular agosto e setembro. Agosto: **Erica e Francini já
+foram pagas** (o Benny pagou, mas não emitiu o recibo no sistema); **a Kali não**, porque contestou. A diferença deve
+ser apontada **de forma independente e única**.
+
+### O que foi feito
+- **`5036064` — a regra em `PactoAdapter.vendedorDe`:** Consultor com o Rodrigo → vendedora = Responsável 1 (quem
+  lançou). Robô (PACTO, RECORRENCIA) ou o próprio Rodrigo lançando → fica como estava. Vale para contrato e balcão.
+  "RODRIGO, KALI" no Consultor não sugere mais dividir. O upload avisa cada troca. Usada também pela lista de vendas
+  ("A receber") e pelo termômetro (gêmeo `functions/pacto-adapter.js`). `smoke-pacto-adapter` 43/43 (caso 30 novo,
+  falha sem a regra; o 27 passou a ter o Rodrigo lançando a própria venda — ele guarda o apelido). Suíte 86/86.
+  Staging: hosting + functions publicados, conferido no navegador (`?v=20260925`, 0 erro).
+- **Recálculo (produção, só leitura):** regra antiga × nova sobre o mesmo arquivo, com `codigosPagos` e metas de
+  produção. **Novo valor = gravado + diferença** — o gravado já tem as divisões manuais da gestão (Ana Tinti 70/30
+  Kali/Fran no PP; 3 contratos 70/30 Erica/Fran no CP), que um novo upload preserva.
+
+| | Diferença | Novo valor | Situação |
+|---|---:|---:|---|
+| **Ago CP · Francini** | +314,95 | 1.154,06 | paga → complementar |
+| **Ago CP · Erica** | +33,15 | 1.683,40 | paga → complementar (ganha P1/P2, perde P3 que se reparte pelo caixa) |
+| **Ago PP · Kali** | +528,43 | 1.282,24 | **não paga** → pagar o novo |
+| **Ago PP · Bárbara** | +20,51 | 723,86 | a confirmar se foi paga |
+| **Set CP · Erica / Francini** | +190,13 / +175,74 | 1.549,26 / 622,03 | mês correndo |
+| **Set PP · Kali / Francini / Bárbara / Erica** | +315,15 / +86,98 / +5,32 / +0,49 | | mês correndo |
+
+  Agosto **+R$ 897,04**, setembro **+R$ 773,81** (até 23/09). Ativações da unidade não mudam. 42 contratos + ~120
+  itens de balcão mudam de dono. Planilha entregue ao Rafael:
+  `relatorios pacto/recalculo-comissoes-ago-set-2026.xlsx` (Resumo · Contratos · Lista da Kali · Passo a passo; fora
+  do git). Recalcula ao abrir (não há LibreOffice nesta máquina; fórmulas conferidas linha a linha em Python).
+- **A lista da Kali:** 13 itens passam para ela (9 em agosto, 3 em setembro, + Freiberger); Jessica Dalla Lana
+  continua da Bárbara (a consultora na Pacto é a Bárbara, não o Rodrigo); 3 ainda sem pagamento; 3 rateios com a gestão.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 74 (23/09/2026) — 🔍 AUDITORIA DAS COMISSÕES · 🌡️ TERMÔMETRO EM PRODUÇÃO · 📅 "até" do quadro de vendas · 🧑‍💼 a lista da Kali e o consultor da Pacto
 
 ### ▶️▶️ RETOMAR AQUI
