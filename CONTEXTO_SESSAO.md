@@ -12,9 +12,17 @@ Francini (CP #32 R$ 839,11 · PP #39 R$ 115,75), exatamente os valores gravados.
 Publicado: `main` só com `pacto-adapter.js` + `index.html` (`?v=20260925`) + smoke (branch `regra-consultor-rodrigo`,
 suíte 80/80) e `buscarPactoSombra`/`Manual` em produção a partir da branch da Pacto. Conferido no github.io: a página
 de produção devolve KALI DUTRA para "Consultor Rodrigo, lançou Kali", 0 erro.
-🔴 **FALTA (é do Rafael, pela tela, logado):** subir de novo em produção o `faturamento-recebido` de **agosto**
-(`01 a 310826`) e de **setembro** (o mais novo), no **Campeche e no Príncipe**. Depois eu confiro os valores contra
-a planilha e a tela de Pagamentos (Erica e Francini devem aparecer "DIVERGÊNCIA — Falta R$ X" → Complementar).
+✅ **Rafael subiu de novo agosto e setembro, CP e PP, em 25/09 (18:05–18:07). Conferido no banco:** tudo bate com a
+planilha em centavos — Ago CP Francini 1.153,44 · Erica 1.684,02 (Pagamentos mostra **"DIVERGÊNCIA Falta R$ 314,33"** e
+**"Falta R$ 33,77"** → botão Complementar) · Ago PP **Kali 1.284,44** e **Bárbara 720,63** (sem recibo, pagar cheio) ·
+Set CP Erica 1.549,26 · Francini 622,03 · Set PP Kali 1.195,58 · Francini 191,18 · Bárbara 129,39 · Erica 97,31.
+Os centavos vêm do P3 repartido pelo caixa com as divisões manuais. Contratos que ficaram com o Rodrigo: 5 (ago PP) e
+4 (set PP) — lançados por ele ou pelo robô, como a regra manda.
+⚠️ **Achado: a venda de balcão repetida agora custa dinheiro à Kali.** Set PP: Kali −R$ 9,94 contra a planilha e
+**−R$ 21,53** contra o cálculo completo — são Monsters/águas do mesmo cliente, mesmo dia e valor, que colapsam num id
+só ([[venda-repetida-colapsa-no-id]]). Antes eram do Rodrigo e não pagavam ninguém; agora são dela. **Decisão pendente
+com o Rafael:** corrigir o id (mexe na identidade dos itens de todos os meses) ou aceitar.
+🌡️ O termômetro usa a mesma regra (functions publicadas), mas mostra só totais da unidade, que a regra não muda.
 
 ### ▶️▶️ RETOMAR AQUI
 1. 🔴 **Rafael homologa no staging** a regra nova (`5036064`, na branch `pacto-api-modo-sombra`; hosting e functions
