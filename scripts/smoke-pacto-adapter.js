@@ -430,7 +430,9 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   // A Pacto manda `RODRIGO ROJAIS` — subir assim criaria uma pessoa nova e
   // rachava o histórico. `RAFAEL ROJAIS` é OUTRO sócio, com 269 linhas próprias:
   // o apelido não pode encostar nele.
-  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS' })['Vendedor'], 'RODRIGO');
+  // resp1 = o próprio Rodrigo: desde 24/09 o Rodrigo no Consultor passa a venda
+  // para quem lançou (caso 30), e aqui o que se guarda é só o apelido.
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS', resp1: 'RODRIGO ROJAIS' })['Vendedor'], 'RODRIGO');
   assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RAFAEL ROJAIS' })['Vendedor'], 'RAFAEL ROJAIS');
 
   // e os dois continuam não-comissionáveis no motor (a lista casa por `includes`)
@@ -652,6 +654,35 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   const pp = traduz([linha({ ...ANUAL_LOCAL, empresa: '(PP) CROSSTAINER UNID. PEQ PRÍNCIPE ' })]);
   assert.strictEqual((pp.porUnidade.PP || []).length, 1, 'sigla do Príncipe na frente');
   ok('a sigla da unidade é achada com ela no fim, na frente ou em minúscula');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 30. O consultor padrão da migração (Rodrigo) — a venda vai para quem lançou
+// ════════════════════════════════════════════════════════════════════
+// Decisão do Rodrigo em 24/09/2026: na importação do TecnoFit ele foi posto
+// como consultor de TODOS os alunos, e a Pacto repete isso em todo contrato
+// novo. Ele não vende nem recebe — a venda da Kali para aluno antigo não
+// pagava ninguém. Rateio continua sendo lançado à mão pela gestão.
+{
+  // (a) Consultor só o Rodrigo, Kali lançou → Kali, e o upload avisa
+  const r = traduz([linha({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS', resp1: 'KALI LÓPEZ', resp2: 'RECORRENCIA' })]);
+  assert.strictEqual(r.vendas[0]['Vendedor'], 'KALI DUTRA', 'a venda é de quem lançou');
+  assert.ok(r.avisos.some(a => /padrão da migração/.test(a.motivo) && /KALI DUTRA/.test(a.motivo)),
+    'o upload avisa a troca: ' + JSON.stringify(r.avisos));
+  // (b) Consultor "Rodrigo, Kali" → Kali inteira, sem sugerir divisão com ele
+  const r2 = traduz([linha({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS, KALI LÓPEZ', resp1: 'KALI LÓPEZ', resp2: 'KALI LÓPEZ' })]);
+  assert.strictEqual(r2.vendas[0]['Vendedor'], 'KALI DUTRA');
+  assert.ok(!r2.avisos.some(a => /divid/i.test(a.motivo)), 'rateio é manual: não sugere dividir com o Rodrigo');
+  // (c) quem lançou foi robô, ou o próprio Rodrigo → fica como estava
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS', resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })['Vendedor'], 'RODRIGO');
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS', resp1: 'PACTO - MÉTODO DE GESTÃO', resp2: 'KALI LÓPEZ' })['Vendedor'], 'RODRIGO',
+    'vale quem LANÇOU (Responsável 1), não quem registrou o pagamento');
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'RODRIGO ROJAIS', resp1: 'RODRIGO ROJAIS', resp2: 'ADMINISTRADOR' })['Vendedor'], 'RODRIGO');
+  // (d) a regra é só do Rodrigo: consultora de verdade continua mandando
+  assert.strictEqual(soUma({ ...ANUAL_LOCAL, consultor: 'ERICA FAUSTINO', resp1: 'KALI LÓPEZ', resp2: 'KALI LÓPEZ' })['Vendedor'], 'ERICA FAUSTINO');
+  // (e) balcão também: água vendida pela Kali para aluno migrado
+  assert.strictEqual(soUma({ produto: 'ÁGUA SEM GÁS', contrato: '0', consultor: 'RODRIGO ROJAIS', resp1: 'KALI LÓPEZ', resp2: 'KALI LÓPEZ', valor: '5,00' })['Vendedor'], 'KALI DUTRA');
+  ok('Consultor = Rodrigo (padrão da migração): vai para quem lançou; robô e o próprio Rodrigo ficam; rateio é manual');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

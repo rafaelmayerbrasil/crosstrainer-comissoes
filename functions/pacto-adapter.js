@@ -144,6 +144,14 @@ const PactoAdapter = {
     return this.APELIDOS[n] || n;
   },
 
+  // Consultor que a importação do TecnoFit pôs em todos os alunos (ver vendedorDe).
+  // Já normalizado: 'RODRIGO ROJAIS' vira 'RODRIGO' pelos APELIDOS.
+  CONSULTOR_PADRAO_MIGRACAO: ['RODRIGO'],
+
+  ehConsultorPadrao(nome) {
+    return this.CONSULTOR_PADRAO_MIGRACAO.includes(this.normalizarNome(nome));
+  },
+
   ehGenerico(nome) {
     const n = String(nome || '').trim().toUpperCase();
     return this.GENERICOS.includes(n) || this.PREFIXOS_GENERICOS.some(re => re.test(n));
@@ -441,10 +449,24 @@ const PactoAdapter = {
    *  • produto de balcão (água, camiseta): não existe "lançou ≠ vendeu";
    *  • sobrou UMA pessoa entre as duas colunas, descontados os rótulos de
    *    sistema (que ocupam coluna mas não disputam nada).
-   * @returns {{vendedor: string, divididaCom: string[]}}
+   *
+   * EXCEÇÃO — o consultor padrão da migração (decisão do Rodrigo, 24/09/2026):
+   * na importação do TecnoFit o Rodrigo foi posto como consultor de TODOS os
+   * alunos, para a gestão redistribuir depois (ainda não redistribuiu). A Pacto
+   * repete o consultor da ficha em todo contrato novo, então a venda da Kali para
+   * aluno antigo nascia "do Rodrigo" — que não é vendedor e não recebe: a venda
+   * não pagava ninguém. Quando o Consultor traz o Rodrigo, a venda vai para QUEM
+   * LANÇOU (Responsável 1). Rateio, se houver, é a gestão que lança à mão.
+   * Se quem lançou foi robô (PACTO, RECORRENCIA) ou o próprio Rodrigo, fica
+   * como estava.
+   * @returns {{vendedor: string, divididaCom: string[], porQuemLancou?: boolean}}
    */
   vendedorDe(l, ehContrato) {
     const doConsultor = this.pessoasEm(this.campo(l, 'consultor'));
+    if (doConsultor.some(n => this.ehConsultorPadrao(n))) {
+      const lancou = this.pessoasEm(this.campo(l, 'resp1')).filter(n => !this.ehConsultorPadrao(n));
+      if (lancou.length) return { vendedor: lancou[0], divididaCom: [], porQuemLancou: true };
+    }
     if (doConsultor.length) return { vendedor: doConsultor[0], divididaCom: doConsultor.slice(1) };
 
     const resp = [];
@@ -607,7 +629,7 @@ const PactoAdapter = {
       const papel = ehContrato ? (papeis.get(l) || 'plano') : 'avulso';
       const { texto, presumido } = this.itensDe(l, papel);
       const valor = this.valorBR(this.campo(l, 'valor'));
-      const { vendedor, divididaCom } = this.vendedorDe(l, ehContrato);
+      const { vendedor, divididaCom, porQuemLancou } = this.vendedorDe(l, ehContrato);
       const cliente = this.campo(l, 'nome');
 
       // Código estável dentro do export: contrato (ou matrícula) + ordem na chave.
@@ -641,6 +663,15 @@ const PactoAdapter = {
 
       // A divisão em si só existe na tela de Comissões — aqui a venda fica com
       // a primeira e sai listada. O nome composto viraria vendedora fantasma.
+      // Visível no resumo do upload: a gestão vê o que saiu do consultor padrão
+      // da migração e ainda sabe quais alunos falta redistribuir na Pacto.
+      if (porQuemLancou && papel === 'plano') {
+        avisos.push({
+          motivo: 'Consultor na Pacto é o Rodrigo (padrão da migração) — a venda foi para quem lançou: ' + vendedor,
+          cliente, valor, produto: this.campo(l, 'produto'),
+        });
+      }
+
       if (divididaCom.length) {
         avisos.push({
           motivo: 'venda dividida — aplicar a divisão na tela',
