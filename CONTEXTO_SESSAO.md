@@ -26,9 +26,10 @@ não pelo teste) · a remoção segue a mesma regra. `smoke-venda-repetida.js` 7
 `confirmUpload` com Firestore falso (código anterior: 7 compras → 1). **Simulado contra os itens de produção:** set/PP
 Kali 1.195,58 → **1.217,11** (idêntico ao cálculo completo), ago/PP Kali +3,39, ago/CP Erica +2,80 (paga → a
 "Falta" da tela sobe 2,80); divisões manuais intactas. Staging publicado e conferido no navegador.
-🔴 **FALTA:** Rafael testar no staging (subir o recebimentos de setembro do Príncipe e ver, em Registros, as 8 linhas de
-Monster do LEONARDO SILVEIRA em 02/09 e as 10 do ALAN BRITO em 04/09) → com o OK, `main` (só `index.html` +
-smoke; o código é inline, sem `?v=`) e subir de novo ago e set, CP e PP, em produção.
+✅ **Homologado pelo Rafael no staging** (as 8 linhas do Leonardo apareceram) e **NO AR EM PRODUÇÃO (`6db671a..47ea424`)** —
+só `index.html` + smoke, suíte 81/81 no `main`; conferido no github.io (index idêntico ao `main`, 0 erro).
+🔴 **FALTA:** o Rafael subir de novo ago e set, CP e PP, em produção; eu confiro os valores. O Benny faz o
+Complementar da Erica DEPOIS disso (a "Falta" dela sobe de 33,77 para ~36,57).
 
 ⚠️ **Achado: a venda de balcão repetida agora custa dinheiro à Kali.** Set PP: Kali −R$ 9,94 contra a planilha e
 **−R$ 21,53** contra o cálculo completo — são Monsters/águas do mesmo cliente, mesmo dia e valor, que colapsam num id
