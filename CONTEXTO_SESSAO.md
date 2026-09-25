@@ -5,6 +5,17 @@
 
 ## 🔖 ONDE PARAMOS — sessão 75 (24/09/2026) — 🧑‍💼 A REGRA DO RODRIGO: consultor padrão da migração → a venda é de quem lançou · recálculo de agosto e setembro
 
+### ✅ 25/09 — REGRA NO AR EM PRODUÇÃO (`7937e8e..6db671a`)
+O Rodrigo conferiu os números da planilha ("parece estar certo") e o Rafael autorizou seguir. **Antes de publicar,
+conferido no banco:** o Benny registrou hoje os recibos de agosto — Erica (CP #31 R$ 1.650,25 · PP #38 R$ 56,98) e
+Francini (CP #32 R$ 839,11 · PP #39 R$ 115,75), exatamente os valores gravados. **Bárbara e Kali sem recibo.**
+Publicado: `main` só com `pacto-adapter.js` + `index.html` (`?v=20260925`) + smoke (branch `regra-consultor-rodrigo`,
+suíte 80/80) e `buscarPactoSombra`/`Manual` em produção a partir da branch da Pacto. Conferido no github.io: a página
+de produção devolve KALI DUTRA para "Consultor Rodrigo, lançou Kali", 0 erro.
+🔴 **FALTA (é do Rafael, pela tela, logado):** subir de novo em produção o `faturamento-recebido` de **agosto**
+(`01 a 310826`) e de **setembro** (o mais novo), no **Campeche e no Príncipe**. Depois eu confiro os valores contra
+a planilha e a tela de Pagamentos (Erica e Francini devem aparecer "DIVERGÊNCIA — Falta R$ X" → Complementar).
+
 ### ▶️▶️ RETOMAR AQUI
 1. 🔴 **Rafael homologa no staging** a regra nova (`5036064`, na branch `pacto-api-modo-sombra`; hosting e functions
    do staging já publicados). Como conferir: subir o `faturamento-recebido` de agosto no Príncipe **no staging** → a
