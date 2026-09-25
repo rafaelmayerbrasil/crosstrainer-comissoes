@@ -18,6 +18,18 @@ planilha em centavos — Ago CP Francini 1.153,44 · Erica 1.684,02 (Pagamentos 
 Set CP Erica 1.549,26 · Francini 622,03 · Set PP Kali 1.195,58 · Francini 191,18 · Bárbara 129,39 · Erica 97,31.
 Os centavos vêm do P3 repartido pelo caixa com as divisões manuais. Contratos que ficaram com o Rodrigo: 5 (ago PP) e
 4 (set PP) — lançados por ele ou pelo robô, como a regra manda.
+🔧 **CORRIGIDO NO STAGING (25/09, `30d6776`) — venda repetida no mesmo dia.** O Rafael pediu "corrige no staging
+primeiro". `idsComRepeticao`: a 1ª ocorrência mantém o id de sempre (nada existente muda de identidade), as repetidas
+ganham _2, _3… · "valor alterado" só quando o valor mudou de fato, comparando com TODOS os valores já gravados daquele
+lançamento (a 1ª versão comparava com o último e jogava fora 19 compras em set/PP — pego pela simulação com dado real,
+não pelo teste) · a remoção segue a mesma regra. `smoke-venda-repetida.js` 7/7 executando o trecho de gravação do
+`confirmUpload` com Firestore falso (código anterior: 7 compras → 1). **Simulado contra os itens de produção:** set/PP
+Kali 1.195,58 → **1.217,11** (idêntico ao cálculo completo), ago/PP Kali +3,39, ago/CP Erica +2,80 (paga → a
+"Falta" da tela sobe 2,80); divisões manuais intactas. Staging publicado e conferido no navegador.
+🔴 **FALTA:** Rafael testar no staging (subir o recebimentos de setembro do Príncipe e ver, em Registros, as 8 linhas de
+Monster do LEONARDO SILVEIRA em 02/09 e as 10 do ALAN BRITO em 04/09) → com o OK, `main` (só `index.html` +
+smoke; o código é inline, sem `?v=`) e subir de novo ago e set, CP e PP, em produção.
+
 ⚠️ **Achado: a venda de balcão repetida agora custa dinheiro à Kali.** Set PP: Kali −R$ 9,94 contra a planilha e
 **−R$ 21,53** contra o cálculo completo — são Monsters/águas do mesmo cliente, mesmo dia e valor, que colapsam num id
 só ([[venda-repetida-colapsa-no-id]]). Antes eram do Rodrigo e não pagavam ninguém; agora são dela. **Decisão pendente
