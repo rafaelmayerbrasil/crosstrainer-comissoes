@@ -28,8 +28,17 @@ Kali 1.195,58 → **1.217,11** (idêntico ao cálculo completo), ago/PP Kali +3,
 "Falta" da tela sobe 2,80); divisões manuais intactas. Staging publicado e conferido no navegador.
 ✅ **Homologado pelo Rafael no staging** (as 8 linhas do Leonardo apareceram) e **NO AR EM PRODUÇÃO (`6db671a..47ea424`)** —
 só `index.html` + smoke, suíte 81/81 no `main`; conferido no github.io (index idêntico ao `main`, 0 erro).
-🔴 **FALTA:** o Rafael subir de novo ago e set, CP e PP, em produção; eu confiro os valores. O Benny faz o
-Complementar da Erica DEPOIS disso (a "Falta" dela sobe de 33,77 para ~36,57).
+✅ **Re-subidos em produção em 25/09 e CONFERIDOS no banco** (set 18:29/18:30; ago 18:32/18:33 — a 1ª tentativa de
+agosto não confirmou o upload e não gravou nada; o `audit_log` mostrou). Repetidas entraram (CP ago 124→131, PP ago
+151→162, PP set 181→234), divisões manuais intactas (6 CP, 2 PP), e uma nova simulação de re-subida dá 0 adicionados
+(estável). **Valores finais para o Benny:**
+- **Agosto CP:** Francini **R$ 1.152,74** → Pagamentos "Falta **R$ 313,63**" (Complementar) · Erica **R$ 1.687,80** →
+  "Falta **R$ 37,55**" (Complementar).
+- **Agosto PP:** **Kali R$ 1.288,62** e **Bárbara R$ 721,11** — sem recibo, emitir o cheio · Francini 115,75 e Erica
+  56,98 pagas, sem diferença.
+- **Setembro** (até 23/09, mês aberto): Kali PP 1.217,11 · Erica CP 1.550,51 + PP 97,31 · Francini CP 623,08 + PP
+  191,18 · Bárbara PP 130,06.
+Os centavos contra a planilha de 24/09 são as compras repetidas (que ela não contava) e o P3 repartido pelo caixa.
 
 ⚠️ **Achado: a venda de balcão repetida agora custa dinheiro à Kali.** Set PP: Kali −R$ 9,94 contra a planilha e
 **−R$ 21,53** contra o cálculo completo — são Monsters/águas do mesmo cliente, mesmo dia e valor, que colapsam num id
