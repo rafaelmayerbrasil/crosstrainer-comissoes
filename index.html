@@ -4886,6 +4886,36 @@
       return 'id_' + Math.abs(hash).toString(36) + '_' + key.length;
     }
 
+    // A identidade de cada item de UM upload, contando as repetições (25/09/2026).
+    //
+    // `generateStableId` é o hash de vendedor|cliente|data|item|valor — sete
+    // Monsters de R$ 9,80 do mesmo professor no mesmo dia davam o MESMO id e
+    // eram gravados um por cima do outro: ficava um. Enquanto essas vendas eram
+    // do Rodrigo (não comissiona) ninguém perdia; desde a regra do consultor
+    // padrão elas são da Kali — R$ 21,53 a menos em set/2026 no Príncipe.
+    // A 1ª ocorrência mantém o id de sempre (nada que já existe muda de
+    // identidade: divisões, histórico e conferências seguem apontando para o
+    // mesmo doc); só a 2ª, 3ª... ganham o sufixo _2, _3.
+    function idsComRepeticao(itens) {
+      const vistos = {};
+      return itens.map(item => {
+        const base = generateStableId(item);
+        vistos[base] = (vistos[base] || 0) + 1;
+        return vistos[base] === 1 ? base : base + '_' + vistos[base];
+      });
+    }
+
+    // "Mesmo lançamento com o valor mudado" (soft match) só vale quando o valor
+    // MUDOU de fato. Se o banco já tem esse lançamento com ESTE valor, é a
+    // repetição acima — outra compra, não uma correção — e tem que ser gravada.
+    // Olha TODOS os valores gravados daquele lançamento, não só o último: o mesmo
+    // cliente compra o mesmo lanche por R$ 9,10 duas vezes e por R$ 9,80 uma.
+    // @param {Map<string, Set<string>>} valoresExistentes  softId → valores ('9.10')
+    function ehValorAlterado(valoresExistentes, item) {
+      const vals = valoresExistentes.get(generateSoftId(item));
+      return !!vals && !vals.has(Number(item.valorCaixa || 0).toFixed(2));
+    }
+
     function generateSoftId(item) {
       const key = [
         (item.vendedor || '').toString().trim().toUpperCase(),
@@ -5022,12 +5052,16 @@
         const existingMap = {}; // stableId → type
         const existingProcessedData = {}; // stableId → item data (para detectar removidos no histórico)
         const existingSoftMap = {}; // softId → { stableId, valorCaixa } (para detectar valor alterado)
+        const existingSoftValores = new Map(); // softId → todos os valores já gravados (ver ehValorAlterado)
         existingSnap.forEach(doc => {
           const d = doc.data();
           existingMap[doc.id] = d.type || 'processed';
           if ((d.type || 'processed') === 'processed') {
             existingProcessedData[doc.id] = d;
-            existingSoftMap[generateSoftId(d)] = { stableId: doc.id, valorCaixa: d.valorCaixa || 0 };
+            const s = generateSoftId(d);
+            existingSoftMap[s] = { stableId: doc.id, valorCaixa: d.valorCaixa || 0 };
+            if (!existingSoftValores.has(s)) existingSoftValores.set(s, new Set());
+            existingSoftValores.get(s).add(Number(d.valorCaixa || 0).toFixed(2));
           }
         });
         console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
@@ -5064,11 +5098,16 @@
             return hasContent || hasValue || isDegust;
           });
 
+        // Um id por item, contando as repetições do mesmo dia (ver idsComRepeticao).
+        // Calculado UMA vez: gravação, histórico e remoção têm que usar o mesmo.
+        const idsUpload = idsComRepeticao(allItems);
+        const idDe = new Map(allItems.map((d, k) => [d, idsUpload[k]]));
+
         let skipped = 0, replaced = 0, added = 0;
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
           allItems.slice(i, i + 400).forEach(item => {
-            const stableId = generateStableId(item);
+            const stableId = idDe.get(item);
             const existingType = existingMap[stableId];
 
             // FIX RAIZ: venda já dividida (split) → NÃO re-adicionar o registro cheio.
@@ -5089,7 +5128,7 @@
             }
             // Soft match: mesmo contrato, valor diferente → manter original, não criar novo
             const softId = generateSoftId(item);
-            if (existingSoftMap[softId] && existingSoftMap[softId].stableId !== stableId) {
+            if (existingSoftMap[softId] && existingSoftMap[softId].stableId !== stableId && ehValorAlterado(existingSoftValores, item)) {
               skipped++;
               // Atualiza uploadId do item ORIGINAL para rastreio
               batch.update(itemsRef.doc(existingSoftMap[softId].stableId), { uploadId });
@@ -5114,14 +5153,27 @@
 
         // HISTÓRICO: construir deltas de itens do upload (adicionados + removidos + valor alterado)
         const uploadItemDeltas = [];
-        const newUploadIds = new Set(allItems.filter(d => d.type === 'processed').map(item => generateStableId(item)));
-        const newSoftIds   = new Set(allItems.filter(d => d.type === 'processed').map(item => generateSoftId(item)));
+        const newUploadIds = new Set(allItems.filter(d => d.type === 'processed').map(item => idDe.get(item)));
+        // softId → valores que chegaram no arquivo. Um item antigo só é "o original
+        // de um valor alterado" (e fica) se o arquivo trouxe o mesmo lançamento com
+        // OUTRO valor. Se o valor dele ainda está lá, é uma repetição que saiu do
+        // arquivo (7 compras viraram 6) e tem que ser apagada.
+        const newSoftValores = new Map();
+        allItems.filter(d => d.type === 'processed').forEach(item => {
+          const s = generateSoftId(item);
+          if (!newSoftValores.has(s)) newSoftValores.set(s, new Set());
+          newSoftValores.get(s).add(Number(item.valorCaixa || 0).toFixed(2));
+        });
+        const ficaPorValorAlterado = (existente) => {
+          const vals = newSoftValores.get(generateSoftId(existente));
+          return !!vals && !vals.has(Number(existente.valorCaixa || 0).toFixed(2));
+        };
 
         // Itens adicionados (não estavam como processed antes e não são soft match)
         allItems.filter(d => d.type === 'processed').forEach(item => {
-          const stableId = generateStableId(item);
+          const stableId = idDe.get(item);
           if (existingMap[stableId] === 'processed') return; // match exato, já existe
-          if (existingSoftMap[generateSoftId(item)]) return; // soft match (valor alterado), registrado separadamente
+          if (ehValorAlterado(existingSoftValores, item)) return; // soft match (valor alterado), registrado separadamente
           if (existingSplitBases.has(splitBaseKey(item))) return; // FIX RAIZ: venda já dividida, não é "adicionado"
           uploadItemDeltas.push({
             vendorId: item.vendedor || '',
@@ -5136,10 +5188,10 @@
 
         // Itens com valor alterado (mesmo contrato, valorCaixa diferente → ignorado)
         allItems.filter(d => d.type === 'processed').forEach(item => {
-          const stableId = generateStableId(item);
+          const stableId = idDe.get(item);
           if (existingMap[stableId] === 'processed') return; // match exato, não é alteração de valor
+          if (!ehValorAlterado(existingSoftValores, item)) return; // nenhum soft match, ou repetição de mesmo valor
           const original = existingSoftMap[generateSoftId(item)];
-          if (!original) return; // nenhum soft match
           uploadItemDeltas.push({
             vendorId: item.vendedor || '',
             vendorName: item.vendedor || '',
@@ -5155,7 +5207,7 @@
 
         // Itens removidos (estavam como processed antes mas não vieram no novo arquivo)
         Object.entries(existingProcessedData).forEach(([stableId, item]) => {
-          if (!newUploadIds.has(stableId) && !newSoftIds.has(generateSoftId(item))) {
+          if (!newUploadIds.has(stableId) && !ficaPorValorAlterado(item)) {
             uploadItemDeltas.push({
               vendorId: item.vendedor || '',
               vendorName: item.vendedor || '',
@@ -5171,7 +5223,7 @@
         // ── BATCH DELETE: remover do Firestore itens que saíram do arquivo ──
         const removedStableIds = Object.keys(existingProcessedData).filter(id => {
           if (newUploadIds.has(id)) return false; // match exato → manter
-          if (newSoftIds.has(generateSoftId(existingProcessedData[id]))) return false; // soft match → manter original
+          if (ficaPorValorAlterado(existingProcessedData[id])) return false; // valor alterado → manter original
           if (existingProcessedData[id].originalSplitId) return false; // perna clonada de split (doc auto-gerado, nunca casa por stableId/softId) → manter
           if (String(existingProcessedData[id].item || '').includes('(Split:')) return false; // FIX RAIZ: perna ORIGINAL do split (tem "(Split:" no item) → manter
           return true; // sumiu do arquivo → deletar
