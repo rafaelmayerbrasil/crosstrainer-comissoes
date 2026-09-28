@@ -5,8 +5,19 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
-### ▶️▶️ RETOMAR AQUI
-1. 🔴 **Rafael homologa no staging** o `076fdc1` + `685d83c` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
+### ✅ 28/09 — NO AR EM PRODUÇÃO (`47ea424..29ac420`)
+Homologado pelo Rafael. `main` só com `commission.js` + `index.html` (`?v=20260928`) + smoke (branch
+`p3-inteiro-producao` do `main`, suíte 83/83) · `buscarPactoSombra`/`Manual` em produção a partir da
+`fix-p3-arredonda-ativacoes` (gêmeo idêntico). Conferido no github.io: `index.html` e `commission.js` idênticos ao
+`main` (tamanho exato), `contagemDaUnidade(40,999…) = 41`, projeto de produção, 0 erro.
+🔴 **FALTA 1 CLIQUE DA GESTÃO:** o `vendorSummary` GRAVADO de `pp_2026-08` ainda tem o valor do motor antigo (Kali
+1.100,75 · Bárbara 608,98, gravado no recálculo das divisões de 28/09) — painel e Pagamentos leem o gravado. Refazer
+pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês → Salvar sem mudar nada** (chama
+`recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
+emite os recibos de agosto delas.
+
+### (antes) RETOMAR AQUI
+1. ✅ ~~**Rafael homologa no staging** o `076fdc1` + `685d83c` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
    hosting + `buscarPactoSombra`/`Manual` do staging publicados, conferido no navegador: `commission.js?v=20260928`,
    motor devolve Super Meta para 40,999…, 0 erro). ⚠️ Os dados do staging não têm um mês no limite de faixa — a prova
    de valor é o motor corrigido rodando sobre os itens de PRODUÇÃO: **Kali R$ 1.310,61 · Bárbara R$ 699,12**.
