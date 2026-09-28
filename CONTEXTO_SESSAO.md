@@ -16,6 +16,20 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### 🔧 28/09 — SIMULADOR "E SE..." DA VENDEDORA CORRIGIDO NO STAGING (`badabe3`, branch `fix-simulador`)
+Dois defeitos, medidos com os dados de produção: (1) lia as metas de `window.currentPeriodData` (só existe na tela da
+gestão) e na tela da vendedora caía no padrão da unidade — Kali ago/PP "+3 recorrentes = **− R$ 346,64**", certo
+**+ R$ 145,02**; (2) calculava o bolo INTEIRO do P3 com o caixa só dela — Francini set/CP "+3 recorrentes = + R$ 887,24",
+certo + R$ 235,09. A conta foi para o motor: `CommissionEngine.agregadosP3` (somas da unidade, sem nome de colega) +
+`simularVendas` (P1 + P2 + a PARTE dela no P3, com faixa e corte individual). O painel da vendedora guarda
+`window.currentVendorCfg` (metas do mês que ela abriu) e `window.currentSimAgregados`. `smoke-simulador.js` 9/9 contra o
+recálculo completo do motor (falha no código anterior); contra produção, 5 vendedoras-mês × anual/recorrente:
+**diferença zero**. Suíte 91/91. `?v=20260929` (a produção já tem 20260928 de hoje — [[dois-deploys-no-mesmo-dia]]).
+Functions não republicadas: o `functions/commission.js` só ganhou as duas funções novas, que o termômetro não usa.
+🔴 **Falta:** o Rafael homologar no staging → levar ao `main` `commission.js` + `index.html` + smoke.
+⚠️ Os preços do simulador (anual local R$ 3.108, flex R$ 3.348, bianual R$ 5.976, recorrente R$ 419, mensal R$ 390)
+seguem fixos no código — não mexi; confirmar se ainda são os da tabela.
+
 ### ✅ 28/09 — JANELA DE METAS NO AR EM PRODUÇÃO (`29ac420..c6220f2`)
 Homologada pelo Rafael. `main` só com `index.html` + `smoke-janela-metas.js` + `smoke-metas-do-mes.js` (branch
 `janela-metas-producao` do `main`, suíte 84/84). Conferido no github.io: `index.html` com o tamanho exato do `main`,
@@ -29,8 +43,7 @@ até ler, grava no período para o qual a janela abriu e recusa se o mês mudou 
 outra unidade; o `audit_log` passa a registrar os números gravados. `smoke-janela-metas.js` 7/7 (roda as funções com
 DOM e banco falsos; o código antigo mostrava 50 no lugar de 35) · `smoke-metas-do-mes` recorta a função pelas chaves.
 Suíte 90/90. Staging conferido no navegador (função assíncrona, lê do banco, 0 erro). ✅ Homologado e em produção (ver acima).
-📋 Achado, não mexido: o **simulador da vendedora** (`calcSimulator`) também lê `window.currentPeriodData`, que só
-é preenchido na visão da gestão — para a vendedora ele deve estar usando o padrão da unidade, não a meta do mês.
+📋 O simulador da vendedora tinha o mesmo defeito — corrigido no staging (ver acima).
 
 ### ✅ 28/09 19:32 — AGOSTO/PP FECHADO NO VALOR CERTO
 O Rafael recalculou pela tela conferindo 35/41/49 e corte 7. **Conferido no banco: Kali R$ 1.310,61 · Bárbara
