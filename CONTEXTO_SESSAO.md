@@ -16,6 +16,17 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### ⚠️ 28/09 19:25 — a janela de metas gravou o PADRÃO por cima de ago/PP (instrução minha)
+Mandei "Configurar Metas do Mês → Salvar sem mudar nada". A janela abriu com o padrão da unidade (50/57/65, corte 10)
+em vez de 35/41/49 com corte 7: P3 zerou, Kali R$ 841,12 · Bárbara R$ 497,47. `openMetasMesModal` preenche a partir
+de `window.currentPeriodData` (cópia em memória, pode ser de outro mês). CP ago/set também foram salvos: **nada
+mudou** (Francini 1.152,74 · Erica 1.687,80 em ago). Nenhum recibo emitido. **Restaurado por script com OK do
+Rafael** (`metasMensais` de pp_2026-08 = 35/41/49, fixos 300/600/900, 15/9/4, corte 7; backup em
+`backups/pp_2026-08_antes-restaurar-metas_2026-09-28.json`; linha no `audit_log`). 🔴 **Falta o recálculo pela
+tela, COM conferência:** Ctrl+F5 → Príncipe → Ago 2026 → Configurar Metas; salvar SÓ se mostrar 35/41/49 e corte 7.
+Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. 📋 Pendente: a janela reler o período do banco ao abrir
+e mostrar o mês no título (staging → produção). Memória: [[janela-metas-grava-padrao]].
+
 ### (antes) RETOMAR AQUI
 1. ✅ ~~**Rafael homologa no staging** o `076fdc1` + `685d83c` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
    hosting + `buscarPactoSombra`/`Manual` do staging publicados, conferido no navegador: `commission.js?v=20260928`,
