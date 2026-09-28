@@ -25,10 +25,17 @@ const html = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
 let n = 0;
 const ok = m => console.log('✓ ' + (++n) + '. ' + m);
 
+// A função inteira, contando chaves — um recorte de tamanho fixo deixou de
+// alcançar o fim quando a janela passou a reler o banco ao abrir (28/09/2026).
 const trecho = (nome) => {
   const i = html.indexOf('function ' + nome + '(');
   assert.ok(i > 0, 'função ' + nome + ' não existe');
-  return html.slice(i, i + 2600);
+  let nivel = 0;
+  for (let j = html.indexOf('{', i); j < html.length; j++) {
+    if (html[j] === '{') nivel++;
+    else if (html[j] === '}') { nivel--; if (!nivel) return html.slice(i, j + 1); }
+  }
+  throw new Error('não achei o fim de ' + nome);
 };
 
 // ════════════════════════════════════════════════════════════════════
