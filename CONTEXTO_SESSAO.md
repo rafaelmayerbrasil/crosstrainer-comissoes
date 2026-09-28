@@ -16,6 +16,13 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### ✅ 28/09 — SIMULADOR NO AR EM PRODUÇÃO (`c6220f2..ad7390f`)
+Homologado pelo Rafael. `main` só com `commission.js` + `index.html` (`?v=20260929`) + `smoke-simulador.js` (branch
+`simulador-producao` do `main`, suíte 85/85). Conferido no github.io: `index.html` e `commission.js` com o tamanho exato
+do `main`, a tela chama `CommissionEngine.simularVendas` e não lê mais a cópia da gestão, projeto de produção, 0 erro.
+Continuam no ar as correções de hoje (unidade inteira, janela de metas lendo o banco). Functions não republicadas (o
+`functions/commission.js` só ganharia as duas funções novas, que o termômetro não usa).
+
 ### 🔧 28/09 — SIMULADOR "E SE..." DA VENDEDORA CORRIGIDO NO STAGING (`badabe3`, branch `fix-simulador`)
 Dois defeitos, medidos com os dados de produção: (1) lia as metas de `window.currentPeriodData` (só existe na tela da
 gestão) e na tela da vendedora caía no padrão da unidade — Kali ago/PP "+3 recorrentes = **− R$ 346,64**", certo
@@ -26,7 +33,7 @@ certo + R$ 235,09. A conta foi para o motor: `CommissionEngine.agregadosP3` (som
 recálculo completo do motor (falha no código anterior); contra produção, 5 vendedoras-mês × anual/recorrente:
 **diferença zero**. Suíte 91/91. `?v=20260929` (a produção já tem 20260928 de hoje — [[dois-deploys-no-mesmo-dia]]).
 Functions não republicadas: o `functions/commission.js` só ganhou as duas funções novas, que o termômetro não usa.
-🔴 **Falta:** o Rafael homologar no staging → levar ao `main` `commission.js` + `index.html` + smoke.
+✅ Homologado e em produção (ver acima).
 ⚠️ Os preços do simulador (anual local R$ 3.108, flex R$ 3.348, bianual R$ 5.976, recorrente R$ 419, mensal R$ 390)
 seguem fixos no código — não mexi; confirmar se ainda são os da tabela.
 
