@@ -3253,7 +3253,7 @@
        usuário roda o JS antigo depois do deploy e nada muda — e no upload isso
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
-  <script src="commission.js?v=20260915"></script>
+  <script src="commission.js?v=20260928"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20260925"></script>
@@ -4649,10 +4649,10 @@
       const processed = pendingUpload.result.processed;
 
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
-      const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
-      const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
-      const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitAtivacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
+      const unitNovosRetorno = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
+      const unitRenovacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
+      const unitVouchers = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
       CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
@@ -5991,10 +5991,10 @@
 
       // 2. Rebuild vendorData from the now updated items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
-      const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
-      const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
-      const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
+      const unitAtivacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
+      const unitNovosRetorno = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
+      const unitRenovacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
+      const unitVouchers = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
       CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);

@@ -646,9 +646,29 @@ const CommissionEngine = {
     return vd;
   },
 
+  // Regra da divisão (tela Regras, desde a v1): cada vendedora conta a PROPORÇÃO
+  // da ativação (0,7 / 0,3; 0,5 / 0,5) e a venda conta UMA vez na unidade.
+  // Por vendedora a contagem é fracionada, até centésimos: arredondar a 2 casas
+  // absorve o resto de ponto flutuante (0,30000000000000004).
+  arredondaContagem(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  },
+
+  // Na UNIDADE a contagem é sempre inteira: as pernas de uma venda dividida
+  // somam 1. Sem isto, 40,99999999999999 não alcançava a faixa de 41.
+  contagemDaUnidade(x) {
+    return Math.round(Number(x) || 0);
+  },
+
   // ─── P3: Meta bonus per vendor ───
   calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, vendorP3Base, config) {
     const cfg = { ...this.defaultConfig, ...config };
+    // Divisões somam frações (0,7 + 0,3…) e o ponto flutuante devolve 40,999…
+    // em vez de 41 — agosto/2026 no PP caiu da Super Meta para a Meta assim.
+    unitAtivacoes = this.contagemDaUnidade(unitAtivacoes);
+    unitNovosRetorno = this.contagemDaUnidade(unitNovosRetorno);
+    unitRenovacoes = this.contagemDaUnidade(unitRenovacoes);
+    unitVouchers = this.contagemDaUnidade(unitVouchers);
     const metaPct = cfg.metaPct / 100;
 
     const result = {
@@ -711,8 +731,9 @@ const CommissionEngine = {
     const p3Pool = this.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixaP3, cfg);
 
     // Soma o caixaP3Eligible APENAS das vendedoras elegíveis (ativações >= mínimo)
+    const atingiu = v => this.arredondaContagem(v.ativacoes) >= minAtiv;
     const totalCaixaElegiveis = Object.values(vendorData)
-      .filter(v => !v.isNaoCom && v.ativacoes >= minAtiv)
+      .filter(v => !v.isNaoCom && atingiu(v))
       .reduce((s, v) => s + (v.caixaP3Eligible || 0), 0);
 
     Object.entries(vendorData).forEach(([name, v]) => {
@@ -721,7 +742,7 @@ const CommissionEngine = {
         v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] };
         return;
       }
-      if (v.ativacoes < minAtiv) {
+      if (!atingiu(v)) {
         v.p3 = 0;
         v.p3detail = {
           ...p3Pool,
@@ -874,10 +895,10 @@ const CommissionEngine = {
     const vendorData = this.buildVendorData(processed, splits, cfg);
 
     // Unit totals
-    const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
+    const unitNovosRetorno = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitRenovacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitVouchers = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitAtivacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
     const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
     // P3 per vendor (pool-based rateio proporcional)
