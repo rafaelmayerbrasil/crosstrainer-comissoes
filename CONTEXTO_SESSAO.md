@@ -16,6 +16,12 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### ✅ 28/09 19:32 — AGOSTO/PP FECHADO NO VALOR CERTO
+O Rafael recalculou pela tela conferindo 35/41/49 e corte 7. **Conferido no banco: Kali R$ 1.310,61 · Bárbara
+R$ 699,12** (P3 469,49 + 201,65 = bolo da Super Meta R$ 671,14), Francini 115,75 e Erica 56,98 sem mudança. CP
+ago/set intactos. **Liberado para o Benny emitir os recibos de agosto da Kali e da Bárbara**, e os Complementares
+da Erica (R$ 37,55) e da Francini (R$ 313,63) no CP. Pendente: a janela de metas reler o banco ao abrir.
+
 ### ⚠️ 28/09 19:25 — a janela de metas gravou o PADRÃO por cima de ago/PP (instrução minha)
 Mandei "Configurar Metas do Mês → Salvar sem mudar nada". A janela abriu com o padrão da unidade (50/57/65, corte 10)
 em vez de 35/41/49 com corte 7: P3 zerou, Kali R$ 841,12 · Bárbara R$ 497,47. `openMetasMesModal` preenche a partir
