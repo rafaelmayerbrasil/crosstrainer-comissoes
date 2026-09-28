@@ -761,6 +761,55 @@ const CommissionEngine = {
     });
   },
 
+  // ─── Simulador "E se..." da vendedora ───
+  // Até 28/09/2026 a tela calculava o bolo INTEIRO do P3 com o caixa só dela e
+  // as metas padrão da unidade: a Kali via "+3 recorrentes = − R$ 346,64"
+  // quando o certo era + R$ 145,02. Agora a conta segue a do applyP3Pool.
+
+  // Somas da unidade que o simulador precisa — sem nome nem valor de colega.
+  // `resumo` é o vendorSummary gravado (p3base = caixa elegível ao P3).
+  agregadosP3(resumo, minhaVendedora, config) {
+    const cfg = { ...this.defaultConfig, ...config };
+    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
+    let baseUnidade = 0, baseOutrasElegiveis = 0;
+    Object.entries(resumo || {}).forEach(([nome, v]) => {
+      if (!v || v.isNaoCom) return;
+      const base = v.p3base !== undefined ? v.p3base : (v.caixa || 0);
+      baseUnidade += base;
+      if (nome !== minhaVendedora && this.arredondaContagem(v.ativacoes) >= minAtiv) baseOutrasElegiveis += base;
+    });
+    return { baseUnidade, baseOutrasElegiveis };
+  },
+
+  // Quanto ELA ganha fechando mais `qt` vendas novas de um plano (P1 + P2 + a
+  // parte dela no P3). A diferença do P3 é sempre medida contra a mesma conta
+  // sem as vendas novas, para não misturar com o que está gravado.
+  simularVendas({ minhas, totais, agregados, qt, valorCaixa, bonusP2, config }) {
+    const cfg = { ...this.defaultConfig, ...config };
+    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
+    const t = totais || {};
+    const ag = agregados || { baseUnidade: 0, baseOutrasElegiveis: 0 };
+    const minhaBase0 = minhas.p3base !== undefined ? minhas.p3base : (minhas.caixa || 0);
+
+    const minhaParteP3 = (n) => {
+      const extra = valorCaixa * n;
+      const bolo = this.calcP3((t.unitAtivacoes || 0) + n, (t.unitNovosRetorno || 0) + n,
+        t.unitRenovacoes || 0, t.unitVouchers || 0, ag.baseUnidade + extra, cfg).final;
+      if (minhas.isNaoCom || this.arredondaContagem((minhas.ativacoes || 0) + n) < minAtiv) return 0;
+      const minhaBase = minhaBase0 + extra;
+      const elegiveis = ag.baseOutrasElegiveis + minhaBase;
+      if (elegiveis <= 0 || bolo <= 0) return 0;
+      return Math.round((minhaBase / elegiveis) * bolo * 100) / 100;
+    };
+
+    const dP1 = minhas.isNaoCom ? 0 : valorCaixa * qt * (cfg.pctNovo / 100);
+    const dP2 = minhas.isNaoCom ? 0 : (bonusP2 || 0) * qt;
+    const p3Antes = minhaParteP3(0);
+    const p3Depois = minhaParteP3(qt);
+    const dP3 = p3Depois - p3Antes;
+    return { dP1, dP2, dP3, p3Antes, p3Depois, total: dP1 + dP2 + dP3 };
+  },
+
   // ─── P4: Voucher conversion bonus ───
   calcP4(currentProcessed, previousProcessed, config) {
     const cfg = { ...this.defaultConfig, ...config };

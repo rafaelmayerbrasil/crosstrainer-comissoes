@@ -3257,7 +3257,7 @@
        usuário roda o JS antigo depois do deploy e nada muda — e no upload isso
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
-  <script src="commission.js?v=20260928"></script>
+  <script src="commission.js?v=20260929"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20260925"></script>
@@ -6928,6 +6928,11 @@
       }
       window.currentUnitTotals = t;
       window.currentVendorMyName = myName;
+      // Metas do mês que ELA abriu (lidas do banco acima) e as somas do P3 da
+      // unidade — só totais, sem nome nem valor de colega. Até 28/09/2026 o
+      // simulador lia as metas da cópia da gestão e caía no padrão da unidade.
+      window.currentVendorCfg = cfg;
+      window.currentSimAgregados = CommissionEngine.agregadosP3(vs, myName, cfg);
 
       let html = '';
 
@@ -7161,7 +7166,10 @@
     function calcSimulator(myData, unitAtiv, unitNovos, unitRenov, unitVouchers, qt, tipo) {
       if (!myData || !CommissionEngine) return;
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((window.currentPeriodData && window.currentPeriodData.metasMensais) || {}) };
+      // Metas do mês que a vendedora abriu — NÃO a cópia da gestão
+      // (window.currentPeriodData), que na tela dela não existe e caía no
+      // padrão da unidade. Sem o mês carregado, fica no padrão da unidade.
+      const cfg = window.currentVendorCfg || { ...CommissionEngine.defaultConfig, ...unitConfig };
 
       // Define plan values and mapping based on the rules
       const valorMap = {
@@ -7173,32 +7181,18 @@
       };
 
       const plan = valorMap[tipo] || { caixa: 0, p2: 0 };
-      const valCaixa = plan.caixa * qt;
-      const valP2 = plan.p2 * qt;
 
-      const currP1 = myData.p1 || 0;
-      const currP2 = myData.p2 || 0;
-      const currP3 = myData.p3 || 0;
-
-      const novaCaixa = myData.caixa + valCaixa;
-
-      // Calculate new P1 
-      const deltaP1 = valCaixa * (cfg.pctNovo / 100);
-      const novoP1 = currP1 + deltaP1;
-
-      // Calculate new P2
-      const deltaP2 = valP2;
-      const novoP2 = currP2 + deltaP2;
-
-      // Calculate new P3 scenario
-      const novoUnitAtiv = unitAtiv + qt;
-      const novoUnitNovos = unitNovos + qt;
-      // myData.caixa isn't P3 eligible exactly, but close enough for simulation
-      const novoCaixaP3Eligible = (myData.caixa || 0) + valCaixa;
-
-      const p3result = CommissionEngine.calcP3(novoUnitAtiv, novoUnitNovos, unitRenov, unitVouchers, novoCaixaP3Eligible, cfg);
-      const novoP3 = p3result.final;
-      const deltaP3 = novoP3 - currP3;
+      // A conta mora no motor e segue a do rateio de verdade: o P3 é a PARTE
+      // dela no bolo da unidade, não o bolo inteiro (smoke-simulador.js).
+      const sim = CommissionEngine.simularVendas({
+        minhas: myData,
+        totais: { unitAtivacoes: unitAtiv, unitNovosRetorno: unitNovos, unitRenovacoes: unitRenov, unitVouchers },
+        agregados: window.currentSimAgregados,
+        qt, valorCaixa: plan.caixa, bonusP2: plan.p2, config: cfg,
+      });
+      const deltaP1 = sim.dP1;
+      const deltaP2 = sim.dP2;
+      const deltaP3 = sim.dP3;
 
       const deltaTotal = deltaP1 + deltaP2 + deltaP3;
       const novoTotal = (myData.grandTotal || 0) + deltaTotal;
