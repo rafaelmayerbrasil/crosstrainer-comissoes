@@ -16,6 +16,17 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### 🔧 28/09 — JANELA DE METAS CORRIGIDA NO STAGING (`aa72222`, branch `fix-janela-metas`)
+`openMetasMesModal` relê `periodos/{id}` do banco ao abrir (não usa mais `window.currentPeriodData`); o topo diz
+"Ago 2026 · CrossTainer PP" e se o mês tem **metas próprias** ou está no **padrão da unidade**; o Salvar fica travado
+até ler, grava no período para o qual a janela abriu e recusa se o mês mudou com ela aberta ou se o período é de
+outra unidade; o `audit_log` passa a registrar os números gravados. `smoke-janela-metas.js` 7/7 (roda as funções com
+DOM e banco falsos; o código antigo mostrava 50 no lugar de 35) · `smoke-metas-do-mes` recorta a função pelas chaves.
+Suíte 90/90. Staging conferido no navegador (função assíncrona, lê do banco, 0 erro). 🔴 **Falta:** o Rafael
+homologar clicando no staging → levar ao `main` só o `index.html` + os 2 smokes (é só o `index.html`, sem `?v=`).
+📋 Achado, não mexido: o **simulador da vendedora** (`calcSimulator`) também lê `window.currentPeriodData`, que só
+é preenchido na visão da gestão — para a vendedora ele deve estar usando o padrão da unidade, não a meta do mês.
+
 ### ✅ 28/09 19:32 — AGOSTO/PP FECHADO NO VALOR CERTO
 O Rafael recalculou pela tela conferindo 35/41/49 e corte 7. **Conferido no banco: Kali R$ 1.310,61 · Bárbara
 R$ 699,12** (P3 469,49 + 201,65 = bolo da Super Meta R$ 671,14), Francini 115,75 e Erica 56,98 sem mudança. CP
