@@ -3,6 +3,41 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
+
+### ▶️▶️ RETOMAR AQUI
+1. 🔴 **Rafael homologa no staging** o `076fdc1` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
+   hosting + `buscarPactoSombra`/`Manual` do staging publicados, conferido no navegador: `commission.js?v=20260928`,
+   motor devolve Super Meta para 40,999…, 0 erro). ⚠️ Os dados do staging não têm um mês no limite de faixa — a prova
+   de valor é o motor corrigido rodando sobre os itens de PRODUÇÃO: **Kali R$ 1.310,61 · Bárbara R$ 699,12**.
+2. Com o OK: levar ao `main` **só** `commission.js` + `index.html` (`?v=20260928`) + o smoke (branch nova do `main`,
+   cherry-pick; `commission.js` e `index.html` eram idênticos ao `origin/main`) · `firebase deploy --only
+   functions:buscarPactoSombra,functions:buscarPactoSombraManual --project production` · **não precisa subir de novo**:
+   a tela recalcula dos itens. Conferir no github.io que a Kali vê R$ 1.310,61.
+3. 🔴 **Benny NÃO emite os recibos de agosto da Kali e da Bárbara antes do passo 2** (nenhum emitido até 28/09).
+   Erica e Francini continuam com o "Complementar" pendente.
+4. Com o Rodrigo: Eduardo Santana 100% Kali ou 70/30 com a Erica? · Gian Pantaleoni (anual R$ 3.988,90 em 12× no
+   cartão recorrente, lançado 27/08) **sem nenhuma parcela até 26/09** — olhar na Pacto se o cartão é recusado ·
+   Diego Panella (degustação R$ 89, 31/08) nunca pago — foi cortesia?
+
+### O defeito
+Em 28/09 11h04 a gestão lançou as divisões pedidas pela Kali (Freiberger 50/50 Kali/Babi, Jessica Dalla Lana 70/30
+Kali/Babi). Agosto do PP tinha **41 ativações = Super Meta (R$ 600)**; a soma das frações (0,7 + 0,3 +
+0,30000000000000004…) deu **40,99999999999999** e `>= 41` falhou → Meta (R$ 300). Bolo do P3 R$ 671,14 → R$ 371,14:
+**Kali 1.288,62 → 1.100,75, Bárbara 721,11 → 608,98** — a Kali mandou os prints ao Rodrigo ("o valor diminuiu com mais
+ativações"). Reproduzido no centavo com os itens de produção. `calcP3` e o corte individual de `applyP3Pool` agora
+arredondam a contagem a 2 casas (`arredondaContagem`). Varredura de todos os períodos: só `pp_2026-08` mudava de
+faixa (cp_2026-06, cp_2026-08 e pp_2026-07 têm o mesmo resto, longe do limite). `smoke-p3-ativacao-fracionada.js`
+6/6 com a sequência real de frações; falha sem a correção. Suíte 89/89 (o `smoke-9` pede `--project`, já falhava).
+
+### Os 5 nomes da Kali (27/09) — nenhum era erro de cálculo
+Freiberger (ago, estava 100% Kali) e Jessica (ago, 100% Bárbara — consultora dela na Pacto) eram só as divisões,
+lançadas em 28/09 · Gian e Diego Panella: nenhum dinheiro recebido · Eduardo Santana: está em **setembro** (pago
+02/09, 100% Kali); a renovação relançada (C4708) foi paga em 24/09 e entra na próxima subida de setembro.
+A lista "vendas do mês" de agosto ainda mostra RODRIGO (montada antes da regra) — some ao subir o relatório de vendas.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 75 (24/09/2026) — 🧑‍💼 A REGRA DO RODRIGO: consultor padrão da migração → a venda é de quem lançou · recálculo de agosto e setembro
 
 ### ✅ 25/09 — REGRA NO AR EM PRODUÇÃO (`7937e8e..6db671a`)
