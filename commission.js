@@ -646,9 +646,21 @@ const CommissionEngine = {
     return vd;
   },
 
+  // Contagem de ativações pode ser fracionada (divisões), mas só até centésimos:
+  // arredondar a 2 casas absorve o resto de ponto flutuante sem inventar ativação.
+  arredondaContagem(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  },
+
   // ─── P3: Meta bonus per vendor ───
   calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, vendorP3Base, config) {
     const cfg = { ...this.defaultConfig, ...config };
+    // Divisões somam frações (0,7 + 0,3…) e o ponto flutuante devolve 40,999…
+    // em vez de 41 — agosto/2026 no PP caiu da Super Meta para a Meta assim.
+    unitAtivacoes = this.arredondaContagem(unitAtivacoes);
+    unitNovosRetorno = this.arredondaContagem(unitNovosRetorno);
+    unitRenovacoes = this.arredondaContagem(unitRenovacoes);
+    unitVouchers = this.arredondaContagem(unitVouchers);
     const metaPct = cfg.metaPct / 100;
 
     const result = {
@@ -711,8 +723,9 @@ const CommissionEngine = {
     const p3Pool = this.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixaP3, cfg);
 
     // Soma o caixaP3Eligible APENAS das vendedoras elegíveis (ativações >= mínimo)
+    const atingiu = v => this.arredondaContagem(v.ativacoes) >= minAtiv;
     const totalCaixaElegiveis = Object.values(vendorData)
-      .filter(v => !v.isNaoCom && v.ativacoes >= minAtiv)
+      .filter(v => !v.isNaoCom && atingiu(v))
       .reduce((s, v) => s + (v.caixaP3Eligible || 0), 0);
 
     Object.entries(vendorData).forEach(([name, v]) => {
@@ -721,7 +734,7 @@ const CommissionEngine = {
         v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] };
         return;
       }
-      if (v.ativacoes < minAtiv) {
+      if (!atingiu(v)) {
         v.p3 = 0;
         v.p3detail = {
           ...p3Pool,
