@@ -6,7 +6,7 @@
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
 ### ▶️▶️ RETOMAR AQUI
-1. 🔴 **Rafael homologa no staging** o `076fdc1` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
+1. 🔴 **Rafael homologa no staging** o `076fdc1` + `685d83c` (branch `fix-p3-arredonda-ativacoes`, criada da `pacto-api-modo-sombra`;
    hosting + `buscarPactoSombra`/`Manual` do staging publicados, conferido no navegador: `commission.js?v=20260928`,
    motor devolve Super Meta para 40,999…, 0 erro). ⚠️ Os dados do staging não têm um mês no limite de faixa — a prova
    de valor é o motor corrigido rodando sobre os itens de PRODUÇÃO: **Kali R$ 1.310,61 · Bárbara R$ 699,12**.
@@ -26,7 +26,15 @@ Kali/Babi). Agosto do PP tinha **41 ativações = Super Meta (R$ 600)**; a soma 
 0,30000000000000004…) deu **40,99999999999999** e `>= 41` falhou → Meta (R$ 300). Bolo do P3 R$ 671,14 → R$ 371,14:
 **Kali 1.288,62 → 1.100,75, Bárbara 721,11 → 608,98** — a Kali mandou os prints ao Rodrigo ("o valor diminuiu com mais
 ativações"). Reproduzido no centavo com os itens de produção. `calcP3` e o corte individual de `applyP3Pool` agora
-arredondam a contagem a 2 casas (`arredondaContagem`). Varredura de todos os períodos: só `pp_2026-08` mudava de
+arredondam a contagem a 2 casas (`arredondaContagem`).
+**Revisto a pedido do Rafael ("não pode existir 40,1 ativações", `685d83c`):** a regra da divisão está na tela
+**Regras desde a v1 (09/03/2026)** — *"conta a proporção exata da ativação para cada vendedor(a) (ex: 0,7 para um e
+0,3 para outro), garantindo que a meta P3 da unidade não seja inflada"*. Logo: **na unidade a ativação é sempre
+inteira** (`contagemDaUnidade`, arredonda a inteiro onde a contagem nasce: `calculate` e os dois recálculos do
+`index.html`, e de novo no `calcP3`); **por vendedora segue fração**, como manda a regra (a tela já mostra
+arredondado: Kali 19,9 → 20). O 16/06 (`e033448`) já arredondava os totais GRAVADOS, mas depois do P3 — por isso
+não protegia a faixa. ⚠️ O 1º commit quebrou o `smoke-pacto-sombra-tela` (bump de `?v=` só do `commission.js` no
+`pacto-sombra.html`; a página exige o mesmo `?v=` em todos) — rodar a suíte DEPOIS da última edição. Varredura de todos os períodos: só `pp_2026-08` mudava de
 faixa (cp_2026-06, cp_2026-08 e pp_2026-07 têm o mesmo resto, longe do limite). `smoke-p3-ativacao-fracionada.js`
 6/6 com a sequência real de frações; falha sem a correção. Suíte 89/89 (o `smoke-9` pede `--project`, já falhava).
 
