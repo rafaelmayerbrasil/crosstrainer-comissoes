@@ -2714,6 +2714,10 @@
         <h3 style="color:var(--orange)">🎯 Configurar Metas do Mês</h3>
         <button type="button" class="close-btn" onclick="closeMetasMesModal()">&times;</button>
       </div>
+      <!-- Mês e unidade que estão sendo editados, lidos do banco ao abrir (28/09/2026:
+           a janela mostrou o padrão da unidade em ago/PP e gravou por cima) -->
+      <div id="mm_periodoLabel" style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">Carregando…</div>
+      <div id="mm_origem" style="font-size:12px;color:var(--text2);margin-bottom:16px;"></div>
       <p style="font-size:12px;color:var(--text2);margin-bottom:16px;">
         Configurações específicas para <strong>este mês e esta unidade</strong>. Não afetam meses anteriores nem outras unidades.
       </p>
@@ -2782,7 +2786,7 @@
 
         <div style="display:flex;justify-content:flex-end;margin-top:20px;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeMetasMesModal()">Cancelar</button>
-          <button type="submit" class="btn">💾 Salvar Metas do Mês</button>
+          <button type="submit" class="btn" id="mm_btnSalvar">💾 Salvar Metas do Mês</button>
         </div>
       </form>
     </div>
@@ -5480,9 +5484,51 @@
     // ═══════════════════════════════════════════════════════════════
     // METAS MENSAIS (OVERRIDE)
     // ═══════════════════════════════════════════════════════════════
-    function openMetasMesModal() {
+    // Período para o qual a janela de metas foi aberta — é nele que o Salvar grava.
+    var metasMesPeriodId = null;
+
+    // Relê o período do BANCO ao abrir. Até 28/09/2026 preenchia a partir de
+    // `window.currentPeriodData`, cópia em memória que podia ser de outro mês:
+    // aberta em ago/PP (35/41/49, corte 7) mostrou o padrão da unidade
+    // (50/57/65, corte 10), e salvar gravou por cima e zerou o P3 do mês.
+    async function openMetasMesModal() {
       if (!currentPeriodId) return;
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((window.currentPeriodData && window.currentPeriodData.metasMensais) || {}) };
+      const periodId = currentPeriodId;
+      const btn = document.getElementById('mm_btnSalvar');
+      const rotulo = document.getElementById('mm_periodoLabel');
+      const origem = document.getElementById('mm_origem');
+      metasMesPeriodId = null;
+      btn.disabled = true;
+      rotulo.textContent = 'Carregando…';
+      origem.textContent = '';
+      document.getElementById('metasMesModal').classList.add('open');
+
+      let data;
+      try {
+        const snap = await db.collection('periodos').doc(periodId).get();
+        if (!snap.exists) throw new Error('período não encontrado');
+        data = snap.data() || {};
+      } catch (e) {
+        rotulo.textContent = 'Não foi possível ler as metas deste mês';
+        toast('Não consegui ler as metas do mês: ' + e.message + '. Feche e tente de novo.', 'error');
+        return;
+      }
+      // Trocou de mês enquanto lia: esta leitura não vale mais
+      if (periodId !== currentPeriodId) return;
+      if (data.unitId && data.unitId !== currentUnitId) {
+        rotulo.textContent = 'Este mês é de outra unidade';
+        toast('O mês aberto não é da unidade selecionada. Recarregue a página e abra de novo.', 'error');
+        return;
+      }
+
+      const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      rotulo.textContent = (MESES[data.month] || '') + ' ' + (data.year || '') + ' · ' + ((unitConfig && unitConfig.name) || currentUnitId);
+      const proprias = data.metasMensais && Object.keys(data.metasMensais).length > 0;
+      origem.textContent = proprias
+        ? 'Metas próprias deste mês, lidas agora do banco.'
+        : '⚠️ Este mês ainda não tem metas próprias — os números abaixo são o padrão da unidade.';
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(data.metasMensais || {}) };
       document.getElementById('mm_meta').value = cfg.meta;
       document.getElementById('mm_metaFixo').value = cfg.metaFixo;
       document.getElementById('mm_superMeta').value = cfg.superMeta;
@@ -5495,7 +5541,8 @@
       // Corte individual do P3. Até 07/09/2026 só existia na config da unidade,
       // que vale para SEMPRE — então uma exceção de um mês virava regra fixa.
       document.getElementById('mm_minAtivIndiv').value = cfg.minAtivacoesIndivP3;
-      document.getElementById('metasMesModal').classList.add('open');
+      metasMesPeriodId = periodId;
+      btn.disabled = false;
     }
 
     function closeMetasMesModal() {
@@ -5503,7 +5550,15 @@
     }
 
     async function saveMetasMes() {
-      if (!currentPeriodId) return;
+      if (!metasMesPeriodId) {
+        toast('As metas deste mês ainda não foram lidas. Feche a janela e abra de novo.', 'error');
+        return;
+      }
+      if (metasMesPeriodId !== currentPeriodId) {
+        toast('O mês mudou com a janela aberta. Nada foi salvo — abra a janela de novo.', 'error');
+        return;
+      }
+      const periodId = metasMesPeriodId;
       const metasMensais = {
         meta:       parseInt(document.getElementById('mm_meta').value)       || 0,
         metaFixo:   parseFloat(document.getElementById('mm_metaFixo').value) || 0,
@@ -5519,13 +5574,13 @@
 
       try {
         toast('Salvando metas e recalculando...', 'info');
-        await db.collection('periodos').doc(currentPeriodId).set({ metasMensais }, { merge: true });
+        await db.collection('periodos').doc(periodId).set({ metasMensais }, { merge: true });
         closeMetasMesModal();
-        if (window.currentPeriodData) window.currentPeriodData.metasMensais = metasMensais;
-        await recalculatePeriod(currentPeriodId, { type: 'config_change', label: 'Metas mensais atualizadas' });
-        await loadPeriod(currentPeriodId);
+        await recalculatePeriod(periodId, { type: 'config_change', label: 'Metas mensais atualizadas' });
+        await loadPeriod(periodId);
         toast('Metas do mês salvas e período recalculado!', 'success');
-        logAudit('settings_change', `Metas mensais alteradas para o período ${currentPeriodId}`);
+        logAudit('settings_change', `Metas mensais alteradas para o período ${periodId}: ` +
+          `meta ${metasMensais.meta}/${metasMensais.superMeta}/${metasMensais.metaGold}, corte ${metasMensais.minAtivacoesIndivP3}`);
       } catch (e) {
         toast('Erro ao salvar metas: ' + e.message, 'error');
       }
