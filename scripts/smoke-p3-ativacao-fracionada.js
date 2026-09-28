@@ -17,7 +17,10 @@
 // O mesmo vale para o corte individual (`minAtivacoesIndivP3`): quem chega a
 // 7 somando frações não pode ficar com 6,999… e perder o P3 inteiro.
 //
-// Regra: a contagem de ativações é arredondada a 2 casas ANTES de comparar.
+// A regra da divisão (tela Regras, desde a v1, 09/03/2026): cada vendedora
+// conta a PROPORÇÃO da ativação (0,7 / 0,3) e a venda conta UMA vez na
+// unidade. Logo: na UNIDADE a contagem é sempre inteira (41, nunca 40,99 nem
+// 40,1); por vendedora é fração, arredondada a 2 casas antes do corte.
 
 const assert = require('assert');
 const path = require('path');
@@ -94,10 +97,21 @@ function item(vendedor, ativ, caixa) {
   ok('applyP3Pool com a contagem de agosto/PP reparte o bolo da Super Meta: R$ ' + bolo.toFixed(2));
 }
 {
-  // O arredondamento não pode inventar ativação: 40,5 continua abaixo de 41
-  const r = CE.calcP3(40.5, 22, 15, 4, 10000, cfg);
-  assert.strictEqual(r.tier, 'meta', 'meia ativação a menos não vira Super Meta');
-  ok('40,5 ativações continuam na Meta — só o resto de conta é absorvido');
+  // Na unidade a contagem é inteira, em qualquer caminho que a produza
+  assert.strictEqual(CE.contagemDaUnidade(40.99999999999999), 41);
+  assert.strictEqual(CE.contagemDaUnidade(58.00000000000001), 58);
+  const base = ativacoesAgostoPP().map(f => item('KALI', f, 100));
+  const r = CE.calcP3(base.reduce((s, d) => s + d.splitAtivacao, 0), 22, 15, 4, 0, cfg);
+  assert.strictEqual(r.tier, 'super');
+  ok('a unidade conta ativação inteira: 40,99999999999999 → 41, 58,00000000000001 → 58');
+}
+{
+  // Por vendedora a regra continua a da tela Regras: a proporção da ativação
+  const itens = [item('KALI', 0.7, 70), item('BABI', 0.30000000000000004, 30)];
+  const vd = CE.buildVendorData(itens, {}, cfg);
+  assert.strictEqual(CE.arredondaContagem(vd.KALI.ativacoes), 0.7);
+  assert.strictEqual(CE.arredondaContagem(vd.BABI.ativacoes), 0.3);
+  ok('por vendedora a divisão 70/30 continua dando 0,7 e 0,3 de ativação (regra da tela Regras)');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

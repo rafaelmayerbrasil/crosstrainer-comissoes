@@ -646,10 +646,18 @@ const CommissionEngine = {
     return vd;
   },
 
-  // Contagem de ativações pode ser fracionada (divisões), mas só até centésimos:
-  // arredondar a 2 casas absorve o resto de ponto flutuante sem inventar ativação.
+  // Regra da divisão (tela Regras, desde a v1): cada vendedora conta a PROPORÇÃO
+  // da ativação (0,7 / 0,3; 0,5 / 0,5) e a venda conta UMA vez na unidade.
+  // Por vendedora a contagem é fracionada, até centésimos: arredondar a 2 casas
+  // absorve o resto de ponto flutuante (0,30000000000000004).
   arredondaContagem(x) {
     return Math.round((Number(x) || 0) * 100) / 100;
+  },
+
+  // Na UNIDADE a contagem é sempre inteira: as pernas de uma venda dividida
+  // somam 1. Sem isto, 40,99999999999999 não alcançava a faixa de 41.
+  contagemDaUnidade(x) {
+    return Math.round(Number(x) || 0);
   },
 
   // ─── P3: Meta bonus per vendor ───
@@ -657,10 +665,10 @@ const CommissionEngine = {
     const cfg = { ...this.defaultConfig, ...config };
     // Divisões somam frações (0,7 + 0,3…) e o ponto flutuante devolve 40,999…
     // em vez de 41 — agosto/2026 no PP caiu da Super Meta para a Meta assim.
-    unitAtivacoes = this.arredondaContagem(unitAtivacoes);
-    unitNovosRetorno = this.arredondaContagem(unitNovosRetorno);
-    unitRenovacoes = this.arredondaContagem(unitRenovacoes);
-    unitVouchers = this.arredondaContagem(unitVouchers);
+    unitAtivacoes = this.contagemDaUnidade(unitAtivacoes);
+    unitNovosRetorno = this.contagemDaUnidade(unitNovosRetorno);
+    unitRenovacoes = this.contagemDaUnidade(unitRenovacoes);
+    unitVouchers = this.contagemDaUnidade(unitVouchers);
     const metaPct = cfg.metaPct / 100;
 
     const result = {
@@ -887,10 +895,10 @@ const CommissionEngine = {
     const vendorData = this.buildVendorData(processed, splits, cfg);
 
     // Unit totals
-    const unitNovosRetorno = processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitRenovacoes = processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitVouchers = processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0);
-    const unitAtivacoes = processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0);
+    const unitNovosRetorno = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitRenovacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitVouchers = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
+    const unitAtivacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
     const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
     // P3 per vendor (pool-based rateio proporcional)
