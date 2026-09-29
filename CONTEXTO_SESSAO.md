@@ -5,6 +5,26 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
+### 🎁 29/09 — DEGUSTAÇÃO GRÁTIS ENTRA NO CÁLCULO · NO STAGING (`f5557ec`, branch `degustacao-gratis`)
+**Decisões do Rafael (29/09):** (1) degustação grátis segue a regra do TecnoFit — voucher fixo (R$ 10) + 1 ativação;
+(2) de quem é a venda: **como está no relatório** (consultora; Rodrigo → quem lançou) — a Tanara fica com a Kali, nada
+a mudar; (3) **as divisões são os próprios vendedores que fazem** — a gestão não decide rateio (Eduardo Santana etc.).
+**Como ficou:** a degustação grátis só existe no relatório de VENDAS. Ao registrá-lo, `PactoAdapter.degustacoesGratis`
+guarda as do mês em `periodos/{id}.degustacoesGratis` (chaves simples); o upload do RECEBIDO as junta
+(`juntarDegustacoes`, sem duplicar contrato que veio no arquivo nem que já pagou antes) e mostra o bloco 🎁 no resumo.
+Se o mês já foi calculado e a lista mudou, a tela pede para subir o recebido de novo. **Ordem: vendas → recebido.**
+Nos arquivos reais: **só o LUIZ HENRIQUE APPEL** (C4638, PP ago, → Bárbara) em ago e set; as outras 20 degustações
+custaram R$ 89 e já vinham pelo recebido. Efeito medido com as metas de agosto (35/41/49, corte 7): **Bárbara +R$ 10,00,
+ninguém mais muda** (com o corte padrão 10 a conta mudaria muito — cuidado ao simular sem as metas do mês).
+`smoke-degustacao-gratis.js` 10/10 (chama o motor) · suíte 92/93 (`smoke-9` pede `--project`) · `?v=20260930` no
+`pacto-adapter.js` do index e em todos da `pacto-sombra.html`. Functions **não** republicadas (o gêmeo só ganhou
+funções que o termômetro não usa; o termômetro segue sem contar degustação grátis — 1 ativação de diferença possível).
+🔴 **Falta:** Rafael homologar no staging (Comissões → PP → subir `faturamento_01 a 310826.xls` → ver "🎁 1 degustação
+grátis — LUIZ HENRIQUE APPEL" → registrar → subir o recebido de agosto do PP → bloco 🎁 no resumo, Bárbara +R$ 10) ·
+levar ao `main` só `pacto-adapter.js` + `index.html` + smoke (cherry-pick numa branch do `main`) · em produção:
+registrar o relatório de vendas de agosto e **subir de novo o recebido de agosto do PP** · refazer os complementares
+da Erica e da Francini com os números da carga de 29/09 antes de o Benny emitir.
+
 ### ✅ 28/09 — NO AR EM PRODUÇÃO (`47ea424..29ac420`)
 Homologado pelo Rafael. `main` só com `commission.js` + `index.html` (`?v=20260928`) + smoke (branch
 `p3-inteiro-producao` do `main`, suíte 83/83) · `buscarPactoSombra`/`Manual` em produção a partir da
