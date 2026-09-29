@@ -1756,8 +1756,15 @@
         <datalist id="listVendors"></datalist>
         <datalist id="listItems"></datalist>
         <datalist id="listTipos"></datalist>
-        <div class="form-group"><label>Vendedor</label><input id="recVend" required list="listVendors"
-            placeholder="Nome do vendedor (EX: MARIA)"></div>
+        <div id="recAvisoLeitura" style="display:none;font-size:11px;color:var(--text3);background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:12px">
+          🔒 Cliente, data, valor e plano vêm da Pacto e ficam só para leitura. Aqui se ajusta o <strong>vendedor</strong>
+          e o <strong>cancelamento</strong>. Dado errado se corrige na Pacto e sobe de novo.
+        </div>
+        <div class="form-group"><label>Vendedor</label>
+          <!-- Lista de verdade: a sugestão do campo de texto só mostrava o nome que já estava escrito -->
+          <select id="recVendSel" required onchange="escolherVendedorLancamento()"></select>
+          <input id="recVend" list="listVendors" placeholder="Digite o nome do vendedor (EX: MARIA)"
+            style="display:none;margin-top:6px"></div>
         <div class="form-group"><label>Cliente</label><input id="recCli" placeholder="Nome do cliente"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group"><label>Data</label><input type="date" id="recData" required></div>
@@ -1784,7 +1791,7 @@
         </div>
         <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
           <h4 style="font-size:12px; color:var(--orange); margin-bottom:12px; text-transform:uppercase;">Exceções e Ajustes (Opcional)</h4>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div id="recAjustesBloco" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div class="form-group">
               <label>Ajustar Valor P1 (R$)</label>
               <input id="recAjusteP1" type="number" step="0.01" placeholder="Ex: 50.00">
@@ -5870,6 +5877,8 @@
       document.getElementById('recAjusteP1').value = '';
       document.getElementById('recAjusteP2').value = '';
       document.getElementById('recCancelado').checked = false;
+      montarListaVendedores('');
+      travarDadosDaFonte(false);
       document.getElementById('recordModalTitle').textContent = 'Novo Lançamento';
       document.getElementById('recordModal').classList.add('open');
     }
@@ -5880,13 +5889,16 @@
       if (!doc.exists) return;
       const d = doc.data();
       document.getElementById('recId').value = id;
-      document.getElementById('recVend').value = d.vendedor || '';
+      montarListaVendedores(d.vendedor || '');
       document.getElementById('recCli').value = d.cliente || '';
 
       let dateVal = d.data || '';
       if (dateVal.includes('/')) {
         const p = dateVal.split('/');
-        if (p.length === 3) dateVal = `${p[2]}-${p[1]} -${p[0]} `;
+        // aaaa-mm-dd, SEM espaço: com espaço o campo de data fica vazio, e como ele é
+        // obrigatório a gestão tinha de redigitar a data — errando o mês, o
+        // lançamento mudava de período (29/09/2026).
+        if (p.length === 3) dateVal = `${p[2]}-${p[1]}-${p[0]}`;
       }
       document.getElementById('recData').value = dateVal;
 
@@ -5897,8 +5909,66 @@
       document.getElementById('recAjusteP1').value = d.manualP1 !== undefined && d.manualP1 !== null ? d.manualP1 : '';
       document.getElementById('recAjusteP2').value = d.manualP2 !== undefined && d.manualP2 !== null ? d.manualP2 : '';
       document.getElementById('recCancelado').checked = d.canceladoSemEstorno === true;
+      travarDadosDaFonte(true);
       document.getElementById('recordModalTitle').textContent = 'Editar Lançamento';
       document.getElementById('recordModal').classList.add('open');
+    }
+
+    /**
+     * Lista de vendedores da janela de lançamento: todos os nomes do mês, o do
+     * lançamento já marcado, e "Outro nome…" para quem ainda não vendeu no mês.
+     * Antes era um campo de texto com sugestão, e o navegador só sugere o que
+     * combina com o texto escrito — com o nome preenchido, a lista tinha um nome
+     * só e a gestão não achava como trocar o vendedor (29/09/2026).
+     */
+    function montarListaVendedores(atual) {
+      const sel = document.getElementById('recVendSel');
+      const input = document.getElementById('recVend');
+      const nomes = new Set((currentPeriodItems || [])
+        .map(r => String(r.vendedor || '').trim())
+        .filter(n => n && n.toUpperCase() !== 'SEM VENDEDOR'));
+      if (atual) nomes.add(atual);
+      const esc = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      sel.innerHTML = '<option value="" disabled>Selecione o vendedor…</option>'
+        + [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
+        + '<option value="__outro__">✏️ Outro nome…</option>';
+      sel.value = atual || '';
+      input.value = atual || '';
+      input.style.display = 'none';
+    }
+
+    /**
+     * Na EDIÇÃO só o vendedor e o cancelamento mudam (decisão do Rafael, 29/09/2026).
+     * O resto vem da Pacto: mexer aqui descasava o lançamento do arquivo — e a data
+     * editada mudava o lançamento de mês. Os valores continuam no formulário (campo
+     * só leitura ainda é lido pelo Salvar), então os ajustes antigos de P1/P2 ficam
+     * como estavam. No "+ Adicionar" tudo continua aberto.
+     */
+    function travarDadosDaFonte(travar) {
+      ['recCli', 'recData', 'recCaixa', 'recItem', 'recTipo'].forEach(id => {
+        const el = document.getElementById(id);
+        el.readOnly = travar;
+        el.style.opacity = travar ? '0.6' : '';
+      });
+      const cat = document.getElementById('recCat');
+      // select não tem readOnly, e o `disabled` some do formulário mas não do .value
+      cat.disabled = travar;
+      cat.style.opacity = travar ? '0.6' : '';
+      document.getElementById('recAjustesBloco').style.display = travar ? 'none' : 'grid';
+      document.getElementById('recAvisoLeitura').style.display = travar ? '' : 'none';
+    }
+
+    function escolherVendedorLancamento() {
+      const sel = document.getElementById('recVendSel');
+      const input = document.getElementById('recVend');
+      if (sel.value === '__outro__') {
+        input.value = '';
+        input.style.display = '';
+        input.focus();
+      } else {
+        input.value = sel.value;
+        input.style.display = 'none';
+      }
     }
 
     function closeRecordModal() {
@@ -5925,6 +5995,10 @@
       }
 
       const id = document.getElementById('recId').value;
+      if (!document.getElementById('recVend').value.trim()) {
+        toast('Escolha o vendedor (ou digite o nome em "Outro nome…").', 'error');
+        return;
+      }
       const data = {
         vendedor: document.getElementById('recVend').value.trim().toUpperCase() || 'SEM VENDEDOR',
         cliente: document.getElementById('recCli').value.trim() || '',
@@ -5943,6 +6017,21 @@
 
       const ajusteP2Str = document.getElementById('recAjusteP2').value;
       data.manualP2 = ajusteP2Str ? parseFloat(ajusteP2Str) : null;
+
+      // EDIÇÃO: só vendedor e cancelamento vêm da janela (29/09/2026). O resto é
+      // relido do lançamento gravado — assim nem uma categoria fora da lista da
+      // janela, nem um arredondamento do campo, nem uma data mexem no que veio
+      // da Pacto, e o lançamento nunca muda de mês por aqui.
+      if (id) {
+        const atual = (await db.collection('periodos').doc(currentPeriodId).collection('itens').doc(id).get()).data() || {};
+        ['cliente', 'data', 'item', 'valorCaixa', 'tipoVenda', 'category'].forEach(k => {
+          if (atual[k] !== undefined) data[k] = atual[k];
+        });
+        data.manualP1 = atual.manualP1 !== undefined ? atual.manualP1 : null;
+        data.manualP2 = atual.manualP2 !== undefined ? atual.manualP2 : null;
+        targetPeriodId = currentPeriodId;
+        pYear = null; pMonth = null;
+      }
 
       // 2. Then, call applyCommissionsToItem which will respect manualP1/manualP2 if present
       CommissionEngine.applyCommissionsToItem(data, unitConfig);
