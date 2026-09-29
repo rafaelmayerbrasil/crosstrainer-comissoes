@@ -15,6 +15,13 @@ registrar o relatório de VENDAS de agosto (`faturamento_01 a 310826.xls`) → o
 HENRIQUE APPEL" → conferir Bárbara R$ 621,01 → **R$ 631,01** (valores da carga de 29/09). Só então o Benny emite os
 recibos de agosto da Kali e da Bárbara. Complementares da Erica e da Francini ainda a refazer.
 
+**✅ 29/09 20h21 — usado de verdade em produção:** o Rafael registrou o relatório de vendas de agosto (duas vezes, 3 s de
+diferença — o Luiz entrou UMA vez, a proteção contra repetição funcionou). `pp_2026-08`: item voucher da Bárbara, R$ 10,
+43 ativações; **Bárbara R$ 631,01**. ⚠️ Os recibos da Kali (#41, R$ 1.392,16 — certo) e da Bárbara (#40, R$ 621,01) foram
+emitidos e pagos às 15h32, ANTES da degustação. **Diferenças de agosto a pagar pelo botão Complementar em Pagamentos:**
+Bárbara PP **+R$ 10,00** · Francini CP **+R$ 318,24** (1.157,35 − 839,11) · Erica CP **+R$ 27,44** (1.677,69 − 1.650,25)
+· Francini PP **+R$ 3,98** (119,73 − 115,75). Kali e Erica PP: zero. (O "complementar" é da tela, não cálculo por fora.)
+
 ### 🎁 29/09 — DEGUSTAÇÃO GRÁTIS ENTRA NO CÁLCULO · NO STAGING (`f5557ec` + `9f8f825`, branch `degustacao-gratis`)
 **Atualização (`9f8f825`): a ordem das cargas NÃO importa mais** (pedido do Rafael — a carga é feita várias vezes no mês).
 Registrar o relatório de vendas com o mês já calculado põe a degustação direto no mês (`acrescentarDegustacoesNoPeriodo`,
