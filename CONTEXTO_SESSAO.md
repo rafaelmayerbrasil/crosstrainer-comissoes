@@ -5,6 +5,16 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
+### ✅ 29/09 — DEGUSTAÇÃO GRÁTIS NO AR EM PRODUÇÃO (`ad7390f..c70af1c`)
+**O Rodrigo validou as 3 decisões** (regra do TecnoFit · consultora do relatório · divisões pelos vendedores). O Rafael
+**dispensou a homologação no staging e autorizou produção.** `main` só com `pacto-adapter.js` + `index.html`
+(`pacto-adapter.js?v=20260930`) + os 2 smokes (branch `degustacao-gratis-producao` do `main`). Conferido no github.io:
+projeto de produção, funções novas presentes, recálculo pela unidade do período, 0 erro. Functions não republicadas.
+⚠️ **Ninguém clicou de verdade** — nem no staging. 🔴 **Falta (gestão, pela tela):** Comissões → Príncipe → Upload →
+registrar o relatório de VENDAS de agosto (`faturamento_01 a 310826.xls`) → o aviso "🎁 Degustação grátis incluída… LUIZ
+HENRIQUE APPEL" → conferir Bárbara R$ 621,01 → **R$ 631,01** (valores da carga de 29/09). Só então o Benny emite os
+recibos de agosto da Kali e da Bárbara. Complementares da Erica e da Francini ainda a refazer.
+
 ### 🎁 29/09 — DEGUSTAÇÃO GRÁTIS ENTRA NO CÁLCULO · NO STAGING (`f5557ec` + `9f8f825`, branch `degustacao-gratis`)
 **Atualização (`9f8f825`): a ordem das cargas NÃO importa mais** (pedido do Rafael — a carga é feita várias vezes no mês).
 Registrar o relatório de vendas com o mês já calculado põe a degustação direto no mês (`acrescentarDegustacoesNoPeriodo`,
