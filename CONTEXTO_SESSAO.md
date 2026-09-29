@@ -5,6 +5,12 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
+### ✅ 29/09 — EDITAR LANÇAMENTO NO AR EM PRODUÇÃO (`c70af1c..fe412b4`)
+Autorizado pelo Rafael sem teste no staging. `main` só com `index.html` + `smoke-edicao-lancamento-data.js` (branch
+`edicao-lancamento-producao` do `main`). Conferido no github.io: lista, travamento, data certa, degustação intacta,
+projeto de produção, 0 erro. "Cancelar" = o **sem estorno** que já existia (confirmado pelo Rafael): tira P2/P3/P4,
+mantém P1. ⚠️ Ninguém clicou de verdade.
+
 ### 🔧 29/09 — EDITAR LANÇAMENTO: SÓ VENDEDOR E CANCELAMENTO · NO STAGING (`2acc818`, branch `fix-data-edicao`)
 Pego pelo Rafael ao tentar trocar o vendedor de uma venda (print). Três defeitos da janela: (1) a **data abria vazia**
 (conversão com espaço, "2026-08 -25 ") e, como é obrigatória, a gestão redigitava — errando o mês, o lançamento mudava
