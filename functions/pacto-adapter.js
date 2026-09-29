@@ -821,6 +821,29 @@ const PactoAdapter = {
     return { vendas: (vendas || []).concat(incluidas), incluidas };
   },
 
+  /**
+   * Das degustações grátis do relatório de vendas, as que faltam num mês que
+   * JÁ foi calculado. É o que deixa a carga ser feita em qualquer ordem, quantas
+   * vezes for: registrar o relatório de vendas depois do recebido põe a
+   * degustação direto no mês, sem precisar subir o recebido de novo.
+   *
+   * Já está no mês (não entra de novo): qualquer item com o código do contrato —
+   * a própria degustação gravada antes, uma perna de divisão dela, ou o contrato
+   * que passou a ter pagamento e veio pelo recebido. E não entra o contrato que
+   * já pagou comissão em mês anterior.
+   *
+   * @param {Array} degustacoes    saída de `degustacoesGratis` para o mês
+   * @param {Array} itensDoPeriodo itens gravados (precisa de `codigo`)
+   * @param {Array<string>} codigosPagos  códigos já comissionados antes
+   * @returns {Array} as degustações a acrescentar, no formato guardado
+   */
+  degustacoesQueFaltam(degustacoes, itensDoPeriodo, codigosPagos) {
+    const noMes = this.contratosDe((itensDoPeriodo || []).map(i => i.codigo));
+    const jaPagos = this.contratosDe(codigosPagos);
+    return (degustacoes || []).filter(d =>
+      !noMes.has(String(d.contrato)) && !jaPagos.has(String(d.contrato)));
+  },
+
   /** Tira os campos internos (`_algo`) — o que vai pra planilha */
   paraPlanilha(vendas) {
     return vendas.map(v => this.CABECALHO_SAIDA.map(h => v[h]));

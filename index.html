@@ -4365,7 +4365,7 @@
       if (!chaves.length) { toast('Nada para registrar.', 'error'); return; }
       try {
         let gravados = 0, total = 0;
-        const refazer = [];   // meses já calculados que ganharam degustação grátis nova
+        const acrescentadas = [];   // degustações grátis postas direto num mês já calculado
         for (const chave of chaves) {
           const [sigla, mes] = chave.split('|');
           // A sigla do arquivo (CP) não é o id da unidade no sistema (unit-cp/cp)
@@ -4375,13 +4375,7 @@
           const [ano, m] = mes.split('-');
           const degs = degustacoes[chave] || [];
           // O arquivo de vendas substitui a lista inteira do mês — as degustações
-          // também. Se o mês já foi calculado e a lista mudou, o recebido precisa
-          // ser subido de novo para elas entrarem (ou saírem) do cálculo.
-          const antes = (await db.collection('periodos').doc(periodId).get()).data() || {};
-          const contratos = l => (l || []).map(d => d.codigo).sort().join(',');
-          if (antes.totals && contratos(antes.degustacoesGratis) !== contratos(degs)) {
-            refazer.push(`${sigla} ${mes.split('-').reverse().join('/')}`);
-          }
+          // também. Ficam guardadas para o próximo upload do recebido.
           const dados = {
             unitId, year: Number(ano), month: Number(m),
             degustacoesGratis: degs,
@@ -4390,11 +4384,17 @@
           if (grupos[chave]) dados.vendasDoMes = grupos[chave];
           await db.collection('periodos').doc(periodId).set(dados, { merge: true });
           gravados++; total += (grupos[chave] || []).length;
+          // E se o mês já foi calculado, entram agora — a carga é feita várias
+          // vezes no mês, em qualquer ordem, e não pode depender de qual veio antes.
+          if (degs.length) {
+            const novas = await acrescentarDegustacoesNoPeriodo(periodId, unitId, mes, degs);
+            novas.forEach(d => acrescentadas.push(`${d.cliente} (${sigla} ${mes.split('-').reverse().join('/')})`));
+          }
         }
         const totalDegs = Object.values(degustacoes).reduce((s, v) => s + v.length, 0);
         toast(`${total} venda(s) registradas em ${gravados} período(s). Veja em "A receber".`, 'success');
-        if (refazer.length) {
-          toast(`🎁 Degustação grátis nova em ${refazer.join(', ')}: suba de novo o relatório de RECEBIMENTOS desse mês para ela entrar no cálculo.`, 'info');
+        if (acrescentadas.length) {
+          toast(`🎁 Degustação grátis incluída no cálculo e mês recalculado: ${acrescentadas.join(', ')}`, 'success');
         }
         logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`
           + (totalDegs ? ` · ${totalDegs} degustação(ões) grátis guardadas para o cálculo: ${Object.values(degustacoes).flat().map(d => d.cliente + ' (' + d.codigo + ')').join(', ')}` : ''));
@@ -4402,6 +4402,58 @@
         window._degustacoesParaRegistrar = null;
         initUpload();
       } catch (e) { toast('Erro ao registrar: ' + e.message, 'error'); }
+    }
+
+    /**
+     * Põe a degustação grátis direto num mês que JÁ foi calculado e recalcula.
+     *
+     * Sem isto a degustação só entrava no próximo upload do recebido — a ordem
+     * das cargas importaria, e a carga é feita várias vezes no mês. Mês ainda
+     * sem cálculo não faz nada: o upload do recebido junta as guardadas.
+     *
+     * O item nasce pelo MESMO motor e com o mesmo id do upload, então o próximo
+     * upload do recebido (que também a junta) o reconhece e não duplica.
+     *
+     * @returns {Promise<Array>} as degustações acrescentadas
+     */
+    async function acrescentarDegustacoesNoPeriodo(periodId, unitId, mes, degs) {
+      const pDoc = await db.collection('periodos').doc(periodId).get();
+      const pData = pDoc.exists ? pDoc.data() : {};
+      if (!pData.totals) return [];
+
+      const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const itens = []; itensSnap.forEach(d => itens.push(d.data()));
+      const codigosPagos = await carregarCodigosPagosAnteriores(unitId, mes);
+      const faltam = PactoAdapter.degustacoesQueFaltam(degs, itens, codigosPagos);
+      if (!faltam.length) return [];
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unitId)), ...(pData.metasMensais || {}) };
+      const rows = CommissionEngine.cleanRawData([PactoAdapter.CABECALHO_SAIDA,
+        ...PactoAdapter.paraPlanilha(faltam.map(d => PactoAdapter.vendaDaDegustacao(d)))]);
+      const r = CommissionEngine.processRows(rows, cfg);
+      const novos = [...r.processed.map(d => ({ ...d, type: 'processed' })), ...(r.deferred || []).map(d => ({ ...d, type: 'deferred' }))];
+      if (!novos.length) return [];
+
+      const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
+      const ids = idsComRepeticao(novos);
+      const batch = db.batch();
+      novos.forEach((item, k) => {
+        // O uploadId do mês: o P4 do mês seguinte busca os vouchers por ele
+        const clean = { uploadId: pData.uploadId || null };
+        Object.entries(item).forEach(([key, v]) => {
+          if (v instanceof Date) clean[key] = firebase.firestore.Timestamp.fromDate(v);
+          else if (typeof v !== 'function' && v !== undefined) clean[key] = v;
+        });
+        delete clean.dateObj;
+        delete clean.dateVoucherEnd;
+        batch.set(itemsRef.doc(ids[k]), clean, { merge: false });
+      });
+      await batch.commit();
+
+      await gravarCodigosPagos(periodId, [...itens, ...novos]);
+      await recalculatePeriod(periodId, { type: 'item_add', label: 'Degustação grátis (relatório de vendas): ' + faltam.map(d => d.cliente).join(', ') });
+      logAudit('item_add', `Degustação grátis incluída em ${periodId} pelo relatório de vendas: ${faltam.map(d => d.cliente + ' (' + d.codigo + ') → ' + (d.vendedor || 'sem vendedora')).join(', ')}`);
+      return faltam;
     }
 
     /** 'CP' → o id da unidade neste ambiente (`cp` em produção, `unit-cp` no staging) */
@@ -4481,8 +4533,9 @@
                   </p>
                   ${totalDegs ? `<p style="font-size:13px;margin-bottom:14px">
                     🎁 A exceção é a <strong>degustação grátis</strong>: sem pagamento, ela só existe neste relatório.
-                    Registrando, ela entra no cálculo pela regra de sempre — voucher fixo e uma ativação — quando o
-                    relatório de <strong>recebimentos</strong> do mês for subido.
+                    Registrando, ela entra no cálculo pela regra de sempre — voucher fixo e uma ativação. Se o mês
+                    já foi calculado, entra agora e o mês é recalculado; se não, entra junto com o relatório de
+                    recebimentos. A ordem das cargas não importa.
                   </p>` : ''}
                   ${totalVendas || totalDegs ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
                   <div style="font-size:12.5px;color:var(--yellow);margin-bottom:16px">Nenhuma venda reconhecida neste arquivo.</div>`}
@@ -6033,6 +6086,16 @@
       }
     }
 
+    /**
+     * A config da unidade de um período. A aberta na tela vem da memória
+     * (`unitConfig`, que pode ter acabado de ser editada); a outra, do banco.
+     */
+    async function configDaUnidade(unitId) {
+      if (!unitId || unitId === currentUnitId) return unitConfig;
+      const doc = await db.collection('units').doc(unitId).get();
+      return (doc.exists && doc.data().config) || CommissionEngine.defaultConfig;
+    }
+
     async function recalculatePeriod(periodId, triggerContext) {
       if (!periodId) return;
       const pDoc = await db.collection('periodos').doc(periodId).get();
@@ -6051,7 +6114,10 @@
       globalPeriodsCache[periodId] = items;
 
       const processed = items.filter(d => d.type === 'processed');
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
+      // A unidade é a do PERÍODO, não a aberta na tela: o relatório de vendas traz
+      // as duas unidades e recalcula as duas (degustação grátis, 29/09/2026).
+      const unidadeDoPeriodo = pData.unitId || currentUnitId;
+      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unidadeDoPeriodo)), ...(pData.metasMensais || {}) };
 
       // HISTÓRICO: snapshot de valores antes do recálculo
       const beforeItemValues = {};
@@ -6111,7 +6177,7 @@
         const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
         const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
         const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
-        const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevPeriodId = `${unidadeDoPeriodo}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
         const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
         if (prevDoc.exists) {
           const prevUploadId = prevDoc.data().uploadId;

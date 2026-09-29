@@ -143,6 +143,21 @@ caso('sem degustação guardada, as vendas passam iguais', () => {
   assert.strictEqual(r.incluidas.length, 0);
 });
 
+// ─── 2b. relatório de vendas registrado DEPOIS do recebido: em qualquer ordem ───
+caso('mês já calculado sem a degustação → falta acrescentar', () => {
+  const itens = [{ codigo: 'C4600' }, { codigo: 'C4655' }, { codigo: 'A123' }];
+  assert.deepStrictEqual(PA.degustacoesQueFaltam(degs['PP|2026-08'], itens, []).map(d => d.codigo), ['C4638']);
+});
+
+caso('carga repetida: a degustação já gravada (ou uma perna da divisão dela) não entra de novo', () => {
+  assert.strictEqual(PA.degustacoesQueFaltam(degs['PP|2026-08'], [{ codigo: 'C4638' }], []).length, 0);
+  assert.strictEqual(PA.degustacoesQueFaltam(degs['PP|2026-08'], [{ codigo: 'C4638-2' }], []).length, 0);
+});
+
+caso('contrato que já pagou comissão em mês anterior não entra', () => {
+  assert.strictEqual(PA.degustacoesQueFaltam(degs['PP|2026-08'], [], ['C4638']).length, 0);
+});
+
 // ─── 3. o motor paga pela regra do TecnoFit ───
 function calcular(vendas) {
   const rows = CE.cleanRawData([PA.CABECALHO_SAIDA, ...PA.paraPlanilha(vendas)]);
