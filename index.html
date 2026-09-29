@@ -3260,7 +3260,7 @@
   <script src="commission.js?v=20260929"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
-  <script src="pacto-adapter.js?v=20260925"></script>
+  <script src="pacto-adapter.js?v=20260930"></script>
   <script src="estorno-comissao.js?v=20260915"></script>
   <script src="vendas-aguardando.js?v=20260917"></script>
 
@@ -4230,6 +4230,7 @@
       const descartadas = daUnidade(pacto.descartadas);
       const jaPagos = daUnidade(pacto.jaPagos);
       const testes = daUnidade(pacto.testes);
+      const degustacoes = pacto.degustacoesIncluidas || [];
       const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
       const avisos = pacto.avisos || [];
       const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
@@ -4254,6 +4255,8 @@
           descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
         ${bloco('🔁', 'Parcela seguinte — o contrato já pagou comissão antes', jaPagos,
           jaPagos.map(j => `<div>${j.cliente} — R$ ${fmt(j.valor)} · contrato ${j.contrato}</div>`).join(''))}
+        ${bloco('🎁', 'Degustação grátis, do relatório de vendas — entra no cálculo (voucher fixo + ativação)', degustacoes,
+          degustacoes.map(d => `<div>${d['Cliente']} — ${d['Vendedor'] || 'sem vendedora'} · contrato ${d._contrato}</div>`).join(''))}
         ${bloco('🧪', 'Registro de teste da Pacto, fora do cálculo', testes,
           testes.map(t => `<div>${t.cliente} — R$ ${fmt(t.valor)}</div>`).join(''))}
         ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
@@ -4357,10 +4360,12 @@
      */
     async function registrarVendasDoPeriodo() {
       const grupos = window._vendasParaRegistrar || {};
-      const chaves = Object.keys(grupos);
+      const degustacoes = window._degustacoesParaRegistrar || {};
+      const chaves = [...new Set([...Object.keys(grupos), ...Object.keys(degustacoes)])];
       if (!chaves.length) { toast('Nada para registrar.', 'error'); return; }
       try {
         let gravados = 0, total = 0;
+        const acrescentadas = [];   // degustações grátis postas direto num mês já calculado
         for (const chave of chaves) {
           const [sigla, mes] = chave.split('|');
           // A sigla do arquivo (CP) não é o id da unidade no sistema (unit-cp/cp)
@@ -4368,18 +4373,87 @@
           if (!unitId) continue;
           const periodId = `${unitId}_${mes}`;
           const [ano, m] = mes.split('-');
-          await db.collection('periodos').doc(periodId).set({
+          const degs = degustacoes[chave] || [];
+          // O arquivo de vendas substitui a lista inteira do mês — as degustações
+          // também. Ficam guardadas para o próximo upload do recebido.
+          const dados = {
             unitId, year: Number(ano), month: Number(m),
-            vendasDoMes: grupos[chave],
+            degustacoesGratis: degs,
             vendasAtualizadasEm: firebase.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          gravados++; total += grupos[chave].length;
+          };
+          if (grupos[chave]) dados.vendasDoMes = grupos[chave];
+          await db.collection('periodos').doc(periodId).set(dados, { merge: true });
+          gravados++; total += (grupos[chave] || []).length;
+          // E se o mês já foi calculado, entram agora — a carga é feita várias
+          // vezes no mês, em qualquer ordem, e não pode depender de qual veio antes.
+          if (degs.length) {
+            const novas = await acrescentarDegustacoesNoPeriodo(periodId, unitId, mes, degs);
+            novas.forEach(d => acrescentadas.push(`${d.cliente} (${sigla} ${mes.split('-').reverse().join('/')})`));
+          }
         }
+        const totalDegs = Object.values(degustacoes).reduce((s, v) => s + v.length, 0);
         toast(`${total} venda(s) registradas em ${gravados} período(s). Veja em "A receber".`, 'success');
-        logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`);
+        if (acrescentadas.length) {
+          toast(`🎁 Degustação grátis incluída no cálculo e mês recalculado: ${acrescentadas.join(', ')}`, 'success');
+        }
+        logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`
+          + (totalDegs ? ` · ${totalDegs} degustação(ões) grátis guardadas para o cálculo: ${Object.values(degustacoes).flat().map(d => d.cliente + ' (' + d.codigo + ')').join(', ')}` : ''));
         window._vendasParaRegistrar = null;
+        window._degustacoesParaRegistrar = null;
         initUpload();
       } catch (e) { toast('Erro ao registrar: ' + e.message, 'error'); }
+    }
+
+    /**
+     * Põe a degustação grátis direto num mês que JÁ foi calculado e recalcula.
+     *
+     * Sem isto a degustação só entrava no próximo upload do recebido — a ordem
+     * das cargas importaria, e a carga é feita várias vezes no mês. Mês ainda
+     * sem cálculo não faz nada: o upload do recebido junta as guardadas.
+     *
+     * O item nasce pelo MESMO motor e com o mesmo id do upload, então o próximo
+     * upload do recebido (que também a junta) o reconhece e não duplica.
+     *
+     * @returns {Promise<Array>} as degustações acrescentadas
+     */
+    async function acrescentarDegustacoesNoPeriodo(periodId, unitId, mes, degs) {
+      const pDoc = await db.collection('periodos').doc(periodId).get();
+      const pData = pDoc.exists ? pDoc.data() : {};
+      if (!pData.totals) return [];
+
+      const itensSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
+      const itens = []; itensSnap.forEach(d => itens.push(d.data()));
+      const codigosPagos = await carregarCodigosPagosAnteriores(unitId, mes);
+      const faltam = PactoAdapter.degustacoesQueFaltam(degs, itens, codigosPagos);
+      if (!faltam.length) return [];
+
+      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unitId)), ...(pData.metasMensais || {}) };
+      const rows = CommissionEngine.cleanRawData([PactoAdapter.CABECALHO_SAIDA,
+        ...PactoAdapter.paraPlanilha(faltam.map(d => PactoAdapter.vendaDaDegustacao(d)))]);
+      const r = CommissionEngine.processRows(rows, cfg);
+      const novos = [...r.processed.map(d => ({ ...d, type: 'processed' })), ...(r.deferred || []).map(d => ({ ...d, type: 'deferred' }))];
+      if (!novos.length) return [];
+
+      const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
+      const ids = idsComRepeticao(novos);
+      const batch = db.batch();
+      novos.forEach((item, k) => {
+        // O uploadId do mês: o P4 do mês seguinte busca os vouchers por ele
+        const clean = { uploadId: pData.uploadId || null };
+        Object.entries(item).forEach(([key, v]) => {
+          if (v instanceof Date) clean[key] = firebase.firestore.Timestamp.fromDate(v);
+          else if (typeof v !== 'function' && v !== undefined) clean[key] = v;
+        });
+        delete clean.dateObj;
+        delete clean.dateVoucherEnd;
+        batch.set(itemsRef.doc(ids[k]), clean, { merge: false });
+      });
+      await batch.commit();
+
+      await gravarCodigosPagos(periodId, [...itens, ...novos]);
+      await recalculatePeriod(periodId, { type: 'item_add', label: 'Degustação grátis (relatório de vendas): ' + faltam.map(d => d.cliente).join(', ') });
+      logAudit('item_add', `Degustação grátis incluída em ${periodId} pelo relatório de vendas: ${faltam.map(d => d.cliente + ' (' + d.codigo + ') → ' + (d.vendedor || 'sem vendedora')).join(', ')}`);
+      return faltam;
     }
 
     /** 'CP' → o id da unidade neste ambiente (`cp` em produção, `unit-cp` no staging) */
@@ -4429,9 +4503,19 @@
               const vendasPorGrupo = VendasAguardando.extrair(json);
               const totalVendas = Object.values(vendasPorGrupo).reduce((s, v) => s + v.length, 0);
               window._vendasParaRegistrar = vendasPorGrupo;
-              const resumo = Object.entries(vendasPorGrupo)
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([k, v]) => `<div>${k.replace('|', ' · ')} — <strong>${v.length}</strong> venda(s)</div>`).join('');
+              // Degustação GRÁTIS: sem recebimento, só existe aqui. Fica guardada
+              // no período e o upload do recebido a junta ao cálculo (regra do
+              // TecnoFit: voucher fixo + ativação — decisão de 29/09/2026).
+              const degustacoesGratis = PactoAdapter.degustacoesGratis(json);
+              window._degustacoesParaRegistrar = degustacoesGratis;
+              const totalDegs = Object.values(degustacoesGratis).reduce((s, v) => s + v.length, 0);
+              const resumo = [...new Set([...Object.keys(vendasPorGrupo), ...Object.keys(degustacoesGratis)])]
+                .sort()
+                .map(k => {
+                  const v = vendasPorGrupo[k] || [];
+                  const degs = degustacoesGratis[k] || [];
+                  return `<div>${k.replace('|', ' · ')} — <strong>${v.length}</strong> venda(s)${degs.length ? ` · 🎁 <strong>${degs.length}</strong> degustação(ões) grátis — entram no cálculo: ${degs.map(d => d.cliente).join(', ')}` : ''}</div>`;
+                }).join('');
 
               document.getElementById('uploadPreview').style.display = 'none';
               document.getElementById('uploadActions').style.display = 'none';
@@ -4447,11 +4531,17 @@
                     Mas ele é a única fonte do que foi <strong>vendido</strong>. Registrando aqui, cada vendedora
                     passa a ver o que fechou e <strong>ainda não teve pagamento identificado</strong>.
                   </p>
-                  ${totalVendas ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
+                  ${totalDegs ? `<p style="font-size:13px;margin-bottom:14px">
+                    🎁 A exceção é a <strong>degustação grátis</strong>: sem pagamento, ela só existe neste relatório.
+                    Registrando, ela entra no cálculo pela regra de sempre — voucher fixo e uma ativação. Se o mês
+                    já foi calculado, entra agora e o mês é recalculado; se não, entra junto com o relatório de
+                    recebimentos. A ordem das cargas não importa.
+                  </p>` : ''}
+                  ${totalVendas || totalDegs ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
                   <div style="font-size:12.5px;color:var(--yellow);margin-bottom:16px">Nenhuma venda reconhecida neste arquivo.</div>`}
                   <div style="display:flex;gap:8px;justify-content:center">
                     <button class="btn btn-ghost btn-sm" onclick="initUpload()">Cancelar</button>
-                    ${totalVendas ? `<button class="btn btn-sm" onclick="registrarVendasDoPeriodo()">📋 Registrar ${totalVendas} venda(s) para conferência</button>` : ''}
+                    ${totalVendas || totalDegs ? `<button class="btn btn-sm" onclick="registrarVendasDoPeriodo()">📋 Registrar ${totalVendas} venda(s) para conferência</button>` : ''}
                   </div>
                 </div>`;
               toast('Relatório de vendas: não entra no cálculo, só na conferência.', 'info');
@@ -4465,7 +4555,20 @@
               toast(`O arquivo não tem linhas desta unidade${outras ? ' — só de ' + outras : ''}. Troque a unidade no topo e tente de novo.`, 'error');
               return;
             }
-            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(vendasUnidade)];
+            // Degustação GRÁTIS: não tem recebimento, então não vem neste arquivo.
+            // Foi guardada no período ao registrar o relatório de VENDAS e entra
+            // aqui pela regra do TecnoFit — voucher fixo + ativação (29/09/2026).
+            let degustacoesGuardadas = [];
+            try {
+              const per = await db.collection('periodos').doc(`${currentUnitId}_${pacto.mes}`).get();
+              degustacoesGuardadas = (per.exists && per.data().degustacoesGratis) || [];
+            } catch (e) {
+              // Não some calado: sem a leitura, a degustação grátis ficaria de fora
+              pacto.avisos = [...(pacto.avisos || []), { motivo: 'não consegui ler as degustações grátis do mês (' + e.message + ') — suba de novo antes de pagar', cliente: '' }];
+            }
+            const juntas = PactoAdapter.juntarDegustacoes(vendasUnidade, degustacoesGuardadas, codigosPagos);
+            pacto.degustacoesIncluidas = juntas.incluidas;
+            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(juntas.vendas)];
           }
 
           const rawRows = CommissionEngine.cleanRawData(json);
@@ -5983,6 +6086,16 @@
       }
     }
 
+    /**
+     * A config da unidade de um período. A aberta na tela vem da memória
+     * (`unitConfig`, que pode ter acabado de ser editada); a outra, do banco.
+     */
+    async function configDaUnidade(unitId) {
+      if (!unitId || unitId === currentUnitId) return unitConfig;
+      const doc = await db.collection('units').doc(unitId).get();
+      return (doc.exists && doc.data().config) || CommissionEngine.defaultConfig;
+    }
+
     async function recalculatePeriod(periodId, triggerContext) {
       if (!periodId) return;
       const pDoc = await db.collection('periodos').doc(periodId).get();
@@ -6001,7 +6114,10 @@
       globalPeriodsCache[periodId] = items;
 
       const processed = items.filter(d => d.type === 'processed');
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(pData.metasMensais || {}) };
+      // A unidade é a do PERÍODO, não a aberta na tela: o relatório de vendas traz
+      // as duas unidades e recalcula as duas (degustação grátis, 29/09/2026).
+      const unidadeDoPeriodo = pData.unitId || currentUnitId;
+      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unidadeDoPeriodo)), ...(pData.metasMensais || {}) };
 
       // HISTÓRICO: snapshot de valores antes do recálculo
       const beforeItemValues = {};
@@ -6061,7 +6177,7 @@
         const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
         const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
         const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
-        const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevPeriodId = `${unidadeDoPeriodo}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
         const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
         if (prevDoc.exists) {
           const prevUploadId = prevDoc.data().uploadId;
