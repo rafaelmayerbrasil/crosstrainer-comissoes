@@ -5,7 +5,14 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
-### 🎁 29/09 — DEGUSTAÇÃO GRÁTIS ENTRA NO CÁLCULO · NO STAGING (`f5557ec`, branch `degustacao-gratis`)
+### 🎁 29/09 — DEGUSTAÇÃO GRÁTIS ENTRA NO CÁLCULO · NO STAGING (`f5557ec` + `9f8f825`, branch `degustacao-gratis`)
+**Atualização (`9f8f825`): a ordem das cargas NÃO importa mais** (pedido do Rafael — a carga é feita várias vezes no mês).
+Registrar o relatório de vendas com o mês já calculado põe a degustação direto no mês (`acrescentarDegustacoesNoPeriodo`,
+mesmo motor e mesmo id do upload) e recalcula; carga repetida não duplica. **De brinde: `recalculatePeriod` usava a
+config e o mês anterior da unidade ABERTA NA TELA** — agora usa a do período (`configDaUnidade`). `smoke-degustacao-
+qualquer-ordem` 6/6 · suíte 93/94. Texto de validação enviado ao Rodrigo pelo Rafael (regra do TecnoFit + consultora
+do relatório + divisões pelos vendedores). O que está abaixo sobre "ordem vendas → recebido" ficou superado.
+
 **Decisões do Rafael (29/09):** (1) degustação grátis segue a regra do TecnoFit — voucher fixo (R$ 10) + 1 ativação;
 (2) de quem é a venda: **como está no relatório** (consultora; Rodrigo → quem lançou) — a Tanara fica com a Kali, nada
 a mudar; (3) **as divisões são os próprios vendedores que fazem** — a gestão não decide rateio (Eduardo Santana etc.).
