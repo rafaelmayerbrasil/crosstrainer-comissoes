@@ -3260,7 +3260,7 @@
   <script src="commission.js?v=20260929"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
-  <script src="pacto-adapter.js?v=20260925"></script>
+  <script src="pacto-adapter.js?v=20260930"></script>
   <script src="estorno-comissao.js?v=20260915"></script>
   <script src="vendas-aguardando.js?v=20260917"></script>
 
@@ -4230,6 +4230,7 @@
       const descartadas = daUnidade(pacto.descartadas);
       const jaPagos = daUnidade(pacto.jaPagos);
       const testes = daUnidade(pacto.testes);
+      const degustacoes = pacto.degustacoesIncluidas || [];
       const marcadas = (pacto.marcadas || []).filter(v => v._unidade === sigla);
       const avisos = pacto.avisos || [];
       const soma = l => l.reduce((s, x) => s + (x.valor || x['Valor Quitado/Recibo'] || 0), 0);
@@ -4254,6 +4255,8 @@
           descartadas.map(d => `<div>${d.cliente} — R$ ${fmt(d.valor)}</div>`).join(''))}
         ${bloco('🔁', 'Parcela seguinte — o contrato já pagou comissão antes', jaPagos,
           jaPagos.map(j => `<div>${j.cliente} — R$ ${fmt(j.valor)} · contrato ${j.contrato}</div>`).join(''))}
+        ${bloco('🎁', 'Degustação grátis, do relatório de vendas — entra no cálculo (voucher fixo + ativação)', degustacoes,
+          degustacoes.map(d => `<div>${d['Cliente']} — ${d['Vendedor'] || 'sem vendedora'} · contrato ${d._contrato}</div>`).join(''))}
         ${bloco('🧪', 'Registro de teste da Pacto, fora do cálculo', testes,
           testes.map(t => `<div>${t.cliente} — R$ ${fmt(t.valor)}</div>`).join(''))}
         ${bloco('❓', 'Plano presumido (conferir LOCAL × FLEX)', marcadas,
@@ -4357,10 +4360,12 @@
      */
     async function registrarVendasDoPeriodo() {
       const grupos = window._vendasParaRegistrar || {};
-      const chaves = Object.keys(grupos);
+      const degustacoes = window._degustacoesParaRegistrar || {};
+      const chaves = [...new Set([...Object.keys(grupos), ...Object.keys(degustacoes)])];
       if (!chaves.length) { toast('Nada para registrar.', 'error'); return; }
       try {
         let gravados = 0, total = 0;
+        const refazer = [];   // meses já calculados que ganharam degustação grátis nova
         for (const chave of chaves) {
           const [sigla, mes] = chave.split('|');
           // A sigla do arquivo (CP) não é o id da unidade no sistema (unit-cp/cp)
@@ -4368,16 +4373,33 @@
           if (!unitId) continue;
           const periodId = `${unitId}_${mes}`;
           const [ano, m] = mes.split('-');
-          await db.collection('periodos').doc(periodId).set({
+          const degs = degustacoes[chave] || [];
+          // O arquivo de vendas substitui a lista inteira do mês — as degustações
+          // também. Se o mês já foi calculado e a lista mudou, o recebido precisa
+          // ser subido de novo para elas entrarem (ou saírem) do cálculo.
+          const antes = (await db.collection('periodos').doc(periodId).get()).data() || {};
+          const contratos = l => (l || []).map(d => d.codigo).sort().join(',');
+          if (antes.totals && contratos(antes.degustacoesGratis) !== contratos(degs)) {
+            refazer.push(`${sigla} ${mes.split('-').reverse().join('/')}`);
+          }
+          const dados = {
             unitId, year: Number(ano), month: Number(m),
-            vendasDoMes: grupos[chave],
+            degustacoesGratis: degs,
             vendasAtualizadasEm: firebase.firestore.FieldValue.serverTimestamp(),
-          }, { merge: true });
-          gravados++; total += grupos[chave].length;
+          };
+          if (grupos[chave]) dados.vendasDoMes = grupos[chave];
+          await db.collection('periodos').doc(periodId).set(dados, { merge: true });
+          gravados++; total += (grupos[chave] || []).length;
         }
+        const totalDegs = Object.values(degustacoes).reduce((s, v) => s + v.length, 0);
         toast(`${total} venda(s) registradas em ${gravados} período(s). Veja em "A receber".`, 'success');
-        logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`);
+        if (refazer.length) {
+          toast(`🎁 Degustação grátis nova em ${refazer.join(', ')}: suba de novo o relatório de RECEBIMENTOS desse mês para ela entrar no cálculo.`, 'info');
+        }
+        logAudit('upload', `Relatório de VENDAS registrado (não entra no cálculo): ${total} vendas em ${chaves.join(', ')}`
+          + (totalDegs ? ` · ${totalDegs} degustação(ões) grátis guardadas para o cálculo: ${Object.values(degustacoes).flat().map(d => d.cliente + ' (' + d.codigo + ')').join(', ')}` : ''));
         window._vendasParaRegistrar = null;
+        window._degustacoesParaRegistrar = null;
         initUpload();
       } catch (e) { toast('Erro ao registrar: ' + e.message, 'error'); }
     }
@@ -4429,9 +4451,19 @@
               const vendasPorGrupo = VendasAguardando.extrair(json);
               const totalVendas = Object.values(vendasPorGrupo).reduce((s, v) => s + v.length, 0);
               window._vendasParaRegistrar = vendasPorGrupo;
-              const resumo = Object.entries(vendasPorGrupo)
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([k, v]) => `<div>${k.replace('|', ' · ')} — <strong>${v.length}</strong> venda(s)</div>`).join('');
+              // Degustação GRÁTIS: sem recebimento, só existe aqui. Fica guardada
+              // no período e o upload do recebido a junta ao cálculo (regra do
+              // TecnoFit: voucher fixo + ativação — decisão de 29/09/2026).
+              const degustacoesGratis = PactoAdapter.degustacoesGratis(json);
+              window._degustacoesParaRegistrar = degustacoesGratis;
+              const totalDegs = Object.values(degustacoesGratis).reduce((s, v) => s + v.length, 0);
+              const resumo = [...new Set([...Object.keys(vendasPorGrupo), ...Object.keys(degustacoesGratis)])]
+                .sort()
+                .map(k => {
+                  const v = vendasPorGrupo[k] || [];
+                  const degs = degustacoesGratis[k] || [];
+                  return `<div>${k.replace('|', ' · ')} — <strong>${v.length}</strong> venda(s)${degs.length ? ` · 🎁 <strong>${degs.length}</strong> degustação(ões) grátis — entram no cálculo: ${degs.map(d => d.cliente).join(', ')}` : ''}</div>`;
+                }).join('');
 
               document.getElementById('uploadPreview').style.display = 'none';
               document.getElementById('uploadActions').style.display = 'none';
@@ -4447,11 +4479,16 @@
                     Mas ele é a única fonte do que foi <strong>vendido</strong>. Registrando aqui, cada vendedora
                     passa a ver o que fechou e <strong>ainda não teve pagamento identificado</strong>.
                   </p>
-                  ${totalVendas ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
+                  ${totalDegs ? `<p style="font-size:13px;margin-bottom:14px">
+                    🎁 A exceção é a <strong>degustação grátis</strong>: sem pagamento, ela só existe neste relatório.
+                    Registrando, ela entra no cálculo pela regra de sempre — voucher fixo e uma ativação — quando o
+                    relatório de <strong>recebimentos</strong> do mês for subido.
+                  </p>` : ''}
+                  ${totalVendas || totalDegs ? `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;margin-bottom:16px">${resumo}</div>` : `
                   <div style="font-size:12.5px;color:var(--yellow);margin-bottom:16px">Nenhuma venda reconhecida neste arquivo.</div>`}
                   <div style="display:flex;gap:8px;justify-content:center">
                     <button class="btn btn-ghost btn-sm" onclick="initUpload()">Cancelar</button>
-                    ${totalVendas ? `<button class="btn btn-sm" onclick="registrarVendasDoPeriodo()">📋 Registrar ${totalVendas} venda(s) para conferência</button>` : ''}
+                    ${totalVendas || totalDegs ? `<button class="btn btn-sm" onclick="registrarVendasDoPeriodo()">📋 Registrar ${totalVendas} venda(s) para conferência</button>` : ''}
                   </div>
                 </div>`;
               toast('Relatório de vendas: não entra no cálculo, só na conferência.', 'info');
@@ -4465,7 +4502,20 @@
               toast(`O arquivo não tem linhas desta unidade${outras ? ' — só de ' + outras : ''}. Troque a unidade no topo e tente de novo.`, 'error');
               return;
             }
-            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(vendasUnidade)];
+            // Degustação GRÁTIS: não tem recebimento, então não vem neste arquivo.
+            // Foi guardada no período ao registrar o relatório de VENDAS e entra
+            // aqui pela regra do TecnoFit — voucher fixo + ativação (29/09/2026).
+            let degustacoesGuardadas = [];
+            try {
+              const per = await db.collection('periodos').doc(`${currentUnitId}_${pacto.mes}`).get();
+              degustacoesGuardadas = (per.exists && per.data().degustacoesGratis) || [];
+            } catch (e) {
+              // Não some calado: sem a leitura, a degustação grátis ficaria de fora
+              pacto.avisos = [...(pacto.avisos || []), { motivo: 'não consegui ler as degustações grátis do mês (' + e.message + ') — suba de novo antes de pagar', cliente: '' }];
+            }
+            const juntas = PactoAdapter.juntarDegustacoes(vendasUnidade, degustacoesGuardadas, codigosPagos);
+            pacto.degustacoesIncluidas = juntas.incluidas;
+            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(juntas.vendas)];
           }
 
           const rawRows = CommissionEngine.cleanRawData(json);

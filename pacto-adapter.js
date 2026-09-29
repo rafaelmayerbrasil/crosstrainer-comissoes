@@ -719,6 +719,108 @@ const PactoAdapter = {
              relatorio: this.detectarRelatorio(linhas) };
   },
 
+  // ─── Degustação grátis ───
+  /** Contrato de degustação (voucher): o plano ou o produto diz DEGUSTAÇÃO */
+  ehDegustacao(l) {
+    return /DEGUSTA/i.test(this.campo(l, 'plano') + ' ' + this.campo(l, 'produto'));
+  },
+
+  /**
+   * As degustações GRÁTIS do relatório de VENDAS, prontas para o motor.
+   *
+   * Decisão do Rafael (29/09/2026): degustação grátis segue a regra de sempre
+   * do TecnoFit — entra, paga o voucher fixo e conta como ativação (o motor
+   * aceita degustação de valor zero de propósito). Mas ela não tem
+   * recebimento, então NUNCA aparece no `faturamento-recebido`: só no
+   * relatório de vendas, que fica proibido no cálculo por trazer o contrato
+   * inteiro. Daqui sai só o que não depende de valor — o voucher é fixo.
+   *
+   * Caso real: LUIZ HENRIQUE APPEL, contrato 4638, PP, 25/08/2026. Em agosto e
+   * setembro/2026 foi a única; as outras 20 degustações custaram R$ 89 e já
+   * vinham pelo recebido.
+   *
+   * De quem é a venda: a mesma regra do resto (`vendedorDe`) — a consultora;
+   * quando ela é o Rodrigo, quem lançou.
+   *
+   * Fica de fora: contrato com qualquer linha de valor (vem pelo recebido),
+   * registro de teste e contrato migrado.
+   *
+   * @param {Array<Array>} linhas  linhas cruas do relatório de vendas
+   * @returns {Object} { 'PP|2026-08': [venda no formato do `traduzir`], … }
+   */
+  degustacoesGratis(linhas) {
+    linhas = this.normalizarColunas(linhas);
+    const porContrato = new Map();
+    (linhas || []).forEach(l => {
+      if (!l || !this.ehLinhaDeContrato(l)) return;
+      if (!/^\d{2}\/\d{2}\/\d{4}/.test(this.campo(l, 'lancamento'))) return;
+      const k = this.unidadeDe(l) + '|' + this.campo(l, 'contrato');
+      if (!porContrato.has(k)) porContrato.set(k, []);
+      porContrato.get(k).push(l);
+    });
+
+    const out = {};
+    porContrato.forEach(grupo => {
+      if (!grupo.some(l => this.ehDegustacao(l))) return;
+      if (grupo.some(l => this.valorBR(this.campo(l, 'valor')) > 0)) return;
+      if (grupo.some(l => this.ehRegistroDeTeste(l))) return;
+      const mes = this.mesDe(this.campo(grupo[0], 'lancamento'));
+      const unidade = this.unidadeDe(grupo[0]);
+      if (!mes || !unidade || this.ehMigrado(grupo[0], mes)) return;
+
+      // O mesmo tradutor do recebido: papel de cada linha, `Itens`, vendedora.
+      // Guardado com chaves simples — o formato da planilha tem '/' e acento
+      // nos nomes, e isto vai para o Firestore. `vendaDaDegustacao` remonta.
+      this.traduzir(grupo, { mes }).vendas
+        .filter(v => v._papel === 'plano')
+        .forEach(v => {
+          (out[unidade + '|' + mes] = out[unidade + '|' + mes] || []).push({
+            // Sem o sufixo de ordem (`-3`): as linhas de taxa ficaram para
+            // trás, e esta é a única venda do contrato.
+            codigo: 'C' + v._contrato, contrato: v._contrato,
+            cliente: v['Cliente'], data: v['Data'], itens: v['Itens'],
+            tipoVenda: v['Tipo de Venda'], vendedor: v['Vendedor'],
+            divididaCom: v._divididaCom || [], unidade, mes,
+          });
+        });
+    });
+    return out;
+  },
+
+  /** A degustação guardada de volta no formato do `traduzir` (valor zero) */
+  vendaDaDegustacao(d) {
+    return {
+      'Código': d.codigo, 'Cliente': d.cliente, 'Data': d.data, 'Itens': d.itens,
+      'Valor Venda': 0, 'Desconto Venda': '-', 'Desconto Recebimento': '-',
+      'Valor Final': 0, 'Valor Quitado/Recibo': 0, 'Origem': 'Balcão',
+      'Tipo de Venda': d.tipoVenda || '', 'Vendedor': d.vendedor || '',
+      _unidade: d.unidade, _contrato: d.contrato, _papel: 'plano', _presumido: false,
+      _divididaCom: d.divididaCom || [], _degustacaoGratis: true,
+    };
+  },
+
+  /**
+   * Junta às vendas do recebido as degustações grátis guardadas no período.
+   *
+   * Não junta o contrato que já veio no recebido (passou a ter pagamento) nem o
+   * que já pagou comissão em mês anterior — a regra de "uma vez só por contrato"
+   * vale para ela também.
+   *
+   * @param {Array} vendas         saída de `traduzir(...).porUnidade[sigla]`
+   * @param {Array} degustacoes    `degustacoesGratis` guardado no período
+   * @param {Array<string>} codigosPagos  códigos já comissionados antes
+   * @returns {{vendas: Array, incluidas: Array}}
+   */
+  juntarDegustacoes(vendas, degustacoes, codigosPagos) {
+    if (!degustacoes || !degustacoes.length) return { vendas, incluidas: [] };
+    const noRecebido = new Set((vendas || []).map(v => String(v._contrato || '')).filter(Boolean));
+    const jaPagos = this.contratosDe(codigosPagos);
+    const incluidas = degustacoes
+      .filter(d => !noRecebido.has(String(d.contrato)) && !jaPagos.has(String(d.contrato)))
+      .map(d => this.vendaDaDegustacao(d));
+    return { vendas: (vendas || []).concat(incluidas), incluidas };
+  },
+
   /** Tira os campos internos (`_algo`) — o que vai pra planilha */
   paraPlanilha(vendas) {
     return vendas.map(v => this.CABECALHO_SAIDA.map(h => v[h]));
