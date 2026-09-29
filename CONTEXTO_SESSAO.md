@@ -5,6 +5,17 @@
 
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
+### 🔧 29/09 — EDITAR LANÇAMENTO: SÓ VENDEDOR E CANCELAMENTO · NO STAGING (`2acc818`, branch `fix-data-edicao`)
+Pego pelo Rafael ao tentar trocar o vendedor de uma venda (print). Três defeitos da janela: (1) a **data abria vazia**
+(conversão com espaço, "2026-08 -25 ") e, como é obrigatória, a gestão redigitava — errando o mês, o lançamento mudava
+de período; nenhum lançamento de produção ficou sem data (50 edições no histórico); (2) o **Vendedor** era texto com
+sugestão, que só mostra o nome já escrito → virou lista de verdade com os vendedores do mês + "Outro nome…"; (3)
+**decisão do Rafael: na edição só vendedor e cancelamento mudam** — o resto fica só leitura e o Salvar relê do
+lançamento gravado; ajustes de P1/P2 saem da edição (os já lançados seguem valendo); "+ Adicionar" continua aberto.
+A troca de vendedor sobrevive a novo upload (o id do lançamento não muda e o upload o reconhece). `smoke-edicao-
+lancamento-data` 7/7 · suíte 94/95. Visual conferido no staging com dados de exemplo (sem login). 🔴 Falta: OK para
+produção (só `index.html` + smoke, branch do `main`).
+
 ### ✅ 29/09 — DEGUSTAÇÃO GRÁTIS NO AR EM PRODUÇÃO (`ad7390f..c70af1c`)
 **O Rodrigo validou as 3 decisões** (regra do TecnoFit · consultora do relatório · divisões pelos vendedores). O Rafael
 **dispensou a homologação no staging e autorizou produção.** `main` só com `pacto-adapter.js` + `index.html`
