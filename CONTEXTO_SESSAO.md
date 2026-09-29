@@ -32,6 +32,12 @@ pagas em agosto — recibos #31/#32/#38/#39). Divisões manuais preservadas.
   → saiu da Bárbara (~R$ 41 + 1 ativação + parte do P3) para a Kali. **Reatribuir consultora na Pacto muda meses já
   calculados quando o mês é subido de novo.** ⏸️ Decisão da gestão.
 - Nenhum recibo de agosto da Kali nem da Bárbara no sistema; o "pagamos parte" foi por fora.
+- **Posição do Rafael (29/09), a VALIDAR COM O RODRIGO antes de construir:** (1) degustação grátis segue a regra de
+  sempre do TecnoFit (entra, paga o voucher fixo e conta como ativação) — hoje ela não chega ao cálculo porque não está
+  no `faturamento-recebido`, só no relatório de vendas; (2) de quem é a venda: **mantém a regra de hoje** (consultora;
+  quando a consultora é o Rodrigo, quem lançou) — então a Tanara fica com a Kali e o Luiz Henrique Appel iria para a
+  Bárbara; (3) a Kali **ainda não recebeu nada de agosto** — está levantando os pontos para ajustar antes. Nada foi
+  construído nem alterado.
 
 ### ✅ 28/09 — SIMULADOR NO AR EM PRODUÇÃO (`c6220f2..ad7390f`)
 Homologado pelo Rafael. `main` só com `commission.js` + `index.html` (`?v=20260929`) + `smoke-simulador.js` (branch
