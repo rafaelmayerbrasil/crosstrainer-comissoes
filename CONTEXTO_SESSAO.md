@@ -16,6 +16,23 @@ pelo app: Comissões → Príncipe → Ago 2026 → **Configurar Metas do Mês �
 `recalculatePeriod` com o motor novo). Depois conferir no banco: Kali 1.310,61 · Bárbara 699,12. Só então o Benny
 emite os recibos de agosto delas.
 
+### 🔎 29/09 — NOVA CARGA DE AGOSTO (CP e PP, 12h23) e os nomes da Kali
+O Rafael subiu de novo agosto com um export novo (mesmo nome de arquivo; setembro `01 a 290926` foi baixado mas NÃO
+subido). **A Pacto reescreveu o passado:** PP 41→**42** ativações; **Kali 1.310,61 → R$ 1.392,16**, **Bárbara 699,12 →
+R$ 621,01**, Francini PP 115,75 → 119,73; CP Francini 1.152,74 → 1.157,35, Erica 1.687,80 → 1.677,69 (Erica e Francini já
+pagas em agosto — recibos #31/#32/#38/#39). Divisões manuais preservadas.
+- **Diego Panella:** agora aparece em ago/PP no nome da Kali (voucher R$ 10) — o export novo traz o pagamento de R$ 89
+  com data de 31/08, que nenhum export anterior nem a API traziam.
+- **Luiz Henrique Appel:** degustação **GRÁTIS** (R$ 0,00), contrato 4638, lançada em 25/08 pela Kali, **consultora
+  Bárbara**. Não há recebimento, então não existe no `faturamento-recebido` e nunca chega ao cálculo. No TecnoFit a
+  degustação grátis entrava e pagava o voucher fixo (R$ 10; o motor aceita degustação de valor zero de propósito). Única
+  em ago/set nas duas unidades. ⏸️ Decisão: paga? para quem?
+- **Tanara Spohr Pereira** (mensal flex R$ 470 + matrícula R$ 50, 26/08): lançada pela Bárbara, consultora Bárbara no
+  export de 01/09 — no de 29/09 a **consultora virou KALI** (alguém mudou a ficha na Pacto). A regra paga a consultora
+  → saiu da Bárbara (~R$ 41 + 1 ativação + parte do P3) para a Kali. **Reatribuir consultora na Pacto muda meses já
+  calculados quando o mês é subido de novo.** ⏸️ Decisão da gestão.
+- Nenhum recibo de agosto da Kali nem da Bárbara no sistema; o "pagamos parte" foi por fora.
+
 ### ✅ 28/09 — SIMULADOR NO AR EM PRODUÇÃO (`c6220f2..ad7390f`)
 Homologado pelo Rafael. `main` só com `commission.js` + `index.html` (`?v=20260929`) + `smoke-simulador.js` (branch
 `simulador-producao` do `main`, suíte 85/85). Conferido no github.io: `index.html` e `commission.js` com o tamanho exato
