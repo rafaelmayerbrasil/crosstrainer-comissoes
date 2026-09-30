@@ -83,6 +83,7 @@ voucher 7 · PP 52/60/68, novos 19, renov 9, voucher 3. ⚠️ Não publicado no
   (21.835 linhas) e foi ao staging (`de7deec`); restaurado do commit anterior (`$'` = "o resto do arquivo"). Teste de
   integridade novo em `smoke-config-do-mes` (caso 0). Produção intocada. Memória [[replace-com-cifrao-duplica-arquivo]].
 - Suíte **107/108** (só o `smoke-9`).
+- ✅ **Jornadas cadastradas no STAGING** (30/09, a partir de 10/2026): Erica e Kali integral (18), Francini e Isabela 30h (12). Bárbara sem jornada (vale o mínimo do mês). **Em produção ainda não** — cadastrar pela aba 💼 Comercial depois do deploy.
 
 **🔴 Para o Rafael, de manhã:** (1) homologar no staging as três partes; (2) autorizar o atalho "Renovações" no menu
 (mexe no `index.html`); (3) cadastrar as jornadas (CP Erica integral, Fran 30h; PP Kali integral, Isa 30h) — no staging
