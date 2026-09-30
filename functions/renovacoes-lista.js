@@ -148,7 +148,10 @@ const RenovacoesLista = {
 
   /** Tira o "(01/04/2025 - 30/09/2025)" que o motor põe no nome do item. */
   limparNomePlano(item) {
-    return String(item || '').replace(/\s*\(\d{2}\/\d{2}\/\d{4}\s*-\s*\d{2}\/\d{2}\/\d{4}\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    return String(item || '')
+      .replace(/\s*\(\d{2}\/\d{2}\/\d{4}\s*-\s*\d{2}\/\d{2}\/\d{4}\)\s*/g, ' ')
+      .replace(/\s*\(Split:[^)]*\)/gi, ' ')                       // marca da venda dividida
+      .replace(/\s+/g, ' ').trim();
   },
 
   /** Itens do mesmo cliente (por nome), do mais recente para o mais antigo. */
@@ -183,7 +186,8 @@ const RenovacoesLista = {
    */
   planoOriginal(nome, historico, vigencia) {
     const v = vigencia || {};
-    const doCliente = this._doCliente(nome, historico).filter(x => x.isContract && !this._semPlanoReal(x.item));
+    // No TecnoFit a degustação não vinha marcada como contrato (`isContract: false`)
+    const doCliente = this._doCliente(nome, historico).filter(x => (x.isContract || x.isDegustacao) && !this._semPlanoReal(x.item));
     const porData = (v.vencimento && doCliente.find(x => this._vigenciaDoItem(x).fim === v.vencimento))
       || (v.inicio && doCliente.find(x => this._vigenciaDoItem(x).inicio === v.inicio));
     const h = porData || doCliente.find(x => !x.isDegustacao);

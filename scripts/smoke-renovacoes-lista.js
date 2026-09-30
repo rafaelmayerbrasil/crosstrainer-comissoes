@@ -274,7 +274,8 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
 {
   const H2 = [
     { cliente: 'OLGA', item: 'ANUAL, ACESSO ILIMITADO (01/05/2024 - 30/04/2025)', data: '01/05/2024', vendedor: 'ERICA', codigo: 'T1', isContract: true },
-    { cliente: 'OLGA', item: 'MÊS DEGUSTAÇÃO LIVRE (10/04/2026 - 09/05/2026)', data: '10/04/2026', vendedor: 'ERICA', codigo: 'T2', isContract: true, isDegustacao: true },
+    // no histórico do TecnoFit a degustação NÃO vem marcada como contrato (medido em produção, abr/2026)
+    { cliente: 'OLGA', item: 'MÊS DEGUSTAÇÃO LIVRE (10/04/2026 - 09/05/2026)', data: '10/04/2026', vendedor: 'ERICA', codigo: 'T2', isContract: false, isDegustacao: true },
     { cliente: 'PEDRO', item: 'SEMESTRAL, TREINO LIVRE', data: '05/11/2025', vendedor: 'KALI', codigo: 'T3', isContract: true,
       planStartDate: '05/11/2025', planEndDate: '04/05/2026' },
   ];
@@ -283,6 +284,7 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2027-01-01', inicio: '2026-04-10' }), 'MÊS DEGUSTAÇÃO LIVRE', 'mesma data de início');
   assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2027-01-01' }), 'ANUAL, ACESSO ILIMITADO', 'sem data igual: o último que não é degustação, como antes');
   assert.strictEqual(RL.planoOriginal('PEDRO', H2, { vencimento: '2026-05-04' }), 'SEMESTRAL, TREINO LIVRE', 'datas dos campos do item');
+  assert.strictEqual(RL.limparNomePlano('HIIT/MAROMBINHA | MENSAL | CP | 3X | PADRÃO (Split: 50 %)'), 'HIIT/MAROMBINHA | MENSAL | CP | 3X | PADRÃO', 'tira a marca da divisão');
 
   const L3 = RL.montar({ mes: '2026-05', hoje: '2026-05-02',
     previsao: { mes: { contratos: [K('401', '41', 'OLGA')], renovados: [] }, antecipacao: { contratos: [], renovados: [] } },
