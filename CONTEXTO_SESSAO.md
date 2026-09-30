@@ -35,6 +35,10 @@ gravado não se corrige sozinho; na PP tem que dar 56 (ou mais, se entrar venda 
 Julia em R$ 190,04 e Lianna em R$ 250 em vez de 339 e 500. Com OK do Rafael, **apaguei os dois lançamentos** (cópia em
 `backups/itens-duas-formas-2026-09-30.json`, registro no `audit_log`) → **falta o Rafael subir setembro de novo nas
 duas unidades** e eu conferir.
+**✅ CONFERIDO após a 3ª subida (11:45):** PP 56 (Meta), CP 74 (Gold), nenhum contrato com 2 ativações; Julia R$ 339
+(renovação, P1 8,47), Lianna R$ 500; caixa volta ao de antes (PP 20.035,31 · CP 23.692,82). Diferença contra o painel da
+manhã, exatamente a prevista: **Kali −212,22 (1.710,62) · Francini −15,00 (999,69) · Erica 0**. Setembro fechado nesse ponto
+(o dia 30 ainda pode trazer venda).
 
 **Margarida (4552), Ricardo (4553) e Sueli (4554), PP — estão CERTOS como estão:** planos anuais em 12× no cartão
 recorrente; a API mostra a 1ª parcela em 02/09 e a 2ª em 28/09, e o export de 28/09 em diante **junta as duas na linha
