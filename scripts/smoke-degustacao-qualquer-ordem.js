@@ -81,7 +81,11 @@ function montar({ periodo, itens, unidades, currentUnitId = 'cp' }) {
     gravarCodigosPagos: async (id, lista) => { codigosGravados.push(lista.length); },
     recalculatePeriod: async (id, ctx) => { recalculados.push({ id, ctx }); },
     logAudit: (t, d) => { auditoria.push(d); },
+    // desde 30/09/2026 as funções da tela chamam comissoes-mes.js
+    ComissoesMes: require(path.join(__dirname, '..', 'comissoes-mes.js')),
   };
+  sb.comissoesMes = () => sb.ComissoesMes.criar({ db, Engine: CE,
+    configAtual: u => (!u || u === sb.currentUnitId ? sb.unitConfig : undefined) });
   vm.createContext(sb);
   vm.runInContext([
     extrair('generateStableId'), extrair('idsComRepeticao'), extrair('configDaUnidade'), extrair('acrescentarDegustacoesNoPeriodo'),
@@ -160,7 +164,10 @@ const PERIODO_CALCULADO = { unitId: 'pp', uploadId: 'up_29_09', totals: { unitAt
 
   // 6. recalculatePeriod usa a unidade do PERÍODO, não a aberta na tela
   {
-    const fn = extrair('recalculatePeriod');
+    // desde 30/09/2026 o recálculo mora em comissoes-mes.js e a tela só chama
+    assert.ok(/comissoesMes\(\)\.recalcularPeriodo\(/.test(extrair('recalculatePeriod')), 'a tela recalcula pelo módulo');
+    const mod = require('fs').readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8');
+    const fn = mod.slice(mod.indexOf('async recalcularPeriodo('), mod.indexOf('Engine.marcarConversoesComoNovas'));
     assert.ok(/configDaUnidade\(unidadeDoPeriodo\)/.test(fn), 'recalculatePeriod ainda lê a unitConfig da tela');
     assert.ok(/\$\{unidadeDoPeriodo\}_\$\{prevMonthDate/.test(fn), 'o P4 ainda procura o mês anterior na unidade da tela');
     assert.ok(!/\$\{currentUnitId\}_\$\{prevMonthDate/.test(fn));

@@ -3295,6 +3295,9 @@
        como plano B. As linhas da busca diária entram pelo MESMO caminho do arquivo. -->
   <script src="pacto-api-linhas.js?v=20261001"></script>
   <script src="upload-pela-api.js?v=20261001"></script>
+  <!-- A gravação e a conta do mês (30/09/2026): o MESMO código que o servidor usa
+       para atualizar o mês sozinho toda madrugada. As funções da tela chamam daqui. -->
+  <script src="comissoes-mes.js?v=20261001"></script>
   <script src="estorno-comissao.js?v=20260915"></script>
   <script src="vendas-aguardando.js?v=20260917"></script>
 
@@ -4345,29 +4348,12 @@
      * ⚠️ `excluded` NÃO entra, de propósito: item excluído não gerou comissão
      *    nenhuma, e bloqueá-lo negaria em silêncio uma comissão devida.
      */
-    function codigosDeContrato(itens) {
-      const PAGO = new Set(['processed', 'deferred']);
-      const s = new Set();
-      (itens || []).forEach(d => {
-        if (!PAGO.has(d.type || 'processed')) return;
-        const m = String(d.codigo || '').trim().match(/^C\d+/i);
-        if (m) s.add(m[0].toUpperCase());
-      });
-      return [...s].sort();
-    }
+    // A lista de contratos já comissionados — a conta mora em comissoes-mes.js
+    function codigosDeContrato(itens) { return ComissoesMes.codigosDeContrato(itens); }
 
     /** Grava no doc do período a lista derivada dos itens reais */
-    async function gravarCodigosPagos(periodId, itens) {
-      try {
-        const codigosPagos = codigosDeContrato(itens);
-        await db.collection('periodos').doc(periodId).set({ codigosPagos }, { merge: true });
-        console.log(`[codigosPagos] ${periodId}: ${codigosPagos.length} contratos comissionados.`);
-      } catch (e) {
-        // Não derruba o upload: o pior caso é a lista ficar velha, e
-        // `reconstruirCodigosPagos` refaz a partir dos itens.
-        console.error('[codigosPagos] falhou em ' + periodId + ':', e.message);
-      }
-    }
+    /** Grava no doc do período a lista derivada dos itens reais (comissoes-mes.js) */
+    async function gravarCodigosPagos(periodId, itens) { return comissoesMes().gravarCodigosPagos(periodId, itens); }
 
     /** Refaz a lista de um período a partir dos itens — a fonte é sempre o item */
     async function reconstruirCodigosPagos(periodId) {
@@ -4384,17 +4370,7 @@
      * ele barre as próprias linhas.
      * @param {string} mesArquivo  'AAAA-MM'
      */
-    async function carregarCodigosPagosAnteriores(unitId, mesArquivo) {
-      if (!mesArquivo) return [];
-      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
-      const todos = new Set();
-      snap.forEach(doc => {
-        const m = String(doc.id).match(/(\d{4}-\d{2})$/);
-        if (!m || m[1] >= mesArquivo) return;          // só períodos anteriores
-        (doc.data().codigosPagos || []).forEach(c => todos.add(c));
-      });
-      return [...todos];
-    }
+    async function carregarCodigosPagosAnteriores(unitId, mesArquivo) { return comissoesMes().carregarCodigosPagosAnteriores(unitId, mesArquivo); }
 
     /**
      * Guarda as vendas do relatório de vendas no doc de cada período.
@@ -4615,33 +4591,14 @@
     async function processarPlanilha(json, nomeFonte, opcoes) {
       opcoes = opcoes || {};
         try {
-          // ── Export da Pacto: traduzir antes de entregar ao motor ──
-          // Desde agosto/2026 a entrada é o export da Pacto, em outro formato.
-          // `pacto-adapter.js` traduz aqui; o `commission.js` não muda uma linha.
-          // Se o arquivo for do formato antigo (TecnoFit), nada disto roda.
-          let pacto = null;
-          if (typeof PactoAdapter !== 'undefined' && PactoAdapter.ehExportPacto(json)) {
-            // Traduz duas vezes de propósito. A primeira só para descobrir de que
-            // MÊS é o arquivo — sem isso não dá para saber quais períodos são
-            // "anteriores", e um re-upload de agosto barraria as próprias linhas
-            // com os códigos que ele mesmo gravou. O tradutor é puro e barato.
-            const mesArquivo = PactoAdapter.traduzir(json, {}).mes;
-            const codigosPagos = await carregarCodigosPagosAnteriores(currentUnitId, mesArquivo);
-            pacto = PactoAdapter.traduzir(json, { codigosPagos });
-            // O id da unidade no sistema (`unit-cp` no staging, `cp` em produção)
-            // não é a sigla que vem no arquivo (`(CP)`) — traduzir antes de casar.
-            const sigla = PactoAdapter.siglaDaUnidade(
-              currentUnitId, Object.keys(pacto.porUnidade).filter(k => k));
+          // O cálculo mora em comissoes-mes.js (30/09/2026): a MESMA conta que o
+          // servidor usa para atualizar o mês sozinho. Aqui fica só a tela.
+          const prep = await comissoesMes().preparar(json, { unitId: currentUnitId, opcoes });
 
-            // A Pacto tem DOIS relatórios com as MESMAS colunas nas mesmas
-            // posições. O "Faturamento por Período" traz o contrato inteiro em
-            // vez da parcela — 12× num anual — e a comissão é 5% desse valor.
-            // O "Faturamento por Período" (relatório de VENDAS) continua PROIBIDO
-            // no cálculo: ele traz o contrato inteiro em vez da parcela, e pagaria
-            // 12× a mais num anual. Mas ele é a única fonte do que foi VENDIDO —
-            // venda sem pagamento não existe no relatório de recebimentos. Então
-            // aqui ele ganha um caminho próprio, que só alimenta a conferência.
-            if (pacto.relatorio !== 'recebido') {
+          // O "Faturamento por Período" (relatório de VENDAS) continua PROIBIDO no
+          // cálculo — traz o contrato inteiro, pagaria 12× num anual. Mas é a única
+          // fonte do que foi VENDIDO: aqui ele alimenta só a conferência.
+          if (prep.tipo === 'vendas') {
               const vendasPorGrupo = VendasAguardando.extrair(json);
               const totalVendas = Object.values(vendasPorGrupo).reduce((s, v) => s + v.length, 0);
               window._vendasParaRegistrar = vendasPorGrupo;
@@ -4688,51 +4645,17 @@
                 </div>`;
               toast('Relatório de vendas: não entra no cálculo, só na conferência.', 'info');
               return;
-            }
-
-            const vendasUnidade = pacto.porUnidade[sigla] || [];
-            if (!vendasUnidade.length) {
-              const outras = Object.entries(pacto.porUnidade)
-                .filter(([u, v]) => u && v.length).map(([u, v]) => `${u} (${v.length})`).join(', ');
-              toast(`O arquivo não tem linhas desta unidade${outras ? ' — só de ' + outras : ''}. Troque a unidade no topo e tente de novo.`, 'error');
-              return;
-            }
-            // Degustação GRÁTIS: não tem recebimento, então não vem neste arquivo.
-            // Foi guardada no período ao registrar o relatório de VENDAS e entra
-            // aqui pela regra do TecnoFit — voucher fixo + ativação (29/09/2026).
-            let degustacoesGuardadas = [];
-            try {
-              const per = await db.collection('periodos').doc(`${currentUnitId}_${pacto.mes}`).get();
-              degustacoesGuardadas = (per.exists && per.data().degustacoesGratis) || [];
-            } catch (e) {
-              // Não some calado: sem a leitura, a degustação grátis ficaria de fora
-              pacto.avisos = [...(pacto.avisos || []), { motivo: 'não consegui ler as degustações grátis do mês (' + e.message + ') — suba de novo antes de pagar', cliente: '' }];
-            }
-            // Pela API (30/09/2026) a degustação grátis vem da varredura dos contratos
-            // (`pacto_degustacoes`). Junta com a guardada, sem repetir contrato.
-            if (opcoes.degustacoes && opcoes.degustacoes.length) {
-              const porContrato = new Map(degustacoesGuardadas.map(d => [String(d.contrato), d]));
-              opcoes.degustacoes.forEach(d => { if (!porContrato.has(String(d.contrato))) porContrato.set(String(d.contrato), d); });
-              degustacoesGuardadas = [...porContrato.values()];
-            }
-            const juntas = PactoAdapter.juntarDegustacoes(vendasUnidade, degustacoesGuardadas, codigosPagos);
-            pacto.degustacoesIncluidas = juntas.incluidas;
-            json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(juntas.vendas)];
           }
+          if (prep.tipo === 'outraUnidade') {
+            toast(`O arquivo não tem linhas desta unidade${prep.outras ? ' — só de ' + prep.outras : ''}. Troque a unidade no topo e tente de novo.`, 'error');
+            return;
+          }
+          if (prep.tipo === 'vazio') { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
 
-          const rawRows = CommissionEngine.cleanRawData(json);
-
-          if (rawRows.length === 0) { toast('Nenhum dado encontrado no arquivo.', 'error'); return; }
-
-          // ── Auto-detect period from dates in the file ──
-          const monthCount = CommissionEngine.detectMonths(rawRows);
           const monthNames = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-          const sortedMonths = Object.entries(monthCount).sort((a, b) => b[1] - a[1]);
-          const detectedPeriod = sortedMonths[0]?.[0];
-          const multipleMonths = sortedMonths.length > 1;
-
-          if (multipleMonths) {
+          if (prep.tipo === 'variosMeses') {
             // BLOQUEIO IMPEDITIVO: Mais de um mês detectado
+            const sortedMonths = prep.meses;
             const monthsFound = sortedMonths.map(([k, c]) => {
               const [y, m] = k.split('-');
               return `${monthNames[parseInt(m)]}/${y} (${c} registros)`;
@@ -4759,51 +4682,13 @@
             return;
           }
 
+          const { rawRows, result, pacto, newVendors, usersToUpdateUnit, vendorNames, detectedPeriod } = prep;
           if (detectedPeriod) {
             document.getElementById('periodMonth').value = detectedPeriod;
             document.getElementById('periodMonthGroup').style.display = 'none';
             const [yr, mo] = detectedPeriod.split('-');
             toast(`Período detectado: ${monthNames[parseInt(mo)]} de ${yr}`, 'info');
           }
-
-          // --- NEW: Load previous month vouchers for P4 cross-month conversion ---
-          let previousProcessed = [];
-          if (detectedPeriod) {
-            try {
-              const [yr, mo] = detectedPeriod.split('-');
-              const prevMonthDate = new Date(parseInt(yr), parseInt(mo) - 1, 0);
-              const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-              const prevSnap = await db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed').get();
-              prevSnap.forEach(doc => previousProcessed.push(doc.data()));
-            } catch (e) { console.warn('Could not load previous period for P4 preview:', e); }
-          }
-
-          // Process
-          const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
-          const result = CommissionEngine.calculate(rawRows, cfg, {}, previousProcessed);
-
-          // ── Check which vendors need registration or unit update ──
-          const existingSnap = await db.collection('users').get();
-          const allUsers = [];
-          existingSnap.forEach(doc => allUsers.push({ id: doc.id, ...doc.data() }));
-          
-          const vendorNames = Object.keys(result.vendorData).filter(n => n !== 'Sem Vendedor');
-          const newVendors = [];
-          const usersToUpdateUnit = [];
-
-          vendorNames.forEach(vName => {
-            const normV = normalizeString(vName);
-            const found = allUsers.find(u => normalizeString(u.name) === normV);
-            
-            if (!found) {
-              newVendors.push(vName);
-            } else {
-              const allowed = found.allowedUnits || (found.unitId ? [found.unitId] : []);
-              if (!allowed.includes(currentUnitId)) {
-                usersToUpdateUnit.push({ id: found.id, name: found.name, allowedUnits: [...allowed, currentUnitId] });
-              }
-            }
-          });
 
           pendingUpload = { rawRows, result, fileName: nomeFonte, newVendors, usersToUpdateUnit, pacto,
             origem: opcoes.origem || 'planilha', dadosAte: opcoes.dadosAte || null };
@@ -4862,36 +4747,8 @@
     }
 
     async function autoRegisterVendors(newVendors, usersToUpdateUnit) {
-      const batch = db.batch();
-      let count = 0;
-
-      // 1. Create truly new vendors
-      if (newVendors && newVendors.length > 0) {
-        newVendors.forEach(name => {
-          const ref = db.collection('users').doc();
-          batch.set(ref, {
-            name, email: '', role: 'vendedor', unitId: currentUnitId,
-            allowedUnits: [currentUnitId], status: 'pendente', autoCreated: true,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          count++;
-        });
-      }
-
-      // 2. Update existing vendors with new unit
-      if (usersToUpdateUnit && usersToUpdateUnit.length > 0) {
-        usersToUpdateUnit.forEach(u => {
-          batch.update(db.collection('users').doc(u.id), {
-            allowedUnits: u.allowedUnits
-          });
-          count++;
-        });
-      }
-
-      if (count > 0) {
-        await batch.commit();
-        toast(`${count} vendedor(es) atualizado(s)/cadastrado(s).`, 'success');
-      }
+      const count = await comissoesMes().registrarVendedoras(currentUnitId, newVendors, usersToUpdateUnit);
+      if (count > 0) toast(`${count} vendedor(es) atualizado(s)/cadastrado(s).`, 'success');
     }
 
     let pendingPreviewSort = { col: 'vendedor', asc: true };
@@ -5123,22 +4980,7 @@
       updatePreviewBulkButtons();
     }
 
-    function generateStableId(item) {
-      const key = [
-        (item.vendedor || '').toString().trim().toUpperCase(),
-        (item.cliente || '').toString().trim().toUpperCase(),
-        (item.data || '').toString().replace(/\//g, ''),
-        (item.item || '').toString().trim().toUpperCase(),
-        Number(item.valorCaixa || 0).toFixed(2)
-      ].join('|');
-      
-      let hash = 0;
-      for (let i = 0; i < key.length; i++) {
-        hash = ((hash << 5) - hash) + key.charCodeAt(i);
-        hash |= 0;
-      }
-      return 'id_' + Math.abs(hash).toString(36) + '_' + key.length;
-    }
+    function generateStableId(item) { return ComissoesMes.generateStableId(item); }
 
     // A identidade de cada item de UM upload, contando as repetições (25/09/2026).
     //
@@ -5150,14 +4992,7 @@
     // A 1ª ocorrência mantém o id de sempre (nada que já existe muda de
     // identidade: divisões, histórico e conferências seguem apontando para o
     // mesmo doc); só a 2ª, 3ª... ganham o sufixo _2, _3.
-    function idsComRepeticao(itens) {
-      const vistos = {};
-      return itens.map(item => {
-        const base = generateStableId(item);
-        vistos[base] = (vistos[base] || 0) + 1;
-        return vistos[base] === 1 ? base : base + '_' + vistos[base];
-      });
-    }
+    function idsComRepeticao(itens) { return ComissoesMes.idsComRepeticao(itens); }
 
     // "Mesmo lançamento com o valor mudado" (soft match) só vale quando o valor
     // MUDOU de fato. Se o banco já tem esse lançamento com ESTE valor, é a
@@ -5165,25 +5000,9 @@
     // Olha TODOS os valores gravados daquele lançamento, não só o último: o mesmo
     // cliente compra o mesmo lanche por R$ 9,10 duas vezes e por R$ 9,80 uma.
     // @param {Map<string, Set<string>>} valoresExistentes  softId → valores ('9.10')
-    function ehValorAlterado(valoresExistentes, item) {
-      const vals = valoresExistentes.get(generateSoftId(item));
-      return !!vals && !vals.has(Number(item.valorCaixa || 0).toFixed(2));
-    }
+    function ehValorAlterado(valoresExistentes, item) { return ComissoesMes.ehValorAlterado(valoresExistentes, item); }
 
-    function generateSoftId(item) {
-      const key = [
-        (item.vendedor || '').toString().trim().toUpperCase(),
-        (item.cliente || '').toString().trim().toUpperCase(),
-        (item.data || '').toString().replace(/\//g, ''),
-        (item.item || '').toString().trim().toUpperCase()
-      ].join('|');
-      let hash = 0;
-      for (let i = 0; i < key.length; i++) {
-        hash = ((hash << 5) - hash) + key.charCodeAt(i);
-        hash |= 0;
-      }
-      return 'soft_' + Math.abs(hash).toString(36) + '_' + key.length;
-    }
+    function generateSoftId(item) { return ComissoesMes.generateSoftId(item); }
 
     async function confirmUpload() {
       if (!pendingUpload) return;
@@ -5192,23 +5011,7 @@
 
       const [year, month] = period.split('-');
       const periodId = `${currentUnitId}_${year}-${month}`;
-      const { rawRows, result, fileName, newVendors, origem, dadosAte } = pendingUpload;
-
-      // Load previous month vouchers for P4 cross-month conversion (use uploadId filter to avoid stale items)
-      let previousProcessed = [];
-      try {
-        const prevMonthDate = new Date(parseInt(year), parseInt(month) - 1, 0);
-        const prevPeriodId = `${currentUnitId}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
-        if (prevDoc.exists) {
-          const prevUploadId = prevDoc.data().uploadId;
-          const prevQuery = prevUploadId
-            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
-            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
-          const prevSnap = await prevQuery.get();
-          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
-        }
-      } catch (e) { console.warn('Could not load previous period for P4:', e); }
+      const { result, fileName, origem, dadosAte } = pendingUpload;
 
       try {
         const btnActions = document.getElementById('uploadActions');
@@ -5221,379 +5024,34 @@
           }
           if (btnCancel) btnCancel.style.display = 'none';
         }
-
-        console.log('[confirmUpload] Iniciando confirmUpload para periodoId:', periodId);
         toast('Salvando...', 'info');
 
-        // HISTÓRICO: capturar estado anterior (se período já existia)
-        let beforeVendorSummaryUpload = {};
-        try {
-          const existingPeriodSnap = await db.collection('periodos').doc(periodId).get();
-          if (existingPeriodSnap.exists) beforeVendorSummaryUpload = existingPeriodSnap.data().vendorSummary || {};
-        } catch (_e) {}
-
-        // Auto-register or update vendors found in the file
-        console.log('[confirmUpload] Registrando/Atualizando vendedores:', newVendors, pendingUpload.usersToUpdateUnit);
-        await autoRegisterVendors(newVendors, pendingUpload.usersToUpdateUnit);
-
-        // Use p4result already calculated in handleFile (which included previousProcessed)
-        const finalP4Result = result.p4result;
-
-        // Generate a unique uploadId for this upload session
-        // This avoids having to delete old items — queries filter by uploadId instead
-        const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-        // Define period object
-        const rawPeriodData = {
-          unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
-          fileName,
-          // De onde veio (30/09/2026): 'api' = botão "Atualizar pela Pacto"; 'planilha' = arquivo
-          origem: origem || 'planilha',
-          dadosAte: dadosAte || null,
-          uploadedBy: currentUser.uid,
-          uploadId,
-          totals: result.unitTotals,
-          vendorSummary: Object.fromEntries(
-            Object.entries(result.vendorData).map(([name, v]) => [name, {
-              p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
-              grandTotal: v.grandTotal, ativacoes: v.ativacoes,
-              novos: v.novos, renovacoes: v.renovacoes, retornos: v.retornos, vouchers: v.vouchers,
-              caixa: v.caixaTotal, isNaoCom: v.isNaoCom,
-            }])
-          ),
-          p4result: {
-            ...finalP4Result,
-            conversions: (finalP4Result.conversions || []).map(c => ({ ...c })),
-            currentVouchers: (finalP4Result.currentVouchers || []).map(v => {
-              const cv = { ...v };
-              delete cv.dateObj;
-              delete cv.dateVoucherEnd;
-              return cv;
-            })
-          },
-        };
-
-        // Recursively remove undefined fields to prevent Firestore errors
-        function removeUndefinedFields(obj) {
-          if (obj === null || typeof obj !== 'object') return obj;
-          if (obj instanceof Date || (obj.constructor && obj.constructor.name === 'FieldValueImpl')) return obj;
-          
-          if (Array.isArray(obj)) {
-            return obj.map(i => removeUndefinedFields(i));
-          }
-
-          const clean = {};
-          for (const [k, v] of Object.entries(obj)) {
-            if (v === undefined) { continue; }
-            clean[k] = removeUndefinedFields(v);
-          }
-          return clean;
-        }
-
-        // ⚠️ A data do upload entra DEPOIS da limpeza. O marcador do Firebase
-        // (serverTimestamp) passava pela limpeza, que não o reconhecia (o nome
-        // da classe vem minificado no SDK) e o copiava campo a campo: o banco
-        // guardava o mapa {_methodName: ...} no lugar da data, desde sempre.
-        const periodData = {
-          ...removeUndefinedFields(rawPeriodData),
-          uploadDate: firebase.firestore.FieldValue.serverTimestamp(),
-        };
-
-        // Save period summary (include uploadId)
-        console.log('[confirmUpload] Salvando resumo do período:', periodId);
-        await db.collection('periodos').doc(periodId).set(periodData, { merge: true });
-
-        // ── DEDUPLICATION: load existing items (id + type) for this period ──
-        console.log('[confirmUpload] Carregando itens existentes para deduplicação...');
-        const existingSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
-        const existingMap = {}; // stableId → type
-        const existingProcessedData = {}; // stableId → item data (para detectar removidos no histórico)
-        const existingSoftMap = {}; // softId → { stableId, valorCaixa } (para detectar valor alterado)
-        const existingSoftValores = new Map(); // softId → todos os valores já gravados (ver ehValorAlterado)
-        existingSnap.forEach(doc => {
-          const d = doc.data();
-          existingMap[doc.id] = d.type || 'processed';
-          if ((d.type || 'processed') === 'processed') {
-            existingProcessedData[doc.id] = d;
-            const s = generateSoftId(d);
-            existingSoftMap[s] = { stableId: doc.id, valorCaixa: d.valorCaixa || 0 };
-            if (!existingSoftValores.has(s)) existingSoftValores.set(s, new Set());
-            existingSoftValores.get(s).add(Number(d.valorCaixa || 0).toFixed(2));
-          }
-        });
-        console.log(`[confirmUpload] ${Object.keys(existingMap).length} itens existentes encontrados.`);
-
-        // ── FIX RAIZ (16/06/2026): PRESERVAR SPLITS no re-upload ──
-        // Antes, ao re-subir a carga, o registro CHEIO da venda (sem "(Split: X%)") não casava
-        // com as pernas de split (que têm o sufixo no item) → o sistema re-adicionava o cheio e
-        // deletava a perna original, duplicando/quebrando a divisão. Agora reconhecemos a venda
-        // já dividida por uma chave-base (cliente + data + item SEM o "(Split: X%)") e:
-        //  (1) NÃO re-adicionamos o cheio; (2) NÃO deletamos as pernas do split.
-        const splitBaseKey = (d) => {
-          const baseItem = String(d.item || '').replace(/\s*\(Split:[^)]*\)\s*$/i, '').trim().toUpperCase();
-          return String(d.cliente || '').trim().toUpperCase() + '|' + String(d.data || '').replace(/\//g, '') + '|' + baseItem;
-        };
-        const existingSplitBases = new Set();
-        existingSnap.forEach(doc => {
-          const d = doc.data();
-          if ((d.type || 'processed') === 'processed' && (d.originalSplitId || String(d.item || '').includes('(Split:'))) {
-            existingSplitBases.add(splitBaseKey(d));
-          }
-        });
-        if (existingSplitBases.size) console.log(`[confirmUpload] ${existingSplitBases.size} venda(s) já divididas — preservadas (não re-adiciona o cheio).`);
-
-        // Save items in batches (with dedup logic)
-        console.log('[confirmUpload] Salvando itens no banco...');
-        const itemsRef = db.collection('periodos').doc(periodId).collection('itens');
-
-        // Add new items in batches of 400 — filter out empty/junk rows
-        const allItems = [...result.processed.map(d => ({ ...d, type: 'processed' })), ...result.excluded.map(d => ({ ...d, type: 'excluded' })), ...(result.deferred || []).map(d => ({ ...d, type: 'deferred' }))]
-          .filter(d => {
-            const hasContent = (d.vendedor || '').trim() || (d.cliente || '').trim() || (d.item || '').trim();
-            const hasValue = (d.valorCaixa || 0) > 0;
-            const isDegust = d.isDegustacao === true;
-            return hasContent || hasValue || isDegust;
-          });
-
-        // Um id por item, contando as repetições do mesmo dia (ver idsComRepeticao).
-        // Calculado UMA vez: gravação, histórico e remoção têm que usar o mesmo.
-        const idsUpload = idsComRepeticao(allItems);
-        const idDe = new Map(allItems.map((d, k) => [d, idsUpload[k]]));
-
-        let skipped = 0, replaced = 0, added = 0;
-        for (let i = 0; i < allItems.length; i += 400) {
-          const batch = db.batch();
-          allItems.slice(i, i + 400).forEach(item => {
-            const stableId = idDe.get(item);
-            const existingType = existingMap[stableId];
-
-            // FIX RAIZ: venda já dividida (split) → NÃO re-adicionar o registro cheio.
-            if (item.type === 'processed' && existingSplitBases.has(splitBaseKey(item))) {
-              skipped++;
-              return;
-            }
-
-            // Dedup logic:
-            // - Se já existe e está ATIVO (processed) → ignorar o novo
-            // - Se já existe e está INATIVO (excluded/deferred) → substituir pelo novo
-            // - Se não existe → adicionar normalmente
-            if (existingType === 'processed') {
-              skipped++;
-              // Update uploadId so recalculatePeriod finds this item in re-uploads
-              batch.update(itemsRef.doc(stableId), { uploadId });
-              return;
-            }
-            // Soft match: mesmo contrato, valor diferente → manter original, não criar novo
-            const softId = generateSoftId(item);
-            if (existingSoftMap[softId] && existingSoftMap[softId].stableId !== stableId && ehValorAlterado(existingSoftValores, item)) {
-              skipped++;
-              // Atualiza uploadId do item ORIGINAL para rastreio
-              batch.update(itemsRef.doc(existingSoftMap[softId].stableId), { uploadId });
-              return;
-            }
-            if (existingType) replaced++; else added++;
-
-            const ref = itemsRef.doc(stableId);
-            const clean = { uploadId };
-            Object.entries(item).forEach(([k, v]) => {
-              if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
-              else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
-            });
-            delete clean.dateObj;
-            delete clean.dateVoucherEnd;
-            batch.set(ref, clean, { merge: false }); // merge:false para substituição limpa
-          });
-          console.log(`[confirmUpload] Gravando lote de itens ${i} a ${i + 400}...`);
-          await batch.commit();
-        }
-        console.log(`[confirmUpload] Dedup: ${added} novos, ${replaced} substituídos, ${skipped} ignorados (já ativos).`);
-
-        // HISTÓRICO: construir deltas de itens do upload (adicionados + removidos + valor alterado)
-        const uploadItemDeltas = [];
-        const newUploadIds = new Set(allItems.filter(d => d.type === 'processed').map(item => idDe.get(item)));
-        // softId → valores que chegaram no arquivo. Um item antigo só é "o original
-        // de um valor alterado" (e fica) se o arquivo trouxe o mesmo lançamento com
-        // OUTRO valor. Se o valor dele ainda está lá, é uma repetição que saiu do
-        // arquivo (7 compras viraram 6) e tem que ser apagada.
-        const newSoftValores = new Map();
-        allItems.filter(d => d.type === 'processed').forEach(item => {
-          const s = generateSoftId(item);
-          if (!newSoftValores.has(s)) newSoftValores.set(s, new Set());
-          newSoftValores.get(s).add(Number(item.valorCaixa || 0).toFixed(2));
-        });
-        const ficaPorValorAlterado = (existente) => {
-          const vals = newSoftValores.get(generateSoftId(existente));
-          return !!vals && !vals.has(Number(existente.valorCaixa || 0).toFixed(2));
-        };
-
-        // Itens adicionados (não estavam como processed antes e não são soft match)
-        allItems.filter(d => d.type === 'processed').forEach(item => {
-          const stableId = idDe.get(item);
-          if (existingMap[stableId] === 'processed') return; // match exato, já existe
-          if (ehValorAlterado(existingSoftValores, item)) return; // soft match (valor alterado), registrado separadamente
-          if (existingSplitBases.has(splitBaseKey(item))) return; // FIX RAIZ: venda já dividida, não é "adicionado"
-          uploadItemDeltas.push({
-            vendorId: item.vendedor || '',
-            vendorName: item.vendedor || '',
-            change: 'added',
-            cliente: item.cliente || '',
-            item: item.item || '',
-            data: item.data || '',
-            impacto: Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
-          });
-        });
-
-        // Itens com valor alterado (mesmo contrato, valorCaixa diferente → ignorado)
-        allItems.filter(d => d.type === 'processed').forEach(item => {
-          const stableId = idDe.get(item);
-          if (existingMap[stableId] === 'processed') return; // match exato, não é alteração de valor
-          if (!ehValorAlterado(existingSoftValores, item)) return; // nenhum soft match, ou repetição de mesmo valor
-          const original = existingSoftMap[generateSoftId(item)];
-          uploadItemDeltas.push({
-            vendorId: item.vendedor || '',
-            vendorName: item.vendedor || '',
-            change: 'valor_alterado_ignorado',
-            cliente: item.cliente || '',
-            item: item.item || '',
-            data: item.data || '',
-            valorOriginal: original.valorCaixa,
-            valorNovo: item.valorCaixa || 0,
-            impacto: 0
-          });
-        });
-
-        // Itens removidos (estavam como processed antes mas não vieram no novo arquivo)
-        Object.entries(existingProcessedData).forEach(([stableId, item]) => {
-          if (!newUploadIds.has(stableId) && !ficaPorValorAlterado(item)) {
-            uploadItemDeltas.push({
-              vendorId: item.vendedor || '',
-              vendorName: item.vendedor || '',
-              change: 'removed',
-              cliente: item.cliente || '',
-              item: item.item || '',
-              data: item.data || '',
-              impacto: -Math.round(((item.p1valor || 0) + (item.p2bonus || 0)) * 100) / 100
-            });
-          }
-        });
-
-        // ── BATCH DELETE: remover do Firestore itens que saíram do arquivo ──
-        const removedStableIds = Object.keys(existingProcessedData).filter(id => {
-          if (newUploadIds.has(id)) return false; // match exato → manter
-          if (ficaPorValorAlterado(existingProcessedData[id])) return false; // valor alterado → manter original
-          if (existingProcessedData[id].originalSplitId) return false; // perna clonada de split (doc auto-gerado, nunca casa por stableId/softId) → manter
-          if (String(existingProcessedData[id].item || '').includes('(Split:')) return false; // FIX RAIZ: perna ORIGINAL do split (tem "(Split:" no item) → manter
-          return true; // sumiu do arquivo → deletar
-        });
-        if (removedStableIds.length > 0) {
-          console.log(`[confirmUpload] Deletando ${removedStableIds.length} itens removidos do período...`);
-          for (let i = 0; i < removedStableIds.length; i += 400) {
-            const delBatch = db.batch();
-            removedStableIds.slice(i, i + 400).forEach(stableId => {
-              delBatch.delete(itemsRef.doc(stableId));
-            });
-            await delBatch.commit();
-          }
-          console.log(`[confirmUpload] ${removedStableIds.length} itens removidos deletados do Firestore.`);
-        }
-
-        // ── RECALCULATE: recomputar vendorSummary a partir do estado real do Firestore ──
-        // periodData.vendorSummary foi calculado pelo engine a partir do arquivo novo (inclui
-        // valores de soft matches que NÃO foram gravados — os originais foram preservados).
-        // É preciso recalcular a partir dos itens reais para que afterVendorSummaryUpload
-        // reflita o estado correto antes de salvar o snapshot do histórico.
+        // A gravação mora em comissoes-mes.js (30/09/2026): a MESMA que o servidor
+        // usa para atualizar o mês sozinho toda madrugada. Aqui fica só a tela.
         delete globalPeriodsCache[periodId]; // força releitura fresca do Firestore
-        await recalculatePeriod(periodId, null); // null = sem triggerContext → sem snapshot duplicado
+        const r = await comissoesMes().gravar(pendingUpload, { unitId: currentUnitId, mes: `${year}-${month}`, fileName, origem, dadosAte });
+        globalPeriodsCache[periodId] = r.itens;
 
-        // ── ACTIVE SNAPSHOT: foto compacta dos itens ativos para o histórico ──
-        // Usa globalPeriodsCache (populado pelo recalculatePeriod acima) para garantir
-        // que o snapshot reflita os itens reais do Firestore com valores originais preservados,
-        // e não os valores do arquivo novo (que podem diferir dos soft matches preservados).
-        const cachedPeriodItems = globalPeriodsCache[periodId] || [];
-        const activeItemsForSnapshot = cachedPeriodItems
-          .filter(d => d.type === 'processed')
-          .map(d => ({
-            vendedor: d.vendedor || '',
-            cliente: d.cliente || '',
-            item: d.item || '',
-            data: d.data || '',
-            categoria: d.category || d.categoria || '',
-            label: d.label || '',
-            valorCaixa: d.valorCaixa || 0,
-            p1valor: d.p1valor || 0,
-            p2bonus: d.p2bonus || 0,
-            total: Math.round(((d.p1valor || 0) + (d.p2bonus || 0)) * 100) / 100
-          }));
-
-        // ── CÓDIGOS JÁ COMISSIONADOS: quem não pode pagar de novo no mês que vem ──
-        // Sob regime de caixa o relatório da Pacto traz UMA LINHA POR RECEBIMENTO,
-        // então um anual parcelado reaparece todo mês. A regra é pagar uma vez só,
-        // e quem lembra disso é esta lista.
-        // Derivada dos ITENS reais do período (não do arquivo), pelo mesmo motivo
-        // do contador da escala: resumo que ninguém recalcula vive errado — e este
-        // decide pagamento. `reconstruirCodigosPagos()` refaz a partir da fonte.
-        await gravarCodigosPagos(periodId, cachedPeriodItems);
-
-        let afterVendorSummaryUpload = periodData.vendorSummary || {};
-        try {
-          const freshPeriodSnap = await db.collection('periodos').doc(periodId).get();
-          if (freshPeriodSnap.exists) afterVendorSummaryUpload = freshPeriodSnap.data().vendorSummary || {};
-        } catch (_e) {}
-        await saveHistoricoSnapshot(
-          periodId,
-          { type: 'upload', label: `Upload: ${fileName}` },
-          beforeVendorSummaryUpload,
-          afterVendorSummaryUpload,
-          { precomputedItemDeltas: uploadItemDeltas, activeItems: activeItemsForSnapshot }
-        );
-
-        if (skipped > 0) toast(`${skipped} lançamento(s) já existiam e foram mantidos.`, 'info');
-
-        // Save deferred commissions to future periods collection in batches
-        if (result.deferred && result.deferred.length > 0) {
-          console.log('[confirmUpload] Salvando comissões diferidas:', result.deferred.length);
-          for (let i = 0; i < result.deferred.length; i += 400) {
-            const deferBatch = db.batch();
-            result.deferred.slice(i, i + 400).forEach(d => {
-              const ref = db.collection('comissoes_diferidas').doc();
-              const clean = {};
-              Object.entries(d).forEach(([k, v]) => {
-                if (v instanceof Date) clean[k] = firebase.firestore.Timestamp.fromDate(v);
-                else if (typeof v !== 'function' && v !== undefined) clean[k] = v;
-              });
-              delete clean.dateObj;
-              clean.sourcePeriodId = periodId;
-              clean.unitId = currentUnitId;
-              clean.status = 'pendente';
-              deferBatch.set(ref, clean);
-            });
-            await deferBatch.commit();
-          }
-          toast(`${result.deferred.length} comissão(ões) diferida(s) para meses futuros.`, 'info');
-        }
-
-        console.log('[confirmUpload] Upload concluído com sucesso!');
+        if (r.skipped > 0) toast(`${r.skipped} lançamento(s) já existiam e foram mantidos.`, 'info');
+        if (r.diferidos > 0) toast(`${r.diferidos} comissão(ões) diferida(s) para meses futuros.`, 'info');
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · origem: ${origem || 'planilha'} ·${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
+        logAudit('upload', `Upload: ${fileName} · origem: ${origem || 'planilha'} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         document.getElementById('uploadPreview').style.display = 'none';
         document.getElementById('uploadActions').style.display = 'none';
-        // Navigate to dashboard and auto-select the newly uploaded period
-        console.log('[confirmUpload] Atualizando lista de períodos...');
+        // Vai para o painel com o mês gravado
         await loadPeriods();
         const sel = document.getElementById('periodSelect');
         for (let i = 0; i < sel.options.length; i++) {
           if (sel.options[i].value === periodId) { sel.selectedIndex = i; break; }
         }
         await loadPeriod(periodId);
-        // Switch to dashboard nav tab if visible
         const dashLink = document.querySelector('[data-page="dashboard"], [onclick*="dashboard"], nav a[href*="dashboard"]');
         if (dashLink) dashLink.click();
       } catch (e) {
         console.error('Erro critico durante o confirmUpload:', e);
         toast('Erro ao salvar: ' + (e.message || String(e)), 'error');
         document.getElementById('uploadActions').style.display = 'flex';
-        
         const btnConfirm = document.querySelector('#uploadActions button:first-child');
         const btnCancel = document.querySelector('#uploadActions button:last-child');
         if (btnConfirm) {
@@ -6347,68 +5805,8 @@
     // ═══════════════════════════════════════════════════════════════
     // HISTÓRICO DE COMISSÕES
     // ═══════════════════════════════════════════════════════════════
-    async function saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, { beforeItemValues, processedItems, precomputedItemDeltas, activeItems } = {}) {
-      try {
-        // Vendor-level deltas
-        const vendorSnapshots = {};
-        let hasVendorChange = false;
-        const allVendors = new Set([...Object.keys(beforeVendorSummary || {}), ...Object.keys(afterVendorSummary || {})]);
-        allVendors.forEach(name => {
-          const antes = (beforeVendorSummary[name] || {}).grandTotal || 0;
-          const depois = (afterVendorSummary[name] || {}).grandTotal || 0;
-          const delta = Math.round((depois - antes) * 100) / 100;
-          if (Math.abs(delta) >= 0.01) {
-            vendorSnapshots[name] = { name, totalAntes: antes, totalDepois: depois, delta };
-            hasVendorChange = true;
-          }
-        });
-
-        // Item-level deltas
-        let itemDeltas = [];
-        if (precomputedItemDeltas) {
-          itemDeltas = precomputedItemDeltas;
-        } else if (beforeItemValues && processedItems) {
-          processedItems.forEach(item => {
-            const bef = beforeItemValues[item._docId];
-            if (!bef) return;
-            const beforeTotal = (bef.p1 || 0) + (bef.p2 || 0);
-            const afterTotal = (item.p1valor || 0) + (item.p2bonus || 0);
-            if (Math.abs(afterTotal - beforeTotal) >= 0.01) {
-              itemDeltas.push({
-                vendorId: item.vendedor || '',
-                vendorName: item.vendedor || '',
-                change: 'modified',
-                cliente: item.cliente || '',
-                item: item.item || '',
-                data: item.data || '',
-                antes: { p1: bef.p1, p2: bef.p2, total: beforeTotal },
-                depois: { p1: item.p1valor || 0, p2: item.p2bonus || 0, total: afterTotal },
-                impacto: Math.round((afterTotal - beforeTotal) * 100) / 100
-              });
-            }
-          });
-        }
-
-        if (!hasVendorChange && itemDeltas.length === 0) return;
-
-        const snapshot = {
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          triggerType: triggerContext.type,
-          triggerLabel: triggerContext.label,
-          triggeredBy: {
-            uid: currentUser ? currentUser.uid : '',
-            name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema'
-          },
-          vendorSnapshots,
-          itemDeltas,
-          ...(triggerContext.type === 'upload' && activeItems && activeItems.length > 0
-            ? { activeSnapshot: activeItems }
-            : {})
-        };
-        await db.collection('periodos').doc(periodId).collection('historico').add(snapshot);
-      } catch (e) {
-        console.warn('[Histórico] Erro ao salvar snapshot:', e);
-      }
+    async function saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, extras) {
+      return comissoesMes().salvarHistorico(periodId, triggerContext, beforeVendorSummary, afterVendorSummary, extras);
     }
 
     /**
@@ -6416,24 +5814,15 @@
      * (`unitConfig`, que pode ter acabado de ser editada); a outra, do banco.
      */
     /** 'cp_2026-10' → '2026-10' (o motor precisa saber de que mês é a conta — regra nova do bônus) */
-    function mesDoPeriodoId(periodId) {
-      return (String(periodId || '').match(/(\d{4}-\d{2})$/) || [])[1] || null;
-    }
+    /** 'cp_2026-10' → '2026-10' (o motor precisa saber de que mês é a conta — regra nova do bônus) */
+    function mesDoPeriodoId(periodId) { return ComissoesMes.mesDoPeriodoId(periodId); }
 
     /**
      * Mínimo individual de cada vendedora no mês, pela jornada do cadastro
      * (out/2026 em diante). Só o admin lê /users: para os outros, o que já está
      * gravado no período. Fica gravado em `periodos.minimosPorPessoa`.
      */
-    async function minimosDoPeriodo(mes, unitCfg, pData) {
-      if (!mes || mes < CommissionEngine.INICIO_REGRA_MINIMOS) return null;
-      try {
-        const snap = await db.collection('users').get();
-        return JornadaComercial.minimosDoMes(snap.docs.map(d => d.data()), mes, { ...CommissionEngine.defaultConfig, ...(unitCfg || {}) });
-      } catch (e) {
-        return (pData && pData.minimosPorPessoa) || null;
-      }
-    }
+    async function minimosDoPeriodo(mes, unitCfg, pData) { return comissoesMes().minimosDoPeriodo(mes, unitCfg, pData); }
 
     /**
      * Itens de meses anteriores (até 13 para trás) cuja ativação foi adiada para
@@ -6441,193 +5830,32 @@
      * Buscado sozinho a cada recálculo: o diferimento antigo dependia de re-upload
      * e nunca pagou ninguém.
      */
-    async function ativacoesAdiadasPara(unitId, mes) {
-      if (!mes || mes < CommissionEngine.INICIO_REGRA_MINIMOS) return [];
-      const [a, m] = mes.split('-').map(Number);
-      const desde = new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7);
-      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
-      const out = [];
-      for (const d of snap.docs) {
-        const pm = mesDoPeriodoId(d.id);
-        if (!pm || pm >= mes || pm < desde) continue;
-        const itens = await db.collection('periodos').doc(d.id).collection('itens').where('ativacaoAdiadaPara', '==', mes).get();
-        itens.forEach(x => { const it = x.data(); if (it.type === 'processed') out.push(it); });
-      }
-      return out;
-    }
+    async function ativacoesAdiadasPara(unitId, mes) { return comissoesMes().ativacoesAdiadasPara(unitId, mes); }
 
-    async function configDaUnidade(unitId) {
-      if (!unitId || unitId === currentUnitId) return unitConfig;
-      const doc = await db.collection('units').doc(unitId).get();
-      return (doc.exists && doc.data().config) || CommissionEngine.defaultConfig;
+    async function configDaUnidade(unitId) { return comissoesMes().configDaUnidade(unitId); }
+
+    /**
+     * A gravação e a conta do mês (comissoes-mes.js, 30/09/2026) com o que a tela
+     * tem: o banco do navegador, quem está logado e a config da unidade aberta
+     * (em memória — pode ter acabado de ser editada).
+     */
+    function comissoesMes() {
+      return ComissoesMes.criar({
+        db, FieldValue: firebase.firestore.FieldValue, Timestamp: firebase.firestore.Timestamp,
+        Engine: CommissionEngine, Adapter: typeof PactoAdapter !== 'undefined' ? PactoAdapter : null,
+        Jornada: JornadaComercial,
+        autor: () => ({ uid: currentUser ? currentUser.uid : '', name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema' }),
+        configAtual: unitId => (!unitId || unitId === currentUnitId ? unitConfig : undefined),
+        log: console,
+      });
     }
 
     async function recalculatePeriod(periodId, triggerContext) {
       if (!periodId) return;
-      const pDoc = await db.collection('periodos').doc(periodId).get();
-      if (!pDoc.exists) return;
-      const pData = pDoc.data();
-      const beforeVendorSummary = pData.vendorSummary || {};
-
-      // B3 (15/06/2026): o recálculo SEMPRE carrega o conjunto COMPLETO do Firestore.
-      // Antes confiava no globalPeriodsCache, populado por uma query filtrada por uploadId
-      // (renderRecordsTable) que PERDIA pernas de split com uploadId defasado → ativações
-      // subcontadas → a faixa de meta caía → o P3 de todos despencava num split/edição.
-      // Itens removidos já são deletados no upload, então não há órfãos a filtrar.
-      let items = [];
-      const itemsSnap = await db.collection('periodos').doc(periodId).collection('itens').get();
-      itemsSnap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
-      globalPeriodsCache[periodId] = items;
-
-      const processed = items.filter(d => d.type === 'processed');
-      // A unidade é a do PERÍODO, não a aberta na tela: o relatório de vendas traz
-      // as duas unidades e recalcula as duas (degustação grátis, 29/09/2026).
-      const unidadeDoPeriodo = pData.unitId || currentUnitId;
-      const unitCfgPeriodo = await configDaUnidade(unidadeDoPeriodo);
-      const mesDoPeriodo = mesDoPeriodoId(periodId);
-      // Regra nova do bônus (out/2026+): o mínimo de cada vendedora vem da jornada no cadastro
-      const minimosPorPessoa = await minimosDoPeriodo(mesDoPeriodo, unitCfgPeriodo, pData);
-      // Contratos pagos antes que começam neste mês: a ativação conta aqui (out/2026+)
-      const ativacoesAdiadas = await ativacoesAdiadasPara(unidadeDoPeriodo, mesDoPeriodo);
-      const cfg = CommissionEngine.configDoMes({ unitConfig: unitCfgPeriodo, metasMensais: pData.metasMensais, mes: mesDoPeriodo, minimosPorPessoa, ativacoesAdiadas });
-
-      // HISTÓRICO: snapshot de valores antes do recálculo
-      const beforeItemValues = {};
-      if (triggerContext) {
-        processed.forEach(item => {
-          beforeItemValues[item._docId] = { p1: item.p1valor || 0, p2: item.p2bonus || 0 };
-        });
-      }
-
-      // Mês anterior: as degustações dele servem ao P4 e à conversão como venda nova
-      let previousProcessed = [];
-      try {
-        const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
-        const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
-        const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
-        const prevPeriodId = `${unidadeDoPeriodo}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
-        if (prevDoc.exists) {
-          const prevUploadId = prevDoc.data().uploadId;
-          const prevQuery = prevUploadId
-            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
-            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
-          const prevSnap = await prevQuery.get();
-          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
-        }
-      } catch (e) { console.warn('Could not load previous period for recalculate P4:', e); }
-
-      // Conversão de degustação paga como venda nova (out/2026+, decisão do Rafael 30/09).
-      // Antes do recálculo de cada item: muda a categoria, e o P1 sai de venda nova.
-      CommissionEngine.marcarConversoesComoNovas(processed, previousProcessed, cfg);
-
-      // 1. Recalculate and Sync each item back to Firestore in batches
-      try {
-        const batch = db.batch();
-        let batchCount = 0;
-        
-        processed.forEach(item => {
-          // Store old values to check if update is needed (optional optimization, but let's sync to be safe)
-          CommissionEngine.applyCommissionsToItem(item, cfg);
-          
-          const itemRef = db.collection('periodos').doc(periodId).collection('itens').doc(item._docId);
-          batch.update(itemRef, {
-            p1valor: item.p1valor,
-            p1pct: item.p1pct,
-            p2bonus: item.p2bonus,
-            isActivation: item.isActivation,
-            isNaoCom: item.isNaoCom,
-            label: item.label,
-            // conversão de degustação vira venda nova (out/2026+): a categoria também muda
-            category: item.category || null,
-            ...(item.conversaoDeDegustacao ? { conversaoDeDegustacao: true, categoriaPacto: item.categoriaPacto || 'renovacao' } : {})
-          });
-          
-          batchCount++;
-          // batches have a limit of 500
-          if (batchCount >= 400) {
-            // We'll just assume for now the volume is within 500 for a single period. 
-            // If it grows, we'd need a recursive batch execution.
-          }
-        });
-        
-        if (batchCount > 0) await batch.commit();
-        console.log(`[Sync] Updated ${batchCount} items in Firestore for period ${periodId}`);
-      } catch (syncErr) {
-        console.error('Error syncing items during recalculation:', syncErr);
-      }
-
-      // 2. Rebuild vendorData from the now updated items
-      const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      // Uma conta só no motor: tira a ativação adiada para outro mês e soma a que chega (out/2026+)
-      const { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers } = CommissionEngine.contagensDaUnidade(processed, cfg.ativacoesAdiadas);
-      const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
-
-      CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
-
-      // P4 — `previousProcessed` foi carregado antes do recálculo dos itens (conversão como venda nova)
-      const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
-      p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
-      Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });
-      Object.values(vendorData).forEach(v => { v.grandTotal = v.p1total + v.p2total + v.p3 + v.p4individual + v.p4pool; });
-
-      // Arredonda contadores a 2 casas — remove ruído de float dos splits (0.30000000000000004)
-      // sem esconder fração real (um 0.5 órfão ainda apareceria). Fix 16/06/2026.
-      const r2 = x => Math.round((x || 0) * 100) / 100;
-      const vendorSummary = Object.fromEntries(Object.entries(vendorData).map(([name, v]) => [name, {
-        p1: v.p1total, p2: v.p2total, p3: v.p3, p4i: v.p4individual, p4p: v.p4pool,
-        grandTotal: v.grandTotal, ativacoes: r2(v.ativacoes),
-        novos: r2(v.novos), renovacoes: r2(v.renovacoes), retornos: r2(v.retornos), vouchers: r2(v.vouchers),
-        caixa: v.caixaTotal,
-        p3base: v.caixaP3Eligible || 0,
-        isNaoCom: v.isNaoCom,
-        p3Tier: v.p3detail ? v.p3detail.tierLabel : '',
-        p3Motivos: v.p3detail?.motivos || [],
-        p3fixo: v.p3detail?.fixo || 0,
-        p3pct: v.p3detail?.pctValor || 0,
-        p3bruto: v.p3detail?.bruto || 0,
-        p3multiplier: v.p3detail?.multiplier || 1
-      }]));
-
-      const rawUpdateData = {
-        totals: { unitAtivacoes: r2(unitAtivacoes), unitNovosRetorno: r2(unitNovosRetorno), unitRenovacoes: r2(unitRenovacoes), unitVouchers: r2(unitVouchers), unitCaixa: r2(unitCaixa) },
-        // mínimo de cada vendedora usado nesta conta (as telas da vendedora e o simulador leem daqui)
-        minimosPorPessoa: minimosPorPessoa || null,
-        vendorSummary,
-        p4result: {
-          ...p4result,
-          currentVouchers: p4result.currentVouchers.map(v => {
-            const cv = { ...v };
-            delete cv.dateObj;
-            return cv;
-          })
-        }
-      };
-
-      // Recursively remove undefined fields to prevent Firestore errors
-      function removeUndefinedFields(obj) {
-        const clean = {};
-        for (const [k, v] of Object.entries(obj)) {
-          if (v === undefined) { continue; }
-          if (v !== null && typeof v === 'object' && !(v instanceof Date) && !(v.constructor && v.constructor.name === 'FieldValueImpl')) {
-            if (Array.isArray(v)) {
-              clean[k] = v.map(i => typeof i === 'object' ? removeUndefinedFields(i) : (i === undefined ? null : i));
-            } else {
-              clean[k] = removeUndefinedFields(v);
-            }
-          } else {
-            clean[k] = v;
-          }
-        }
-        return clean;
-      }
-
-      await db.collection('periodos').doc(periodId).update(removeUndefinedFields(rawUpdateData));
-
-      // HISTÓRICO: salvar snapshot se houve triggerContext
-      if (triggerContext) {
-        await saveHistoricoSnapshot(periodId, triggerContext, beforeVendorSummary, vendorSummary, { beforeItemValues, processedItems: processed });
-      }
+      // A conta mora em comissoes-mes.js (30/09/2026) — a mesma do servidor.
+      // Sempre o conjunto COMPLETO do banco (B3, 15/06/2026); a tela guarda no cache.
+      const itens = await comissoesMes().recalcularPeriodo(periodId, triggerContext);
+      if (itens.length) globalPeriodsCache[periodId] = itens;
     }
 
     // ═══════════════════════════════════════════════════════════════

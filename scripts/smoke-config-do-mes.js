@@ -11,14 +11,17 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+// Desde 30/09/2026 o recálculo e a gravação do mês moram em comissoes-mes.js
+const modulo = fs.readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8');
+const tudo = html + '\n' + modulo;
 
 let n = 0;
 const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
 
-function trecho(ini, fim) {
-  const a = html.indexOf(ini); const b = html.indexOf(fim, a + ini.length);
+function trecho(ini, fim, texto = html) {
+  const a = texto.indexOf(ini); const b = texto.indexOf(fim, a + ini.length);
   assert.ok(a > 0 && b > a, 'não achei ' + ini);
-  return html.slice(a, b);
+  return texto.slice(a, b);
 }
 
 /* 0. o arquivo inteiro, uma vez só. Em 30/09/2026 um `String.replace` cujo texto de
@@ -35,16 +38,17 @@ function trecho(ini, fim) {
 {
   const soltas = html.split(/\r?\n/).filter(l => /\.\.\.CommissionEngine\.defaultConfig/.test(l) && /metasMensais/.test(l));
   assert.deepStrictEqual(soltas, [], 'montagem sem o mês:\n' + soltas.join('\n'));
-  const usos = (html.match(/CommissionEngine\.configDoMes\(/g) || []).length;
+  const usos = (html.match(/CommissionEngine\.configDoMes\(/g) || []).length + (modulo.match(/Engine\.configDoMes\(/g) || []).length;
   assert.ok(usos >= 13, 'configDoMes em todos os lugares: ' + usos);
-  ok('toda configuração com metas do mês passa por configDoMes (' + (html.match(/CommissionEngine\.configDoMes\(/g) || []).length + ' lugares)');
+  ok('toda configuração com metas do mês passa por configDoMes (' + usos + ' lugares, tela + comissoes-mes.js)');
 }
 
 /* 2. os caminhos que calculam o bônus fora do calculate levam o mês */
 {
-  const recalc = trecho('async function recalculatePeriod(periodId, triggerContext)', 'CommissionEngine.applyP3Pool(vendorData');
+  const recalc = trecho('async recalcularPeriodo(periodId, triggerContext)', 'Engine.applyP3Pool(vendorData', modulo);
+  assert.ok(/comissoesMes\(\)\.recalcularPeriodo\(periodId, triggerContext\)/.test(html), 'a tela recalcula pelo módulo');
   assert.ok(/mes: mesDoPeriodo, minimosPorPessoa/.test(recalc), 'o recálculo leva o mês e os mínimos por pessoa');
-  assert.ok(/minimosPorPessoa: minimosPorPessoa \|\| null/.test(html), 'e grava os mínimos no período');
+  assert.ok(/minimosPorPessoa: minimosPorPessoa \|\| null/.test(modulo), 'e grava os mínimos no período');
   const previa = trecho('function refreshPreviewTotals()', 'CommissionEngine.applyP3Pool(');
   assert.ok(/mes: CommissionEngine\.mesDosItens\(processed\)/.test(previa), 'a prévia do upload leva o mês do arquivo');
   assert.ok(/minhas: myData, nome: window\.currentSimNome/.test(html), 'o simulador sabe de quem é o mínimo');
@@ -57,11 +61,11 @@ function trecho(ini, fim) {
 {
   const somasNaMao = (html.match(/processed\.reduce\(\(s, d\) => s \+ \(d\.isActivation/g) || []).length;
   assert.strictEqual(somasNaMao, 0, 'nenhuma soma de ativação feita na mão no index');
-  assert.ok((html.match(/CommissionEngine\.contagensDaUnidade\(processed, cfg\.ativacoesAdiadas\)/g) || []).length >= 2, 'recálculo e prévia usam a soma do motor');
-  const recalc = trecho('async function recalculatePeriod(periodId, triggerContext)', 'CommissionEngine.applyP3Pool(vendorData');
-  assert.ok(/const ativacoesAdiadas = await ativacoesAdiadasPara\(unidadeDoPeriodo, mesDoPeriodo\)/.test(recalc));
+  assert.ok((tudo.match(/Engine\.contagensDaUnidade\(processed, cfg\.ativacoesAdiadas\)/g) || []).length >= 2, 'recálculo e prévia usam a soma do motor');
+  const recalc = trecho('async recalcularPeriodo(periodId, triggerContext)', 'Engine.applyP3Pool(vendorData', modulo);
+  assert.ok(/const ativacoesAdiadas = await ops\.ativacoesAdiadasPara\(unidadeDoPeriodo, mesDoPeriodo\)/.test(recalc));
   assert.ok(/minimosPorPessoa, ativacoesAdiadas \}\)/.test(recalc), 'e leva as adiadas para o motor');
-  assert.ok(/where\('ativacaoAdiadaPara', '==', mes\)/.test(html), 'busca nos meses anteriores, sem re-upload');
+  assert.ok(/where\('ativacaoAdiadaPara', '==', mes\)/.test(tudo), 'busca nos meses anteriores, sem re-upload');
   ok('a soma da unidade é a do motor; o recálculo busca as ativações adiadas para o mês');
 }
 

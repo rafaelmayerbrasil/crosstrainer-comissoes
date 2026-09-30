@@ -46,12 +46,45 @@ function ambiente(db) {
   return { sandbox, elementos };
 }
 
-async function rodar() {
+/**
+ * Recorta funções de primeiro nível do index.html pela assinatura, contando
+ * chaves (a casca de uma linha termina na mesma linha; a longa, na chave que fecha).
+ */
+function extrairFuncoes(html, assinaturas) {
+  return assinaturas.map(a => {
+    const i = html.indexOf('    ' + a);
+    if (i < 0) throw new Error('não achei no index.html: ' + a);
+    let j = html.indexOf('{', i), prof = 0;
+    for (; j < html.length; j++) {
+      if (html[j] === '{') prof++;
+      else if (html[j] === '}' && --prof === 0) break;
+    }
+    return html.slice(i, j + 1);
+  }).join('\n\n');
+}
+
+const ASSINATURAS = ['function codigosDeContrato(', 'async function gravarCodigosPagos(', 'async function carregarCodigosPagosAnteriores(',
+  'function generateStableId(', 'function idsComRepeticao(', 'function ehValorAlterado(', 'function generateSoftId(',
+  'async function processarPlanilha(', 'async function autoRegisterVendors(', 'async function confirmUpload(',
+  'async function saveHistoricoSnapshot(', 'function mesDoPeriodoId(', 'async function minimosDoPeriodo(',
+  'async function ativacoesAdiadasPara(', 'async function configDaUnidade(', 'function comissoesMes(', 'async function recalculatePeriod('];
+
+/**
+ * @param {Object} [o]
+ * @param {'referencia'|'atual'} [o.versao]  'referencia' = código congelado; 'atual' = o index.html de hoje + comissoes-mes.js
+ */
+async function rodar(o = {}) {
   const db = makeFakeDb();
   await C.semear(db);
   const { sandbox, elementos } = ambiente(db);
   sandbox.unitConfig = (await db.collection('units').doc(C.UNIT).get()).data().config;
-  const fonte = fs.readFileSync(path.join(__dirname, 'fixtures', 'comissoes-mes-referencia.js.txt'), 'utf8');
+  let fonte;
+  if (o.versao === 'atual') {
+    vm.runInContext(fs.readFileSync(path.join(raiz, 'comissoes-mes.js'), 'utf8'), sandbox, { filename: 'comissoes-mes.js' });
+    fonte = extrairFuncoes(fs.readFileSync(path.join(raiz, 'index.html'), 'utf8'), ASSINATURAS);
+  } else {
+    fonte = fs.readFileSync(path.join(__dirname, 'fixtures', 'comissoes-mes-referencia.js.txt'), 'utf8');
+  }
   // `let pendingUpload` do index.html vira global do sandbox (as funções o leem e gravam)
   vm.runInContext(fonte, sandbox, { filename: 'comissoes-mes-referencia.js' });
   const run = expr => vm.runInContext(expr, sandbox);
@@ -79,4 +112,4 @@ async function rodar() {
   return fotos;
 }
 
-module.exports = { rodar, AGORA, ambiente };
+module.exports = { rodar, AGORA, ambiente, extrairFuncoes, ASSINATURAS };

@@ -254,12 +254,16 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   // ⚠️ O relatório de vendas NÃO pode voltar a alimentar o cálculo — é o
   // arquivo que pagaria 12× a mais. O caminho dele termina em `return`, antes
   // de qualquer coisa chegar ao motor.
-  const iCheck = html.indexOf("if (pacto.relatorio !== 'recebido')");
-  const iMotor = html.indexOf('CommissionEngine.cleanRawData(json)');
+  // Desde 30/09/2026 o desvio mora em comissoes-mes.js; a tela trata `tipo: 'vendas'`
+  const modulo = fs.readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8');
+  const iCheck = modulo.indexOf("if (pacto.relatorio !== 'recebido')");
+  const iMotor = modulo.indexOf('Engine.cleanRawData(json)');
   assert.ok(iCheck > 0 && iMotor > iCheck, 'a verificação vem antes do motor');
-  const trecho = html.slice(iCheck, iMotor);
-  assert.ok(/não entra no cálculo/i.test(trecho), 'e a tela diz isso em português claro');
-  assert.ok(/return;/.test(trecho), 'e para ali');
+  assert.ok(/return \{ tipo: 'vendas'/.test(modulo.slice(iCheck, iMotor)), 'e para ali, sem chegar ao motor');
+  const iTela = html.indexOf("if (prep.tipo === 'vendas')");
+  const trecho = html.slice(iTela, html.indexOf("if (prep.tipo === 'outraUnidade')"));
+  assert.ok(iTela > 0 && /não entra no cálculo/i.test(trecho), 'e a tela diz isso em português claro');
+  assert.ok(/return;/.test(trecho) && trecho.indexOf('pendingUpload') < 0, 'e a tela para ali, sem preparar gravação');
   ok('o relatório de vendas nunca chega ao motor de cálculo');
 }
 {

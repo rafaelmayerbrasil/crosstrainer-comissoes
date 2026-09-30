@@ -103,7 +103,8 @@ function recortar(html, nome) {
 console.log('\n=== 1. A venda diferida conta como paga ===\n');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const sandbox = { console };
+// desde 30/09/2026 a casca da tela chama comissoes-mes.js
+const sandbox = { console, ComissoesMes: require(path.join(__dirname, '..', 'comissoes-mes.js')) };
 vm.createContext(sandbox);
 vm.runInContext(recortar(html, 'function codigosDeContrato('), sandbox);
 // ⚠️ O array devolvido nasce DENTRO do sandbox, num realm diferente: seu

@@ -87,6 +87,14 @@ function diferenca(a, b, onde = '') {
   assert.ok(novo[2].periodos[pid].vendorSummary[C.V1].ativacoes > novo[1].periodos[pid].vendorSummary[C.V1].ativacoes, 'o recálculo usou a vendedora editada');
   ok('o cenário passa por venda nova, removida, valor mudado, vendedora nova e edição');
 
+  // a TELA de hoje (as cascas do index.html chamando o módulo) deixa o mesmo banco
+  const tela = await antigo.rodar({ versao: 'atual' });
+  ['1ª carga', 'recarga', 'recálculo'].forEach((passo, i) => {
+    const d = diferenca(velho[i], tela[i]);
+    assert.strictEqual(d, null, `tela atual, passo ${i + 1} (${passo}) divergiu em ${d}`);
+  });
+  ok('as funções da tela de hoje (cascas chamando o módulo) deixam o banco idêntico ao código antigo nos 3 passos');
+
   // as duas cópias do módulo (tela e servidor) são idênticas
   const gemeo = path.join(raiz, 'functions', 'comissoes-mes.js');
   assert.ok(fs.existsSync(gemeo), 'falta functions/comissoes-mes.js');

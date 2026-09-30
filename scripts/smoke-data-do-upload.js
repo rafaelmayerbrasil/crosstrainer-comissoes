@@ -40,10 +40,16 @@ class Xq { constructor() { this._methodName = 'FieldValue.serverTimestamp'; } }
 const MARCADOR = new Xq();
 const firebase = { firestore: { FieldValue: { serverTimestamp: () => MARCADOR } } };
 
-const bloco = trecho('const rawPeriodData = {', '// Save period summary');
-const montar = new Function('firebase', 'currentUnitId', 'year', 'month', 'fileName', 'currentUser',
+// Desde 30/09/2026 a gravação do período mora em comissoes-mes.js (tela e servidor)
+const modulo = fs.readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8').replace(/\r\n/g, '\n');
+const iBloco = modulo.indexOf('const rawPeriodData = {');
+const fBloco = modulo.indexOf('await db.collection(PERIODOS).doc(periodId).set(periodData', iBloco);
+assert.ok(iBloco > 0 && fBloco > iBloco, 'não achei a montagem do período em comissoes-mes.js');
+const bloco = modulo.slice(iBloco, fBloco);
+const montar = new Function('M', 'FieldValue', 'unitId', 'year', 'month', 'fileName', 'quem',
   'uploadId', 'result', 'finalP4Result', 'origem', 'dadosAte', bloco + '\n return periodData;');
-const gravado = montar(firebase, 'cp', '2026', '09', 'faturamento.xls', { uid: 'u1' }, 'mudcvd06gfirr',
+const gravado = montar(require(path.join(__dirname, '..', 'comissoes-mes.js')), firebase.firestore.FieldValue,
+  'cp', '2026', '09', 'faturamento.xls', () => ({ uid: 'u1' }), 'mudcvd06gfirr',
   { unitTotals: { unitAtivacoes: 53 }, vendorData: { ERICA: { p1total: 1, p2total: 2, p3: undefined, grandTotal: 3 } } },
   { conversions: [], currentVouchers: [{ codigo: 'C1', dateObj: new Date(), dateVoucherEnd: new Date() }] },
   'api', '2026-09-29');

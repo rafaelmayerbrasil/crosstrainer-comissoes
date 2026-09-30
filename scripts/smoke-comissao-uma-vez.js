@@ -210,14 +210,19 @@ const ok = msg => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + msg
 
 const fs = require('fs');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+// Desde 30/09/2026 a gravação do mês mora em comissoes-mes.js (tela e servidor)
+const modulo = fs.readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8');
+const ComissoesMes = require(path.join(__dirname, '..', 'comissoes-mes.js'));
 
 {
-  const iCarrega = html.indexOf('carregarCodigosPagosAnteriores(currentUnitId');
-  const iTraduz = html.indexOf('PactoAdapter.traduzir(json, { codigosPagos })');
-  assert.ok(iCarrega > 0, 'a tela precisa carregar os códigos já pagos');
+  const iCarrega = modulo.indexOf('ops.carregarCodigosPagosAnteriores(unitId');
+  const iTraduz = modulo.indexOf('Adapter.traduzir(json, { codigosPagos })');
+  assert.ok(iCarrega > 0, 'a gravação do mês precisa carregar os códigos já pagos');
   assert.ok(iTraduz > iCarrega, 'e passar para o tradutor DEPOIS de carregar');
-  assert.ok(html.includes('await gravarCodigosPagos(periodId, cachedPeriodItems)'),
+  assert.ok(modulo.includes('await ops.gravarCodigosPagos(periodId, itens)'),
     'o upload precisa gravar a lista, derivada dos itens reais do período');
+  assert.ok(html.includes('comissoesMes().preparar(json') && html.includes('comissoesMes().gravar('),
+    'e a tela precisa passar pelo módulo');
   assert.ok(html.includes('pacto.jaPagos'), 'e a prévia precisa mostrar o que foi barrado');
   ok('a tela carrega, passa, grava e mostra — as quatro pontas ligadas');
 }
@@ -234,9 +239,10 @@ const fonte = html.slice(inicio, fim);
 const makeFakeDb = require(path.join(__dirname, '_fake-firestore.js'));
 const db = makeFakeDb();
 const janela = {};
-const tela = new Function('db', 'window', 'console', fonte +
+const comissoesMes = () => ComissoesMes.criar({ db, log: { info() {}, warn() {}, error() {} } });
+const tela = new Function('db', 'window', 'console', 'ComissoesMes', 'comissoesMes', fonte +
   '\n return { codigosDeContrato, gravarCodigosPagos, reconstruirCodigosPagos, carregarCodigosPagosAnteriores };'
-)(db, janela, { log() {}, error() {} });
+)(db, janela, { log() {}, error() {} }, ComissoesMes, comissoesMes);
 
 (async () => {
   {

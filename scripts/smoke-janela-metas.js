@@ -82,6 +82,8 @@ function montar({ periodos, currentPeriodId, currentPeriodData, falhaLeitura = f
     recalculatePeriod: async (id) => recalculados.push(id),
     loadPeriod: async () => {},
     logAudit: () => {},
+    // desde 30/09/2026 a casca da tela chama comissoes-mes.js
+    ComissoesMes: require(path.join(__dirname, '..', 'comissoes-mes.js')),
   };
   vm.createContext(sb);
   ['openMetasMesModal', 'closeMetasMesModal', 'saveMetasMes', 'mesDoPeriodoId'].forEach(f => vm.runInContext(extrair(f), sb));

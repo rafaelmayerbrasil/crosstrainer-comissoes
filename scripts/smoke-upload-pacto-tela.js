@@ -34,19 +34,23 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
   assert.ok(iEngine >= 0 && iAdapter > iEngine, 'o adapter carrega depois do motor');
   ok('index.html carrega o pacto-adapter.js');
 }
+// Desde 30/09/2026 a tradução e a conta do mês moram em comissoes-mes.js (tela e servidor)
+const modulo = fs.readFileSync(path.join(raiz, 'comissoes-mes.js'), 'utf8');
 {
-  assert.ok(html.includes('PactoAdapter.ehExportPacto(json)'),
+  assert.ok(html.includes('comissoesMes().preparar(json'), 'a tela prepara o upload pelo módulo');
+  assert.ok(modulo.includes('Adapter.ehExportPacto(json)'),
     'o upload precisa perguntar se o arquivo é da Pacto');
-  assert.ok(html.includes('PactoAdapter.traduzir(json'), 'e traduzir quando for');
-  assert.ok(html.includes('PactoAdapter.paraPlanilha('), 'e entregar no formato do motor');
+  assert.ok(modulo.includes('Adapter.traduzir(json'), 'e traduzir quando for');
+  assert.ok(modulo.includes('Adapter.paraPlanilha('), 'e entregar no formato do motor');
   // a tradução tem que acontecer ANTES do cleanRawData, senão não adianta nada
-  assert.ok(html.indexOf('PactoAdapter.paraPlanilha(') < html.indexOf('CommissionEngine.cleanRawData(json)'),
+  assert.ok(modulo.indexOf('Adapter.paraPlanilha(') < modulo.indexOf('Engine.cleanRawData(json)'),
     'traduzir ANTES de entregar ao motor');
   ok('o upload traduz o arquivo da Pacto antes de entregar ao motor');
 }
 {
-  assert.ok(html.includes("pacto.relatorio !== 'recebido'"),
-    'a tela precisa barrar o "Faturamento por Período"');
+  assert.ok(modulo.includes("pacto.relatorio !== 'recebido'"),
+    'o upload precisa barrar o "Faturamento por Período"');
+  assert.ok(html.includes("prep.tipo === 'vendas'"), 'e a tela precisa tratar o relatório de vendas à parte');
   assert.ok(/Faturamento Recebido/.test(html), 'e dizer qual é o certo');
   ok('a tela barra o relatório errado (o que pagaria 12× a mais)');
 }
@@ -69,13 +73,15 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
   assert.ok(hf.length > 0 && hf.length < 1500, 'handleFile só lê o arquivo');
   assert.ok(/await processarPlanilha\(json, file\.name, \{ origem: 'planilha' \}\)/.test(hf), 'o arquivo passa pelo caminho comum');
   const pp = html.slice(html.indexOf('async function processarPlanilha'), html.indexOf('async function autoRegisterVendors'));
-  assert.ok(pp.includes('PactoAdapter.traduzir(json') && pp.includes('CommissionEngine.cleanRawData(json)'), 'o caminho comum traduz e calcula');
+  assert.ok(/comissoesMes\(\)\.preparar\(json, \{ unitId: currentUnitId, opcoes \}\)/.test(pp), 'o caminho comum traduz e calcula pelo módulo');
+  assert.ok(modulo.includes('Adapter.traduzir(json') && modulo.includes('Engine.cleanRawData(json)'), 'e o módulo traduz e calcula');
   assert.ok(!/\bfile\./.test(pp), 'o caminho comum não conhece arquivo');
   assert.ok(/fileName: nomeFonte/.test(pp) && /origem: opcoes\.origem \|\| 'planilha'/.test(pp), 'guarda a fonte e a origem');
-  assert.ok(/opcoes\.degustacoes/.test(pp), 'junta as degustações vindas da API');
+  assert.ok(/opcoes\.degustacoes/.test(modulo), 'junta as degustações vindas da API');
   const conf = html.slice(html.indexOf('async function confirmUpload'), html.indexOf('async function confirmUpload') + 6000);
   assert.ok(/origem, dadosAte \} = pendingUpload/.test(conf), 'o confirmUpload pega a origem do que foi processado');
-  assert.ok(/origem: origem \|\| 'planilha'/.test(conf) && /dadosAte: dadosAte \|\| null/.test(conf), 'o período grava a origem');
+  assert.ok(/comissoesMes\(\)\.gravar\(pendingUpload, \{ unitId: currentUnitId, mes: `\$\{year\}-\$\{month\}`, fileName, origem, dadosAte \}\)/.test(conf), 'e grava pelo módulo');
+  assert.ok(/origem: origem \|\| 'planilha'/.test(modulo) && /dadosAte: dadosAte \|\| null/.test(modulo), 'o período grava a origem');
   assert.strictEqual((html.match(/<\/html>/g) || []).length, 1, 'index.html com um único </html>');
   ok('arquivo e API pelo mesmo caminho (processarPlanilha); o período grava de onde veio');
 }

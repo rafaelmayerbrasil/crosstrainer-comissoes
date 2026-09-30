@@ -35,10 +35,13 @@ const recortarFuncao = nome => {
   }
   return '';
 };
-const iBloco = html.indexOf('// ── DEDUPLICATION: load existing items');
-const fBloco = html.indexOf('// ── RECALCULATE: recomputar vendorSummary');
-assert.ok(iBloco > 0 && fBloco > iBloco, 'não achei o trecho de gravação do confirmUpload');
-const bloco = html.slice(iBloco, fBloco);
+// Desde 30/09/2026 a gravação mora em comissoes-mes.js (tela e servidor)
+const modulo = fs.readFileSync(path.join(__dirname, '..', 'comissoes-mes.js'), 'utf8').replace(/\r\n/g, '\n');
+const iBloco = modulo.indexOf('// ── Deduplicação: o que já existe no período ──');
+const fBloco = modulo.indexOf('// ── Recalcula a partir do que ficou gravado ──');
+assert.ok(iBloco > 0 && fBloco > iBloco, 'não achei o trecho de gravação em comissoes-mes.js');
+assert.ok(html.includes('comissoesMes().gravar('), 'e a tela grava pelo módulo');
+const bloco = modulo.slice(iBloco, fBloco);
 
 // ─── Firestore falso: só o que o trecho usa ───
 function bancoFalso(inicial) {
@@ -63,11 +66,12 @@ function bancoFalso(inicial) {
   return { db, itens };
 }
 
-const ctx = { console: { log() {} }, Map, Set, Math, Number, String, Object, Date };
+const ctx = { console: { log() {} }, Map, Set, Math, Number, String, Object, Date,
+  M: require(path.join(__dirname, '..', 'comissoes-mes.js')) };
+ctx.generateStableId = item => ctx.M.generateStableId(item);
 vm.createContext(ctx);
-['function generateStableId(', 'function generateSoftId(', 'function idsComRepeticao(', 'function ehValorAlterado(']
-  .forEach(n => { const f = recortarFuncao(n); if (f) vm.runInContext(f, ctx); });
 vm.runInContext(`async function gravar(db, periodId, result, uploadId, firebase) {
+  const Timestamp = firebase.firestore.Timestamp, PERIODOS = 'periodos', log = { info() {} };
 ${bloco}
   return { skipped, added, replaced, uploadItemDeltas };
 }`, ctx);
