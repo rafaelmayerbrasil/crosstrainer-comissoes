@@ -4777,10 +4777,8 @@
       const cfg = CommissionEngine.configDoMes({ unitConfig, mes: CommissionEngine.mesDosItens(processed) });
 
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      const unitAtivacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
-      const unitNovosRetorno = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
-      const unitRenovacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
-      const unitVouchers = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
+      // Uma conta só no motor: tira a ativação adiada para outro mês e soma a que chega (out/2026+)
+      const { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers } = CommissionEngine.contagensDaUnidade(processed, cfg.ativacoesAdiadas);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
       CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
@@ -6304,6 +6302,27 @@
       }
     }
 
+    /**
+     * Itens de meses anteriores (até 13 para trás) cuja ativação foi adiada para
+     * `mes` — contrato pago antes que começa agora (resposta do Rodrigo, 30/09/2026).
+     * Buscado sozinho a cada recálculo: o diferimento antigo dependia de re-upload
+     * e nunca pagou ninguém.
+     */
+    async function ativacoesAdiadasPara(unitId, mes) {
+      if (!mes || mes < CommissionEngine.INICIO_REGRA_MINIMOS) return [];
+      const [a, m] = mes.split('-').map(Number);
+      const desde = new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7);
+      const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+      const out = [];
+      for (const d of snap.docs) {
+        const pm = mesDoPeriodoId(d.id);
+        if (!pm || pm >= mes || pm < desde) continue;
+        const itens = await db.collection('periodos').doc(d.id).collection('itens').where('ativacaoAdiadaPara', '==', mes).get();
+        itens.forEach(x => { const it = x.data(); if (it.type === 'processed') out.push(it); });
+      }
+      return out;
+    }
+
     async function configDaUnidade(unitId) {
       if (!unitId || unitId === currentUnitId) return unitConfig;
       const doc = await db.collection('units').doc(unitId).get();
@@ -6335,7 +6354,9 @@
       const mesDoPeriodo = mesDoPeriodoId(periodId);
       // Regra nova do bônus (out/2026+): o mínimo de cada vendedora vem da jornada no cadastro
       const minimosPorPessoa = await minimosDoPeriodo(mesDoPeriodo, unitCfgPeriodo, pData);
-      const cfg = CommissionEngine.configDoMes({ unitConfig: unitCfgPeriodo, metasMensais: pData.metasMensais, mes: mesDoPeriodo, minimosPorPessoa });
+      // Contratos pagos antes que começam neste mês: a ativação conta aqui (out/2026+)
+      const ativacoesAdiadas = await ativacoesAdiadasPara(unidadeDoPeriodo, mesDoPeriodo);
+      const cfg = CommissionEngine.configDoMes({ unitConfig: unitCfgPeriodo, metasMensais: pData.metasMensais, mes: mesDoPeriodo, minimosPorPessoa, ativacoesAdiadas });
 
       // HISTÓRICO: snapshot de valores antes do recálculo
       const beforeItemValues = {};
@@ -6380,10 +6401,8 @@
 
       // 2. Rebuild vendorData from the now updated items
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
-      const unitAtivacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
-      const unitNovosRetorno = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
-      const unitRenovacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
-      const unitVouchers = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
+      // Uma conta só no motor: tira a ativação adiada para outro mês e soma a que chega (out/2026+)
+      const { unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers } = CommissionEngine.contagensDaUnidade(processed, cfg.ativacoesAdiadas);
       const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
       CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
@@ -7978,7 +7997,9 @@
         const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
         items.forEach(r => CommissionEngine.applyCommissionsToItem(r, cfg));
 
-        const ativ = items.filter(r => r.isActivation).sort((a,b) => {
+        // Contrato que começa depois (out/2026+): conta no mês do início, como no total
+        const chegandoMeus = (await ativacoesAdiadasPara(currentUnitId, mesDoPeriodoId(periodId))).filter(r => r.vendedor === myName);
+        const ativ = items.filter(r => r.isActivation && !r.ativacaoAdiadaPara).concat(chegandoMeus).sort((a,b) => {
           const pA=(a.data||'').split('/'), pB=(b.data||'').split('/');
           return (pB.length===3?new Date(pB[2],pB[1]-1,pB[0]):0) - (pA.length===3?new Date(pA[2],pA[1]-1,pA[0]):0);
         });
@@ -9833,7 +9854,11 @@
           if (r.type === 'processed') CommissionEngine.applyCommissionsToItem(r, cfg);
         });
 
-        const activations = allItems.filter(r => r.type === 'processed' && r.isActivation);
+        // Contrato que começa depois (out/2026+): sai daqui e conta no mês do início;
+        // os de meses anteriores que começam agora entram — igual ao total da unidade.
+        const adiadosDaqui = allItems.filter(r => r.type === 'processed' && r.isActivation && r.ativacaoAdiadaPara);
+        const chegando = (await ativacoesAdiadasPara(currentUnitId, mesDoPeriodoId(periodId))).map(r => ({ ...r, _chegouDeOutroMes: true }));
+        const activations = allItems.filter(r => r.type === 'processed' && r.isActivation && !r.ativacaoAdiadaPara).concat(chegando);
         const nonActivations = allItems.filter(r => r.type === 'processed' && !r.isActivation);
 
         // Breakdown por categoria (contando fator de split)
@@ -9916,6 +9941,16 @@
           </div>`;
 
         // Activations table (gerenciada por filterAtivacoes)
+        // Contratos que começam depois: pagos neste mês, contam como ativação no mês do início
+        if (adiadosDaqui.length || chegando.length) {
+          const escA = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:10px 0;font-size:12px;color:var(--text2)">
+            ${adiadosDaqui.length ? `<div><strong>${adiadosDaqui.length}</strong> contrato(s) pagos neste mês começam depois — a comissão é deste mês, a ativação conta no mês do início:
+              ${adiadosDaqui.map(r => `${escA(r.cliente)} (${escA(r.vendedor)}) → ${escA(String(r.ativacaoAdiadaPara).slice(5))}/${escA(String(r.ativacaoAdiadaPara).slice(0, 4))}`).join(' · ')}</div>` : ''}
+            ${chegando.length ? `<div style="margin-top:4px"><strong>${chegando.length}</strong> ativação(ões) de contratos pagos antes que começaram neste mês (já incluídas acima, sem comissão de novo):
+              ${chegando.map(r => `${escA(r.cliente)} (${escA(r.vendedor)})`).join(' · ')}</div>` : ''}
+          </div>`;
+        }
         html += `<div id="ativTableWrap"></div>`;
 
         el.innerHTML = html;

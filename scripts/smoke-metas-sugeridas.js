@@ -51,15 +51,16 @@ const METAS = {
   ok('Super ×1,15 · Gold ×1,30 · novos 35% da meta · renovação 65% da base · corte individual repetido');
 }
 
-/* 3. voucher: média × fator da prática recente (a base de vouchers ainda não foi definida pelo Rodrigo) */
+/* 3. voucher: média dos 6 meses fechados + 10%, para cima (resposta do Rodrigo, 30/09:
+      "seguir o aumento lógico… sempre exigir um pouco mais das meninas") */
 {
   const r = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 30, formula: 'media6' });
-  // últimos 3 meses com meta: jul, ago, set — fator = média(minVoucher ÷ média dos 6 anteriores)
-  const med6 = mes => { const ms = Object.keys(SERIE).filter(m => m < mes).sort().slice(-6); return ms.reduce((s, m) => s + SERIE[m].vouchers, 0) / ms.length; };
-  const fator = (6 / med6('2026-07') + 6 / med6('2026-08') + 10 / med6('2026-09')) / 3;
-  assert.strictEqual(r.campos.minVoucher, Math.round(med6('2026-10') * fator));
-  assert.ok(/média/.test(r.porque.minVoucher) && /fator/.test(r.porque.minVoucher), r.porque.minVoucher);
-  ok('voucher pela média dos 6 meses × fator da prática recente da gestão');
+  const ms = Object.keys(SERIE).filter(m => m < '2026-10').sort().slice(-6);
+  const med = ms.reduce((s, m) => s + SERIE[m].vouchers, 0) / ms.length;          // (9+6+5+11+14+8)/6 = 8,83
+  assert.strictEqual(r.campos.minVoucher, Math.ceil(med * 1.10), '8,83 × 1,1 = 9,7 → 10');
+  assert.strictEqual(r.campos.minVoucher, 10);
+  assert.ok(/média/.test(r.porque.minVoucher) && /10%/.test(r.porque.minVoucher), r.porque.minVoucher);
+  ok('voucher: média dos 6 meses fechados + 10%, arredondado para cima');
 }
 
 /* 4. sem lista de renovações: renovação cai para a média × fator, e diz por quê */

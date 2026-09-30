@@ -43,6 +43,18 @@ function trecho(ini, fim) {
   ok('recálculo, prévia do upload, simulador e recibo levam o mês; o mínimo por pessoa é gravado');
 }
 
+/* 2b. contrato que começa depois (out/2026+): a soma da unidade é a do motor, com as adiadas */
+{
+  const somasNaMao = (html.match(/processed\.reduce\(\(s, d\) => s \+ \(d\.isActivation/g) || []).length;
+  assert.strictEqual(somasNaMao, 0, 'nenhuma soma de ativação feita na mão no index');
+  assert.ok((html.match(/CommissionEngine\.contagensDaUnidade\(processed, cfg\.ativacoesAdiadas\)/g) || []).length >= 2, 'recálculo e prévia usam a soma do motor');
+  const recalc = trecho('async function recalculatePeriod(periodId, triggerContext)', 'CommissionEngine.applyP3Pool(vendorData');
+  assert.ok(/const ativacoesAdiadas = await ativacoesAdiadasPara\(unidadeDoPeriodo, mesDoPeriodo\)/.test(recalc));
+  assert.ok(/minimosPorPessoa, ativacoesAdiadas \}\)/.test(recalc), 'e leva as adiadas para o motor');
+  assert.ok(/where\('ativacaoAdiadaPara', '==', mes\)/.test(html), 'busca nos meses anteriores, sem re-upload');
+  ok('a soma da unidade é a do motor; o recálculo busca as ativações adiadas para o mês');
+}
+
 /* 3. a tela de Regras e a configuração falam da regra nova */
 {
   assert.ok(/A partir da comissão de OUTUBRO\/2026/.test(html));

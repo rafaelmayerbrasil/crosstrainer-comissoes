@@ -59,10 +59,29 @@ const CommissionEngine = {
    * Todo lugar que calcula ou mostra o bônus monta a configuração por aqui —
    * sem o mês, o motor não sabe qual regra vale.
    */
-  configDoMes({ unitConfig, metasMensais, mes, minimosPorPessoa } = {}) {
+  configDoMes({ unitConfig, metasMensais, mes, minimosPorPessoa, ativacoesAdiadas } = {}) {
     return {
       ...this.defaultConfig, ...(unitConfig || {}), ...(metasMensais || {}),
       mes: mes || null, minimosPorPessoa: minimosPorPessoa || null,
+      // itens de meses anteriores cuja ativação conta neste mês (contrato que começa depois)
+      ativacoesAdiadas: ativacoesAdiadas || null,
+    };
+  },
+
+  /**
+   * Ativações, novos+retorno, renovações e vouchers da UNIDADE — uma conta só
+   * (antes cada tela somava na mão). Tira os itens cuja ativação foi adiada
+   * para outro mês e soma os que chegam de meses anteriores.
+   */
+  contagensDaUnidade(processed, adiadas) {
+    const todos = (processed || []).filter(d => d && !d.ativacaoAdiadaPara)
+      .concat((adiadas || []).filter(d => d && d.isActivation));
+    const soma = f => this.contagemDaUnidade(todos.reduce((s, d) => s + (f(d) ? (d.splitAtivacao || 1) : 0), 0));
+    return {
+      unitAtivacoes: soma(d => d.isActivation),
+      unitNovosRetorno: soma(d => d.category === 'novo' || d.category === 'retorno'),
+      unitRenovacoes: soma(d => d.category === 'renovacao'),
+      unitVouchers: soma(d => d.category === 'voucher'),
     };
   },
 
@@ -542,6 +561,18 @@ const CommissionEngine = {
             return; // Skip adding to processed
           }
         }
+        // Regra de out/2026 (resposta do Rodrigo, 30/09): plano que começa mais de
+        // 30 dias depois do pagamento — o DINHEIRO fica aqui (P1, P2, caixa do P3),
+        // só a CONTAGEM da ativação vai para o mês do início. O mês do início busca
+        // estes itens nos meses anteriores (configDoMes.ativacoesAdiadas).
+        if (dateObj && item.isActivation && mesPgto && mesPgto >= this.INICIO_REGRA_MINIMOS) {
+          const diffDays = Math.round((planDates.startDate - dateObj) / (1000 * 60 * 60 * 24));
+          if (diffDays > 30) {
+            const mesInicio = `${planDates.startDate.getFullYear()}-${String(planDates.startDate.getMonth() + 1).padStart(2, '0')}`;
+            item.ativacaoAdiadaPara = mesInicio;
+            item.ativacaoAdiadaMotivo = `Começa em ${planDates.startStr} (${diffDays} dias depois do pagamento): a comissão é deste mês, a ativação conta em ${mesInicio.slice(5)}/${mesInicio.slice(0, 4)}`;
+          }
+        }
       }
 
       processed.push(item);
@@ -682,9 +713,12 @@ const CommissionEngine = {
       v.p2total += eff.p2bonus;
       v.caixaTotal += d.valorCaixa * valueFactor;
       if (d.isEligibleP3 && !d.isNaoCom) v.caixaP3Eligible += d.valorCaixa * valueFactor;
-      if (d.isActivation) v.ativacoes += ativFactor;
+      // Ativação adiada (out/2026+): o dinheiro fica, a contagem vai para o mês do início
+      const contaAqui = !d.ativacaoAdiadaPara;
+      if (d.isActivation && contaAqui) v.ativacoes += ativFactor;
       // Category counts
-      if (d.category === 'novo') v.novos += ativFactor;
+      if (!contaAqui) { /* conta no mês do início */ }
+      else if (d.category === 'novo') v.novos += ativFactor;
       else if (d.category === 'renovacao') v.renovacoes += ativFactor;
       else if (d.category === 'retorno') v.retornos += ativFactor;
       else if (d.category === 'voucher') v.vouchers += ativFactor;
@@ -703,14 +737,31 @@ const CommissionEngine = {
         sv.p2total += d.p2bonus * partnerRatio;
         sv.caixaTotal += d.valorCaixa * partnerRatio;
         if (d.isEligibleP3 && !d.isNaoCom) sv.caixaP3Eligible += d.valorCaixa * partnerRatio;
-        if (d.isActivation) sv.ativacoes += 0.5;
-        if (d.category === 'novo') sv.novos += 0.5;
+        if (d.isActivation && contaAqui) sv.ativacoes += 0.5;
+        if (!contaAqui) { /* conta no mês do início */ }
+        else if (d.category === 'novo') sv.novos += 0.5;
         else if (d.category === 'renovacao') sv.renovacoes += 0.5;
         else if (d.category === 'retorno') sv.retornos += 0.5;
         else if (d.category === 'voucher') sv.vouchers += 0.5;
         else if (d.category === 'avulsa') sv.avulsas += 0.5;
         else sv.outros += 0.5;
       }
+    });
+
+    // Ativações que chegam de meses anteriores (contrato que começou agora):
+    // contam para quem vendeu, sem dinheiro nem comissão — já foram pagos no mês do pagamento.
+    (cfg.ativacoesAdiadas || []).forEach(d => {
+      if (!d || !d.isActivation) return;
+      const nome = d.vendedor || 'Sem Vendedor';
+      init(nome);
+      const f = d.splitAtivacao || 1;
+      const v = vd[nome];
+      v.ativacoes += f;
+      if (d.category === 'novo') v.novos += f;
+      else if (d.category === 'renovacao') v.renovacoes += f;
+      else if (d.category === 'retorno') v.retornos += f;
+      else if (d.category === 'voucher') v.vouchers += f;
+      v.ativacoesDeOutroMes = (v.ativacoesDeOutroMes || 0) + f;
     });
 
     return vd;
@@ -1051,10 +1102,7 @@ const CommissionEngine = {
     const vendorData = this.buildVendorData(processed, splits, cfg);
 
     // Unit totals
-    const unitNovosRetorno = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'novo' || d.category === 'retorno') ? (d.splitAtivacao || 1) : 0), 0));
-    const unitRenovacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'renovacao') ? (d.splitAtivacao || 1) : 0), 0));
-    const unitVouchers = this.contagemDaUnidade(processed.reduce((s, d) => s + ((d.category === 'voucher') ? (d.splitAtivacao || 1) : 0), 0));
-    const unitAtivacoes = this.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
+    const { unitNovosRetorno, unitRenovacoes, unitVouchers, unitAtivacoes } = this.contagensDaUnidade(processed, cfg.ativacoesAdiadas);
     const unitCaixa = processed.reduce((s, d) => s + (d.valorCaixa || 0), 0);
 
     // P3 per vendor (pool-based rateio proporcional)

@@ -68,15 +68,20 @@ const PactoTermometro = {
     const rows = vendas.length ? Engine.cleanRawData([Adapter.CABECALHO_SAIDA, ...Adapter.paraPlanilha(vendas)]) : [];
     const u = rows.length
       ? Engine.calculate(rows, cfg).unitTotals
-      : { unitAtivacoes: 0, unitNovosRetorno: 0, unitRenovacoes: 0, unitVouchers: 0 };
+      : Engine.contagensDaUnidade([], cfg.ativacoesAdiadas);   // sem venda ainda, mas pode ter ativação adiada chegando
 
     // por categoria, para a tela (o motor só devolve os agregados do prêmio)
     const cat = { novo: 0, renovacao: 0, retorno: 0, voucher: 0 };
     if (rows.length) {
       Engine.processRows(Engine.deduplicate(rows).unique, cfg, {}).processed.forEach(p => {
-        if (p.isActivation && cat[p.category] !== undefined) cat[p.category] += (p.splitAtivacao || 1);
+        // contrato que começa depois (out/2026+) conta no mês do início, como no motor
+        if (p.isActivation && !p.ativacaoAdiadaPara && cat[p.category] !== undefined) cat[p.category] += (p.splitAtivacao || 1);
       });
     }
+
+    (cfg.ativacoesAdiadas || []).forEach(p => {
+      if (p && p.isActivation && cat[p.category] !== undefined) cat[p.category] += (p.splitAtivacao || 1);
+    });
 
     const p3 = Engine.calcP3(u.unitAtivacoes, u.unitNovosRetorno, u.unitRenovacoes, u.unitVouchers, 0, cfg);
     const faixas = {

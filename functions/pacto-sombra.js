@@ -226,9 +226,21 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
         if (p.id === unitId + '_' + mes) metasMensais = p.data().metasMensais || null;
       });
       const metaDoMes = !!(metasMensais && Object.keys(metasMensais).length);
+      // Contratos pagos antes que começam neste mês (out/2026+): a ativação conta aqui
+      const ativacoesAdiadas = [];
+      if (mes >= CE.INICIO_REGRA_MINIMOS) {
+        const [a, m] = mes.split('-').map(Number);
+        const desde = new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7);
+        for (const p of periodos) {
+          const pm = (String(p.id).match(/(\d{4}-\d{2})$/) || [])[1];
+          if (!pm || pm >= mes || pm < desde) continue;
+          const it = await db.collection('periodos').doc(p.id).collection('itens').where('ativacaoAdiadaPara', '==', mes).get();
+          it.docs.forEach(d => { const x = d.data(); if (x.type === 'processed') ativacoesAdiadas.push(x); });
+        }
+      }
       const r = T.calcularMes({
         docs, mes, unidade, hoje, codigosPagos,
-        config: { ...unitConfig, ...(metasMensais || {}) }, metaDoMes,
+        config: { ...unitConfig, ...(metasMensais || {}), ativacoesAdiadas }, metaDoMes,
         Adapter: PA, Engine: CE, ApiLinhas: L,
       });
       const id = unidade + '_' + mes;

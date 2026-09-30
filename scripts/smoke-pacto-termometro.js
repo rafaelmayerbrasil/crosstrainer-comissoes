@@ -176,5 +176,22 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
   assert.ok(/atualizarTermometro\(/.test(rodar), 'rodarSombra atualiza o termômetro');
   ok('as duas buscas (4h e botão) atualizam o termômetro');
 
-  console.log('\n✅ smoke-pacto-termometro: ' + n + '/10');
+  // contrato pago em outubro que começa em dezembro: a ativação conta no termômetro de dezembro
+  {
+    const db3 = makeFakeDb();
+    await db3.collection('units').doc('unit-pp').set({ config: {} });
+    await db3.collection('periodos').doc('unit-pp_2026-10').set({ unitId: 'unit-pp' });
+    await db3.collection('periodos').doc('unit-pp_2026-10').collection('itens').doc('a').set({ type: 'processed', isActivation: true,
+      category: 'novo', vendedor: 'KALI', ativacaoAdiadaPara: '2026-12', cliente: 'CLIENTE X' });
+    await db3.collection('periodos').doc('unit-pp_2026-10').collection('itens').doc('b').set({ type: 'processed', isActivation: true,
+      category: 'renovacao', vendedor: 'KALI', ativacaoAdiadaPara: '2027-01', cliente: 'CLIENTE Y' });
+    await S.atualizarTermometro({ db: db3, unidades: ['PP'], meses: ['2026-12'], hoje: '2026-12-03', agora: () => 'A' });
+    const dez = (await db3.collection('pacto_termometro').doc('PP_2026-12').get()).data();
+    assert.strictEqual(dez.ativacoes.total, 1, 'a ativação adiada para dezembro chega');
+    assert.strictEqual(dez.ativacoes.novo, 1);
+    assert.strictEqual(dez.ativacoes.renovacao, 0, 'a de janeiro não');
+    ok('termômetro: a ativação adiada chega no mês do início');
+  }
+
+  console.log('\n✅ smoke-pacto-termometro: ' + n + '/11');
 })().catch(e => { console.error(e); process.exit(1); });

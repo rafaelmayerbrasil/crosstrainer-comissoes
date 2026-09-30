@@ -27,11 +27,8 @@ const brl = v => 'R$ ' + (Number(v) || 0).toFixed(2).replace('.', ',');
 /** A mesma conta do recalculatePeriod (index.html): vendorData + totais da unidade + rateio do P3. */
 function p3DoMes(processed, cfg) {
   const vendorData = CE.buildVendorData(processed, {}, cfg);
-  const soma = f => CE.contagemDaUnidade(processed.reduce((s, d) => s + (f(d) ? (d.splitAtivacao || 1) : 0), 0));
-  const u = {
-    ativ: soma(d => d.isActivation), novos: soma(d => d.category === 'novo' || d.category === 'retorno'),
-    renov: soma(d => d.category === 'renovacao'), vouch: soma(d => d.category === 'voucher'),
-  };
+  const c = CE.contagensDaUnidade(processed, cfg.ativacoesAdiadas);   // a mesma soma do recálculo
+  const u = { ativ: c.unitAtivacoes, novos: c.unitNovosRetorno, renov: c.unitRenovacoes, vouch: c.unitVouchers };
   CE.applyP3Pool(vendorData, u.ativ, u.novos, u.renov, u.vouch, cfg);
   return { vendorData, u };
 }

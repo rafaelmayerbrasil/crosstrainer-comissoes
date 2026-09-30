@@ -22,6 +22,7 @@ const MetasSugeridas = {
   PCT_GOLD: 1.30,
   PCT_NOVOS: 0.35,
   PCT_RENOV: 0.65,
+  PCT_VOUCHER_ACIMA: 0.10,   // voucher: média + 10% (resposta do Rodrigo, 30/09/2026 — a confirmar com o Rafael)
   MIN_MESES: 3,
 
   /** Maior dia ('AAAA-MM-DD') de uma lista de datas 'dd/mm/aaaa'. */
@@ -148,10 +149,11 @@ const MetasSugeridas = {
       porque.minRenov = `sem a lista de renovações do mês: média de renovações (${this._r1(med)}) × fator da prática recente (${this._r1(fr.fator)})`;
     }
 
+    // Resposta do Rodrigo (30/09): nada de % sobre os ~250 convites — partir do que
+    // a unidade já faz e "sempre exigir um pouco mais". +10% é a proposta; a gestão revisa.
     const medV = this._media6(serie, mes, 'vouchers');
-    const fv = this._fator(serie, metasAnteriores, mes, 'minVoucher', 'vouchers');
-    campos.minVoucher = Math.round(medV * fv.fator);
-    porque.minVoucher = `média de vouchers dos meses fechados (${this._r1(medV)}) × fator da prática recente da gestão (${this._r1(fv.fator)}${fv.meses.length ? ', de ' + fv.meses.join(', ') : ', sem meta anterior'})`;
+    campos.minVoucher = Math.ceil(medV * (1 + this.PCT_VOUCHER_ACIMA));
+    porque.minVoucher = `média de vouchers dos meses fechados (${this._r1(medV)}) + ${Math.round(this.PCT_VOUCHER_ACIMA * 100)}%, arredondado para cima`;
 
     const ultimos = Object.keys(metasAnteriores || {}).filter(x => x < mes && metasAnteriores[x]
       && typeof metasAnteriores[x].minAtivacoesIndivP3 === 'number').sort();
