@@ -111,5 +111,18 @@ const bruto = {
     assert.deepStrictEqual(await c.consultorDoAluno('78'), { situacao: 'ok', dados: { matricula: '013331', consultor: null } });
     ok('consultora do aluno: dados-clientes → matrícula → vínculo CO do dados-plano; sem vínculo = null');
   }
+  {
+    // consulta que não responde: desiste no tempo limite (a Pacto segura e devolve 504)
+    const lento = (url, opts) => new Promise((res, rej) => {
+      opts.signal.addEventListener('abort', () => rej(Object.assign(new Error('This operation was aborted'), { name: 'AbortError' })));
+    });
+    const c = criarClienteGateway({ fetch: lento, credencial: CRED, pausaMs: 0, tempoLimiteMs: 30 });
+    const t0 = Date.now();
+    const r = await c.contrato(9);
+    assert.strictEqual(r.situacao, 'falhou');
+    assert.ok(/tempo/.test(r.motivo), r.motivo);
+    assert.ok(Date.now() - t0 < 1000, 'desistiu no limite (tentou duas vezes)');
+    ok('consulta travada desiste no tempo limite e vira falhou');
+  }
   console.log('\n✅ smoke-pacto-gateway-cliente: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

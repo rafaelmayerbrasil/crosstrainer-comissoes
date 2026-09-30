@@ -49,7 +49,9 @@ function lerContrato(c) {
 
 // A Pacto aceita 1 consulta por segundo por rota. Sem pausa, parte das respostas
 // do /contratos voltou VAZIA e sem erro (amostra de 30/09/2026) — 1,25 s de folga.
-function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dormir }) {
+// `tempoLimiteMs`: a Pacto às vezes segura a conexão e devolve 504 depois de muito
+// tempo (tarde de 30/09/2026) — uma consulta presa não pode comer a madrugada.
+function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dormir, tempoLimiteMs = 20000 }) {
   if (typeof fetch !== 'function') throw new Error('criarClienteGateway: fetch é obrigatório');
   if (!credencial) throw new Error('criarClienteGateway: credencial é obrigatória');
   const esperar = dormir || (ms => new Promise(r => setTimeout(r, ms)));
@@ -60,14 +62,20 @@ function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dor
     if (espera > 0) await esperar(espera);                     // nunca em rajada
     chamadas++;
     let res, texto;
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const relogio = ctl ? setTimeout(() => ctl.abort(), tempoLimiteMs) : null;
     try {
       res = await fetch(base + caminho, {
         method: 'GET',
         headers: { Authorization: credencial, empresaId: '1', Accept: 'application/json' },
+        signal: ctl ? ctl.signal : undefined,
       });
       texto = await res.text();
     } catch (e) {
+      if (e && e.name === 'AbortError') return { situacao: 'falhou', motivo: 'tempo esgotado (' + Math.round(tempoLimiteMs / 1000) + ' s) sem resposta da Pacto' };
       return { situacao: 'falhou', motivo: 'rede: ' + String(e && e.message || e).split(credencial).join('<credencial>') };
+    } finally {
+      if (relogio) clearTimeout(relogio);
     }
     return classificar(res.status, texto, credencial);
   }
