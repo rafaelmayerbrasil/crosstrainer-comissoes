@@ -3,7 +3,7 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 79 (30/09/2026, manhã) — 💳 PLANO PAGO EM DUAS FORMAS CONTAVA DUAS VENDAS · a PP NÃO bateu a Super Meta
+## 🔖 ONDE PARAMOS — sessão 79 (30/09/2026, manhã) — 💳 PLANO PAGO EM DUAS FORMAS CONTAVA DUAS VENDAS · a PP NÃO bateu a Super Meta · ✅ NO AR E CONFERIDO
 
 **O Rodrigo no grupo:** painel da PP com 57 ativações e "Super Meta atingida"; termômetro com 55, faltando 2.
 **Conferido contrato a contrato no banco de produção** (upload das 09:31 × termômetro das 4h, dados até 29/09):
@@ -39,6 +39,17 @@ duas unidades** e eu conferir.
 (renovação, P1 8,47), Lianna R$ 500; caixa volta ao de antes (PP 20.035,31 · CP 23.692,82). Diferença contra o painel da
 manhã, exatamente a prevista: **Kali −212,22 (1.710,62) · Francini −15,00 (999,69) · Erica 0**. Setembro fechado nesse ponto
 (o dia 30 ainda pode trazer venda).
+
+**📝 Arquivos desta sessão:** `pacto-adapter.js` + `functions/pacto-adapter.js` (gêmeo, só nas branches com a sombra) ·
+`scripts/smoke-pacto-adapter.js` (caso 31 novo, caso 12 ajustado: 6735 vira uma venda de R$ 215) · `index.html` (só o
+`?v=20261001` do adapter) · documentação: `DOCUMENTACAO.md` (regras do upload: uma linha de plano por contrato e o
+`valor_alterado_ignorado`), `docs/superpowers/specs/2026-08-19-tradutor-pacto-comissoes-design.md` (2 achados novos),
+`docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md` (§2.4: somar só o dia do primeiro pagamento), `CLAUDE.md`.
+**Dados de produção:** 2 itens apagados com OK do Rafael (`backups/itens-duas-formas-2026-09-30.json` + `audit_log`).
+**Branches:** `fix-pagamento-duas-formas` = o que está no `main`; cherry-pick em `renovacoes-metas-bonus` (staging, hosting
+publicado) e `api-pacto-oficial`.
+**Próximo passo que isto cria:** na construção da API oficial, trocar o `consolidarPorContrato` do caminho que paga por uma
+soma só do dia do primeiro pagamento, com teste do caso Margarida (4552).
 
 **Margarida (4552), Ricardo (4553) e Sueli (4554), PP — estão CERTOS como estão:** planos anuais em 12× no cartão
 recorrente; a API mostra a 1ª parcela em 02/09 e a 2ª em 28/09, e o export de 28/09 em diante **junta as duas na linha

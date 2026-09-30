@@ -82,6 +82,7 @@ Hoje `buscarDia` e `renovacoes-montar.completarContratos` gravam **todos** os co
   3. **trava** se algum dia estiver `falhou`, `credencial_recusada`, `limite` ou `nao_buscado`: mostra os dias e oferece **"Buscar de novo agora"** (a função manual). A planilha só aparece como saída depois disso;
   4. dia `vazio_conferir` não trava, mas aparece na prévia;
   5. monta `PactoApiLinhas.comCabecalho(PactoApiLinhas.consolidarPorContrato(linhas))` (contar por contrato, como a comparação já faz) e chama `processarLinhasPacto`;
+     ⚠️ **Achado de 30/09/2026 (sessão 79):** `consolidarPorContrato` soma **todas** as parcelas do contrato no mês. Pela regra (A) do regime de caixa a comissão é sobre o **primeiro** pagamento: somar só as linhas do **dia do primeiro pagamento** (várias formas no mesmo dia = um pagamento, caso Julia 4731) e deixar as parcelas de dias seguintes de fora. Caso real: Margarida 4552, Ricardo 4553 e Sueli 4554 (PP) — 1ª parcela 02/09, 2ª 28/09; somando, o P1 sairia sobre o dobro. Em setembro, 12 contratos têm pagamento em 2+ dias (só esses 3 ainda comissionam);
   6. a prévia diz de onde veio: **"Pacto (API) · dados até 29/09 · buscado hoje às 04:04"**.
 - O upload grava `origem: 'api'` e `dadosAte` no registro do upload. O histórico mostra "API" ou "planilha".
 - **A planilha:** a área de arrastar fica recolhida, sob **"▸ Usar planilha (só se a Pacto falhar)"**. Continua funcionando igual.
