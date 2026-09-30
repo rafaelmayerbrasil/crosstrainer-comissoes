@@ -42,10 +42,11 @@ const firebase = { firestore: { FieldValue: { serverTimestamp: () => MARCADOR } 
 
 const bloco = trecho('const rawPeriodData = {', '// Save period summary');
 const montar = new Function('firebase', 'currentUnitId', 'year', 'month', 'fileName', 'currentUser',
-  'uploadId', 'result', 'finalP4Result', bloco + '\n return periodData;');
+  'uploadId', 'result', 'finalP4Result', 'origem', 'dadosAte', bloco + '\n return periodData;');
 const gravado = montar(firebase, 'cp', '2026', '09', 'faturamento.xls', { uid: 'u1' }, 'mudcvd06gfirr',
   { unitTotals: { unitAtivacoes: 53 }, vendorData: { ERICA: { p1total: 1, p2total: 2, p3: undefined, grandTotal: 3 } } },
-  { conversions: [], currentVouchers: [{ codigo: 'C1', dateObj: new Date(), dateVoucherEnd: new Date() }] });
+  { conversions: [], currentVouchers: [{ codigo: 'C1', dateObj: new Date(), dateVoucherEnd: new Date() }] },
+  'api', '2026-09-29');
 
 caso('uploadDate chega ao Firebase como o próprio marcador, não como cópia', () => {
   assert.strictEqual(gravado.uploadDate, MARCADOR,
@@ -56,6 +57,8 @@ caso('a limpeza de campos vazios continua funcionando no resto', () => {
   assert.ok(!('dateObj' in gravado.p4result.currentVouchers[0]));
   assert.strictEqual(gravado.totals.unitAtivacoes, 53);
   assert.strictEqual(gravado.uploadId, 'mudcvd06gfirr');
+  assert.strictEqual(gravado.origem, 'api', 'o período grava de onde veio (30/09/2026)');
+  assert.strictEqual(gravado.dadosAte, '2026-09-29');
 });
 
 // ─── 2. o painel lê a data, inclusive dos períodos já estragados ──

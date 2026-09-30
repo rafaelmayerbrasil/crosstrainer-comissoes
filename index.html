@@ -4499,8 +4499,27 @@
         try {
           const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          let json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          await processarPlanilha(json, file.name, { origem: 'planilha' });
+        } catch (err) {
+          toast('Erro ao processar arquivo: ' + err.message, 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
 
+    /**
+     * O caminho comum do arquivo arrastado e do botão "Atualizar pela Pacto"
+     * (30/09/2026): tradutor → motor → prévia. Os dois passam por AQUI, para não
+     * nascer uma segunda conta — foi a conta copiada em dois lugares que fez o
+     * fechamento pagar R$ 7.580,84 a mais em agosto.
+     * @param {Array<Array>} json   linhas cruas (cabeçalho na primeira)
+     * @param {string} nomeFonte    o que aparece na prévia e no histórico
+     * @param {Object} [opcoes]     { origem: 'planilha'|'api', dadosAte, degustacoes }
+     */
+    async function processarPlanilha(json, nomeFonte, opcoes) {
+      opcoes = opcoes || {};
+        try {
           // ── Export da Pacto: traduzir antes de entregar ao motor ──
           // Desde agosto/2026 a entrada é o export da Pacto, em outro formato.
           // `pacto-adapter.js` traduz aqui; o `commission.js` não muda uma linha.
@@ -4594,6 +4613,13 @@
               // Não some calado: sem a leitura, a degustação grátis ficaria de fora
               pacto.avisos = [...(pacto.avisos || []), { motivo: 'não consegui ler as degustações grátis do mês (' + e.message + ') — suba de novo antes de pagar', cliente: '' }];
             }
+            // Pela API (30/09/2026) a degustação grátis vem da varredura dos contratos
+            // (`pacto_degustacoes`). Junta com a guardada, sem repetir contrato.
+            if (opcoes.degustacoes && opcoes.degustacoes.length) {
+              const porContrato = new Map(degustacoesGuardadas.map(d => [String(d.contrato), d]));
+              opcoes.degustacoes.forEach(d => { if (!porContrato.has(String(d.contrato))) porContrato.set(String(d.contrato), d); });
+              degustacoesGuardadas = [...porContrato.values()];
+            }
             const juntas = PactoAdapter.juntarDegustacoes(vendasUnidade, degustacoesGuardadas, codigosPagos);
             pacto.degustacoesIncluidas = juntas.incluidas;
             json = [PactoAdapter.CABECALHO_SAIDA, ...PactoAdapter.paraPlanilha(juntas.vendas)];
@@ -4684,7 +4710,8 @@
             }
           });
 
-          pendingUpload = { rawRows, result, fileName: file.name, newVendors, usersToUpdateUnit, pacto };
+          pendingUpload = { rawRows, result, fileName: nomeFonte, newVendors, usersToUpdateUnit, pacto,
+            origem: opcoes.origem || 'planilha', dadosAte: opcoes.dadosAte || null };
 
           // Show preview
           const prev = document.getElementById('uploadPreview');
@@ -4698,7 +4725,7 @@
 
           prev.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
-          <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${file.name}</h3>
+          <h3 style="font-size:14px;margin-bottom:12px">📋 Pré-visualização: ${nomeFonte}</h3>
           ${pacto ? pactoResumoHtml(pacto, PactoAdapter.siglaDaUnidade(currentUnitId, Object.keys(pacto.porUnidade).filter(k => k))) : ""}
           <div class="stats-row" id="uploadStatsRow">
             <div class="stat"><div class="s-label">Registros</div><div class="s-value">${rawRows.length}</div></div>
@@ -4733,12 +4760,10 @@
           selectedPreviewKeys.clear();
           renderPreviewTable();
 
-          toast(`Arquivo processado: ${result.processed.length} itens.`, 'success');
+          toast(`${opcoes.origem === 'api' ? 'Dados da Pacto processados' : 'Arquivo processado'}: ${result.processed.length} itens.`, 'success');
         } catch (err) {
-          toast('Erro ao processar arquivo: ' + err.message, 'error');
+          toast('Erro ao processar: ' + err.message, 'error');
         }
-      };
-      reader.readAsArrayBuffer(file);
     }
 
     async function autoRegisterVendors(newVendors, usersToUpdateUnit) {
@@ -5072,7 +5097,7 @@
 
       const [year, month] = period.split('-');
       const periodId = `${currentUnitId}_${year}-${month}`;
-      const { rawRows, result, fileName, newVendors } = pendingUpload;
+      const { rawRows, result, fileName, newVendors, origem, dadosAte } = pendingUpload;
 
       // Load previous month vouchers for P4 cross-month conversion (use uploadId filter to avoid stale items)
       let previousProcessed = [];
@@ -5127,6 +5152,9 @@
         const rawPeriodData = {
           unitId: currentUnitId, year: parseInt(year), month: parseInt(month),
           fileName,
+          // De onde veio (30/09/2026): 'api' = botão "Atualizar pela Pacto"; 'planilha' = arquivo
+          origem: origem || 'planilha',
+          dadosAte: dadosAte || null,
           uploadedBy: currentUser.uid,
           uploadId,
           totals: result.unitTotals,
@@ -5451,7 +5479,7 @@
 
         console.log('[confirmUpload] Upload concluído com sucesso!');
         toast('Período salvo com sucesso!', 'success');
-        logAudit('upload', `Upload: ${fileName} · ${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
+        logAudit('upload', `Upload: ${fileName} · origem: ${origem || 'planilha'} ·${result.processed.length} processados · ${result.excluded.length} excluídos · ${(result.deferred || []).length} diferidos · Ativações: ${result.unitTotals.unitAtivacoes}`);
         pendingUpload = null;
         document.getElementById('uploadPreview').style.display = 'none';
         document.getElementById('uploadActions').style.display = 'none';

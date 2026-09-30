@@ -63,6 +63,23 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
   ok('a pré-visualização mostra o que o tradutor deixou de fora');
 }
 {
+  // 30/09/2026: o arquivo e o botão "Atualizar pela Pacto" passam pelo MESMO caminho
+  assert.ok(/async function processarPlanilha\(json, nomeFonte, opcoes\)/.test(html), 'o caminho comum existe');
+  const hf = html.slice(html.indexOf('function handleFile(file)'), html.indexOf('async function processarPlanilha'));
+  assert.ok(hf.length > 0 && hf.length < 1500, 'handleFile só lê o arquivo');
+  assert.ok(/await processarPlanilha\(json, file\.name, \{ origem: 'planilha' \}\)/.test(hf), 'o arquivo passa pelo caminho comum');
+  const pp = html.slice(html.indexOf('async function processarPlanilha'), html.indexOf('async function autoRegisterVendors'));
+  assert.ok(pp.includes('PactoAdapter.traduzir(json') && pp.includes('CommissionEngine.cleanRawData(json)'), 'o caminho comum traduz e calcula');
+  assert.ok(!/\bfile\./.test(pp), 'o caminho comum não conhece arquivo');
+  assert.ok(/fileName: nomeFonte/.test(pp) && /origem: opcoes\.origem \|\| 'planilha'/.test(pp), 'guarda a fonte e a origem');
+  assert.ok(/opcoes\.degustacoes/.test(pp), 'junta as degustações vindas da API');
+  const conf = html.slice(html.indexOf('async function confirmUpload'), html.indexOf('async function confirmUpload') + 6000);
+  assert.ok(/origem, dadosAte \} = pendingUpload/.test(conf), 'o confirmUpload pega a origem do que foi processado');
+  assert.ok(/origem: origem \|\| 'planilha'/.test(conf) && /dadosAte: dadosAte \|\| null/.test(conf), 'o período grava a origem');
+  assert.strictEqual((html.match(/<\/html>/g) || []).length, 1, 'index.html com um único </html>');
+  ok('arquivo e API pelo mesmo caminho (processarPlanilha); o período grava de onde veio');
+}
+{
   // O motor não pode ter sido tocado — é a regra nº 1 do projeto
   const motor = fs.readFileSync(path.join(raiz, 'commission.js'), 'utf8');
   assert.ok(!/PactoAdapter/.test(motor), 'commission.js NÃO pode conhecer o adapter');
