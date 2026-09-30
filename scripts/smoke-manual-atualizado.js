@@ -228,6 +228,18 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: "Atualizar pela Pacto", a trava dos dias e a planilha como plano B');
 }
 {
+  // 30/09/2026 (fim da tarde): o padrão virou AUTOMÁTICO; o botão é gatilho pontual.
+  exige(admin, 'manual-admin', {
+    'a comissão se calcula sozinha': 'se calcula <strong>sozinha</strong>',
+    'o aviso que aparece no painel': 'Atualizado automaticamente pela Pacto',
+    'recibo emitido congela o mês': 'Mês congelado',
+    'dia faltando não recalcula': 'último cálculo bom',
+    'balcão não paga comissão': 'não paga comissão',
+    'o botão é só para não esperar': 'esperar a madrugada',
+  });
+  ok('admin: comissão automática, mês congelado com recibo, balcão fora da comissão');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
