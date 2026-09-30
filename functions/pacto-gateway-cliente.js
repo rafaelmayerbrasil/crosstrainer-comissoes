@@ -89,6 +89,25 @@ function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dor
       return { situacao: 'ok', dados: lerContrato(r.dados && r.dados.content) };
     },
 
+    /**
+     * A consultora VINCULADA AO ALUNO — é ela que a coluna "Consultor" do export
+     * mostra e que decide a comissão, não a do contrato (4739, PP, set/2026:
+     * contrato Bárbara, arquivo e vínculo Kali). Duas consultas: o código da
+     * pessoa dá a matrícula, e a matrícula dá os vínculos ('CO' = consultor).
+     * Da primeira resposta sai só a matrícula (ela traz CPF).
+     */
+    async consultorDoAluno(codPessoa) {
+      const a = await comRepeticao('/clientes/dados-clientes/' + encodeURIComponent(String(codPessoa)));
+      if (a.situacao !== 'ok') return a;
+      const mat = a.dados && a.dados.content && a.dados.content.matricula;
+      if (!mat) return { situacao: 'ok', dados: { matricula: null, consultor: null } };
+      const b = await comRepeticao('/clientes/' + encodeURIComponent(String(mat)) + '/dados-plano');
+      if (b.situacao !== 'ok') return b;
+      const vinculos = (b.dados && b.dados.content && b.dados.content.vinculos) || [];
+      const co = vinculos.find(v => v && v.tipoVinculo === 'CO');
+      return { situacao: 'ok', dados: { matricula: String(mat), consultor: (co && co.colaborador) || null } };
+    },
+
     /** Vendas recebidas num dia ('AAAA-MM-DD'). A rota não aceita ano: vale o ano corrente. */
     async vendasDoDia(dia) {
       const dm = dia.slice(8, 10) + '/' + dia.slice(5, 7);

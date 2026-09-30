@@ -96,5 +96,20 @@ const bruto = {
     assert.ok(!r.motivo.includes(CRED), 'credencial vazou no motivo');
     ok('erro de rede vira falhou, tenta uma vez de novo, credencial nunca no motivo');
   }
+  {
+    // A consultora que o ARQUIVO mostra é o vínculo do aluno, não a do contrato
+    // (4739, PP, set/2026: contrato diz uma, o arquivo e o vínculo dizem outra)
+    const p = pacto([
+      [/dados-clientes\/77$/, { body: { content: { matricula: '013330', cpf: '111.222.333-44', nome: 'CLIENTE FICTICIO' } } }],
+      [/clientes\/013330\/dados-plano$/, { body: { content: { vinculos: [
+        { tipoVinculo: 'PR', colaborador: 'PROFESSOR X' }, { tipoVinculo: 'CO', colaborador: 'CONSULTORA DO ALUNO', codigoColaborador: 29 }] } } }],
+      [/dados-clientes\/78$/, { body: { content: { matricula: '013331' } } }],
+      [/clientes\/013331\/dados-plano$/, { body: { content: { vinculos: [] } } }],
+    ]);
+    const c = criarClienteGateway({ fetch: p.fetch, credencial: CRED, pausaMs: 0 });
+    assert.deepStrictEqual(await c.consultorDoAluno('77'), { situacao: 'ok', dados: { matricula: '013330', consultor: 'CONSULTORA DO ALUNO' } });
+    assert.deepStrictEqual(await c.consultorDoAluno('78'), { situacao: 'ok', dados: { matricula: '013331', consultor: null } });
+    ok('consultora do aluno: dados-clientes → matrícula → vínculo CO do dados-plano; sem vínculo = null');
+  }
   console.log('\n✅ smoke-pacto-gateway-cliente: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

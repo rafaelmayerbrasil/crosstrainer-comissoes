@@ -320,7 +320,7 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   const c = L.contratoDoGateway(G4638, 'PP');
   assert.deepStrictEqual(c, { codigo: '4638', unidade: 'PP', situacaoContrato: 'Matrícula', nomePlano: 'MÊS DEGUSTAÇÃO LIVRE.',
     codigoPlano: null, vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026', numeroMeses: null,
-    consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', gw: true });
+    consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', pessoa: '77', gw: true });
   assert.ok(!JSON.stringify(c).includes('CLIENTE'), 'o caderninho não guarda o aluno');
   assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: null, lancou: null }), { a: 1 });
   assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: 'X', lancou: null }), { a: 1, consultor: 'X' });
@@ -355,9 +355,15 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   };
   const linhas = [linhaAvulsa('CLIENTE FICTICIO A', '25/08/2026', '5,00')];
   const vendas = [
-    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },  // já veio
-    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },  // a 2ª água entra
+    // o cliente A já tem avulsa no dia pelos pagamentos: o dia dele está coberto,
+    // mesmo que o relatório de vendas liste item a item (o núcleo junta num recibo)
+    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },
+    { produto: 'MONSTER', valor: 12, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },
+    // o passante B não tem recibo no núcleo: as duas vendas dele entram
+    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'CLIENTE FICTICIO B', contrato: '0', dia: '25/08/2026' },
     { produto: 'MONSTER', valor: 12, cliente: 'CLIENTE FICTICIO B', contrato: '0', dia: '25/08/2026' },
+    { produto: '10 DIÁRIAS', valor: 100, cliente: 'CLIENTE FICTICIO E', contrato: '0', dia: '25/08/2026' },
+    { produto: '1 AULA', valor: 60, cliente: 'CLIENTE FICTICIO E', contrato: '0', dia: '25/08/2026' },
     { produto: 'PLANO', valor: 199, cliente: 'CLIENTE FICTICIO C', contrato: '4636', dia: '25/08/2026' },
     { produto: 'MATRÍCULA', valor: 50, cliente: 'CLIENTE FICTICIO C', contrato: '0', dia: '25/08/2026' },
     { produto: 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO', valor: 10, cliente: 'CLIENTE FICTICIO C', contrato: '0', dia: '25/08/2026' },
@@ -370,7 +376,7 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   assert.strictEqual(campo(l0, 'consultor'), '');
   assert.strictEqual(campo(l0, 'empresa'), 'CROSSTAINER UNID. CAMPECHE (CP)');
   assert.ok(!PA.ehLinhaDeContrato(l0), 'o tradutor trata como avulsa');
-  ok('balcão: entra o que falta, cada linha existente casa uma venda, plano/matrícula/quitação/zero ficam de fora');
+  ok('balcão: entra só o cliente+dia sem recibo no núcleo; plano/matrícula/aula/diária/quitação/zero ficam de fora');
 }
 
 /* 19. o caminho que PAGA soma só o dia do primeiro pagamento (sessão 79, 30/09/2026) */
@@ -400,4 +406,31 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   ok('pagamento: só o dia do 1º pagamento do contrato (formas somadas); parcela de outro dia fica de fora, listada');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/19');
+/* 20. a consultora que vale é a do ALUNO (como a coluna do export), e sem ela decide quem lançou */
+{
+  const resumo = { pagamentos: [
+    { codigo: 1, data: '29/09/2026 10:00:00', responsavelLancamento: 'KALI TESTE', aluno: { codigo: 5, nome: 'CLIENTE X' },
+      formas: [{ formaPagamento: 'PIX', valor: 100 }], parcelasPagas: [{ codigo: 11, codigoContrato: 4739, valor: 100 }] },
+    { codigo: 2, data: '02/09/2026 10:00:00', responsavelLancamento: 'RECORRENCIA', aluno: { codigo: 6, nome: 'CLIENTE Y' },
+      formas: [{ formaPagamento: 'CARTÃO RECORRENTE', valor: 329 }], parcelasPagas: [{ codigo: 21, codigoContrato: 4553, valor: 329 }] },
+    { codigo: 3, data: '02/09/2026 10:00:00', responsavelLancamento: 'RECEPCAO TESTE', aluno: { codigo: 7, nome: 'CLIENTE Z' },
+      formas: [{ formaPagamento: 'PIX', valor: 50 }], parcelasPagas: [{ codigo: 31, codigoContrato: 4999, valor: 50 }] },
+  ] };
+  const base = { nomePlano: 'ANUAL', situacaoContrato: 'Matrícula', vigenciaDe: '01/09/2026', vigenciaAte: '31/08/2027', numeroMeses: 12 };
+  const contratos = new Map([
+    ['4739', { ...base, codigo: '4739', consultor: 'BARBARA TESTE', lancou: 'KALI TESTE', alunoConsultado: true, consultorAluno: 'KALI TESTE' }],
+    ['4553', { ...base, codigo: '4553', consultor: null, lancou: 'KALI TESTE', alunoConsultado: true, consultorAluno: null }],
+    ['4999', { ...base, codigo: '4999', consultor: null, lancou: null }],   // gateway ainda não consultado
+  ]);
+  const m = L.montar({ resumo, contratos, unidade: 'PP' });
+  const lin = c => m.linhas.find(l => campo(l, 'contrato') === c);
+  assert.strictEqual(campo(lin('4739'), 'consultor'), 'KALI TESTE', 'vale o vínculo do aluno, não a consultora do contrato');
+  assert.strictEqual(PA.vendedorDe(lin('4739'), true).vendedor, 'KALI TESTE');
+  assert.strictEqual(campo(lin('4553'), 'consultor'), '');
+  assert.strictEqual(campo(lin('4553'), 'resp1'), 'KALI TESTE', 'sem consultora: Responsável 1 = quem lançou o contrato, como no export');
+  assert.strictEqual(PA.vendedorDe(lin('4553'), true).vendedor, 'KALI TESTE', 'e a venda é de quem lançou (o robô da recorrência não conta)');
+  assert.strictEqual(PA.vendedorDe(lin('4999'), true).vendedor, '', 'sem saber quem lançou, quem registrou o pagamento NÃO vira vendedora');
+  ok('consultora do aluno manda; sem ela, quem lançou o contrato; sem saber quem lançou, ninguém');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/20');

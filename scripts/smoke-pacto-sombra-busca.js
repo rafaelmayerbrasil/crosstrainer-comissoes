@@ -451,5 +451,44 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('limite na varredura para e guarda a marca; buscar() varre até o maior contrato pago + 30');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/24');
+  {
+    // a consultora que vale é a do ALUNO (como a coluna do export); e o limite de consultas da noite
+    const rotasAluno = [
+      [/resumoPeriodo/, { body: resumoCom([pagamento(1, 501, 7001, 239), pagamento(2, 502, 7002, 100)]) }],
+      [/consultarContratos\?cliente=501/, { body: { return: [contratoBruto(7001)] } }],
+      [/consultarContratos\?cliente=502/, { body: { return: [contratoBruto(7002)] } }],
+      [/apigw.*\/contratos\/7001$/, gwContrato(7001)],
+      [/apigw.*\/contratos\/7002$/, gwContrato(7002, { pessoaDTO: { codigo: 502, nome: 'CLIENTE FICTICIO 502' } })],
+      [/dados-clientes\/501$/, { body: { content: { matricula: '000501', cpf: '999.888.777-66' } } }],
+      [/clientes\/000501\/dados-plano$/, { body: { content: { vinculos: [{ tipoVinculo: 'CO', colaborador: 'CONSULTORA DO ALUNO' }] } } }],
+      [/dados-clientes\/502$/, { body: { content: { matricula: '000502' } } }],
+      [/clientes\/000502\/dados-plano$/, { body: { content: { vinculos: [] } } }],
+      [/vendas/, { body: { status: 'sucesso', produtos: [] } }],
+    ];
+    const db = makeFakeDb();
+    const p = pactoFalsa(rotasAluno);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-09-10', agora: () => 'AGORA', anoCorrente: '2026', orcamento: { restante: 100 } });
+    const linhas = JSON.parse((await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data().linhas);
+    const l1 = linhas.find(l => l[7] === '7001'), l2 = linhas.find(l => l[7] === '7002');
+    assert.strictEqual(l1[21], 'CONSULTORA DO ALUNO', 'vale o vínculo do aluno, não a consultora do contrato');
+    assert.strictEqual(l2[21], '', 'aluno sem vínculo: consultora vazia');
+    assert.strictEqual(l2[4], 'CONSULTORA CP', 'e Responsável 1 = quem lançou o contrato, como no export');
+    const cad = (await db.collection('pacto_contratos').doc('CP_7001').get()).data();
+    assert.deepStrictEqual([cad.alunoConsultado, cad.consultorAluno, cad.pessoa], [true, 'CONSULTORA DO ALUNO', '501']);
+    assert.ok(!/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(JSON.stringify(cad)), 'CPF no caderninho');
+    // limite da noite: sem orçamento, não pergunta e avisa
+    const db2 = makeFakeDb();
+    const p2 = pactoFalsa(rotasAluno);
+    const c2 = criarCliente({ fetch: p2.fetch, credencial: CRED, ...semPausa });
+    const gw2 = criarClienteGateway({ fetch: p2.fetch, credencial: GW_CRED, pausaMs: 0 });
+    await S.buscarDia({ db: db2, cliente: c2, gw: gw2, unidade: 'CP', dia: '2026-09-10', agora: () => 'AGORA', anoCorrente: '2026', orcamento: { restante: 0 } });
+    assert.strictEqual(p2.chamadas.filter(x => /apigw.*\/(contratos\/\d+|dados-)/.test(x.url)).length, 0, 'sem orçamento, nenhuma consulta de consultora');
+    const doc2 = (await db2.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
+    assert.ok(doc2.avisos.some(a => /próxima busca/.test(a.motivo)));
+    ok('consultora do aluno pelo gateway (vínculo), quem lançou quando não há; limite de consultas avisa e completa depois');
+  }
+
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/25');
 })().catch(e => { console.error(e); process.exit(1); });

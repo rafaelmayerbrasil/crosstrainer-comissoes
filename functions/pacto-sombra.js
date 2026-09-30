@@ -37,6 +37,9 @@ const PARA_TUDO = ['credencial_recusada', 'limite'];
 // numeração foi de 18 números (PP, set/2026). Sem marca, volta ~1 mês.
 const FOLGA_VARREDURA = 30;
 const JANELA_INICIAL = 150;
+// Consultas ao gateway por busca (1,25 s cada ≈ 15 min): a primeira carga é grande
+// e a função da madrugada tem 30 min. O que faltar completa na busca seguinte.
+const LIMITE_GW_POR_BUSCA = 700;
 
 /** Ano corrente em São Paulo — o relatório de vendas do gateway não aceita ano */
 function anoSaoPaulo() {
@@ -121,7 +124,7 @@ async function gravarFalha(db, unidade, dia, situacao, motivo, quando) {
  * consultora (o Campeche só tem por ali) e traz o balcão do relatório de vendas.
  * @returns {{situacao, consultas, maiorContrato}}
  */
-async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente }) {
+async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento }) {
   const chave = PACTO_UNIDADES[unidade];
   if (!chave) throw new Error('buscarDia: unidade desconhecida ' + unidade);
   const quando = agora ? agora() : new Date().toISOString();
@@ -200,25 +203,49 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente }) 
     }
   }
 
-  // Consultora pelo GATEWAY (30/09/2026): o Campeche nunca teve pelo núcleo, e o
-  // PP tem contratos com consultor 0. Uma pergunta por contrato, uma vez só (`gw`).
+  // Consultora pelo GATEWAY (30/09/2026). Duas perguntas, uma vez só por contrato:
+  //  • o contrato (`gw`): quem lançou, a consultora do contrato e o código da pessoa;
+  //  • o aluno (`alunoConsultado`): a consultora VINCULADA a ele — é ela que a
+  //    coluna "Consultor" do export mostra e que decide a comissão.
+  // `orcamento` limita as consultas da noite: a primeira carga é grande e a
+  // função tem teto de tempo; o que faltar completa na busca seguinte, com aviso.
   const avisosGw = [];
   if (gw) {
-    for (const [codigo, c] of contratos) {
-      if ((c.consultor && c.lancou) || c.gw) continue;
-      const r = await gw.contrato(codigo);
-      if (PARA_TUDO.includes(r.situacao)) {
-        avisosGw.push({ motivo: 'gateway: ' + r.situacao + ' — consultora não completada neste dia', contrato: codigo });
-        break;
+    for (const [codigo, c0] of contratos) {
+      let c = c0;
+      if (c.gw && c.alunoConsultado) continue;
+      if (orcamento && orcamento.restante <= 0) {
+        avisosGw.push({ motivo: 'consultora a completar na próxima busca (limite de consultas da noite)', contrato: codigo });
+        continue;
       }
-      if (r.situacao !== 'ok') continue;
-      const novo = { ...c, gw: true };
-      if (r.dados) {
-        novo.consultor = c.consultor || r.dados.consultor || null;
-        novo.lancou = c.lancou || r.dados.lancou || null;
+      if (!c.gw) {
+        const r = await gw.contrato(codigo);
+        if (orcamento) orcamento.restante--;
+        if (PARA_TUDO.includes(r.situacao)) {
+          avisosGw.push({ motivo: 'gateway: ' + r.situacao + ' — consultora não completada neste dia', contrato: codigo });
+          break;
+        }
+        if (r.situacao !== 'ok') continue;
+        c = { ...c, gw: true };
+        if (r.dados) {
+          c.consultor = c.consultor || r.dados.consultor || null;
+          c.lancou = c.lancou || r.dados.lancou || null;
+          c.pessoa = r.dados.cliente && r.dados.cliente.codigo ? r.dados.cliente.codigo : null;
+        }
       }
-      await gravarContrato(db, unidade, codigo, novo);
-      contratos.set(codigo, novo);
+      if (!c.alunoConsultado && c.pessoa) {
+        const a = await gw.consultorDoAluno(c.pessoa);
+        if (orcamento) orcamento.restante -= 2;
+        if (PARA_TUDO.includes(a.situacao)) {
+          avisosGw.push({ motivo: 'gateway: ' + a.situacao + ' — consultora do aluno não completada neste dia', contrato: codigo });
+          await gravarContrato(db, unidade, codigo, c);
+          contratos.set(codigo, c);
+          break;
+        }
+        if (a.situacao === 'ok') c = { ...c, alunoConsultado: true, consultorAluno: a.dados.consultor || null };
+      }
+      await gravarContrato(db, unidade, codigo, c);
+      contratos.set(codigo, c);
     }
   }
 
@@ -269,7 +296,7 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente }) 
  * do `PactoAdapter.degustacoesGratis`) → `pacto_degustacoes`.
  * A marca fica no MAIOR NÚMERO QUE EXISTE: o número ainda livre pode nascer amanhã.
  */
-async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora }) {
+async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora, orcamento }) {
   const PA = require('./pacto-adapter.js');
   const quando = agora ? agora() : new Date().toISOString();
   const ref = db.collection(COL_SEQ).doc(unidade);
@@ -278,14 +305,24 @@ async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora }) {
   let n = desde != null ? Number(desde) : (ultimo != null ? ultimo + 1 : ate - JANELA_INICIAL);
   let achados = 0, degustacoes = 0, parouPor = null;
   for (; n <= ate; n++) {
+    if (orcamento && orcamento.restante <= 0) { parouPor = 'limite_da_busca'; break; }
     const r = await gw.contrato(n);
+    if (orcamento) orcamento.restante--;
     if (PARA_TUDO.includes(r.situacao)) { parouPor = r.situacao; break; }
     if (r.situacao !== 'ok' || !r.dados) continue;
     achados++;
     ultimo = Math.max(ultimo || 0, n);
-    await gravarContrato(db, unidade, String(n), { ...L.contratoDoGateway(r.dados, unidade), atualizadoEm: quando });
+    const c = { ...L.contratoDoGateway(r.dados, unidade), atualizadoEm: quando };
+    // a consultora que vale é a do aluno (como a coluna do export)
+    if (c.pessoa) {
+      const a = await gw.consultorDoAluno(c.pessoa);
+      if (orcamento) orcamento.restante -= 2;
+      if (a.situacao === 'ok') { c.alunoConsultado = true; c.consultorAluno = a.dados.consultor || null; }
+    }
+    await gravarContrato(db, unidade, String(n), c);
     if (r.dados.valor !== 0) continue;
-    const lista = Object.values(PA.degustacoesGratis(L.comCabecalho([L.linhaDeDegustacao(r.dados, unidade)]))).flat();
+    const linha = L.linhaDeDegustacao({ ...r.dados, consultor: L.consultoraDoContrato(c) || null }, unidade);
+    const lista = Object.values(PA.degustacoesGratis(L.comCabecalho([linha]))).flat();
     if (!lista.length) continue;                     // valor zero que não é degustação (plano de crédito)
     degustacoes++;
     const [dd, mm, aa] = r.dados.lancamento.split('/');
@@ -373,13 +410,14 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
  * Com `clientesGw` ({CP, PP}), cada unidade usa o seu gateway e, no fim, varre os
  * números de contrato até o maior pago + FOLGA_VARREDURA (a degustação grátis).
  */
-async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, agora, varrerDesde, anoCorrente }) {
+async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, agora, varrerDesde, anoCorrente, limiteGw }) {
   const resultados = [];
   const maior = {};
+  const orcamento = { restante: limiteGw != null ? limiteGw : LIMITE_GW_POR_BUSCA };
   for (const dia of dias) {
     for (const unidade of unidades) {
       const gw = clientesGw && clientesGw[unidade];
-      const r = await buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente });
+      const r = await buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento });
       resultados.push({ unidade, dia, situacao: r.situacao });
       if (r.maiorContrato) maior[unidade] = Math.max(maior[unidade] || 0, r.maiorContrato);
       if (PARA_TUDO.includes(r.situacao)) return { resultados, parouPor: r.situacao };
@@ -390,9 +428,9 @@ async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, 
     const gw = clientesGw && clientesGw[unidade];
     if (!gw || !maior[unidade]) continue;
     const desde = varrerDesde && varrerDesde[unidade] != null ? varrerDesde[unidade] : undefined;
-    varredura[unidade] = await varrerContratosNovos({ db, gw, unidade, ate: maior[unidade] + FOLGA_VARREDURA, desde, agora });
+    varredura[unidade] = await varrerContratosNovos({ db, gw, unidade, ate: maior[unidade] + FOLGA_VARREDURA, desde, agora, orcamento });
   }
-  return { resultados, varredura };
+  return { resultados, varredura, consultasGwRestantes: orcamento.restante };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, LIMITE_GW_POR_BUSCA, diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };

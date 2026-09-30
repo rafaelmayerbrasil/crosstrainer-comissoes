@@ -210,22 +210,27 @@ const PactoApiLinhas = {
             put('termino', c.vigenciaAte);
             put('duracao', c.numeroMeses == null ? '' : String(c.numeroMeses));
           }
-          // A consultora vem do caderninho. No Campeche ela chega pelo GATEWAY
-          // (`contratos/{n}` com a credencial da unidade, 30/09/2026) — o núcleo
-          // nunca entregou. NÃO usar quem lançou o pagamento no lugar dela: daria
-          // nome errado calado.
-          const consultor = c && c.consultor;
+          // A consultora que vale é a VINCULADA AO ALUNO — é ela que a coluna
+          // "Consultor" do export mostra (4739, PP, set/2026: o contrato dizia
+          // Bárbara, o arquivo e o vínculo diziam Kali). Vem do gateway com a
+          // credencial da unidade (30/09/2026); enquanto o aluno não foi
+          // consultado, fica a consultora do contrato. NÃO usar quem lançou o
+          // pagamento no lugar dela: daria nome errado calado.
+          const consultor = this.consultoraDoContrato(c);
           put('consultor', consultor || '');
           if (!consultor) avisos.push({ motivo: 'sem consultora conhecida para o contrato', contrato, recibo: p.codigo });
-          // As colunas Responsável também decidem vendedora quando a consultora
-          // falta (ou é o robô da Pacto). Com consultora: como no export, 1 = quem
-          // lançou o contrato, 2 = quem registrou o pagamento. Sem consultora:
-          // vazias — só o robô do cartão fica, porque é ele que marca a cobrança
-          // recorrente. Antes as duas levavam quem registrou o pagamento, e a
-          // venda saía no nome da recepção (set/2026, PP: 8 vendas).
+          // As colunas Responsável decidem a vendedora quando a consultora falta
+          // (ou é o Rodrigo, padrão da migração). Como no export: 1 = quem LANÇOU
+          // O CONTRATO, 2 = quem registrou o pagamento. Sem saber quem lançou o
+          // contrato, a 1 fica vazia e a 2 só leva o robô do cartão — antes as
+          // duas levavam quem registrou o pagamento, e a venda saía no nome da
+          // recepção (set/2026, PP: 8 vendas).
           const quemRegistrou = p.responsavelLancamento || '';
-          if (consultor) {
-            put('resp1', (c && c.lancou) || quemRegistrou);
+          if (c && c.lancou) {
+            put('resp1', c.lancou);
+            put('resp2', quemRegistrou);
+          } else if (consultor) {
+            put('resp1', quemRegistrou);
             put('resp2', quemRegistrou);
           } else {
             put('resp1', '');
@@ -259,6 +264,17 @@ const PactoApiLinhas = {
   // ─── Gateway por unidade (30/09/2026) ───
   // Desenho: docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md
 
+  /**
+   * A consultora de um contrato do caderninho: a do ALUNO quando ele já foi
+   * consultado no gateway (`alunoConsultado`, mesmo que sem vínculo — vazio é
+   * resposta), senão a do contrato.
+   */
+  consultoraDoContrato(c) {
+    if (!c) return '';
+    if (c.alunoConsultado) return c.consultorAluno || '';
+    return c.consultor || '';
+  },
+
   TIPO_SITUACAO: { MA: 'Matrícula', RE: 'Rematrícula', RN: 'Renovação' },
 
   /** Contrato lido do gateway (`lerContrato`) → formato do caderninho. Nada do aluno. */
@@ -274,7 +290,10 @@ const PactoApiLinhas = {
       numeroMeses: null,
       consultor: g.consultor || null,
       lancou: g.lancou || null,
-      gw: true,                        // a consultora já foi perguntada ao gateway
+      // código da PESSOA do aluno na Pacto (só o número): é por ele que se chega à
+      // consultora vinculada ao aluno, que é a que o export mostra
+      pessoa: g.cliente && g.cliente.codigo ? String(g.cliente.codigo) : null,
+      gw: true,                        // o contrato já foi perguntado ao gateway
     };
   },
 
@@ -315,31 +334,34 @@ const PactoApiLinhas = {
 
   // Produto do relatório de vendas que é do CONTRATO, não do balcão: já vem
   // pelos pagamentos (ou é movimento que o motor exclui).
-  PRODUTO_DE_CONTRATO: /^(PLANO|MATRICULA|QUITACAO|TAXA DE RENEGOCIA|1 AULA)/,
+  PRODUTO_DE_CONTRATO: /^(PLANO|MATRICULA|QUITACAO|TAXA DE RENEGOCIA|\d+ AULAS?\b|\d+ DIARIAS?\b)/,
 
   /**
    * Vendas de balcão (água, Monster, camiseta) do relatório de vendas que NÃO
    * vieram nos pagamentos do núcleo — era a diferença que sobrava da sombra
-   * (ago/2026: −R$ 226,50 no PP, −R$ 420,50 no CP). Cada linha avulsa já
-   * existente casa UMA venda (mesmo cliente + dia + valor): duas águas iguais no
-   * mesmo dia são duas vendas. Sem vendedora — o relatório não diz quem vendeu.
+   * (ago/2026: −R$ 226,50 no PP, −R$ 420,50 no CP): a vendinha a passante, que
+   * não tem recibo no núcleo.
+   *
+   * O casamento é por CLIENTE + DIA, não por item: o núcleo junta num recibo
+   * vários itens (2 Monsters = uma linha de R$ 24) e o relatório de vendas lista
+   * cada um — casar item a item pelo valor pôs o balcão em DOBRO no PP em set/2026
+   * (+R$ 1.496). Se o cliente já tem avulsa no dia pelos pagamentos, o dia dele
+   * está coberto. Sem vendedora — o relatório não diz quem vendeu.
    */
   linhasDeBalcao({ vendas, linhas, unidade }) {
     const C = this.COL;
-    const chave = (nome, dia, valor) => this._norm(nome) + '|' + dia + '|' + Math.round(Number(valor) * 100);
-    const existentes = new Map();
+    const chave = (nome, dia) => this._norm(nome) + '|' + dia;
+    const cobertos = new Set();
     (linhas || []).forEach(l => {
       if (String(l[C.contrato] || '0') !== '0') return;
-      const k = chave(l[C.nome], l[C.lancamento], this._valor(l[C.valor]));
-      existentes.set(k, (existentes.get(k) || 0) + 1);
+      cobertos.add(chave(l[C.nome], l[C.lancamento]));
     });
     const saida = [];
     (vendas || []).forEach(v => {
       if (String(v.contrato || '0') !== '0') return;
       if (this.PRODUTO_DE_CONTRATO.test(this._norm(v.produto))) return;
       if (!(Number(v.valor) > 0)) return;
-      const k = chave(v.cliente, v.dia, v.valor);
-      if (existentes.get(k) > 0) { existentes.set(k, existentes.get(k) - 1); return; }
+      if (cobertos.has(chave(v.cliente, v.dia))) return;
       const l = new Array(this.TAMANHO_LINHA).fill('');
       l[C.nome] = v.cliente || '';
       l[C.produto] = v.produto || '';
