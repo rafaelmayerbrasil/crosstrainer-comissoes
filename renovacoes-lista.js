@@ -208,6 +208,171 @@ const RenovacoesLista = {
     });
     return out;
   },
+
+  // ─── A lista ───
+
+  /**
+   * @param {object} a
+   * @param {string} a.mes          'AAAA-MM'
+   * @param {string} a.hoje         'AAAA-MM-DD' em São Paulo
+   * @param {object} a.previsao     { mes: {contratos, renovados}, antecipacao: {contratos, renovados} }
+   *                                contratos: [{codigoContrato, codigoCliente, matriculaCliente, nomeCliente}]
+   * @param {object} a.contratos    número do contrato → {nomePlano, vigenciaDe, vigenciaAte, consultor}
+   * @param {Array}  a.historico    itens processados de `periodos`
+   * @param {object} [a.gestao]     número do contrato → {blocoGestao, consultoraAtribuida}
+   * @param {object} [a.desdeAnterior] número do contrato → dia em que entrou na lista
+   * @param {Array}  [a.naoConsultoras]
+   */
+  montar({ mes, hoje, previsao, contratos, historico, gestao, desdeAnterior, naoConsultoras }) {
+    const per = this.periodos(mes);
+    const cad = contratos || {};
+    const ges = gestao || {};
+    const desde = desdeAnterior || {};
+    const excluidos = {};
+    const conta = m => { excluidos[m] = (excluidos[m] || 0) + 1; };
+    const pm = (previsao && previsao.mes) || {};
+    const pa = (previsao && previsao.antecipacao) || {};
+    const renovados = new Set([...(pm.renovados || []), ...(pa.renovados || [])].map(String));
+    const brutos = [...(pm.contratos || []), ...(pa.contratos || [])];
+    const totalPacto = brutos.length;
+    const dataBR = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
+
+    // 1. mesmo contrato duas vezes (as duas consultas se sobrepõem) = uma linha
+    const vistos = new Set();
+    const unicos = [];
+    brutos.forEach(b => {
+      const k = String(b.codigoContrato);
+      if (vistos.has(k)) { conta('duplicado'); return; }
+      vistos.add(k);
+      unicos.push(b);
+    });
+
+    // 2. a linha e a classificação
+    const linhas = [];
+    unicos.forEach(b => {
+      const codigoContrato = String(b.codigoContrato);
+      const c = cad[codigoContrato] || null;
+      const g = ges[codigoContrato] || {};
+      const linha = {
+        codigoContrato,
+        codigoCliente: b.codigoCliente == null ? null : String(b.codigoCliente),
+        matricula: b.matriculaCliente == null || this.pareceCpf(b.matriculaCliente) ? null : String(b.matriculaCliente),
+        nome: String(b.nomeCliente || '').trim(),
+        plano: c ? String(c.nomePlano || '') : '',
+        planoOriginal: null,
+        economico: false,
+        inicio: c ? this.iso(c.vigenciaDe) : '',
+        vencimento: c ? this.iso(c.vigenciaAte) : '',
+        consultora: null,
+        consultoraOrigem: null,
+        renovouSistema: renovados.has(codigoContrato),
+        notas: [],
+        desde: desde[codigoContrato] || hoje,
+        origem: 'pacto',
+        n: null,
+      };
+      let cls = c ? this.classificarPlano(linha.plano) : { tipo: 'verificar', motivo: 'A Pacto não devolveu os dados deste contrato' };
+      if (cls.tipo === 'importacao') {
+        const orig = this.planoOriginal(linha.nome, historico);
+        if (orig) {
+          linha.planoOriginal = orig;
+          cls = this.classificarPlano(orig);
+        }
+        if (!orig || cls.tipo === 'importacao') cls = { tipo: 'verificar', motivo: 'Importação sem plano original identificado' };
+      }
+      if (cls.tipo === 'verificar' && g.blocoGestao) {
+        cls = g.blocoGestao === 'excluir' ? { tipo: 'excluir', motivo: 'gestao' } : { tipo: g.blocoGestao };
+      }
+      if ((cls.tipo === 'renovacao' || cls.tipo === 'degustacao') && !linha.vencimento) {
+        cls = { tipo: 'verificar', motivo: 'Contrato sem data de vencimento na Pacto' };
+      }
+      if (cls.tipo === 'excluir') { conta(cls.motivo); return; }
+      linha.economico = !!cls.economico;
+      linha._cls = cls;
+      linha._consultorPacto = c ? c.consultor : null;
+      linhas.push(linha);
+    });
+
+    // 3. mesmo aluno mais de uma vez: fica o vencimento mais próximo
+    const porAluno = new Map();
+    linhas.forEach(l => {
+      const k = l.codigoCliente || this.norm(l.nome);
+      if (!porAluno.has(k)) porAluno.set(k, []);
+      porAluno.get(k).push(l);
+    });
+    const ficam = [];
+    porAluno.forEach(grupo => {
+      const v = l => l.vencimento || '9999';
+      grupo.sort((a, b) => (v(a) < v(b) ? -1 : v(a) > v(b) ? 1 : 0));
+      if (grupo.length > 1) grupo[0].notas.push(`Aluno repetido na Previsão (${grupo.length}×): ficou o vencimento mais próximo`);
+      grupo.slice(1).forEach(() => conta('duplicado'));
+      ficam.push(grupo[0]);
+    });
+
+    // 4. consultora, notas e bloco
+    const blocos = { renovacoes: [], antecipacao: [], degustacoes: [], verificar: [] };
+    const noPeriodo = (v, de, ate) => v && v >= de && v <= ate;
+    ficam.forEach(l => {
+      const g = ges[l.codigoContrato] || {};
+      if (g.consultoraAtribuida) { l.consultora = g.consultoraAtribuida; l.consultoraOrigem = 'gestao'; }
+      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) { l.consultora = l._consultorPacto; l.consultoraOrigem = 'pacto'; }
+      else {
+        const h = this.consultoraDoHistorico(l.nome, historico, naoConsultoras);
+        if (h) { l.consultora = h; l.consultoraOrigem = 'historico'; }
+      }
+      if (l.renovouSistema) l.notas.push('A Pacto já registra a renovação');
+
+      const cls = l._cls;
+      delete l._cls; delete l._consultorPacto;
+      if (cls.tipo === 'verificar') { l.motivoVerificar = cls.motivo; blocos.verificar.push(l); return; }
+      if (cls.tipo === 'degustacao') {
+        if (noPeriodo(l.vencimento, per.mes.de, per.antecipacao.ate)) { blocos.degustacoes.push(l); return; }
+      } else if (noPeriodo(l.vencimento, per.mes.de, per.mes.ate)) { blocos.renovacoes.push(l); return; }
+      else if (noPeriodo(l.vencimento, per.antecipacao.de, per.antecipacao.ate)) { blocos.antecipacao.push(l); return; }
+      l.motivoVerificar = `Vencimento fora do período (${dataBR(l.vencimento)})`;
+      blocos.verificar.push(l);
+    });
+    const naLista = ficam.length;
+
+    // 5. degustações do histórico que a Previsão não trouxe (fora da conferência)
+    const jaTem = new Set(ficam.map(l => l.codigoContrato));
+    const nomes = new Set(ficam.map(l => this.norm(l.nome)));
+    this.degustacoesDoHistorico(historico, per).forEach(d => {
+      if (jaTem.has(d.codigoContrato) || nomes.has(this.norm(d.nomeCliente))) return;
+      const g = ges[d.codigoContrato] || {};
+      blocos.degustacoes.push({
+        codigoContrato: d.codigoContrato, codigoCliente: null, matricula: null, nome: d.nomeCliente,
+        plano: d.plano, planoOriginal: null, economico: false, inicio: d.inicio, vencimento: d.vencimento,
+        consultora: g.consultoraAtribuida || d.consultora,
+        consultoraOrigem: g.consultoraAtribuida ? 'gestao' : (d.consultora ? 'historico' : null),
+        renovouSistema: false, notas: ['Degustação vendida que não veio na Previsão da Pacto'],
+        desde: desde[d.codigoContrato] || hoje, origem: 'historico', n: null,
+      });
+    });
+
+    // 6. ordem e numeração
+    const ordem = (a, b) => (a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.nome < b.nome ? -1 : a.nome > b.nome ? 1 : 0);
+    Object.values(blocos).forEach(ls => ls.sort(ordem));
+    let k = 0;
+    blocos.renovacoes.forEach(l => { l.n = ++k; });
+    blocos.antecipacao.forEach(l => { l.n = ++k; });
+    blocos.degustacoes.forEach((l, i) => { l.n = i + 1; });
+
+    const totalExcluidos = Object.values(excluidos).reduce((s, v) => s + v, 0);
+    const consultoras = [...new Set(Object.values(blocos).flat().map(l => l.consultora).filter(Boolean))].sort();
+    return {
+      mes,
+      periodos: per,
+      blocos,
+      excluidos,
+      conferencia: {
+        totalPacto, naLista, excluidos: totalExcluidos,
+        bate: naLista + totalExcluidos === totalPacto, diferenca: totalPacto - naLista - totalExcluidos,
+      },
+      planosRecentes: this.planosRecentes(historico, hoje),
+      consultoras,
+    };
+  },
 };
 
 if (typeof module !== 'undefined') module.exports = RenovacoesLista;
