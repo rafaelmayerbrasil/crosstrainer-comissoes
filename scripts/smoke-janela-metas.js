@@ -84,7 +84,7 @@ function montar({ periodos, currentPeriodId, currentPeriodData, falhaLeitura = f
     logAudit: () => {},
   };
   vm.createContext(sb);
-  ['openMetasMesModal', 'closeMetasMesModal', 'saveMetasMes'].forEach(f => vm.runInContext(extrair(f), sb));
+  ['openMetasMesModal', 'closeMetasMesModal', 'saveMetasMes', 'mesDoPeriodoId'].forEach(f => vm.runInContext(extrair(f), sb));
   // `var` do sandbox: as funções leem estes nomes como globais da página
   vm.runInContext('var metasMesPeriodId = null;', sb);
   return { sb, els, gravados, toasts, recalculados };

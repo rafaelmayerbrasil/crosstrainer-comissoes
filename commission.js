@@ -146,6 +146,10 @@ const CommissionEngine = {
     badgeConsistente: 6,
     planosAtivacao: ['BIANUAL', 'ANUAL', 'RECORRENTE', 'MENSAL'],
     minAtivacoesIndivP3: 10,
+    // Mínimo individual pela jornada da vendedora (out/2026 em diante, jornada-comercial.js)
+    minIndivIntegral: 18,
+    minIndiv30h: 12,
+    pctAdaptacao: 50,
   },
 
   // ─── Classify a row from the Excel ───

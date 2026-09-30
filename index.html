@@ -2212,6 +2212,14 @@
                 </div>
                 <div style="font-size:10px; color:var(--text3); margin-top:6px; font-style:italic;">Se renovações E
                   vouchers falharem juntos, o corte é cumulativo: P3 × 0,70 × 0,85 = perda de ~40%!</div>
+                <div style="font-size:11px; color:var(--text); margin-top:10px; padding-top:8px; border-top:1px solid var(--border);">
+                  <strong>📅 A partir da comissão de OUTUBRO/2026</strong> (paga em novembro) a regra muda: os mínimos
+                  são os mesmos para Meta, Super e Gold, e o que conta é <strong>quantos mínimos faltaram</strong>:
+                  todos batidos → <strong>100%</strong> do prêmio · faltou 1 (qualquer um, inclusive novos + retorno)
+                  → <strong>50%</strong> · faltaram 2 ou 3 → <strong>zera</strong>. O mínimo individual para entrar no
+                  rateio passa a ser o da <strong>jornada de cada vendedora</strong> (integral, 30h ou começando), no
+                  cadastro dela. Setembro e os meses anteriores continuam na regra de cima.
+                </div>
               </div>
             </div>
           </div>
@@ -3266,6 +3274,7 @@
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
   <script src="commission.js?v=20260929"></script>
   <script src="metas-sugeridas.js?v=20260930"></script>
+  <script src="jornada-comercial.js?v=20260930"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20260930"></script>
@@ -3762,6 +3771,9 @@
         { key: 'tetoSuper', label: 'Teto Super', val: cfg.tetoSuper },
         { key: 'tetoGold', label: 'Teto Gold', val: cfg.tetoGold },
         { key: 'minAtivacoesIndivP3', label: 'Mín. Ativações Indiv. (P3)', val: cfg.minAtivacoesIndivP3 },
+        { key: 'minIndivIntegral', label: 'Mín. indiv. jornada integral (out/26+)', val: cfg.minIndivIntegral },
+        { key: 'minIndiv30h', label: 'Mín. indiv. jornada 30h (out/26+)', val: cfg.minIndiv30h },
+        { key: 'pctAdaptacao', label: '% do integral para quem está começando', val: cfg.pctAdaptacao },
         { section: 'Tripé — Mínimos' },
         { key: 'minNovos', label: 'Mín. Novos+Retorno', val: cfg.minNovos },
         { key: 'minRenov', label: 'Mín. Renovações', val: cfg.minRenov },
@@ -4435,7 +4447,7 @@
       const faltam = PactoAdapter.degustacoesQueFaltam(degs, itens, codigosPagos);
       if (!faltam.length) return [];
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unitId)), ...(pData.metasMensais || {}) };
+      const cfg = CommissionEngine.configDoMes({ unitConfig: await configDaUnidade(unitId), metasMensais: pData.metasMensais, mes, minimosPorPessoa: pData.minimosPorPessoa });
       const rows = CommissionEngine.cleanRawData([PactoAdapter.CABECALHO_SAIDA,
         ...PactoAdapter.paraPlanilha(faltam.map(d => PactoAdapter.vendaDaDegustacao(d)))]);
       const r = CommissionEngine.processRows(rows, cfg);
@@ -4760,8 +4772,9 @@
 
     function refreshPreviewTotals() {
       if (!pendingUpload) return;
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig };
       const processed = pendingUpload.result.processed;
+      // prévia do upload: o mês é o das vendas do arquivo (regra nova do bônus, out/2026+)
+      const cfg = CommissionEngine.configDoMes({ unitConfig, mes: CommissionEngine.mesDosItens(processed) });
 
       const vendorData = CommissionEngine.buildVendorData(processed, {}, cfg);
       const unitAtivacoes = CommissionEngine.contagemDaUnidade(processed.reduce((s, d) => s + (d.isActivation ? (d.splitAtivacao || 1) : 0), 0));
@@ -5659,7 +5672,7 @@
           + '</ul>';
       }
 
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(data.metasMensais || {}) };
+      const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data.metasMensais, mes: mesDoPeriodoId(periodId) });
       document.getElementById('mm_meta').value = cfg.meta;
       document.getElementById('mm_metaFixo').value = cfg.metaFixo;
       document.getElementById('mm_superMeta').value = cfg.superMeta;
@@ -6271,6 +6284,26 @@
      * A config da unidade de um período. A aberta na tela vem da memória
      * (`unitConfig`, que pode ter acabado de ser editada); a outra, do banco.
      */
+    /** 'cp_2026-10' → '2026-10' (o motor precisa saber de que mês é a conta — regra nova do bônus) */
+    function mesDoPeriodoId(periodId) {
+      return (String(periodId || '').match(/(\d{4}-\d{2})$/) || [])[1] || null;
+    }
+
+    /**
+     * Mínimo individual de cada vendedora no mês, pela jornada do cadastro
+     * (out/2026 em diante). Só o admin lê /users: para os outros, o que já está
+     * gravado no período. Fica gravado em `periodos.minimosPorPessoa`.
+     */
+    async function minimosDoPeriodo(mes, unitCfg, pData) {
+      if (!mes || mes < CommissionEngine.INICIO_REGRA_MINIMOS) return null;
+      try {
+        const snap = await db.collection('users').get();
+        return JornadaComercial.minimosDoMes(snap.docs.map(d => d.data()), mes, { ...CommissionEngine.defaultConfig, ...(unitCfg || {}) });
+      } catch (e) {
+        return (pData && pData.minimosPorPessoa) || null;
+      }
+    }
+
     async function configDaUnidade(unitId) {
       if (!unitId || unitId === currentUnitId) return unitConfig;
       const doc = await db.collection('units').doc(unitId).get();
@@ -6298,7 +6331,11 @@
       // A unidade é a do PERÍODO, não a aberta na tela: o relatório de vendas traz
       // as duas unidades e recalcula as duas (degustação grátis, 29/09/2026).
       const unidadeDoPeriodo = pData.unitId || currentUnitId;
-      const cfg = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unidadeDoPeriodo)), ...(pData.metasMensais || {}) };
+      const unitCfgPeriodo = await configDaUnidade(unidadeDoPeriodo);
+      const mesDoPeriodo = mesDoPeriodoId(periodId);
+      // Regra nova do bônus (out/2026+): o mínimo de cada vendedora vem da jornada no cadastro
+      const minimosPorPessoa = await minimosDoPeriodo(mesDoPeriodo, unitCfgPeriodo, pData);
+      const cfg = CommissionEngine.configDoMes({ unitConfig: unitCfgPeriodo, metasMensais: pData.metasMensais, mes: mesDoPeriodo, minimosPorPessoa });
 
       // HISTÓRICO: snapshot de valores antes do recálculo
       const beforeItemValues = {};
@@ -6395,6 +6432,8 @@
 
       const rawUpdateData = {
         totals: { unitAtivacoes: r2(unitAtivacoes), unitNovosRetorno: r2(unitNovosRetorno), unitRenovacoes: r2(unitRenovacoes), unitVouchers: r2(unitVouchers), unitCaixa: r2(unitCaixa) },
+        // mínimo de cada vendedora usado nesta conta (as telas da vendedora e o simulador leem daqui)
+        minimosPorPessoa: minimosPorPessoa || null,
         vendorSummary,
         p4result: {
           ...p4result,
@@ -6449,7 +6488,9 @@
       const today = new Date();
       const daysInMonth = new Date(year, month, 0).getDate();
       const periodStart = new Date(year, month - 1, 1);
-      const periodEnd = new Date(year, month, 0);
+      // Fim do ÚLTIMO dia (não a meia-noite dele): no dia 30/09/2026 a projeção sumia
+      // do painel porque "agora" já passava de 30/09 00:00.
+      const periodEnd = new Date(year, month, 0, 23, 59, 59, 999);
 
       // If period is in the past, no projection needed
       if (today > periodEnd) return null;
@@ -6532,7 +6573,7 @@
         if (t.unitVouchers === undefined) t.unitVouchers = 0;
         if (t.unitCaixa === undefined) t.unitCaixa = 0;
         const vs = data.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data && data.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: data && data.minimosPorPessoa });
         const totalComissoes = Object.values(vs).reduce((s, v) => s + (v.grandTotal || 0), 0);
         const comVendors = Object.values(vs).filter(v => !v.isNaoCom);
 
@@ -7186,7 +7227,7 @@
       window.currentVendorPeriodData = data;
       const vendorName = userProfile.name?.toUpperCase();
       const vs = data.vendorSummary || {};
-      const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+      const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data && data.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: data && data.minimosPorPessoa });
 
       // Find vendor (case insensitive match)
       let myData = null;
@@ -7230,6 +7271,7 @@
       // simulador lia as metas da cópia da gestão e caía no padrão da unidade.
       window.currentVendorCfg = cfg;
       window.currentSimAgregados = CommissionEngine.agregadosP3(vs, myName, cfg);
+      window.currentSimNome = myName;   // o mínimo individual dela (jornada, out/2026+) depende do nome
 
       let html = '';
 
@@ -7482,7 +7524,7 @@
       // A conta mora no motor e segue a do rateio de verdade: o P3 é a PARTE
       // dela no bolo da unidade, não o bolo inteiro (smoke-simulador.js).
       const sim = CommissionEngine.simularVendas({
-        minhas: myData,
+        minhas: myData, nome: window.currentSimNome,
         totais: { unitAtivacoes: unitAtiv, unitNovosRetorno: unitNovos, unitRenovacoes: unitRenov, unitVouchers },
         agregados: window.currentSimAgregados,
         qt, valorCaixa: plan.caixa, bonusP2: plan.p2, config: cfg,
@@ -7792,7 +7834,7 @@
         snap.forEach(doc => items.push({ _docId: doc.id, ...doc.data() }));
 
         const vs = data?.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data && data.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: data && data.minimosPorPessoa });
         const t = data?.totals || {};
         const vData = vs[myName] || {};
         // Flags de meta da unidade — usadas na seção P3 abaixo (correção 14/05/2026)
@@ -9434,7 +9476,7 @@
         exclSnap.forEach(doc => excludedItems.push({ _docId: doc.id, ...doc.data() }));
 
         const vs = data.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((data && data.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data && data.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: data && data.minimosPorPessoa });
         const t = data.totals || {};
         const p4 = data.p4result || {};
 
@@ -9804,7 +9846,7 @@
 
         // Verificação contra as travas
         const periodData = window.currentPeriodData || {};
-        const cfg2 = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(periodData.metasMensais || {}) };
+        const cfg2 = CommissionEngine.configDoMes({ unitConfig, metasMensais: periodData.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: periodData.minimosPorPessoa });
         const novosOk   = sumFator(novosRetorno) >= cfg2.minNovos;
         const renovOk   = sumFator(renovacoes)   >= cfg2.minRenov;
         const vouchOk   = sumFator(vouchers)     >= cfg2.minVoucher;
@@ -10277,7 +10319,7 @@
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
         const myData = vs[vendorName] || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: pData && pData.metasMensais, mes: mesDoPeriodoId(currentPeriodId), minimosPorPessoa: pData && pData.minimosPorPessoa });
 
         // NEW: Recalculate vendor items for this report
         processed.forEach(r => CommissionEngine.applyCommissionsToItem(r, cfg));
@@ -10358,7 +10400,7 @@
         const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
         const pData = periodDoc.data();
         const myData = (pData?.vendorSummary || {})[vendorName] || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: pData && pData.metasMensais, mes: mesDoPeriodoId(currentPeriodId), minimosPorPessoa: pData && pData.minimosPorPessoa });
         
         const isMetaBatida = (pData.totals?.unitAtivacoes || 0) >= (cfg.meta || 50);
         const refMes = (pData.month && pData.year) ? `${String(pData.month).padStart(2,'0')}/${pData.year}` : currentPeriodId;
@@ -10408,7 +10450,7 @@
         const periodDoc = await db.collection('periodos').doc(currentPeriodId).get();
         const pData = periodDoc.data();
         const vs = pData?.vendorSummary || {};
-        const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...((pData && pData.metasMensais) || {}) };
+        const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: pData && pData.metasMensais, mes: mesDoPeriodoId(currentPeriodId), minimosPorPessoa: pData && pData.minimosPorPessoa });
         const isMetaBatida = (pData.totals?.unitAtivacoes || 0) >= (cfg.meta || 50);
         const refMes = (pData.month && pData.year) ? `${String(pData.month).padStart(2,'0')}/${pData.year}` : currentPeriodId;
 
@@ -11001,7 +11043,7 @@
             const ut = pData.unitTotals;
             const liveP3 = CommissionEngine.calcP3(
               ut.unitAtivacoes, ut.unitNovosRetorno, ut.unitRenovacoes, ut.unitVouchers,
-              vs.p3base || vs.caixa || 0, unitConfig
+              vs.p3base || vs.caixa || 0, CommissionEngine.configDoMes({ unitConfig, metasMensais: pData.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: pData.minimosPorPessoa })
             );
             p3Calc = {
               fixo: liveP3.fixo,
