@@ -198,9 +198,7 @@
         <span>Estornos (não entram)</span><span>${esc(est.qtd)} · ${esc(brl(est.valor))}</span>
         <span>Avisos</span><span>${esc(avisos.length)}</span>
       </div>`;
-    const cp = estado.unidade === 'CP'
-      ? '<p class="aviso" style="margin-top:10px">No Campeche a Pacto não entrega a consultora da venda (pedido aberto no suporte). As ativações contam; a divisão por vendedora não.</p>'
-      : '';
+    const cp = '';   // desde 30/09/2026 o Campeche também tem consultora (gateway)
     const listaFora = fora.length ? `<details style="margin-top:10px"><summary class="muted">Ver o que ficou de fora</summary>
       <div class="tabela"><table><tr><th>Motivo</th><th>Recibo</th><th>Contrato</th><th class="v">Valor</th></tr>
       ${fora.map(f => `<tr><td>${esc(f.motivo)}</td><td>${esc(f.recibo)}</td><td>${esc(f.contrato)}</td><td class="v">${esc(brl(f.valor))}</td></tr>`).join('')}

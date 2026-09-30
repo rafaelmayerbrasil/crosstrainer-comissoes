@@ -126,13 +126,13 @@ const base = { mes: '2026-08', unidade: 'PP', Adapter: PA, Engine: CE, ApiLinhas
   ok('filtra a unidade e o mês antes de somar');
 }
 
-/* 5. Campeche não compara vendedora */
+/* 5. desde 30/09/2026 o Campeche tem consultora (gateway): compara vendedora também */
 {
   const r = C.comparar({ ...base, unidade: 'CP', linhasApi: [], linhasArquivo: [] });
-  assert.strictEqual(r.compararVendedora, false);
+  assert.strictEqual(r.compararVendedora, true);
   assert.strictEqual(C.comparar({ ...base, linhasApi: [], linhasArquivo: [] }).compararVendedora, true);
   assert.strictEqual(r.api.ativacoes.total, 0);
-  ok('no Campeche a vendedora não é comparada; lados vazios não quebram');
+  ok('as duas unidades comparam vendedora; lados vazios não quebram');
 }
 
 /* 6. sem Adapter/Engine é erro, não silêncio */

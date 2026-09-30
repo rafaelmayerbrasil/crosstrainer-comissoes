@@ -172,8 +172,8 @@ const PactoSombraComparacao = {
       api, arquivo, divergencias, porCausa,
       grupos: chaves.size, batem,
       diferenca: this._r2(api.recebido - arquivo.recebido),
-      // No Campeche a Pacto não entrega consultora: comparar vendedora ali mentiria
-      compararVendedora: unidade !== 'CP',
+      // Desde 30/09/2026 o Campeche também tem consultora (gateway `contratos/{n}`)
+      compararVendedora: true,
     };
   },
 };
