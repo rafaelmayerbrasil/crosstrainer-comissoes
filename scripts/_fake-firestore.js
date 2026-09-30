@@ -57,8 +57,15 @@ module.exports = function makeFakeDb() {
     },
     batch() {
       const ops = [];
-      return { set(ref, obj) { ops.push([ref, obj]); }, async commit() { for (const [ref, obj] of ops) await ref.set(obj); } };
+      return {
+        set(ref, obj, opts) { ops.push(() => ref.set(obj, opts)); },
+        update(ref, obj) { ops.push(() => ref.update(obj)); },
+        delete(ref) { ops.push(() => ref.delete()); },
+        async commit() { for (const op of ops) await op(); },
+      };
     },
+    // O banco inteiro (cópia), para comparar dois caminhos que deveriam dar igual
+    _dump() { return JSON.parse(JSON.stringify(store)); },
   };
   return api;
 };
