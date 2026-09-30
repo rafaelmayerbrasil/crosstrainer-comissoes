@@ -47,7 +47,8 @@ vm.createContext(sandbox);
 // A ordem é a do index.html: quem depende vem depois
 // O `?v=` é o cache-buster do deploy — faz parte do src, não do nome do arquivo.
 const nossos = [...html.matchAll(/<script src="([a-z0-9-]+\.js)(?:\?v=\d{8})?"><\/script>/g)].map(m => m[1]);
-const alvo = ['pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js', 'commission.js', 'metas-sugeridas.js'];
+const alvo = ['pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js', 'commission.js', 'metas-sugeridas.js',
+  'pacto-api-linhas.js', 'upload-pela-api.js'];
 
 {
   alvo.forEach(f => assert.ok(nossos.includes(f), `${f} precisa estar no index.html`));
@@ -133,6 +134,16 @@ function cabSimples() {
     [{type:'processed',codigo:'C7078',vendedor:'ERICA FAUSTINO',cliente:'X',p1valor:12.95,p2bonus:15}],'C7078'))`);
   assert.strictEqual(JSON.parse(r).total, 27.95);
   ok('o cálculo do estorno roda na página');
+}
+
+{
+  // "Atualizar pela Pacto" (30/09/2026): o botão usa os dois pelo NOME, na página
+  const r = run(`JSON.stringify((() => {
+    const m = UploadPelaApi.montar({ docs: [], degustacoes: [], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: PactoApiLinhas });
+    return { meses: UploadPelaApi.mesesOferecidos('2026-10-05'), trava: m.trava, cab: m.json[0][2] };
+  })())`);
+  assert.deepStrictEqual(JSON.parse(r), { meses: ['2026-10', '2026-09'], trava: true, cab: 'Nome Cliente' });
+  ok('o botão "Atualizar pela Pacto" monta o mês na página (UploadPelaApi + PactoApiLinhas)');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

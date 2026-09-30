@@ -2977,14 +2977,27 @@
       <div class="page" id="page-upload">
         <div class="page-hdr">
           <h1>Upload de Arquivo <span class="unit-badge-display" style="font-size:12px; font-weight:normal; background:var(--orange-glow); color:var(--orange); padding:4px 10px; border-radius:12px; margin-left:10px; vertical-align:middle; display:none;"></span></h1>
-          <p>Suba o relatório <strong>Faturamento Recebido</strong> da Pacto para processar as comissões. O mesmo arquivo serve para as duas unidades — suba uma vez em cada.</p>
+          <p>Os dados de venda chegam sozinhos da Pacto toda madrugada. Clique em <strong>Atualizar pela Pacto</strong> para calcular o mês desta unidade — a prévia aparece antes de salvar, como no arquivo.</p>
         </div>
-        <div class="upload-zone" id="uploadZone">
-          <div class="uz-icon">📊</div>
-          <p><strong>Arraste o arquivo Excel aqui</strong> ou clique para selecionar</p>
-          <div class="hint">Pacto → <strong>Faturamento Recebido</strong> (o arquivo começa com <code>faturamento-recebido_</code>) · o formato antigo do TecnoFit também continua funcionando</div>
-          <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <div id="uploadApi" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <strong style="font-size:14px">🔄 Dados da Pacto</strong>
+            <select id="uploadApiMes" aria-label="Mês"
+              style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif"></select>
+            <button class="btn btn-sm" id="btnAtualizarPacto" onclick="atualizarPelaPacto()">🔄 Atualizar pela Pacto</button>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:6px">Usa o que o sistema buscou na Pacto até ontem. Se algum dia não veio, o botão avisa e oferece buscar de novo.</div>
+          <div id="uploadApiStatus" style="font-size:12.5px;margin-top:8px"></div>
         </div>
+        <details id="uploadPlanilhaB" style="margin-bottom:16px">
+          <summary style="cursor:pointer;font-size:13px;color:var(--text2);margin-bottom:10px">▸ Usar planilha (só se a Pacto falhar)</summary>
+          <div class="upload-zone" id="uploadZone">
+            <div class="uz-icon">📊</div>
+            <p><strong>Arraste o arquivo Excel aqui</strong> ou clique para selecionar</p>
+            <div class="hint">Pacto → <strong>Faturamento Recebido</strong> (o arquivo começa com <code>faturamento-recebido_</code>) · o formato antigo do TecnoFit também continua funcionando</div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+          </div>
+        </details>
         <div id="periodMonthGroup"
           style="display:none;max-width:360px;margin-bottom:16px;background:var(--yellow-bg);border:1px solid var(--yellow);border-radius:8px;padding:14px 16px">
           <div style="font-size:11px;font-weight:700;color:var(--yellow);margin-bottom:8px">⚠ Mais de um mês detectado
@@ -3278,6 +3291,10 @@
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20260930"></script>
+  <!-- "Atualizar pela Pacto" (30/09/2026): a API vira a fonte oficial, a planilha fica
+       como plano B. As linhas da busca diária entram pelo MESMO caminho do arquivo. -->
+  <script src="pacto-api-linhas.js?v=20261001"></script>
+  <script src="upload-pela-api.js?v=20261001"></script>
   <script src="estorno-comissao.js?v=20260915"></script>
   <script src="vendas-aguardando.js?v=20260917"></script>
 
@@ -4241,6 +4258,7 @@
       // BOTÃO desenhado dentro dela. Sem esta guarda, apertar "Registrar vendas"
       // ou "Tentar novamente" abria o seletor por cima da própria ação, porque o
       // clique borbulha até aqui. Pego pelo Rafael no staging em 01/09/2026.
+      renderUploadApi();
       zone.onclick = e => { if (e.target.closest('button')) return; input.click(); };
       zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag'); };
       zone.ondragleave = () => zone.classList.remove('drag');
@@ -4491,6 +4509,82 @@
       return PactoAdapter.siglaDaUnidade(currentUnitId, [sigla]) === sigla
         ? currentUnitId
         : ids.find(id => String(id).toUpperCase().replace(/[^A-Z]/g, '').endsWith(sigla)) || '';
+    }
+
+    // ── "Atualizar pela Pacto" (30/09/2026) ─────────────────────────────
+    // A API virou a fonte oficial; a planilha, plano B. As linhas que a busca
+    // das 4h gravou em `pacto_sombra_dias` entram pelo MESMO `processarPlanilha`
+    // do arquivo. Dia que falhou TRAVA: montar o mês sem ele pagaria a menos, calado.
+    // Desenho: docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md §2.4
+    function hojeSaoPauloUpload() {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    }
+
+    function renderUploadApi() {
+      const sel = document.getElementById('uploadApiMes');
+      if (!sel || typeof UploadPelaApi === 'undefined') return;
+      const nomes = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+      sel.innerHTML = UploadPelaApi.mesesOferecidos(hojeSaoPauloUpload())
+        .map(m => `<option value="${m}">${nomes[parseInt(m.slice(5), 10)]}/${m.slice(0, 4)}</option>`).join('');
+      document.getElementById('uploadApiStatus').innerHTML = '';
+    }
+
+    async function atualizarPelaPacto(depoisDeBuscar) {
+      const status = document.getElementById('uploadApiStatus');
+      const btn = document.getElementById('btnAtualizarPacto');
+      const mes = document.getElementById('uploadApiMes').value;
+      const sigla = PactoAdapter.siglaDaUnidade(currentUnitId, ['CP', 'PP']);
+      if (!sigla || !mes) { toast('Escolha a unidade e o mês.', 'error'); return; }
+      btn.disabled = true;
+      status.innerHTML = '⏳ Lendo os dados da Pacto…';
+      try {
+        const [dSnap, gSnap] = await Promise.all([
+          db.collection('pacto_sombra_dias').where('unidade', '==', sigla).get(),
+          db.collection('pacto_degustacoes').where('unidade', '==', sigla).get(),
+        ]);
+        const docs = dSnap.docs.map(d => d.data()).filter(d => String(d.dia || '').slice(0, 7) === mes);
+        const degustacoes = gSnap.docs.map(d => d.data());
+        const m = UploadPelaApi.montar({ docs, degustacoes, mes, hoje: hojeSaoPauloUpload(), ApiLinhas: PactoApiLinhas });
+        document.getElementById('periodMonth').value = mes;
+
+        if (m.trava) {
+          const lista = m.diasProblema.map(d => `${UploadPelaApi.diaCurto(d.dia)} (${UploadPelaApi.ROTULO[d.situacao] || d.situacao})`).join(', ');
+          const de = m.diasProblema[0].dia, ate = m.diasProblema[m.diasProblema.length - 1].dia;
+          status.innerHTML = `
+            <div style="color:var(--red);margin-bottom:8px">⚠️ Faltam dados da Pacto em ${m.diasProblema.length} dia(s): <strong>${lista}</strong>. O mês não é calculado sem eles — sairia a menos.</div>
+            <button class="btn btn-sm" onclick="buscarDeNovoPacto('${sigla}', '${de}', '${ate}')">🔁 Buscar de novo agora</button>
+            <div style="color:var(--text3);margin-top:6px">${depoisDeBuscar ? 'A Pacto ainda não entregou esses dias. Use a planilha abaixo.' : 'Se continuar falhando, use a planilha abaixo.'}</div>`;
+          if (depoisDeBuscar) document.getElementById('uploadPlanilhaB').open = true;
+          return;
+        }
+
+        await processarPlanilha(m.json, 'Pacto (API) · dados até ' + UploadPelaApi.diaCurto(m.dadosAte), { origem: 'api', dadosAte: m.dadosAte, degustacoes: m.degustacoes });
+        const quando = m.buscadoEm ? new Date(m.buscadoEm) : null;
+        const partes = [`✅ Dados da Pacto até <strong>${UploadPelaApi.diaCurto(m.dadosAte)}</strong>`];
+        if (quando && !isNaN(quando)) partes.push(`buscados em ${quando.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
+        if (m.degustacoes.length) partes.push(`🎁 ${m.degustacoes.length} degustação(ões) grátis`);
+        status.innerHTML = partes.join(' · ') + '. Confira a prévia abaixo e confirme.' +
+          (m.vazios.length ? `<div style="color:var(--yellow);margin-top:6px">A Pacto respondeu sem nenhum pagamento em ${m.vazios.map(d => UploadPelaApi.diaCurto(d)).join(', ')} — confira se o dia foi mesmo sem venda.</div>` : '');
+      } catch (e) {
+        status.innerHTML = `<div style="color:var(--red)">Não consegui ler os dados da Pacto: ${e.message}. Se continuar, use a planilha abaixo.</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Busca manual dos dias que faltaram (só admin; a Function confere)
+    async function buscarDeNovoPacto(sigla, de, ate) {
+      const status = document.getElementById('uploadApiStatus');
+      status.innerHTML = '⏳ Buscando na Pacto… com pausa entre as consultas, pode levar alguns minutos. Pode deixar a página aberta.';
+      try {
+        const fn = firebase.functions().httpsCallable('buscarPactoSombraManual', { timeout: 3600000 });
+        await fn({ unidades: [sigla], de, ate });
+      } catch (e) {
+        // O navegador pode desistir antes da função terminar — ela continua no servidor
+        status.innerHTML = `<div style="color:var(--yellow)">A Pacto demorou a responder (${e.message}). A busca continua no servidor: clique em "Atualizar pela Pacto" daqui a alguns minutos.</div>`;
+        return;
+      }
+      await atualizarPelaPacto(true);
     }
 
     function handleFile(file) {
