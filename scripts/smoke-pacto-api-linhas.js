@@ -116,16 +116,18 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('parcela de venda avulsa leva o nome do produto vendido');
 }
 
-/* 4. Campeche: consultora vazia e sem aviso de consultora */
+/* 4. Campeche: desde 30/09/2026 a consultora vem do gateway, igual ao PP */
 {
   const cp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'CP', dia: '2026-08-05' });
-  assert.ok(cp.linhas.every(l => campo(l, 'consultor') === ''), 'CP nunca preenche consultora');
   assert.ok(cp.linhas.every(l => campo(l, 'empresa') === 'CROSSTAINER UNID. CAMPECHE (CP)'));
-  assert.ok(!cp.avisos.some(a => /consultora/.test(a.motivo)), 'no CP a falta é conhecida, não vira aviso');
-  // e quem registrou o PAGAMENTO não vira vendedora pela porta dos fundos (Responsável)
-  cp.linhas.filter(l => PA.ehLinhaDeContrato(l)).forEach(l =>
-    assert.strictEqual(PA.vendedorDe(l, true).vendedor, '', 'CP: contrato ' + campo(l, 'contrato') + ' saiu com vendedora'));
-  ok('no Campeche a consultora fica vazia e não usa quem lançou o pagamento');
+  const c9001 = cp.linhas.find(l => campo(l, 'contrato') === '9001');
+  assert.strictEqual(campo(c9001, 'consultor'), 'CONSULTORA TESTE UM', 'CP com consultora no caderninho: entra na linha');
+  assert.strictEqual(PA.vendedorDe(c9001, true).vendedor, 'CONSULTORA TESTE UM');
+  // sem consultora: aviso, e quem registrou o PAGAMENTO não vira vendedora pela porta dos fundos
+  assert.ok(cp.avisos.some(a => /sem consultora/.test(a.motivo) && a.contrato === '9002'));
+  cp.linhas.filter(l => campo(l, 'contrato') === '9002').forEach(l =>
+    assert.strictEqual(PA.vendedorDe(l, true).vendedor, '', 'CP: contrato sem consultora saiu com vendedora'));
+  ok('no Campeche a consultora do caderninho entra; sem ela, aviso e nunca quem lançou o pagamento');
 }
 
 /* 5. contrato fora do caderninho: aviso e dia parcial */
@@ -310,4 +312,65 @@ const pp = L.montar({ resumo: resumoBase(), contratos: caderninho(), unidade: 'P
   ok('troca de plano quitada com crédito + saldo devedor fica de fora; misturado com dinheiro, entra');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/15');
+/* 16. contrato do gateway → caderninho; merge sem apagar a consultora */
+const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', plano: 'MÊS DEGUSTAÇÃO LIVRE.',
+  valor: 0, tipo: 'MA', situacao: 'IN', lancamento: '25/08/2026', vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026',
+  cliente: { codigo: '77', nome: 'CLIENTE FICTICIO D' } };
+{
+  const c = L.contratoDoGateway(G4638, 'PP');
+  assert.deepStrictEqual(c, { codigo: '4638', unidade: 'PP', situacaoContrato: 'Matrícula', nomePlano: 'MÊS DEGUSTAÇÃO LIVRE.',
+    codigoPlano: null, vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026', numeroMeses: null,
+    consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', gw: true });
+  assert.ok(!JSON.stringify(c).includes('CLIENTE'), 'o caderninho não guarda o aluno');
+  assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: null, lancou: null }), { a: 1 });
+  assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: 'X', lancou: null }), { a: 1, consultor: 'X' });
+  ok('contrato do gateway vira caderninho (sem aluno); gravar sem consultora vazia não apaga a boa');
+}
+
+/* 17. degustação grátis do gateway: o PRÓPRIO tradutor reconhece */
+{
+  const l = L.linhaDeDegustacao(G4638, 'PP');
+  assert.strictEqual(l.length, L.TAMANHO_LINHA);
+  assert.strictEqual(campo(l, 'contrato'), '4638');
+  assert.strictEqual(campo(l, 'valor'), '0,00');
+  assert.strictEqual(campo(l, 'plano'), 'MÊS DEGUSTAÇÃO LIVRE.');
+  assert.strictEqual(campo(l, 'lancamento'), '25/08/2026');
+  assert.strictEqual(campo(l, 'empresa'), 'CROSSTAINER UNID. PEQ PRÍNCIPE (PP)');
+  const d = PA.degustacoesGratis(L.comCabecalho([l]));
+  assert.strictEqual((d['PP|2026-08'] || []).length, 1, JSON.stringify(d));
+  assert.strictEqual(d['PP|2026-08'][0].codigo, 'C4638');
+  assert.strictEqual(d['PP|2026-08'][0].vendedor, 'CONSULTORA TESTE UM');
+  // plano de crédito com valor zero NÃO é degustação (o 4604 real, 04/08/2026)
+  const credito = L.linhaDeDegustacao({ ...G4638, codigo: '4604', plano: 'PLANO DE CRÉDITO 8 A 11 AULAS.' }, 'PP');
+  assert.deepStrictEqual(PA.degustacoesGratis(L.comCabecalho([credito])), {});
+  ok('degustação do gateway vira linha que o tradutor reconhece; plano de crédito de valor zero não');
+}
+
+/* 18. balcão do relatório de vendas: entra o que faltou nos pagamentos */
+{
+  const linhaAvulsa = (nome, dia, valor) => {
+    const l = new Array(L.TAMANHO_LINHA).fill('');
+    l[L.COL.contrato] = '0'; l[L.COL.nome] = nome; l[L.COL.lancamento] = dia; l[L.COL.valor] = valor;
+    return l;
+  };
+  const linhas = [linhaAvulsa('CLIENTE FICTICIO A', '25/08/2026', '5,00')];
+  const vendas = [
+    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },  // já veio
+    { produto: 'ÁGUA SEM GÁS', valor: 5, cliente: 'Cliente Fictício A', contrato: '0', dia: '25/08/2026' },  // a 2ª água entra
+    { produto: 'MONSTER', valor: 12, cliente: 'CLIENTE FICTICIO B', contrato: '0', dia: '25/08/2026' },
+    { produto: 'PLANO', valor: 199, cliente: 'CLIENTE FICTICIO C', contrato: '4636', dia: '25/08/2026' },
+    { produto: 'MATRÍCULA', valor: 50, cliente: 'CLIENTE FICTICIO C', contrato: '0', dia: '25/08/2026' },
+    { produto: 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO', valor: 10, cliente: 'CLIENTE FICTICIO C', contrato: '0', dia: '25/08/2026' },
+    { produto: 'CAMISETA BRINDE', valor: 0, cliente: 'CLIENTE FICTICIO C', contrato: '0', dia: '25/08/2026' },
+  ];
+  const b = L.linhasDeBalcao({ vendas, linhas, unidade: 'CP' });
+  assert.deepStrictEqual(b.linhas.map(l => campo(l, 'produto') + ' ' + campo(l, 'valor')), ['ÁGUA SEM GÁS 5,00', 'MONSTER 12,00']);
+  const l0 = b.linhas[0];
+  assert.strictEqual(campo(l0, 'contrato'), '0');
+  assert.strictEqual(campo(l0, 'consultor'), '');
+  assert.strictEqual(campo(l0, 'empresa'), 'CROSSTAINER UNID. CAMPECHE (CP)');
+  assert.ok(!PA.ehLinhaDeContrato(l0), 'o tradutor trata como avulsa');
+  ok('balcão: entra o que falta, cada linha existente casa uma venda, plano/matrícula/quitação/zero ficam de fora');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/18');

@@ -210,13 +210,13 @@ const PactoApiLinhas = {
             put('termino', c.vigenciaAte);
             put('duracao', c.numeroMeses == null ? '' : String(c.numeroMeses));
           }
-          // No Campeche a Pacto não entrega consultora (contratosLancados vem
-          // vazio). NÃO usar quem lançou o pagamento: daria nome errado calado.
-          const consultor = unidade !== 'CP' ? (c && c.consultor) : null;
-          if (unidade !== 'CP') {
-            put('consultor', consultor || '');
-            if (!consultor) avisos.push({ motivo: 'sem consultora conhecida para o contrato', contrato, recibo: p.codigo });
-          }
+          // A consultora vem do caderninho. No Campeche ela chega pelo GATEWAY
+          // (`contratos/{n}` com a credencial da unidade, 30/09/2026) — o núcleo
+          // nunca entregou. NÃO usar quem lançou o pagamento no lugar dela: daria
+          // nome errado calado.
+          const consultor = c && c.consultor;
+          put('consultor', consultor || '');
+          if (!consultor) avisos.push({ motivo: 'sem consultora conhecida para o contrato', contrato, recibo: p.codigo });
           // As colunas Responsável também decidem vendedora quando a consultora
           // falta (ou é o robô da Pacto). Com consultora: como no export, 1 = quem
           // lançou o contrato, 2 = quem registrou o pagamento. Sem consultora:
@@ -254,6 +254,102 @@ const PactoApiLinhas = {
         estornosContrato: { qtd: (r.estornosContrato || []).length, valor: this._soma(r.estornosContrato, e => e.valorPagoEstornado) },
       },
     };
+  },
+
+  // ─── Gateway por unidade (30/09/2026) ───
+  // Desenho: docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md
+
+  TIPO_SITUACAO: { MA: 'Matrícula', RE: 'Rematrícula', RN: 'Renovação' },
+
+  /** Contrato lido do gateway (`lerContrato`) → formato do caderninho. Nada do aluno. */
+  contratoDoGateway(g, unidade) {
+    return {
+      codigo: String(g.codigo),
+      unidade,
+      situacaoContrato: this.TIPO_SITUACAO[g.tipo] || '',
+      nomePlano: g.plano || '',
+      codigoPlano: null,
+      vigenciaDe: g.vigenciaDe || '',
+      vigenciaAte: g.vigenciaAte || '',
+      numeroMeses: null,
+      consultor: g.consultor || null,
+      lancou: g.lancou || null,
+      gw: true,                        // a consultora já foi perguntada ao gateway
+    };
+  },
+
+  /**
+   * Sem `consultor`/`lancou` nulos. Gravado com `merge`, o caderninho não perde a
+   * consultora que o gateway trouxe quando o núcleo regrava o mesmo contrato.
+   */
+  soPreenchidos(c) {
+    const o = { ...c };
+    ['consultor', 'lancou'].forEach(k => { if (o[k] == null) delete o[k]; });
+    return o;
+  },
+
+  /**
+   * Contrato de valor zero do gateway como linha do export. Quem decide se é
+   * degustação grátis é o `PactoAdapter.degustacoesGratis` — a mesma regra de
+   * quando ela vinha pelo relatório de vendas.
+   */
+  linhaDeDegustacao(g, unidade) {
+    const l = new Array(this.TAMANHO_LINHA).fill('');
+    const put = (k, v) => { l[this.COL[k]] = v == null ? '' : v; };
+    put('matricula', g.cliente && g.cliente.codigo);
+    put('nome', g.cliente && g.cliente.nome);
+    put('resp1', g.lancou || '');
+    put('resp2', g.lancou || '');
+    put('produto', g.plano);
+    put('plano', g.plano);
+    put('contrato', String(g.codigo));
+    put('situacao', this.TIPO_SITUACAO[g.tipo] || '');
+    put('inicio', g.vigenciaDe);
+    put('termino', g.vigenciaAte);
+    put('lancamento', g.lancamento);
+    put('valor', '0,00');
+    put('empresa', this.EMPRESA[unidade] || '');
+    put('consultor', g.consultor || '');
+    return l;
+  },
+
+  // Produto do relatório de vendas que é do CONTRATO, não do balcão: já vem
+  // pelos pagamentos (ou é movimento que o motor exclui).
+  PRODUTO_DE_CONTRATO: /^(PLANO|MATRICULA|QUITACAO|TAXA DE RENEGOCIA|1 AULA)/,
+
+  /**
+   * Vendas de balcão (água, Monster, camiseta) do relatório de vendas que NÃO
+   * vieram nos pagamentos do núcleo — era a diferença que sobrava da sombra
+   * (ago/2026: −R$ 226,50 no PP, −R$ 420,50 no CP). Cada linha avulsa já
+   * existente casa UMA venda (mesmo cliente + dia + valor): duas águas iguais no
+   * mesmo dia são duas vendas. Sem vendedora — o relatório não diz quem vendeu.
+   */
+  linhasDeBalcao({ vendas, linhas, unidade }) {
+    const C = this.COL;
+    const chave = (nome, dia, valor) => this._norm(nome) + '|' + dia + '|' + Math.round(Number(valor) * 100);
+    const existentes = new Map();
+    (linhas || []).forEach(l => {
+      if (String(l[C.contrato] || '0') !== '0') return;
+      const k = chave(l[C.nome], l[C.lancamento], this._valor(l[C.valor]));
+      existentes.set(k, (existentes.get(k) || 0) + 1);
+    });
+    const saida = [];
+    (vendas || []).forEach(v => {
+      if (String(v.contrato || '0') !== '0') return;
+      if (this.PRODUTO_DE_CONTRATO.test(this._norm(v.produto))) return;
+      if (!(Number(v.valor) > 0)) return;
+      const k = chave(v.cliente, v.dia, v.valor);
+      if (existentes.get(k) > 0) { existentes.set(k, existentes.get(k) - 1); return; }
+      const l = new Array(this.TAMANHO_LINHA).fill('');
+      l[C.nome] = v.cliente || '';
+      l[C.produto] = v.produto || '';
+      l[C.contrato] = '0';
+      l[C.lancamento] = v.dia || '';
+      l[C.valor] = this.valorBR(v.valor);
+      l[C.empresa] = this.EMPRESA[unidade] || '';
+      saida.push(l);
+    });
+    return { linhas: saida };
   },
 
   /** '1.234,56' → 1234.56 */
