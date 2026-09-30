@@ -38,6 +38,45 @@ const UploadPelaApi = {
     return String(dia || '').slice(8, 10) + '/' + String(dia || '').slice(5, 7);
   },
 
+  _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  },
+
+  /**
+   * A situação da atualização automática do mês, para o painel da gestão
+   * (`periodos/{id}.automatico`, gravado pela madrugada). Vazio se não houver.
+   */
+  automaticoHtml(periodo) {
+    const a = periodo && periodo.automatico;
+    if (!a || !a.situacao) return '';
+    const em = a.em && typeof a.em.toDate === 'function' ? a.em.toDate() : (a.em && !isNaN(new Date(a.em)) ? new Date(a.em) : null);
+    const quando = em ? em.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às') : '';
+    const ate = a.dadosAte ? ' · dados até ' + this.diaCurto(a.dadosAte) : '';
+    const caixa = (cor, titulo, texto) => `
+      <div style="background:var(--${cor}-bg, rgba(0,0,0,0.04));border:1px solid var(--${cor});border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:800;color:var(--${cor});text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${titulo}</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.5">${texto}</div>
+      </div>`;
+    if (a.situacao === 'atualizado') {
+      return `<div style="font-size:12px;color:var(--text3);margin:0 0 12px">🔄 Atualizado automaticamente pela Pacto${quando ? ' em ' + this._esc(quando) : ''}${this._esc(ate)}</div>`;
+    }
+    if (a.situacao === 'travado') {
+      const dias = (a.diasProblema || []).map(d => this.diaCurto(d.dia)).join(', ');
+      return caixa('red', '⚠️ A atualização automática parou',
+        `Faltam dados da Pacto em <strong>${this._esc(dias)}</strong>. O mês mostra o último cálculo bom${quando ? ' (tentativa de ' + this._esc(quando) + ')' : ''}. ` +
+        `Em <strong>Upload → Atualizar pela Pacto</strong> dá para buscar de novo; se continuar falhando, use a planilha.`);
+    }
+    if (a.situacao === 'congelado') {
+      return caixa('blue', '🔒 Mês congelado', 'Os recibos deste mês já foram emitidos, então ele não se atualiza mais sozinho. ' +
+        'Para mudar alguma coisa, use <strong>Upload → Atualizar pela Pacto</strong> (pede confirmação).');
+    }
+    if (a.situacao === 'erro') {
+      return caixa('red', '⚠️ A atualização automática deu erro', this._esc(a.motivo || 'motivo desconhecido') +
+        (quando ? ' (' + this._esc(quando) + ')' : '') + '. Tente em <strong>Upload → Atualizar pela Pacto</strong>.');
+    }
+    return '';
+  },
+
   /** Meses que dá para atualizar: o corrente e, até o dia 10, o anterior (a busca das 4h relê os dois) */
   mesesOferecidos(hoje) {
     const atual = hoje.slice(0, 7);

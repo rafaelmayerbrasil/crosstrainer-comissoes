@@ -4534,6 +4534,14 @@
           return;
         }
 
+        // Mês com recibo emitido não se atualiza sozinho (congelado); pelo botão, só confirmando
+        const pags = await db.collection('pagamentos').where('periodId', '==', `${currentUnitId}_${mes}`).get();
+        if (pags.docs.some(d => (d.data().status || '') !== 'cancelado') &&
+          !confirm('Os recibos deste mês já foram emitidos. Atualizar pela Pacto pode mudar valores que já foram pagos às vendedoras.\n\nContinuar mesmo assim?')) {
+          status.innerHTML = 'Atualização cancelada: este mês já tem recibo emitido.';
+          return;
+        }
+
         await processarPlanilha(m.json, 'Pacto (API) · dados até ' + UploadPelaApi.diaCurto(m.dadosAte), { origem: 'api', dadosAte: m.dadosAte, degustacoes: m.degustacoes });
         const quando = m.buscadoEm ? new Date(m.buscadoEm) : null;
         const partes = [`✅ Dados da Pacto até <strong>${UploadPelaApi.diaCurto(m.dadosAte)}</strong>`];
@@ -5967,7 +5975,9 @@
         const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
         if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
-        let html = MetasSugeridas.avisoHtml(data) + avisoSoVendas + '<div id="vendidoXPagoHome"></div>' + `
+        // Situação da atualização automática pela Pacto (30/09/2026): quando, até que dia, ou por que parou
+        const avisoAutomatico = typeof UploadPelaApi !== 'undefined' ? UploadPelaApi.automaticoHtml(data) : '';
+        let html = avisoAutomatico + MetasSugeridas.avisoHtml(data) + avisoSoVendas + '<div id="vendidoXPagoHome"></div>' + `
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
