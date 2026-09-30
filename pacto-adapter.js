@@ -528,6 +528,11 @@ const PactoAdapter = {
    * e dois bônus P2 no mesmo contrato, pagando dobrado.
    * Regra: só UMA linha por contrato é o plano. Se mais de uma disputa (as duas
    * "IMPORTAÇÃO" do contrato 6735: R$ 20 + R$ 195), vale a de maior valor.
+   * As outras são mais DINHEIRO DO MESMO PLANO ('pagamento'): o aluno pagou em
+   * duas formas (PIX + débito) e o export traz uma linha por forma. O valor
+   * delas vai somado na linha do plano — é o que a API faz ao consolidar por
+   * contrato. Antes viravam "acessório" com o nome do plano no texto, e o motor
+   * lia cada uma como OUTRA ativação (set/2026: Julia 4731 e Lianna 7264).
    */
   papeisDoContrato(linhas) {
     const papeis = new Map();
@@ -540,7 +545,7 @@ const PactoAdapter = {
     if (!candidatas.length) return papeis;
     const plano = candidatas.reduce((a, b) =>
       this.valorBR(this.campo(b, 'valor')) > this.valorBR(this.campo(a, 'valor')) ? b : a);
-    candidatas.forEach(l => papeis.set(l, l === plano ? 'plano' : 'acessorio'));
+    candidatas.forEach(l => papeis.set(l, l === plano ? 'plano' : 'pagamento'));
     return papeis;
   },
 
@@ -621,14 +626,26 @@ const PactoAdapter = {
     const papeis = new Map();
     porContrato.forEach(grupo => this.papeisDoContrato(grupo).forEach((v, k) => papeis.set(k, v)));
 
+    // O dinheiro das outras formas de pagamento vai na linha do plano
+    const somaDoPlano = new Map();
+    porContrato.forEach(grupo => {
+      const plano = grupo.find(l => papeis.get(l) === 'plano');
+      if (!plano) return;
+      const outras = grupo.filter(l => papeis.get(l) === 'pagamento');
+      if (outras.length) somaDoPlano.set(plano, outras.reduce((s, l) => s + this.valorBR(this.campo(l, 'valor')), 0));
+    });
+
     const vendas = [], marcadas = [], avisos = [];
     const seq = {};
 
     uteis.forEach(l => {
       const ehContrato = this.ehLinhaDeContrato(l);
       const papel = ehContrato ? (papeis.get(l) || 'plano') : 'avulso';
+      if (papel === 'pagamento') return;   // já somado na linha do plano
       const { texto, presumido } = this.itensDe(l, papel);
-      const valor = this.valorBR(this.campo(l, 'valor'));
+      const valor = somaDoPlano.has(l)
+        ? Math.round((this.valorBR(this.campo(l, 'valor')) + somaDoPlano.get(l)) * 100) / 100
+        : this.valorBR(this.campo(l, 'valor'));
       const { vendedor, divididaCom, porQuemLancou } = this.vendedorDe(l, ehContrato);
       const cliente = this.campo(l, 'nome');
 

@@ -311,7 +311,8 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
 // 12. Duas linhas IMPORTAÇÃO no mesmo contrato: a maior é o plano
 // ════════════════════════════════════════════════════════════════════
 // Contrato 6735 real: R$ 20 + R$ 195, ambas "IMPORTAÇÃO". Nada no dado diz
-// qual é o plano, então vale a de maior valor; a outra vira taxa.
+// qual é o plano, então vale a de maior valor. A outra é dinheiro do mesmo
+// plano e vai somada nele (set/2026 — ver caso 31); antes virava "taxa".
 {
   const r = traduz([
     linha({ ...IMP, contrato: '6735', valor: '20,00' }),
@@ -319,8 +320,9 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   ]);
   const ativ = r.vendas.filter(v => classifica(v).isActivation);
   assert.strictEqual(ativ.length, 1);
-  assert.strictEqual(ativ[0]['Valor Quitado/Recibo'], 195, 'a de maior valor é o plano');
-  ok('contrato com 2 linhas importadas: a de maior valor vira o plano');
+  assert.strictEqual(r.vendas.length, 1, 'uma venda só');
+  assert.strictEqual(ativ[0]['Valor Quitado/Recibo'], 215, 'o plano leva o dinheiro das duas linhas');
+  ok('contrato com 2 linhas importadas: uma venda, com o valor das duas');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -683,6 +685,65 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   // (e) balcão também: água vendida pela Kali para aluno migrado
   assert.strictEqual(soUma({ produto: 'ÁGUA SEM GÁS', contrato: '0', consultor: 'RODRIGO ROJAIS', resp1: 'KALI LÓPEZ', resp2: 'KALI LÓPEZ', valor: '5,00' })['Vendedor'], 'KALI DUTRA');
   ok('Consultor = Rodrigo (padrão da migração): vai para quem lançou; robô e o próprio Rodrigo ficam; rateio é manual');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 31. O mesmo plano pago em duas formas é UMA venda
+// ════════════════════════════════════════════════════════════════════
+// Casos reais de set/2026: JULIA BORGER (PP, contrato 4731) renovou o anual e
+// pagou R$ 148,96 no PIX + R$ 190,04 no débito; LIANNA FRANTZ (CP, 7264) pagou
+// R$ 250 no crédito + R$ 250 no PIX. O export traz uma linha por forma de
+// pagamento, as duas com o NOME DO PLANO no Produto. A linha menor virava
+// "acessório" com o texto do plano, e o motor a lia como OUTRA ativação —
+// Tipo de Venda vazio, então "novo": 2 ativações, 2 bônus P2, e metade da
+// renovação da Julia pagava como venda nova. Foi isso que pôs a PP em 57
+// (Super Meta) no painel enquanto o termômetro, que soma as parcelas por
+// contrato, mostrava 55. Taxa de matrícula continua à parte (caso 11).
+{
+  const PLANO = 'ACESSO LIVRE | ANUAL | LOCAL | ILIMITADO | PADRÃO.';
+  const JULIA = {
+    nome: 'JULIA BORGER', contrato: '4731', duracao: '12', empresa: PP,
+    inicio: '25/09/2026', termino: '24/09/2027', lancamento: '25/09/2026',
+    produto: PLANO + ' - 12', plano: PLANO, situacao: 'Renovação',
+    resp1: 'KALI LÓPEZ', resp2: 'KALI LÓPEZ', consultor: 'KALI LÓPEZ',
+  };
+  const r = PA.traduzir([CABECALHO,
+    linha({ ...JULIA, valor: '148,96', forma: 'PIX' }),
+    linha({ ...JULIA, valor: '190,04', forma: 'CARTÃO DE DÉBITO' }),
+  ], { mes: '2026-09' });
+  assert.strictEqual(r.vendas.length, 1, 'uma venda só: ' + JSON.stringify(r.vendas.map(v => [v['Código'], v['Itens'], v['Valor Quitado/Recibo']])));
+  const v = r.vendas[0];
+  assert.strictEqual(v['Valor Quitado/Recibo'], 339, 'o dinheiro das duas formas vai junto');
+  assert.strictEqual(v['Valor Final'], 339);
+  assert.strictEqual(v['Tipo de Venda'], 'Renovação');
+  const c = classifica(v);
+  assert.strictEqual(c.isActivation, true);
+  assert.strictEqual(c.category, 'renovacao', 'a renovação não vira venda nova');
+
+  // Pelo motor inteiro: 1 ativação na unidade, 1 bônus P2
+  const cfg = { ...CE.defaultConfig, mes: '2026-09' };
+  const res = CE.calculate(CE.cleanRawData([PA.CABECALHO_SAIDA, ...PA.paraPlanilha(r.porUnidade.PP)]), cfg, {}, []);
+  assert.strictEqual(res.unitTotals.unitAtivacoes, 1, 'uma ativação na unidade');
+  assert.strictEqual(res.processed.filter(p => p.p2bonus > 0).length, 1, 'um bônus P2');
+
+  // Duas formas de mesmo valor (Lianna): 250 + 250 = 500, uma venda
+  const LIANNA = { ...ANUAL_LOCAL, nome: 'LIANNA FRANTZ', contrato: '7264' };
+  const r2 = traduz([linha({ ...LIANNA, valor: '250,00', forma: 'CARTÃO DE CRÉDITO' }), linha({ ...LIANNA, valor: '250,00', forma: 'PIX' })]);
+  assert.strictEqual(r2.vendas.length, 1);
+  assert.strictEqual(r2.vendas[0]['Valor Quitado/Recibo'], 500);
+
+  // Taxa de matrícula + plano pago em duas formas: taxa à parte, plano somado
+  const r3 = traduz([
+    linha({ ...ANUAL_LOCAL, produto: 'MATRÍCULA', valor: '100,00' }),
+    linha({ ...ANUAL_LOCAL, valor: '159,00', forma: 'PIX' }),
+    linha({ ...ANUAL_LOCAL, valor: '100,00', forma: 'CARTÃO DE DÉBITO' }),
+  ]);
+  assert.strictEqual(r3.vendas.length, 2, 'taxa + plano');
+  const ativ = r3.vendas.filter(x => classifica(x).isActivation);
+  assert.strictEqual(ativ.length, 1);
+  assert.strictEqual(ativ[0]['Valor Quitado/Recibo'], 259);
+  assert.strictEqual(r3.vendas.reduce((s, x) => s + x['Valor Quitado/Recibo'], 0), 359, 'nenhum centavo some do caixa');
+  ok('o mesmo plano pago em duas formas é UMA venda (uma ativação, um P2, valor somado)');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');
