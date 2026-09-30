@@ -91,15 +91,21 @@ const MetasSugeridas = {
       return { valor: med6, porque: `faltam os 3 meses anteriores fechados para a fórmula do Rodrigo — ${porqueMedia}` };
     }
     const med3 = this._media([m1, m2, m3]);
+    // O porquê leva a conta INTEIRA, com a divisão: quem refazia 50+25+15 achava um
+    // número menor e lia como erro (homologação de 30/09/2026: CP out/2026 dava 57 × 63)
     if (a1 == null) {
+      const soma = 0.5 * m1 + 0.25 * med3;
       return {
-        valor: (0.5 * m1 + 0.25 * med3) / 0.75,
-        porque: `50% do mês anterior (${this._r1(m1)}) + 25% da média dos 3 anteriores (${this._r1(med3)}), reescalado — sem o mesmo mês do ano anterior, que não está no sistema`,
+        valor: soma / 0.75,
+        porque: `50% do mês anterior (${this._r1(m1)}) + 25% da média dos 3 anteriores (${this._r1(med3)}) = ${this._r1(soma)}; ` +
+          `÷ 0,75 para completar os 100% sem o mesmo mês do ano anterior, que não está no sistema = ${this._r1(soma / 0.75)}`,
       };
     }
+    const soma = 0.5 * m1 + 0.25 * med3 + 0.15 * a1;
     return {
-      valor: (0.5 * m1 + 0.25 * med3 + 0.15 * a1) / 0.9,
-      porque: `50% do mês anterior (${this._r1(m1)}) + 25% da média dos 3 anteriores (${this._r1(med3)}) + 15% do mesmo mês do ano anterior (${this._r1(a1)}); os 10% de ajuste são a revisão da gestão`,
+      valor: soma / 0.9,
+      porque: `50% do mês anterior (${this._r1(m1)}) + 25% da média dos 3 anteriores (${this._r1(med3)}) + 15% do mesmo mês do ano anterior (${this._r1(a1)}) = ${this._r1(soma)}; ` +
+        `÷ 0,9 para completar os 100% (os outros 10%, de ajuste, são a revisão da gestão) = ${this._r1(soma / 0.9)}`,
     };
   },
 

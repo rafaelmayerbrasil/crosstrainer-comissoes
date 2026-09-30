@@ -33,6 +33,8 @@ const METAS = {
   assert.strictEqual(r.campos.meta, esperado);
   assert.strictEqual(r.confiavel, true);
   assert.ok(/50% do mês anterior/.test(r.porque.meta) && /65/.test(r.porque.meta), r.porque.meta);
+  // a conta inteira no porquê: quem refaz 50+25+15 acha 52,5, e sem o "÷ 0,9" parecia erro (homologação 30/09)
+  assert.ok(/= 52,5/.test(r.porque.meta) && /÷ 0,9/.test(r.porque.meta) && /= 58,3/.test(r.porque.meta), r.porque.meta);
   const m6 = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 30, formula: 'media6' });
   assert.strictEqual(m6.campos.meta, Math.round((47 + 69 + 58 + 40 + 63 + 65) / 6));
   ok('meta: fórmula do Rodrigo (50/25/15, reescalada) e a média de 6 meses, com o porquê');
