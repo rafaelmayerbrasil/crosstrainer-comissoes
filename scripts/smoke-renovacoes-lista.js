@@ -244,6 +244,17 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   assert.ok(!L4.consultoras.some(c => /PACTO/.test(c)), 'nem na lista de consultoras');
   ok('Kali López vira Kali Dutra (mesmos apelidos do tradutor); "PACTO - MÉTODO DE GESTÃO" não é consultora');
 }
+{
+  // A Pacto escreve BARBARA, o cadastro (e as comissões) BÁRBARA: vale a grafia do histórico,
+  // senão o painel "Por consultora" mostra duas pessoas (visto no staging em 30/09/2026)
+  const H2 = HIST.concat([{ cliente: 'OUTRO ALUNO', item: 'PLANO X', data: '01/09/2026', vendedor: 'BÁRBARA VIEIRA CARDOSO', codigo: 'C9', isContract: true }]);
+  const CT = Object.assign({}, CONTRATOS, { 101: Object.assign({}, CONTRATOS[101], { consultor: 'BARBARA VIEIRA CARDOSO' }) });
+  const L5 = RL.montar({ mes: '2026-10', hoje: '2026-10-05', previsao: PREVISAO, contratos: CT, historico: H2 });
+  assert.strictEqual(L5.blocos.renovacoes.find(l => l.codigoContrato === '101').consultora, 'BÁRBARA VIEIRA CARDOSO');
+  const semAcento = L5.consultoras.map(RL.norm.bind(RL));
+  assert.strictEqual(new Set(semAcento).size, semAcento.length, 'a mesma pessoa uma vez só: ' + L5.consultoras.join(', '));
+  ok('a grafia do cadastro vence a da Pacto (BÁRBARA × BARBARA); cada consultora aparece uma vez');
+}
 
 /* 12. situação: a da consultora, ou Sim quando a Pacto já registra */
 {

@@ -355,10 +355,21 @@ const RenovacoesLista = {
     // 4. consultora, notas e bloco
     const blocos = { renovacoes: [], antecipacao: [], degustacoes: [], verificar: [] };
     const noPeriodo = (v, de, ate) => v && v >= de && v <= ate;
+    // Grafia do cadastro (a das comissões), pelo nome sem acento: a Pacto escreve
+    // BARBARA e o cadastro BÁRBARA — sem isto o painel mostrava duas pessoas.
+    const grafia = new Map();
+    (historico || []).forEach(h => {
+      if (h && h.vendedor && !this.ehNaoConsultora(h.vendedor, naoConsultoras) && !grafia.has(this.norm(h.vendedor))) {
+        grafia.set(this.norm(h.vendedor), String(h.vendedor).trim());
+      }
+    });
     ficam.forEach(l => {
       const g = ges[l.codigoContrato] || {};
       if (g.consultoraAtribuida) { l.consultora = g.consultoraAtribuida; l.consultoraOrigem = 'gestao'; }
-      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) { l.consultora = this.nomeCanonico(l._consultorPacto); l.consultoraOrigem = 'pacto'; }
+      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) {
+        const nome = this.nomeCanonico(l._consultorPacto);
+        l.consultora = grafia.get(nome) || nome; l.consultoraOrigem = 'pacto';
+      }
       else {
         const h = this.consultoraDoHistorico(l.nome, historico, naoConsultoras);
         if (h) { l.consultora = h; l.consultoraOrigem = 'historico'; }
@@ -402,7 +413,10 @@ const RenovacoesLista = {
     blocos.degustacoes.forEach((l, i) => { l.n = i + 1; });
 
     const totalExcluidos = Object.values(excluidos).reduce((s, v) => s + v, 0);
-    const consultoras = [...new Set(Object.values(blocos).flat().map(l => l.consultora).filter(Boolean))].sort();
+    // Uma vez por pessoa (sem acento), na primeira grafia que aparecer
+    const porNome = new Map();
+    Object.values(blocos).flat().forEach(l => { if (l.consultora && !porNome.has(this.norm(l.consultora))) porNome.set(this.norm(l.consultora), l.consultora); });
+    const consultoras = [...porNome.values()].sort();
     return {
       mes,
       periodos: per,
