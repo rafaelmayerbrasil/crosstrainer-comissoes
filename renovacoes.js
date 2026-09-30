@@ -145,10 +145,11 @@
     </section>${perfil === 'gestao' ? conferenciaHtml(lista) : ''}`;
   }
 
-  function opcoes(lista, atual) {
+  // `rotulos` (opcional): valor gravado → texto na tela (o valor não muda)
+  function opcoes(lista, atual, rotulos) {
     const vals = [''].concat(lista || []);
     if (atual && vals.indexOf(atual) < 0) vals.push(atual);
-    return vals.map(v => `<option value="${esc(v)}"${v === (atual || '') ? ' selected' : ''}>${esc(v || '—')}</option>`).join('');
+    return vals.map(v => `<option value="${esc(v)}"${v === (atual || '') ? ' selected' : ''}>${esc(v ? ((rotulos && rotulos[v]) || v) : '—')}</option>`).join('');
   }
 
   /** Formulário da linha. `lista` dá os planos recentes e as consultoras conhecidas. */
@@ -161,8 +162,8 @@
     const gestao = perfil === 'gestao'
       ? `<label>Consultora responsável <input name="consultoraAtribuida" list="consultorasConhecidas" value="${esc(a.consultoraAtribuida || '')}" placeholder="${esc(l.consultora || 'Sem consultora')}"></label>
          <datalist id="consultorasConhecidas">${((lista && lista.consultoras) || []).map(c => `<option value="${esc(c)}">`).join('')}</datalist>
-         ${bloco === 'verificar' ? `<label>Classificar como <select name="blocoGestao">${opcoes(['renovacao', 'degustacao', 'excluir'], a.blocoGestao)}</select>
-           <span class="muted pequeno">renovacao · degustacao · excluir — vale a partir da próxima atualização (5h ou "Atualizar agora").</span></label>` : ''}`
+         ${bloco === 'verificar' ? `<label>Classificar como <select name="blocoGestao">${opcoes(['renovacao', 'degustacao', 'excluir'], a.blocoGestao, { renovacao: 'Renovação do mês', degustacao: 'Voucher — Mês Degustação', excluir: 'Tirar da lista' })}</select>
+           <span class="muted pequeno">Vale a partir da próxima atualização (5h ou "Atualizar agora").</span></label>` : ''}`
       : '';
     return `<form class="editor" data-contrato="${esc(l.codigoContrato)}" data-bloco="${esc(bloco)}">
       <h3>${esc(l.nome)}</h3>

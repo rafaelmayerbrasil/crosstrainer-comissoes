@@ -145,4 +145,16 @@ const H = '2026-10-05';
   ok('atalho "Renovações" no menu lateral da gestão e da vendedora');
 }
 
+/* 8. "Classificar como" com texto legível; o valor gravado não muda (homologação de 30/09/2026) */
+{
+  const fg = T.formHtml(LISTA.blocos.verificar[0], null, 'verificar', LISTA, 'gestao', H);
+  assert.ok(fg.includes('<option value="renovacao">Renovação do mês</option>'), 'renovação legível');
+  assert.ok(fg.includes('<option value="degustacao">Voucher — Mês Degustação</option>'), 'degustação legível');
+  assert.ok(fg.includes('<option value="excluir">Tirar da lista</option>'), 'excluir legível');
+  assert.ok(!/>renovacao · degustacao · excluir/.test(fg), 'sem os códigos crus na dica');
+  const marcado = T.formHtml(LISTA.blocos.verificar[0], { blocoGestao: 'excluir' }, 'verificar', LISTA, 'gestao', H);
+  assert.ok(marcado.includes('<option value="excluir" selected>Tirar da lista</option>'), 'a escolha gravada volta marcada');
+  ok('"Classificar como": rótulos legíveis, valores gravados iguais');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);

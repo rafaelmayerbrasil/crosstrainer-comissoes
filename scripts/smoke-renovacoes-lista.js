@@ -206,6 +206,23 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   ok('a classificação da gestão tira do verificar; lista vazia não quebra');
 }
 
+/* 11b. a consultora da Pacto é a VINCULADA AO ALUNO, como nas comissões (30/09/2026) */
+{
+  const vinc = (c, extra) => Object.assign({}, c, extra);
+  const CT = Object.assign({}, CONTRATOS, {
+    101: vinc(CONTRATOS[101], { alunoConsultado: true, consultorAluno: 'ISABELA' }),   // contrato KALI, aluno ISABELA
+    107: vinc(CONTRATOS[107], { alunoConsultado: true, consultorAluno: null }),         // aluno sem vínculo → histórico
+    109: vinc(CONTRATOS[109], { consultor: 'ERICA' }),                                  // aluno ainda não consultado
+  });
+  const L3 = RL.montar({ mes: '2026-10', hoje: '2026-10-05', previsao: PREVISAO, contratos: CT, historico: HIST });
+  const de = c => L3.blocos.renovacoes.find(l => l.codigoContrato === c);
+  assert.strictEqual(de('101').consultora, 'ISABELA', 'o vínculo do aluno vale sobre o contrato');
+  assert.strictEqual(de('101').consultoraOrigem, 'pacto');
+  assert.notStrictEqual(de('107').consultoraOrigem, 'pacto', 'aluno consultado sem vínculo não usa a do contrato');
+  assert.strictEqual(de('109').consultora, 'ERICA', 'sem consulta ao aluno, fica a do contrato');
+  ok('consultora da Pacto = vínculo do aluno quando consultado (a mesma regra das comissões)');
+}
+
 /* 12. situação: a da consultora, ou Sim quando a Pacto já registra */
 {
   assert.strictEqual(RL.statusEfetivo({ renovouSistema: false }, null), 'pendente');

@@ -313,7 +313,10 @@ const RenovacoesLista = {
       if (cls.tipo === 'excluir') { conta(cls.motivo); return; }
       linha.economico = !!cls.economico;
       linha._cls = cls;
-      linha._consultorPacto = c ? c.consultor : null;
+      // A consultora que vale é a VINCULADA AO ALUNO, a mesma das comissões (30/09/2026):
+      // quando o aluno já foi consultado no gateway, vale o vínculo (vazio também é resposta);
+      // senão, a do contrato. Espelha PactoApiLinhas.consultoraDoContrato.
+      linha._consultorPacto = !c ? null : (c.alunoConsultado ? (c.consultorAluno || null) : (c.consultor || null));
       linhas.push(linha);
     });
 
