@@ -206,4 +206,73 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   ok('a classificação da gestão tira do verificar; lista vazia não quebra');
 }
 
+/* 12. situação: a da consultora, ou Sim quando a Pacto já registra */
+{
+  assert.strictEqual(RL.statusEfetivo({ renovouSistema: false }, null), 'pendente');
+  assert.strictEqual(RL.statusEfetivo({ renovouSistema: false }, { renovou: 'negociacao' }), 'negociacao');
+  assert.strictEqual(RL.statusEfetivo({ renovouSistema: true }, { renovou: 'nao' }), 'sim');
+  assert.strictEqual(RL.statusEfetivo({ renovouSistema: false }, { renovou: 'lixo' }), 'pendente');
+  assert.strictEqual(RL.consultoraDaLinha({ consultora: 'KALI' }, { consultoraAtribuida: 'ERICA' }), 'ERICA', 'a atribuição vale na hora, antes da próxima montagem');
+  assert.strictEqual(RL.consultoraDaLinha({ consultora: null }, null), null);
+  ok('situação efetiva e consultora da linha');
+}
+
+/* 13. validações do documento (seção 5) */
+{
+  const H = '2026-10-05';
+  assert.deepStrictEqual(RL.validar({ renovou: 'pendente' }, H), []);
+  assert.deepStrictEqual(RL.validar({ renovou: 'negociacao' }, H), ['Informe a data do 1º contato.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'sim', dataContato: '2026-10-01' }, H), ['Informe o plano fechado.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'nao', dataContato: '2026-10-01' }, H), ['Informe o motivo.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'nao', dataContato: '2026-10-01', motivo: 'Outro' }, H), ['Motivo "Outro" exige observação.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'nao', dataContato: '2026-10-01', motivo: 'Outro', observacoes: 'viajou' }, H), []);
+  assert.deepStrictEqual(RL.validar({ renovou: 'nao', dataContato: '2026-10-01', motivo: 'Inventado' }, H), ['Motivo fora da lista.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'pendente', dataContato: '2026-10-06' }, H), ['A data do 1º contato não pode ser no futuro.']);
+  assert.deepStrictEqual(RL.validar({ renovou: 'sim', dataContato: '2026-10-01', planoFechado: 'ACESSO LIVRE | RECORRENTE' }, H), [], 'renovar para recorrente conta como Sim');
+  assert.deepStrictEqual(RL.validar({ semanas: ['2026-10-01', '', '2026-10-09', ''] }, H), ['A data da semana 3 não pode ser no futuro.']);
+  ok('validações: contato obrigatório fora do Pendente, plano no Sim, motivo no Não, observação no Outro, nada no futuro');
+}
+
+/* 14. alertas (seção 7) */
+{
+  const H = '2026-10-05';
+  const cod = (l, a, b) => RL.alertas(l, a, b, H).map(x => x.codigo);
+  assert.deepStrictEqual(cod({ vencimento: '2026-10-09' }, null, 'renovacoes'), ['vence_sem_contato']);
+  assert.deepStrictEqual(cod({ vencimento: '2026-10-09' }, { renovou: 'negociacao', dataContato: '2026-10-01' }, 'renovacoes'), []);
+  assert.deepStrictEqual(cod({ vencimento: '2026-10-20' }, null, 'renovacoes'), [], 'mais de 7 dias: ainda não');
+  assert.deepStrictEqual(cod({ vencimento: '2026-09-20' }, { renovou: 'pendente' }, 'renovacoes'), ['vencido']);
+  assert.deepStrictEqual(cod({ vencimento: '2026-09-20' }, { renovou: 'nao', dataContato: '2026-09-18', motivo: 'Lesão ou saúde' }, 'renovacoes'), [], 'com desfecho, sem alerta');
+  assert.deepStrictEqual(cod({ inicio: '2026-09-20', vencimento: '2026-10-20' }, { semanas: ['2026-09-25'] }, 'degustacoes'), ['degustacao_sem_acompanhamento']);
+  assert.deepStrictEqual(cod({ inicio: '2026-09-20', vencimento: '2026-10-20' }, { semanas: ['2026-10-01'] }, 'degustacoes'), []);
+  assert.deepStrictEqual(cod({ desde: '2026-09-30' }, null, 'verificar'), ['verificar_parado']);
+  assert.deepStrictEqual(cod({ desde: '2026-10-03' }, null, 'verificar'), []);
+  assert.deepStrictEqual(cod({ vencimento: '2026-10-20', renovouSistema: true }, { renovou: 'nao' }, 'renovacoes'), ['divergencia']);
+  const v = RL.alertas({ vencimento: '2026-10-09' }, null, 'renovacoes', H)[0];
+  assert.strictEqual(v.nivel, 'vermelho'); assert.strictEqual(v.texto, 'Vence em 4 dia(s) e ainda não houve contato');
+  ok('alertas: vence em 7 dias sem contato, vencido há +7 dias, degustação sem acompanhamento, verificar parado, divergência');
+}
+
+/* 15. painel */
+{
+  const acomps = { 105: { renovou: 'sim' }, 109: { renovou: 'nao' }, 107: { renovou: 'negociacao' }, 104: { renovou: 'sim', consultoraAtribuida: 'ERICA' } };
+  const p = RL.painel(LISTA, acomps, '2026-10-05');
+  assert.deepStrictEqual(p.porBloco.renovacoes, { total: 4, sim: 2, nao: 1, negociacao: 1, pendente: 0 }, '101 conta como Sim pela Pacto');
+  assert.deepStrictEqual(p.porBloco.antecipacao, { total: 1, sim: 0, nao: 0, negociacao: 0, pendente: 1 });
+  assert.deepStrictEqual(p.porBloco.degustacoes, { total: 2, sim: 1, nao: 0, negociacao: 0, pendente: 1 });
+  assert.strictEqual(p.totalARenovar, 4);
+  assert.strictEqual(p.taxaRenovacao, 50);
+  assert.strictEqual(p.conversaoDegustacao, 50);
+  assert.deepStrictEqual(p.porConsultora.ERICA, { total: 2, renovados: 1 });
+  assert.deepStrictEqual(p.porConsultora['Sem consultora'], { total: 3, renovados: 0 }, '109, 107 e 201');
+  assert.deepStrictEqual(p.alertas, { vermelho: 0, laranja: 1 }, 'só o 202, parado no verificar desde 30/09');
+  ok('painel: por bloco, taxa de renovação (Sim ÷ Bloco 1), conversão, por consultora, total de alertas');
+}
+
+/* 16. a cópia de functions/ é idêntica à da raiz */
+{
+  assert.strictEqual(fs.readFileSync(path.join(raiz, 'functions', 'renovacoes-lista.js'), 'utf8'),
+    fs.readFileSync(path.join(raiz, 'renovacoes-lista.js'), 'utf8'), 'functions/renovacoes-lista.js divergiu da raiz');
+  ok('functions/renovacoes-lista.js idêntico ao da raiz');
+}
+
 console.log('\n✅ smoke-renovacoes-lista: ' + n);

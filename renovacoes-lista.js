@@ -373,6 +373,105 @@ const RenovacoesLista = {
       consultoras,
     };
   },
+
+  // ─── O que a consultora preenche ───
+
+  /** Sim se ela disse Sim ou se a Pacto já registra; senão, o que ela marcou. */
+  statusEfetivo(linha, acomp) {
+    const s = acomp && acomp.renovou;
+    if (s === 'sim' || (linha && linha.renovouSistema)) return 'sim';
+    return this.STATUS[s] ? s : 'pendente';
+  },
+
+  consultoraDaLinha(linha, acomp) {
+    return (acomp && acomp.consultoraAtribuida) || (linha && linha.consultora) || null;
+  },
+
+  /** Lista de erros (vazia = pode gravar). Mesmas regras do documento, seção 5. */
+  validar(acomp, hoje) {
+    const a = acomp || {};
+    const erros = [];
+    const s = a.renovou || 'pendente';
+    if (!this.STATUS[s]) erros.push('Situação inválida.');
+    if (a.dataContato && this.iso(a.dataContato) > hoje) erros.push('A data do 1º contato não pode ser no futuro.');
+    if (s !== 'pendente' && !a.dataContato) erros.push('Informe a data do 1º contato.');
+    if (s === 'sim' && !String(a.planoFechado || '').trim()) erros.push('Informe o plano fechado.');
+    if (s === 'nao' && !a.motivo) erros.push('Informe o motivo.');
+    if (s === 'nao' && a.motivo && this.MOTIVOS_NAO_RENOVOU.indexOf(a.motivo) < 0) erros.push('Motivo fora da lista.');
+    if (s === 'nao' && a.motivo === 'Outro' && !String(a.observacoes || '').trim()) erros.push('Motivo "Outro" exige observação.');
+    (a.semanas || []).forEach((d, i) => {
+      if (d && this.iso(d) > hoje) erros.push(`A data da semana ${i + 1} não pode ser no futuro.`);
+    });
+    return erros;
+  },
+
+  /** [{nivel: 'vermelho'|'laranja', codigo, texto}] */
+  alertas(linha, acomp, bloco, hoje) {
+    const out = [];
+    const a = acomp || {};
+    if (bloco === 'verificar') {
+      if (this.diasEntre(linha.desde || hoje, hoje) > 3) {
+        out.push({ nivel: 'laranja', codigo: 'verificar_parado', texto: 'No "Verificar manualmente" há mais de 3 dias' });
+      }
+      return out;
+    }
+    const s = this.statusEfetivo(linha, a);
+    const aberto = s === 'pendente' || s === 'negociacao';
+    if (aberto && linha.vencimento) {
+      const faltam = this.diasEntre(hoje, linha.vencimento);
+      if (faltam >= 0 && faltam <= 7 && !a.dataContato) {
+        out.push({ nivel: 'vermelho', codigo: 'vence_sem_contato', texto: `Vence em ${faltam} dia(s) e ainda não houve contato` });
+      }
+      if (faltam < -7) {
+        out.push({ nivel: 'vermelho', codigo: 'vencido', texto: `Venceu há ${-faltam} dias e segue ${this.STATUS[s].toLowerCase()}` });
+      }
+    }
+    if (bloco === 'degustacoes' && aberto && linha.inicio && linha.inicio <= hoje) {
+      const nestaSemana = (a.semanas || []).some(d => {
+        const x = this.iso(d);
+        return x && this.diasEntre(x, hoje) >= 0 && this.diasEntre(x, hoje) <= 6;
+      });
+      if (!nestaSemana) out.push({ nivel: 'laranja', codigo: 'degustacao_sem_acompanhamento', texto: 'Sem acompanhamento registrado nesta semana' });
+    }
+    if (a.renovou === 'nao' && linha.renovouSistema) {
+      out.push({ nivel: 'laranja', codigo: 'divergencia', texto: 'Marcado como "Não", mas a Pacto registra a renovação — conferir' });
+    }
+    return out;
+  },
+
+  /** Números do topo da lista. `acomps`: número do contrato → acompanhamento. */
+  painel(lista, acomps, hoje) {
+    const ac = acomps || {};
+    const blocos = (lista && lista.blocos) || {};
+    const DA_EQUIPE = ['renovacoes', 'antecipacao', 'degustacoes'];
+    const porBloco = {};
+    DA_EQUIPE.forEach(b => {
+      const c = { total: 0, sim: 0, nao: 0, negociacao: 0, pendente: 0 };
+      (blocos[b] || []).forEach(l => { c.total++; c[this.statusEfetivo(l, ac[l.codigoContrato])]++; });
+      porBloco[b] = c;
+    });
+    const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
+    const porConsultora = {};
+    DA_EQUIPE.forEach(b => (blocos[b] || []).forEach(l => {
+      const a = ac[l.codigoContrato];
+      const nome = this.consultoraDaLinha(l, a) || 'Sem consultora';
+      const x = porConsultora[nome] = porConsultora[nome] || { total: 0, renovados: 0 };
+      x.total++;
+      if (this.statusEfetivo(l, a) === 'sim') x.renovados++;
+    }));
+    const alertas = { vermelho: 0, laranja: 0 };
+    Object.keys(blocos).forEach(b => (blocos[b] || []).forEach(l => {
+      this.alertas(l, ac[l.codigoContrato], b, hoje).forEach(x => { alertas[x.nivel]++; });
+    }));
+    return {
+      porBloco,
+      totalARenovar: porBloco.renovacoes.total,
+      taxaRenovacao: pct(porBloco.renovacoes.sim, porBloco.renovacoes.total),
+      conversaoDegustacao: pct(porBloco.degustacoes.sim, porBloco.degustacoes.total),
+      porConsultora,
+      alertas,
+    };
+  },
 };
 
 if (typeof module !== 'undefined') module.exports = RenovacoesLista;
