@@ -219,7 +219,7 @@ function exige(txt, ondeNome, assuntos) {
   exige(admin, 'manual-admin', {
     'o botão existe': 'Atualizar pela Pacto',
     'os dados vão até ontem': 'até ontem',
-    'dia faltando trava': 'não\n      calcula',
+    'dia faltando trava': 'Se faltar algum dia',
     'buscar de novo': 'Buscar de novo agora',
     'a planilha virou plano B': 'plano B',
     'só o primeiro pagamento do contrato': 'primeiro pagamento',
