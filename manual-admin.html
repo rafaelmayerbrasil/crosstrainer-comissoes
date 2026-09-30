@@ -578,6 +578,34 @@
     </ul>
   </div>
 
+  <div class="card" id="renovacoes">
+    <h3>🔁 Lista de renovações: a lista das consultoras, montada sozinha</h3>
+    <p>A página <strong>Renovações</strong> (<code>renovacoes.html</code>) substitui o PDF mensal de renovações. Ela se
+    monta <strong>sozinha toda madrugada às 5h</strong>, a partir da <strong>Previsão de Renovação da Pacto</strong>
+    de cada unidade — ninguém exporta nada. A partir do <strong>dia 25</strong> já aparece também a lista do mês
+    seguinte.</p>
+    <p>Ela tem quatro blocos, na ordem do vencimento:</p>
+    <ul>
+      <li><strong>Renovações do mês</strong> — o número oficial do mês;</li>
+      <li><strong>Antecipação (até dia 15)</strong> — quem vence do dia 1 ao 15 do mês seguinte; a numeração continua;</li>
+      <li><strong>Vouchers — Mês Degustação</strong> — numeração própria, com o acompanhamento semanal;</li>
+      <li><strong>Verificar manualmente</strong> — só a gestão vê: o que o sistema não conseguiu classificar sozinho.</li>
+    </ul>
+    <p><strong>Ficam de fora</strong> (o resumo aparece recolhido, só para a gestão): recorrente, personal externo,
+    crédito de aulas, avulso/pacote/diária, permuta/cortesia/colaborador, teste e agregadores. Contrato que veio do
+    TecnoFit como <strong>"IMPORTAÇÃO"</strong> é classificado pelo <strong>plano original</strong>, lido do histórico
+    de vendas — aparece como <em>IMPORTAÇÃO → plano</em>. Quando o histórico não tem, vai para o "Verificar manualmente".</p>
+    <p><strong>A consultora</strong> clica no aluno e preenche plano alvo, data do 1º contato, se renovou, plano fechado,
+    motivo (lista fixa) e observações. O sistema não deixa gravar sem o que cada situação exige (Sim pede o plano
+    fechado; Não pede o motivo; "Outro" pede observação). O que ela preenche <strong>fica guardado por contrato</strong>:
+    quem estava na antecipação de outubro aparece em novembro com tudo o que já foi feito.</p>
+    <p><strong>A gestão</strong>, além disso, atribui a consultora (o Campeche não tem consultora na Pacto) e
+    classifica o que está em "Verificar manualmente" — vale a partir da próxima atualização. O botão
+    <strong>Atualizar agora</strong> (só admin) refaz a lista na hora.</p>
+    <p>⚠️ <strong>A conferência com a Pacto precisa "bater"</strong>: blocos + excluídos = total da Previsão. Se
+    aparecer "não bate", algum contrato sumiu no caminho — avise.</p>
+  </div>
+
   <div class="card">
     <h3>📅 O quadro "Vendas do mês": o que quer dizer "até"</h3>
     <p>No canto do quadro aparece <strong>"vendas até … · recebimentos até …"</strong>. É o <strong>último dia que
