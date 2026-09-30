@@ -339,6 +339,18 @@ bateu a faixa + falhou 2 ou 3 mínimos           → zera
 - Mínimo individual só decide quem entra no rateio; abaixo dele a pessoa recebe a comissão normal.
 - Estorno não conta (registro de estorno da gestão, sessão 62).
 
+### 5.6 C2 — as respostas do Rodrigo (30/09/2026) e o que muda
+
+| Pergunta | Resposta | O que o sistema faz |
+|---|---|---|
+| Base de vouchers | *"seguir esse aumento lógico… sempre tentando exigir um pouco mais das meninas"* — descarta o % dos ~250 convites | a meta sugerida propõe o mínimo de voucher como **média dos 6 meses fechados + 10%, arredondado para cima** (CP 8,8 → 10; PP 5,5 → 7). O +10% é **proposta, a confirmar com o Rafael**; a gestão revisa todo mês |
+| Pool da conversão na Gold | R$ 30 por conversão continua; os degraus *"podem ser mantidos como sugerido"* | de out/2026: **30% → R$ 150 · 40% → R$ 300 · 50% → R$ 450** (mínimo absoluto 3 / 4 / 5 conversões). Até setembro, 30% e 37,5% como sempre |
+| Contrato que começa > 30 dias depois do pagamento | *"Outubro"* — a comissão em dinheiro é do mês do pagamento | de pagamentos de out/2026 em diante, o item ganha `ativacaoAdiadaPara: 'AAAA-MM'` (mês do início): **dinheiro, P1 e P2 ficam no mês do pagamento; a contagem de ativação** (da unidade e da vendedora, por categoria) **vai para o mês do início**. No mês do início, o recálculo busca nos meses anteriores os itens adiados para ele — automático, sem re-upload (o diferimento antigo quebrou exatamente por depender disso) |
+
+**Onde a contagem mora:** uma função só no motor, `CommissionEngine.contagensDaUnidade(processed, adiadas)`, usada
+pelo `calculate`, pelo recálculo e pela prévia do upload (hoje cada um soma na mão). `buildVendorData` desconta os
+adiados e soma os que chegam, sem dinheiro. O Termômetro recebe os adiados do mês pelo mesmo caminho.
+
 ### 5.5 Como se prova (C1)
 
 - **Setembro e agosto recalculados dão exatamente o valor de hoje** — por teste com os números do banco e na

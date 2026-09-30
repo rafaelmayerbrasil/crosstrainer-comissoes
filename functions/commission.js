@@ -130,6 +130,11 @@ const CommissionEngine = {
     poolVoucherSuperPct: 0.375,
     poolVoucherMinMeta: 3,
     poolVoucherMinSuper: 4,
+    // Degraus da conversão de out/2026 em diante (30% · 40% · 50% → R$ 150 · 300 · 450)
+    poolVoucherSuperPctMinimos: 0.40,
+    poolVoucherGold: 450,
+    poolVoucherGoldPct: 0.50,
+    poolVoucherMinGold: 5,
     naoComissionaveis: ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'],
     campoValor: 'auto',
     badgeFera: 15,
@@ -925,12 +930,20 @@ const CommissionEngine = {
     const allItems = [...prev, ...curr];
     const vouchers = allItems.filter(d => d.isDegustacao && d.dateObj);
 
+    // Regra de out/2026 (spec 2026-09-29 §5.6): na Pacto a degustação e o plano
+    // cheio são contratos com NÚMEROS diferentes, e a conversão costuma vir como
+    // "renovação" — desde a migração nenhuma conversão casava (0 em jul/ago/set,
+    // medido em 30/09/2026). De outubro em diante casa também pelo NOME do cliente
+    // e aceita a renovação de quem fez degustação. Até setembro, como sempre foi.
+    const nova = this.regraNovaDosMinimos(cfg);
+    const chaveV = v => v._idx + '_' + v.codigo + '_' + this._normNome(v.cliente);
+
     // Find conversions in current period
     const contracts = curr.filter(d =>
       d.isContract &&
       ['BIANUAL', 'ANUAL', 'RECORRENTE'].includes(d.periodicidade) &&
       d.dateObj &&
-      (d.category === 'novo' || d.category === 'retorno') &&
+      (d.category === 'novo' || d.category === 'retorno' || (nova && d.category === 'renovacao')) &&
       d.canceladoSemEstorno !== true
     );
 
@@ -943,16 +956,17 @@ const CommissionEngine = {
       // Find matching voucher for same client
       const matchingVoucher = vouchers.find(v => {
         const baseDate = v.dateVoucherEnd || v.dateObj; // Prefer end date, fallback to emission
-        return v.codigo === contract.codigo &&
-          !usedVouchers.has(v._idx + '_' + v.codigo) &&
+        const mesmoCliente = v.codigo === contract.codigo ||
+          (nova && this._normNome(v.cliente) && this._normNome(v.cliente) === this._normNome(contract.cliente));
+        return mesmoCliente &&
+          !usedVouchers.has(chaveV(v)) &&
           contract.dateObj && baseDate &&
           (contract.dateObj - baseDate) / (1000 * 60 * 60 * 24) <= cfg.prazoConversaoDias &&
           (contract.dateObj - v.dateObj) >= 0 // Contract must still be after emission
       });
 
       if (matchingVoucher) {
-        const vKey = matchingVoucher._idx + '_' + matchingVoucher.codigo;
-        usedVouchers.add(vKey);
+        usedVouchers.add(chaveV(matchingVoucher));
         const isNaoCom = naoComList.some(n => contract.vendedor.toUpperCase().includes(n));
         conversions.push({
           cliente: contract.cliente,
@@ -971,8 +985,7 @@ const CommissionEngine = {
     const currentVouchers = curr
       .filter(d => d.isDegustacao && d.dateObj)
       .map(v => {
-        const vKey = v._idx + '_' + v.codigo;
-        const isConverted = usedVouchers.has(vKey);
+        const isConverted = usedVouchers.has(chaveV(v));
         return {
           ...v,
           status: isConverted ? 'CONVERTIDO' : 'PENDENTE'
@@ -985,11 +998,14 @@ const CommissionEngine = {
     const conversoesMes = conversions.filter(c => !c.isNaoCom).length;
 
     let metaVoucher = Math.max(Math.ceil(vouchersAtivos45d * cfg.poolVoucherMetaPct), cfg.poolVoucherMinMeta);
-    let superMetaVoucher = Math.max(Math.ceil(vouchersAtivos45d * cfg.poolVoucherSuperPct), cfg.poolVoucherMinSuper);
+    // Out/2026 em diante (resposta do Rodrigo, 30/09): 30% · 40% · 50% → R$ 150 · 300 · 450
+    let superMetaVoucher = Math.max(Math.ceil(vouchersAtivos45d * (nova ? cfg.poolVoucherSuperPctMinimos : cfg.poolVoucherSuperPct)), cfg.poolVoucherMinSuper);
+    const goldMetaVoucher = nova ? Math.max(Math.ceil(vouchersAtivos45d * cfg.poolVoucherGoldPct), cfg.poolVoucherMinGold) : undefined;
 
     let pool = 0;
     let poolTier = null;
-    if (conversoesMes >= superMetaVoucher) { pool = cfg.poolVoucherSuper; poolTier = 'super'; }
+    if (nova && conversoesMes >= goldMetaVoucher) { pool = cfg.poolVoucherGold; poolTier = 'gold'; }
+    else if (conversoesMes >= superMetaVoucher) { pool = cfg.poolVoucherSuper; poolTier = 'super'; }
     else if (conversoesMes >= metaVoucher) { pool = cfg.poolVoucherMeta; poolTier = 'meta'; }
 
     // Distribute pool proportionally
@@ -1011,6 +1027,7 @@ const CommissionEngine = {
       vouchersAtivos45d,
       conversoesMes,
       metaVoucher, superMetaVoucher,
+      ...(nova ? { goldMetaVoucher } : {}),   // sem undefined: o resultado vai para o Firestore
       pool, poolTier,
       vendorConversions,
       vendorPool,
