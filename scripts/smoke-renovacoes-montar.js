@@ -125,5 +125,19 @@ const NUCLEO = {
     ok('Functions: todo dia às 5h (São Paulo) e botão só do admin, com as credenciais das unidades no cofre');
   }
 
+  /* 6. completar pelo núcleo NÃO apaga a consultora que o gateway trouxe (30/09/2026) */
+  {
+    const db = makeFakeDb();
+    await db.collection('pacto_contratos').doc('CP_100').set({ codigo: '100', unidade: 'CP', nomePlano: 'ANUAL ANTIGO',
+      consultor: 'CONSULTORA CP', lancou: 'CONSULTORA CP', gw: true });
+    const nucleo6 = nucleoFalso({ 11: { situacao: 'ok', dados: [BRUTO(100, 'ANUAL ANTIGO', '01/10/2024', '30/09/2025'), BRUTO(101, 'ANUAL, ACESSO ILIMITADO', '01/10/2025', '20/10/2026')] } });
+    const r6 = await M.completarContratos({ db, clienteNucleo: nucleo6, unidade: 'CP', brutos: [K('101', '11', 'ANA ANUAL')] });
+    const c100 = (await db.collection('pacto_contratos').doc('CP_100').get()).data();
+    assert.strictEqual(c100.consultor, 'CONSULTORA CP', 'o núcleo regravou o contrato e apagou a consultora');
+    assert.strictEqual(c100.gw, true);
+    assert.ok(r6.mapa['101'], 'o contrato que faltava entrou');
+    ok('completar pelo núcleo não apaga a consultora do gateway no caderninho');
+  }
+
   console.log('\n✅ smoke-renovacoes-montar: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

@@ -74,13 +74,14 @@ async function completarContratos({ db, clienteNucleo, unidade, brutos }) {
       if (!bruto || bruto.codigo == null) continue;
       const codigo = String(bruto.codigo);
       let consultor = null, lancou = null;
-      if (unidade !== 'CP') {                         // o CP não tem consultora na Pacto
-        const g = await db.collection(COL_CONSULTORAS).doc(unidade + '_' + codigo).get();
-        if (g.exists) { consultor = g.data().consultor || null; lancou = g.data().lancou || null; }
-      }
+      const g = await db.collection(COL_CONSULTORAS).doc(unidade + '_' + codigo).get();
+      if (g.exists) { consultor = g.data().consultor || null; lancou = g.data().lancou || null; }
       const limpo = L.limparContrato(bruto, unidade, consultor, lancou);
-      await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(limpo);
-      mapa[codigo] = limpo;
+      // merge e sem campos vazios: o núcleo regrava TODOS os contratos do aluno, e
+      // não pode apagar a consultora que a busca diária trouxe do gateway (30/09/2026)
+      const ref = db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo);
+      await ref.set(L.soPreenchidos(limpo), { merge: true });
+      mapa[codigo] = (await ref.get()).data();
     }
   }
   return { mapa, consultas };
