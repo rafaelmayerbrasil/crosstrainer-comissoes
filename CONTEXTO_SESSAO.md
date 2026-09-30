@@ -3,7 +3,36 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 78 (29–30/09/2026, noite, em /loop autônomo) — 🔁 LISTA DE RENOVAÇÕES NO STAGING · 🎯 META SUGERIDA CONSTRUÍDA · branch `renovacoes-metas-bonus`
+## 🔖 ONDE PARAMOS — sessão 78, parte 2 (30/09/2026, tarde) — 🔌 A API DA PACTO VAI VIRAR A FONTE OFICIAL · desenho aprovado, NADA construído
+
+### ▶️▶️ RETOMAR AQUI
+**Decisão do Rafael (30/09):** *"vamos tornar oficial e deixar a planilha como uma opção caso a API quebre e sempre em último caso"*.
+Desenho: **`docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md`**. Ler antes de tocar em qualquer coisa.
+
+**Decisões:**
+1. **Opção A agora:** botão **"Atualizar pela Pacto"** na tela de Upload do `index.html`. Lê `pacto_sombra_dias` do mês e passa pelo **mesmo** código do arquivo (`handleFile` dividido em `processarLinhasPacto`). Trava se algum dia falhou ou não foi buscado.
+2. **Opção B depois** (recálculo sozinho no servidor, 100% automático): desenho próprio, só com a A em produção.
+3. **Parcela renegociada = valor COBRADO (a API).** Decidido pelo Rafael, fecha a pendência de 13/09.
+4. **A planilha vira plano B:** fica recolhida na mesma tela, com o aviso "só se a Pacto falhar".
+
+**O que a sondagem de 30/09 achou (só leitura, credencial por unidade):**
+- **A vendedora do Campeche existe na API:** `GET apigw/contratos/{codigo}` → `nomeConsultorReponsavel` + `responsavelLancamento`. Amostra de set/2026 contra o oficial de produção: **50/50 batem** depois da regra "Rodrigo → quem lançou". Precisa de pausa de 1,2 s: sem ela voltam respostas vazias. A resposta traz CPF: só os dois nomes saem da função.
+- **O balcão existe na API:** `GET apigw/importacao/psec/relFaturamentoRecebido/vendas?inicio=dd/MM&fim=dd/MM` (máx. 7 dias, sem ano). Agosto PP: 350 vendas, 20 produtos. Fecha a diferença de −R$ 226,50 (PP) e −R$ 420,50 (CP) da sombra. Não traz vendedora nem degustação R$ 0.
+- **Degustação grátis:** sem fonte direta. Caminho a validar: varrer os números novos de contrato (são sequenciais) pelo `contratos/{n}`. Gabarito: contrato 4638, PP, agosto.
+- `relFaturamentoRecebido?inicio=09/2026&fim=09/2026` com a credencial da unidade dá só o total (CP R$ 67.563,09 · PP R$ 60.931,15).
+- O relatório nativo "comissão por consultor" (`/comissao-consultor/gerar-relatorio/EXCEL`) também traz a consultora, mas com filtros que não entendi (setembro devolvia pagamentos de agosto). **Não usar.**
+
+**Próximos passos, em ordem:**
+1. Plano de implementação (writing-plans) a partir do desenho.
+2. Construir numa **branch nova a partir de `renovacoes-metas-bonus`**, porque depende das credenciais por unidade que vão junto com ela.
+3. Validar com `scripts/comparar-api-oficial.js` (só leitura, produção): agosto e setembro pela API × gravado, por vendedora e contrato a contrato. Nenhuma diferença pode ficar sem causa.
+4. Homologação do Rafael no staging, depois produção com OK.
+
+⚠️ O `index.html` muda nesta entrega (autorizado pela escolha da opção A). O `commission.js` **não** muda.
+
+---
+
+## 🔖 sessão 78, parte 1 (29–30/09/2026, noite, em /loop autônomo) — 🔁 LISTA DE RENOVAÇÕES NO STAGING · 🎯 META SUGERIDA CONSTRUÍDA · branch `renovacoes-metas-bonus`
 
 ### ▶️▶️ RETOMAR AQUI
 O Rafael foi dormir e pediu para seguir até terminar, testar e validar, retomando sozinho se o limite de uso
