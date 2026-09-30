@@ -18,7 +18,7 @@ Desenho: **`docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md`**. Le
 **O que a sondagem de 30/09 achou (só leitura, credencial por unidade):**
 - **A vendedora do Campeche existe na API:** `GET apigw/contratos/{codigo}` → `nomeConsultorReponsavel` + `responsavelLancamento`. Amostra de set/2026 contra o oficial de produção: **50/50 batem** depois da regra "Rodrigo → quem lançou". Precisa de pausa de 1,2 s: sem ela voltam respostas vazias. A resposta traz CPF: só os dois nomes saem da função.
 - **O balcão existe na API:** `GET apigw/importacao/psec/relFaturamentoRecebido/vendas?inicio=dd/MM&fim=dd/MM` (máx. 7 dias, sem ano). Agosto PP: 350 vendas, 20 produtos. Fecha a diferença de −R$ 226,50 (PP) e −R$ 420,50 (CP) da sombra. Não traz vendedora nem degustação R$ 0.
-- **Degustação grátis:** sem fonte direta. Caminho a validar: varrer os números novos de contrato (são sequenciais) pelo `contratos/{n}`. Gabarito: contrato 4638, PP, agosto.
+- **Degustação grátis: ACHADA pela numeração dos contratos** (sequenciais por unidade, `contratos/{n}`). A varredura de ago+set nas duas unidades achou só o 4638 com valor zero, o mesmo resultado do relatório de vendas. As outras 17 degustações custaram R$ 89. Valor zero sozinho não basta (o 4604 é plano de crédito): usar a regra do `degustacoesGratis`. Há buracos de até 18 números seguidos na numeração.
 - `relFaturamentoRecebido?inicio=09/2026&fim=09/2026` com a credencial da unidade dá só o total (CP R$ 67.563,09 · PP R$ 60.931,15).
 - O relatório nativo "comissão por consultor" (`/comissao-consultor/gerar-relatorio/EXCEL`) também traz a consultora, mas com filtros que não entendi (setembro devolvia pagamentos de agosto). **Não usar.**
 

@@ -25,7 +25,11 @@ Todas as consultas feitas só com leitura, usando a credencial de cada unidade (
 2. **As vendas de balcão existem na API.** `GET apigw/importacao/psec/relFaturamentoRecebido/vendas?inicio=dd/MM&fim=dd/MM` (máx. 7 dias, sem ano) lista cada venda com produto, valor, data e hora, cliente e contrato. PP agosto: 350 vendas, 20 produtos (água, Monster, camiseta, taxa de renegociação…). Era a diferença que sobrava da sombra: −R$ 226,50 no PP e −R$ 420,50 no CP em agosto.
    - Não traz vendedora. A consultora do contrato (quando há) ou vazio.
    - Degustação grátis (R$ 0) **não aparece** nesse relatório.
-3. **A degustação grátis continua sem fonte direta.** Caminho a validar: os contratos são numerados em sequência por unidade, e o `GET apigw/contratos/{codigo}` responde qualquer número. A busca diária olha os números novos desde o maior conhecido e acha o contrato de degustação com valor zero. Gabarito: LUIZ HENRIQUE APPEL, contrato 4638, PP, agosto.
+3. **A degustação grátis se acha pela numeração dos contratos (validado em 30/09).** Os contratos são numerados em sequência por unidade, e `GET apigw/contratos/{codigo}` responde qualquer número: número inexistente volta `200` com `content` vazio. O 4638 vem com plano `MÊS DEGUSTAÇÃO LIVRE.`, `valor: 0`, `tipo: MA`, lançamento em 25/08/2026 e consultora.
+   - **Varredura completa de agosto e setembro nas duas unidades** (PP 4555–4760, CP 7025–7275): **uma única degustação de valor zero, o 4638**. As outras 17 degustações (PP `MÊS DEGUSTAÇÃO LIVRE.`, CP `PLANO VOUCHER DEGUSTAÇÃO`) custaram R$ 89 e já vêm pelo recebido. É o mesmo número do relatório de vendas.
+   - **Valor zero sozinho não basta:** o 4604 (PP, `PLANO DE CRÉDITO 8 A 11 AULAS.`, 04/08) tem valor zero e **não** é degustação. Vale a mesma regra do `PactoAdapter.degustacoesGratis`: plano de degustação **e** valor zero **e** não é teste nem migrado.
+   - **Buracos na numeração:** até 18 números vazios em sequência (PP, setembro), cerca de 1/3 dos números. A parada não pode ser por "N vazios".
+   - Houve 2 respostas com erro numa varredura, e as duas passaram na repetição: repetir uma vez.
 4. `GET apigw/importacao/psec/relFaturamentoRecebido?inicio=MM/yyyy` com a credencial da unidade devolve o **total do mês** (CP set R$ 67.563,09 · PP R$ 60.931,15). Serve de conferência do total, não de linha.
 
 ## 2. As peças
@@ -59,9 +63,10 @@ Todas as consultas feitas só com leitura, usando a credencial de cada unidade (
 
 ### 2.3 Degustação grátis — `functions/pacto-sombra.js`
 
-- Cada unidade guarda o maior número de contrato já visto (`pacto_contratos_seq/{CP|PP}`). A madrugada consulta os números seguintes pelo gateway e para em 5 números vazios em sequência.
-- Contrato com valor zero e plano de degustação vira um item em `degustacoes` no doc do dia, no **mesmo formato** que `PactoAdapter.degustacoesGratis` devolve hoje. O botão entrega isso ao mesmo `PactoAdapter.juntarDegustacoes`.
-- **Se não validar** contra o 4638, a degustação continua pelo relatório de vendas (planilha), e a tela diz isso. Não bloqueia o resto.
+- Cada unidade guarda o último número já varrido (`pacto_contratos_seq/{CP|PP}`). A madrugada consulta do número seguinte **até o maior número de contrato visto nos pagamentos do dia + 30** (folga acima do maior buraco medido, 18). Um contrato pago puxa a janela, e a degustação grátis fica no meio. Na prática são 5 a 10 consultas por dia.
+- Todo contrato achado vai para o caderninho (`pacto_contratos`), com consultora e quem lançou. Isso já adianta a consulta da vendedora (2.1).
+- Plano de degustação com valor zero vira uma linha no formato do export, e o **próprio** `PactoAdapter.degustacoesGratis` decide, com a mesma regra de hoje (não é teste, não é migrado). O resultado vai para `degustacoes` do doc do dia do lançamento. O botão entrega isso ao mesmo `PactoAdapter.juntarDegustacoes`.
+- Carga inicial: agosto e setembro pela função manual. Gabarito: só o 4638 aparece.
 
 ### 2.4 O botão — `index.html` (tela de Upload)
 
