@@ -29,8 +29,24 @@ const COL_CONTRATOS = 'pacto_contratos';
 const COL_CONSULTORAS = 'pacto_consultoras';
 const COL_TERMOMETRO = 'pacto_termometro';
 const COL_TERMOMETRO_EQUIPE = 'pacto_termometro_equipe';
+const COL_SEQ = 'pacto_contratos_seq';
+const COL_DEGUSTACOES = 'pacto_degustacoes';
 const MAX_DIAS = 62;
 const PARA_TUDO = ['credencial_recusada', 'limite'];
+// Varredura dos números de contrato (30/09/2026): o maior buraco medido na
+// numeração foi de 18 números (PP, set/2026). Sem marca, volta ~1 mês.
+const FOLGA_VARREDURA = 30;
+const JANELA_INICIAL = 150;
+
+/** Ano corrente em São Paulo — o relatório de vendas do gateway não aceita ano */
+function anoSaoPaulo() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date());
+}
+
+/** Grava no caderninho sem apagar consultora/quem lançou que já estejam lá */
+async function gravarContrato(db, unidade, codigo, c) {
+  await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(L.soPreenchidos(c), { merge: true });
+}
 
 function somarDias(dia, n) {
   const d = new Date(dia + 'T12:00:00Z');
@@ -101,9 +117,11 @@ async function gravarFalha(db, unidade, dia, situacao, motivo, quando) {
 
 /**
  * Busca um dia de uma unidade e grava.
- * @returns {{situacao, consultas}}
+ * `gw` (opcional): cliente do gateway com a credencial DA UNIDADE — completa a
+ * consultora (o Campeche só tem por ali) e traz o balcão do relatório de vendas.
+ * @returns {{situacao, consultas, maiorContrato}}
  */
-async function buscarDia({ db, cliente, unidade, dia, agora }) {
+async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente }) {
   const chave = PACTO_UNIDADES[unidade];
   if (!chave) throw new Error('buscarDia: unidade desconhecida ' + unidade);
   const quando = agora ? agora() : new Date().toISOString();
@@ -151,7 +169,7 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
         const novo = { ...c, consultor: c.consultor || g.consultor, lancou: c.lancou || g.lancou || null };
         if (novo.consultor !== c.consultor || novo.lancou !== (c.lancou || null)) {
           c = novo;
-          await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(c);
+          await gravarContrato(db, unidade, codigo, c);
         }
       }
       contratos.set(codigo, c);
@@ -175,12 +193,59 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
       const codigo = String(bruto.codigo);
       const g = await doLancamento(codigo);
       const limpo = { ...L.limparContrato(bruto, unidade, g.consultor, g.lancou), atualizadoEm: quando };
-      await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(limpo);
-      contratos.set(codigo, limpo);
+      await gravarContrato(db, unidade, codigo, limpo);
+      // merge: o que o caderninho já sabia (consultora do gateway) continua valendo
+      const antes = (await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).get()).data();
+      contratos.set(codigo, antes || limpo);
+    }
+  }
+
+  // Consultora pelo GATEWAY (30/09/2026): o Campeche nunca teve pelo núcleo, e o
+  // PP tem contratos com consultor 0. Uma pergunta por contrato, uma vez só (`gw`).
+  const avisosGw = [];
+  if (gw) {
+    for (const [codigo, c] of contratos) {
+      if ((c.consultor && c.lancou) || c.gw) continue;
+      const r = await gw.contrato(codigo);
+      if (PARA_TUDO.includes(r.situacao)) {
+        avisosGw.push({ motivo: 'gateway: ' + r.situacao + ' — consultora não completada neste dia', contrato: codigo });
+        break;
+      }
+      if (r.situacao !== 'ok') continue;
+      const novo = { ...c, gw: true };
+      if (r.dados) {
+        novo.consultor = c.consultor || r.dados.consultor || null;
+        novo.lancou = c.lancou || r.dados.lancou || null;
+      }
+      await gravarContrato(db, unidade, codigo, novo);
+      contratos.set(codigo, novo);
     }
   }
 
   const m = L.montar({ resumo, contratos, unidade, dia });
+
+  // Balcão pelo relatório de vendas do gateway: não vem nos pagamentos do núcleo.
+  // A rota não aceita ano — dia de outro ano (dezembro relido em janeiro) fica sem.
+  let balcao = 0;
+  if (gw) {
+    const ano = anoCorrente || anoSaoPaulo();
+    if (dia.slice(0, 4) !== String(ano)) {
+      avisosGw.push({ motivo: 'balcão não buscado: o relatório de vendas da Pacto só aceita o ano corrente' });
+    } else {
+      const v = await gw.vendasDoDia(dia);
+      if (v.situacao !== 'ok') {
+        avisosGw.push({ motivo: 'vendas de balcão: ' + v.situacao + ' ' + (v.motivo || '') });
+      } else {
+        const b = L.linhasDeBalcao({ vendas: v.dados, linhas: m.linhas, unidade });
+        b.linhas.forEach(l => { m.linhas.push(l); balcao += L._valor(l[L.COL.valor]); });
+      }
+    }
+  }
+  balcao = Math.round(balcao * 100) / 100;
+  m.totais.recebido = Math.round((m.totais.recebido + balcao) * 100) / 100;
+  m.totais.balcao = balcao;
+  m.avisos.push(...avisosGw);
+
   const situacao = L.situacaoDoDia({ resumo, avisos: m.avisos });
   await gravarDia(db, unidade, dia, {
     situacao,
@@ -192,7 +257,45 @@ async function buscarDia({ db, cliente, unidade, dia, agora }) {
     contratosConsultados: consultas,
     buscadoEm: quando,
   });
-  return { situacao, consultas };
+  const numeros = [...alunoDoContrato.keys()].map(Number).filter(x => x > 0);
+  return { situacao, consultas, maiorContrato: numeros.length ? Math.max(...numeros) : null };
+}
+
+/**
+ * Consulta pelo gateway os números de contrato desde o último varrido até `ate`
+ * (30/09/2026). Os contratos são numerados em sequência por unidade, então é
+ * assim que aparece o contrato que não tem pagamento — a degustação grátis.
+ * Contrato achado → caderninho (com a consultora). Degustação grátis (a regra
+ * do `PactoAdapter.degustacoesGratis`) → `pacto_degustacoes`.
+ * A marca fica no MAIOR NÚMERO QUE EXISTE: o número ainda livre pode nascer amanhã.
+ */
+async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora }) {
+  const PA = require('./pacto-adapter.js');
+  const quando = agora ? agora() : new Date().toISOString();
+  const ref = db.collection(COL_SEQ).doc(unidade);
+  const s = await ref.get();
+  let ultimo = s.exists ? s.data().ultimo : null;
+  let n = desde != null ? Number(desde) : (ultimo != null ? ultimo + 1 : ate - JANELA_INICIAL);
+  let achados = 0, degustacoes = 0, parouPor = null;
+  for (; n <= ate; n++) {
+    const r = await gw.contrato(n);
+    if (PARA_TUDO.includes(r.situacao)) { parouPor = r.situacao; break; }
+    if (r.situacao !== 'ok' || !r.dados) continue;
+    achados++;
+    ultimo = Math.max(ultimo || 0, n);
+    await gravarContrato(db, unidade, String(n), { ...L.contratoDoGateway(r.dados, unidade), atualizadoEm: quando });
+    if (r.dados.valor !== 0) continue;
+    const lista = Object.values(PA.degustacoesGratis(L.comCabecalho([L.linhaDeDegustacao(r.dados, unidade)]))).flat();
+    if (!lista.length) continue;                     // valor zero que não é degustação (plano de crédito)
+    degustacoes++;
+    const [dd, mm, aa] = r.dados.lancamento.split('/');
+    await db.collection(COL_DEGUSTACOES).doc(unidade + '_' + n).set({
+      unidade, contrato: String(n), mes: aa + '-' + mm, dia: aa + '-' + mm + '-' + dd,
+      degustacao: lista[0], atualizadoEm: quando,
+    });
+  }
+  if (ultimo != null) await ref.set({ ultimo, atualizadoEm: quando }, { merge: true });
+  return { achados, degustacoes, ultimo, parouPor };
 }
 
 /**
@@ -265,17 +368,31 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
   return feitos;
 }
 
-/** Percorre dias × unidades; para tudo na primeira credencial recusada ou limite. */
-async function buscar({ db, cliente, unidades = ['CP', 'PP'], dias, agora }) {
+/**
+ * Percorre dias × unidades; para tudo na primeira credencial recusada ou limite.
+ * Com `clientesGw` ({CP, PP}), cada unidade usa o seu gateway e, no fim, varre os
+ * números de contrato até o maior pago + FOLGA_VARREDURA (a degustação grátis).
+ */
+async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, agora, varrerDesde, anoCorrente }) {
   const resultados = [];
+  const maior = {};
   for (const dia of dias) {
     for (const unidade of unidades) {
-      const r = await buscarDia({ db, cliente, unidade, dia, agora });
+      const gw = clientesGw && clientesGw[unidade];
+      const r = await buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente });
       resultados.push({ unidade, dia, situacao: r.situacao });
+      if (r.maiorContrato) maior[unidade] = Math.max(maior[unidade] || 0, r.maiorContrato);
       if (PARA_TUDO.includes(r.situacao)) return { resultados, parouPor: r.situacao };
     }
   }
-  return { resultados };
+  const varredura = {};
+  for (const unidade of unidades) {
+    const gw = clientesGw && clientesGw[unidade];
+    if (!gw || !maior[unidade]) continue;
+    const desde = varrerDesde && varrerDesde[unidade] != null ? varrerDesde[unidade] : undefined;
+    varredura[unidade] = await varrerContratosNovos({ db, gw, unidade, ate: maior[unidade] + FOLGA_VARREDURA, desde, agora });
+  }
+  return { resultados, varredura };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, MAX_DIAS, diasParaBuscar, diasDaRotina, buscarDia, buscar, somarDias, atualizarTermometro };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };

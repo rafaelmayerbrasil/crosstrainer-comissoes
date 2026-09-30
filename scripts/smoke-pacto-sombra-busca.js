@@ -319,5 +319,137 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('a busca das 4h usa a rotina do mês');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/19');
+  /* ─── gateway por unidade (30/09/2026) ─── */
+  const { criarClienteGateway } = require(fn('pacto-gateway-cliente.js'));
+  const GW_CRED = 'cred-gw-falsa';
+  const gwContrato = (codigo, extra) => ({ body: { content: { codigo, tipo: 'MA', situacao: 'AT',
+    descricaoPlano: 'HIIT/MAROMBINHA | ANUAL | LOCAL', valor: 2388, dataLancamento: Date.UTC(2026, 8, 10, 12),
+    vigenciaDe: Date.UTC(2026, 8, 10, 3), vigenciaAte: Date.UTC(2027, 8, 9, 3),
+    nomeConsultorReponsavel: 'CONSULTORA CP', responsavelLancamento: 'CONSULTORA CP',
+    pessoaDTO: { codigo: 501, nome: 'CLIENTE FICTICIO 501', cpf: '999.888.777-66' },
+    consultorResponsavel: { pessoa: { cpf: '111.222.333-44' } }, ...(extra || {}) } } });
+  {
+    // CP: o núcleo não tem consultora; o gateway tem. E o balcão que o núcleo não traz.
+    const db = makeFakeDb();
+    const p = pactoFalsa([
+      [/resumoPeriodo/, { body: resumoCom([pagamento(1, 501, 7001, 239)]) }],
+      [/consultarContratos\?cliente=501/, { body: { return: [contratoBruto(7001), contratoBruto(7002)] } }],
+      [/apigw\.pactosolucoes\.com\.br\/contratos\/7001$/, gwContrato(7001)],
+      [/apigw\.pactosolucoes\.com\.br\/contratos\/7002$/, gwContrato(7002, { nomeConsultorReponsavel: 'CONSULTORA CP DOIS' })],
+      [/vendas\?inicio=10\/09&fim=10\/09$/, { body: { status: 'sucesso', produtos: [
+        { produto: 'ÁGUA SEM GÁS', listaVendas: [{ dataHoraVenda: '10/09/2026 09:00', valor: 5, nome: 'PASSANTE X', codigoContrato: 0 }] },
+        { produto: 'PLANO', listaVendas: [{ dataHoraVenda: '10/09/2026 08:00', valor: 239, nome: 'CLIENTE FICTICIO 501', codigoContrato: 7001 }] }] } }],
+    ]);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const r = await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-09-10', agora: () => 'AGORA', anoCorrente: '2026' });
+    assert.strictEqual(r.situacao, 'buscado');
+    assert.strictEqual(r.maiorContrato, 7001);
+    const doc = (await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
+    const linhas = JSON.parse(doc.linhas);
+    const c7001 = linhas.find(l => l[7] === '7001');
+    assert.strictEqual(c7001[21], 'CONSULTORA CP', 'a linha do CP sai com a consultora do gateway');
+    assert.strictEqual(c7001[4], 'CONSULTORA CP', 'e Responsável 1 = quem lançou o contrato');
+    const agua = linhas.find(l => l[6] === 'ÁGUA SEM GÁS');
+    assert.ok(agua && agua[7] === '0' && agua[15] === '5,00', 'o balcão entra como avulsa');
+    assert.strictEqual(doc.totais.recebido, 244, 'o balcão soma no recebido');
+    assert.strictEqual(doc.totais.balcao, 5);
+    const cad = (await db.collection('pacto_contratos').doc('CP_7001').get()).data();
+    assert.strictEqual(cad.consultor, 'CONSULTORA CP'); assert.strictEqual(cad.gw, true);
+    assert.strictEqual(cad.nomePlano, 'HIIT/MAROMBINHA | ANUAL | LOCAL', 'o plano do núcleo continua');
+    ok('CP: consultora pelo gateway na linha e no caderninho; balcão do relatório de vendas entra e soma');
+
+    // segunda busca do mesmo dia: o gateway não é perguntado de novo pelo 7001
+    const antes = p.chamadas.filter(x => /apigw.*\/contratos\/7001$/.test(x.url)).length;
+    await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-09-10', agora: () => 'AGORA', anoCorrente: '2026' });
+    assert.strictEqual(p.chamadas.filter(x => /apigw.*\/contratos\/7001$/.test(x.url)).length, antes);
+    // o núcleo regravando o aluno (contrato novo dele) não apaga a consultora do gateway
+    await db.collection('pacto_contratos').doc('CP_7002').delete();
+    await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-09-10', agora: () => 'AGORA', anoCorrente: '2026' });
+    assert.strictEqual((await db.collection('pacto_contratos').doc('CP_7001').get()).data().consultor, 'CONSULTORA CP');
+    const tudo = JSON.stringify((await db.collection('pacto_contratos').get()).docs.map(d => d.data())) +
+      JSON.stringify((await db.collection('pacto_sombra_dias').get()).docs.map(d => d.data()));
+    assert.ok(!/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(tudo), 'CPF gravado');
+    ok('gateway não é perguntado de novo; o núcleo regravando não apaga a consultora; nenhum CPF');
+  }
+  {
+    // gateway no limite: o dia é gravado mesmo assim, com aviso; ano de outro ano: sem balcão
+    const db = makeFakeDb();
+    const p = pactoFalsa([
+      [/resumoPeriodo/, { body: resumoCom([pagamento(1, 501, 7001, 239)]) }],
+      [/consultarContratos\?cliente=501/, { body: { return: [contratoBruto(7001)] } }],
+      [/apigw.*\/contratos\//, { status: 429, body: {} }],
+      [/vendas/, { body: { status: 'sucesso', produtos: [] } }],
+    ]);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const r = await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-12-10', agora: () => 'AGORA', anoCorrente: '2027' });
+    assert.strictEqual(r.situacao, 'buscado');
+    const doc = (await db.collection('pacto_sombra_dias').doc('CP_2026-12-10').get()).data();
+    assert.ok(doc.avisos.some(a => /gateway: limite/.test(a.motivo)));
+    assert.ok(doc.avisos.some(a => /balcão não buscado/.test(a.motivo)), 'dezembro relido em janeiro: sem balcão, com aviso');
+    assert.strictEqual(p.chamadas.filter(x => /vendas/.test(x.url)).length, 0);
+    ok('gateway no limite não derruba o dia (aviso); dia de outro ano não pede o balcão');
+  }
+  {
+    // varredura dos números novos: acha a degustação grátis e só ela
+    const db = makeFakeDb();
+    const deg = (codigo, plano, valor, extra) => gwContrato(codigo, { descricaoPlano: plano, valor, dataLancamento: Date.UTC(2026, 7, 25, 20), ...(extra || {}) });
+    const rotas = [
+      [/contratos\/4636$/, deg(4636, 'ECONÔMICO | ANUAL | FLEX', 2388)],
+      [/contratos\/4637$/, { body: { content: {} } }],
+      [/contratos\/4638$/, deg(4638, 'MÊS DEGUSTAÇÃO LIVRE.', 0)],
+      [/contratos\/4639$/, deg(4639, 'PLANO DE CRÉDITO 8 A 11 AULAS.', 0)],
+      [/contratos\/4640$/, deg(4640, 'PERSONAL EXTERNO RECORRENTE', 299)],
+      [/contratos\/\d+$/, { body: { content: {} } }],
+    ];
+    const p = pactoFalsa(rotas);
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const r = await S.varrerContratosNovos({ db, gw, unidade: 'PP', desde: 4636, ate: 4645, agora: () => 'AGORA' });
+    assert.deepStrictEqual({ achados: r.achados, degustacoes: r.degustacoes, ultimo: r.ultimo }, { achados: 4, degustacoes: 1, ultimo: 4640 });
+    const degs = (await db.collection('pacto_degustacoes').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+    assert.deepStrictEqual(degs.map(d => d.id), ['PP_4638'], 'só a degustação de valor zero; plano de crédito não');
+    assert.strictEqual(degs[0].mes, '2026-08');
+    assert.strictEqual(degs[0].degustacao.codigo, 'C4638');
+    assert.strictEqual(degs[0].degustacao.vendedor, 'CONSULTORA CP');
+    assert.strictEqual((await db.collection('pacto_contratos_seq').doc('PP').get()).data().ultimo, 4640, 'a marca fica no maior que EXISTE');
+    assert.strictEqual((await db.collection('pacto_contratos').doc('PP_4640').get()).data().consultor, 'CONSULTORA CP');
+    assert.ok(!/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(JSON.stringify(degs)), 'CPF na degustação');
+    // a próxima varredura começa depois da marca
+    const antes = p.chamadas.length;
+    await S.varrerContratosNovos({ db, gw, unidade: 'PP', ate: 4642, agora: () => 'AGORA' });
+    assert.deepStrictEqual(p.chamadas.slice(antes).map(x => x.url.split('/').pop()), ['4641', '4642']);
+    ok('varredura: só a degustação de valor zero vira registro; a marca fica no maior contrato que existe');
+  }
+  {
+    // limite no meio da varredura para e não perde o que já achou
+    const db = makeFakeDb();
+    const p = pactoFalsa([
+      [/contratos\/100$/, gwContrato(100)],
+      [/contratos\/101$/, { status: 429, body: {} }],
+    ]);
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const r = await S.varrerContratosNovos({ db, gw, unidade: 'CP', desde: 100, ate: 110, agora: () => 'AGORA' });
+    assert.strictEqual(r.parouPor, 'limite');
+    assert.strictEqual((await db.collection('pacto_contratos_seq').doc('CP').get()).data().ultimo, 100);
+    // buscar(): passa o gateway da unidade e varre até o maior contrato pago + 30
+    const db2 = makeFakeDb();
+    const p2 = pactoFalsa([
+      [/resumoPeriodo/, { body: resumoCom([pagamento(1, 501, 7001, 239)]) }],
+      [/consultarContratos\?cliente=501/, { body: { return: [contratoBruto(7001)] } }],
+      [/apigw.*\/contratos\/7001$/, gwContrato(7001)],
+      [/apigw.*\/contratos\/\d+$/, { body: { content: {} } }],
+      [/vendas/, { body: { status: 'sucesso', produtos: [] } }],
+    ]);
+    const c2 = criarCliente({ fetch: p2.fetch, credencial: CRED, ...semPausa });
+    const gw2 = criarClienteGateway({ fetch: p2.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const b = await S.buscar({ db: db2, cliente: c2, clientesGw: { CP: gw2 }, unidades: ['CP'], dias: ['2026-09-10'],
+      varrerDesde: { CP: 7000 }, agora: () => 'AGORA', anoCorrente: '2026' });
+    assert.strictEqual(b.varredura.CP.ultimo, 7001);
+    const urls = p2.chamadas.map(x => x.url).filter(u => /apigw.*\/contratos\/\d+$/.test(u)).map(u => Number(u.split('/').pop()));
+    assert.strictEqual(Math.max(...urls), 7031, 'varre até o maior contrato pago + 30');
+    ok('limite na varredura para e guarda a marca; buscar() varre até o maior contrato pago + 30');
+  }
+
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/24');
 })().catch(e => { console.error(e); process.exit(1); });
