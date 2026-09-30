@@ -388,6 +388,46 @@ const PactoApiLinhas = {
   },
 
   /**
+   * Para o caminho que PAGA (o botão "Atualizar pela Pacto"): de cada contrato,
+   * só as linhas do dia do PRIMEIRO pagamento no mês, somadas numa (as formas
+   * juntas — PIX + débito é uma venda). Parcela de outro dia do mesmo mês fica
+   * de fora e volta em `depois`, para a prévia mostrar.
+   *
+   * Por quê (sessão 79, 30/09/2026): o regime de caixa paga UMA vez por contrato,
+   * sobre o primeiro pagamento. `consolidarPorContrato` soma o mês inteiro — a
+   * Margarida (PP 4552, anual em 12× no cartão: 02/09 e 28/09) daria R$ 658 em
+   * vez de R$ 329. O termômetro, que só conta ativação, segue com a soma do mês.
+   * @returns {{linhas: Array, depois: Array<{contrato, dia, valor}>}}
+   */
+  primeiroPagamentoPorContrato(linhas) {
+    const C = this.COL;
+    const iso = d => { const m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + m[2] + m[1] : ''; };
+    const primeiroDia = new Map();
+    (linhas || []).forEach(l => {
+      const c = String(l[C.contrato] || '');
+      if (!c || c === '0') return;
+      const d = iso(l[C.lancamento]);
+      if (d && (!primeiroDia.has(c) || d < primeiroDia.get(c))) primeiroDia.set(c, d);
+    });
+    const saida = [], depois = [];
+    const porContrato = new Map();
+    (linhas || []).forEach(l => {
+      const c = String(l[C.contrato] || '');
+      if (!c || c === '0') { saida.push(l); return; }
+      if (iso(l[C.lancamento]) !== primeiroDia.get(c)) {
+        depois.push({ contrato: c, dia: l[C.lancamento], valor: this._valor(l[C.valor]) });
+        return;
+      }
+      const atual = porContrato.get(c);
+      if (!atual) { const copia = l.slice(); porContrato.set(c, copia); saida.push(copia); return; }
+      atual[C.valor] = this.valorBR(this._valor(atual[C.valor]) + this._valor(l[C.valor]));
+      const formas = new Set(String(atual[C.forma] || '').split(' + ').concat(String(l[C.forma] || '').split(' + ')).filter(Boolean));
+      atual[C.forma] = [...formas].join(' + ');
+    });
+    return { linhas: saida, depois };
+  },
+
+  /**
    * Situação de um dia buscado. Dia que falhou NUNCA passa por dia sem venda:
    * a Pacto já respondeu "sucesso" com tudo zerado quando algo estava errado.
    */

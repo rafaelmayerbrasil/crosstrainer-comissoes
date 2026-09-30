@@ -57,7 +57,8 @@ const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, 
   assert.deepStrictEqual(r.json[0], L.CABECALHO);
   const contratos = r.json.slice(1).map(l => l[L.COL.contrato]);
   assert.deepStrictEqual(contratos, ['4001', '0']);
-  assert.strictEqual(r.json[1][L.COL.valor], '150,00');
+  assert.strictEqual(r.json[1][L.COL.valor], '100,00', 'só o primeiro pagamento do contrato (sessão 79)');
+  assert.deepStrictEqual(r.parcelasDepois, [{ contrato: '4001', dia: '03/09/2026', valor: 50 }], 'a parcela de outro dia fica listada');
   assert.strictEqual(r.dadosAte, '2026-09-03');
   assert.strictEqual(r.buscadoEm, '2026-09-04T07:01:00Z', 'a busca mais antiga do mês');
   assert.strictEqual(r.avisos[0].dia, '2026-09-03');
@@ -65,7 +66,7 @@ const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, 
   const t = PA.traduzir(r.json, {});
   assert.strictEqual(t.relatorio, 'recebido');
   assert.strictEqual(t.mes, '2026-09');
-  ok('mês montado por contrato, com cabeçalho do export; o tradutor lê como relatório de recebidos');
+  ok('mês montado por contrato (só o 1º pagamento), com cabeçalho do export; o tradutor lê como recebidos');
 }
 {
   // mês passado inteiro: vai até o último dia dele, não entra dia do mês seguinte

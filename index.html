@@ -4563,6 +4563,7 @@
         const partes = [`✅ Dados da Pacto até <strong>${UploadPelaApi.diaCurto(m.dadosAte)}</strong>`];
         if (quando && !isNaN(quando)) partes.push(`buscados em ${quando.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`);
         if (m.degustacoes.length) partes.push(`🎁 ${m.degustacoes.length} degustação(ões) grátis`);
+        if (m.parcelasDepois.length) partes.push(`${m.parcelasDepois.length} parcela(s) de contrato que já tinha pago antes no mês ficaram de fora (a comissão é sobre o primeiro pagamento)`);
         status.innerHTML = partes.join(' · ') + '. Confira a prévia abaixo e confirme.' +
           (m.vazios.length ? `<div style="color:var(--yellow);margin-top:6px">A Pacto respondeu sem nenhum pagamento em ${m.vazios.map(d => UploadPelaApi.diaCurto(d)).join(', ')} — confira se o dia foi mesmo sem venda.</div>` : '');
       } catch (e) {

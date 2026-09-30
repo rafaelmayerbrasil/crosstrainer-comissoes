@@ -53,7 +53,7 @@ const UploadPelaApi = {
    * @param {string} a.mes          'AAAA-MM'
    * @param {string} a.hoje         'AAAA-MM-DD' em São Paulo
    * @param {Object} a.ApiLinhas    PactoApiLinhas (cabeçalho e consolidação por contrato)
-   * @returns {{trava, diasProblema, vazios, json, degustacoes, dadosAte, buscadoEm, avisos}}
+   * @returns {{trava, diasProblema, vazios, json, parcelasDepois, degustacoes, dadosAte, buscadoEm, avisos}}
    */
   montar({ docs, degustacoes, mes, hoje, ApiLinhas }) {
     if (!ApiLinhas) throw new Error('UploadPelaApi.montar: ApiLinhas é obrigatório');
@@ -78,14 +78,18 @@ const UploadPelaApi = {
     const linhas = doMes.slice().sort((a, b) => a.dia.localeCompare(b.dia))
       .flatMap(d => (d.linhas ? JSON.parse(d.linhas) : []));
     const avisos = doMes.flatMap(d => (d.avisos || []).map(a => Object.assign({ dia: d.dia }, a)));
+    // Uma linha por CONTRATO, só com o dia do PRIMEIRO pagamento (as formas desse
+    // dia somadas): o regime de caixa paga uma vez, sobre o primeiro pagamento.
+    // Na API cada parcela é uma linha — sem isto o PP contava 60 ativações contra
+    // 46 (13/09/2026), e somar o mês pagaria o anual em 12× sobre o dobro (sessão 79).
+    const p = ApiLinhas.primeiroPagamentoPorContrato(linhas);
 
     return {
       trava: diasProblema.length > 0,
       diasProblema,
       vazios,
-      // Contar por CONTRATO, como o export: na API cada parcela é uma linha, e o
-      // PP contava 60 ativações contra 46 antes disto (13/09/2026)
-      json: ApiLinhas.comCabecalho(ApiLinhas.consolidarPorContrato(linhas)),
+      json: ApiLinhas.comCabecalho(p.linhas),
+      parcelasDepois: p.depois,
       degustacoes: (degustacoes || []).filter(d => d && d.mes === mes && d.degustacao).map(d => d.degustacao),
       dadosAte: ate,
       buscadoEm,

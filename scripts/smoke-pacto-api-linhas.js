@@ -373,4 +373,31 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   ok('balcão: entra o que falta, cada linha existente casa uma venda, plano/matrícula/quitação/zero ficam de fora');
 }
 
-console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/18');
+/* 19. o caminho que PAGA soma só o dia do primeiro pagamento (sessão 79, 30/09/2026) */
+{
+  const linhaC = (contrato, dia, valor, forma) => {
+    const l = new Array(L.TAMANHO_LINHA).fill('');
+    l[L.COL.contrato] = contrato; l[L.COL.nome] = 'CLIENTE ' + contrato; l[L.COL.lancamento] = dia;
+    l[L.COL.valor] = valor; l[L.COL.forma] = forma || 'CARTÃO RECORRENTE'; l[L.COL.plano] = 'ANUAL';
+    return l;
+  };
+  const linhas = [
+    linhaC('4552', '02/09/2026', '329,00'), linhaC('4552', '28/09/2026', '329,00'),   // Margarida: 12× no cartão
+    linhaC('4731', '10/09/2026', '200,00', 'PIX'), linhaC('4731', '10/09/2026', '99,00', 'CARTÃO DE DÉBITO'),  // Julia: duas formas
+    linhaC('0', '10/09/2026', '5,00', 'PIX'), linhaC('0', '10/09/2026', '5,00', 'PIX'),   // avulsas ficam como estão
+  ];
+  const r = L.primeiroPagamentoPorContrato(linhas);
+  const porContrato = c => r.linhas.filter(l => l[L.COL.contrato] === c);
+  assert.strictEqual(porContrato('4552').length, 1);
+  assert.strictEqual(porContrato('4552')[0][L.COL.valor], '329,00', 'Margarida: só a 1ª parcela (a regra paga o primeiro pagamento)');
+  assert.strictEqual(porContrato('4552')[0][L.COL.lancamento], '02/09/2026');
+  assert.strictEqual(porContrato('4731')[0][L.COL.valor], '299,00', 'Julia: as duas formas do mesmo dia somam');
+  assert.strictEqual(porContrato('4731')[0][L.COL.forma], 'PIX + CARTÃO DE DÉBITO');
+  assert.strictEqual(porContrato('0').length, 2, 'avulsas não são juntadas');
+  assert.deepStrictEqual(r.depois.map(d => d.contrato + ' ' + d.dia + ' ' + d.valor), ['4552 28/09/2026 329']);
+  // e a de antes (termômetro, que só conta ativação) continua somando o mês
+  assert.strictEqual(L.consolidarPorContrato(linhas).find(l => l[L.COL.contrato] === '4552')[L.COL.valor], '658,00');
+  ok('pagamento: só o dia do 1º pagamento do contrato (formas somadas); parcela de outro dia fica de fora, listada');
+}
+
+console.log('\n✅ smoke-pacto-api-linhas: ' + n + '/19');
