@@ -21,6 +21,16 @@ function trecho(ini, fim) {
   return html.slice(a, b);
 }
 
+/* 0. o arquivo inteiro, uma vez só. Em 30/09/2026 um `String.replace` cujo texto de
+      troca tinha "R$'" colou o resto do arquivo no meio ($' = "o que vem depois"):
+      21.835 linhas, tudo duplicado, e os outros testes passaram porque achavam os trechos. */
+{
+  assert.strictEqual((html.match(/<\/html>/g) || []).length, 1, 'um só </html>');
+  assert.strictEqual((html.match(/async function recalculatePeriod\(/g) || []).length, 1, 'uma só recalculatePeriod');
+  assert.strictEqual((html.match(/async function loadPeriod\(/g) || []).length, 1, 'uma só loadPeriod');
+  ok('index.html inteiro e uma vez só (sem trecho duplicado)');
+}
+
 /* 1. nenhuma configuração com metas do mês montada à mão */
 {
   const soltas = html.split(/\r?\n/).filter(l => /\.\.\.CommissionEngine\.defaultConfig/.test(l) && /metasMensais/.test(l));
