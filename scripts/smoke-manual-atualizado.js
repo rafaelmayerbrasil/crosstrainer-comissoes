@@ -215,6 +215,19 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: termômetro, o "até" do quadro e de quem é cada venda');
 }
 {
+  // 30/09/2026: a API da Pacto virou a fonte oficial; a planilha, plano B.
+  exige(admin, 'manual-admin', {
+    'o botão existe': 'Atualizar pela Pacto',
+    'os dados vão até ontem': 'até ontem',
+    'dia faltando trava': 'não\n      calcula',
+    'buscar de novo': 'Buscar de novo agora',
+    'a planilha virou plano B': 'plano B',
+    'só o primeiro pagamento do contrato': 'primeiro pagamento',
+    'a vendedora é a consultora do aluno': 'consultora vinculada ao aluno',
+  });
+  ok('admin: "Atualizar pela Pacto", a trava dos dias e a planilha como plano B');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
