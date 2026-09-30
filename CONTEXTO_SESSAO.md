@@ -22,8 +22,10 @@ Desenho: **`docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md`**. Le
 - `relFaturamentoRecebido?inicio=09/2026&fim=09/2026` com a credencial da unidade dá só o total (CP R$ 67.563,09 · PP R$ 60.931,15).
 - O relatório nativo "comissão por consultor" (`/comissao-consultor/gerar-relatorio/EXCEL`) também traz a consultora, mas com filtros que não entendi (setembro devolvia pagamentos de agosto). **Não usar.**
 
+**🔨 PROGRESSO (30/09, noite):** plano em `docs/superpowers/plans/2026-09-30-api-pacto-oficial.md`, branch **`api-pacto-oficial`** (a partir de `renovacoes-metas-bonus`). **Tarefas 0–10 FEITAS e commitadas** (`c0cfdf9..ac4ee47`): cliente do gateway, conversor (CP com consultora, degustação, balcão), busca diária com o gateway e a varredura, merge no caderninho (sombra e renovações), secrets nas Functions, regra `pacto_degustacoes` (**publicada no staging**, 27/27), comparação por vendedora no CP, `handleFile` → `processarPlanilha`, botão "Atualizar pela Pacto" + planilha recolhida. **Faltam:** Tarefa 11 (`scripts/comparar-api-oficial.js`, ago/set × produção) e Tarefa 12 (deploy das Functions e do hosting no staging, carga ago/set com `varrerDesde {PP:4555, CP:7025}`, manual, homologação do Rafael).
+
 **Próximos passos, em ordem:**
-1. Plano de implementação (writing-plans) a partir do desenho.
+1. ~~Plano de implementação~~ feito.
 2. Construir numa **branch nova a partir de `renovacoes-metas-bonus`**, porque depende das credenciais por unidade que vão junto com ela.
 3. Validar com `scripts/comparar-api-oficial.js` (só leitura, produção): agosto e setembro pela API × gravado, por vendedora e contrato a contrato. Nenhuma diferença pode ficar sem causa.
 4. Homologação do Rafael no staging, depois produção com OK.
