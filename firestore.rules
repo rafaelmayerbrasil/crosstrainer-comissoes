@@ -251,6 +251,13 @@ service cloud.firestore {
       allow read:  if isAuth() && isAdmin();
       allow write: if false;
     }
+    // Degustação grátis achada pela numeração dos contratos (30/09/2026). Traz o
+    // nome do cliente: só admin lê (o botão "Atualizar pela Pacto"), só a Function
+    // grava. `pacto_contratos_seq` não tem regra de propósito: fica fechada.
+    match /pacto_degustacoes/{id} {
+      allow read:  if isAuth() && isAdmin();
+      allow write: if false;
+    }
     // Termômetro do mês (22/09/2026): SÓ totais da unidade, sem nome de cliente
     // nem de vendedora — por isso a supervisão também lê. Quem grava é a Cloud
     // Function. `pacto_consultoras` não tem regra de propósito: fica fechada

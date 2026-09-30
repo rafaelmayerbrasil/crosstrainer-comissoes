@@ -16,7 +16,8 @@
 //  • sem login, nada;
 //  • termômetro (só totais): admin e SUPERVISÃO leem; professor e vendedora não;
 //  • cópia da equipe (sem o dinheiro): gestão e VENDEDORA leem; professor não;
-//  • pacto_consultoras não tem regra: ninguém lê pelo navegador, nem admin.
+//  • pacto_consultoras não tem regra: ninguém lê pelo navegador, nem admin;
+//  • pacto_degustacoes (30/09/2026): só admin lê; ninguém grava; pacto_contratos_seq fechada.
 
 const fs = require('fs');
 const path = require('path');
@@ -79,6 +80,9 @@ async function usuarioComPerfil(perfil, semPerfil) {
   await db.collection('pacto_termometro').doc(TERMO).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
   await db.collection('pacto_termometro_equipe').doc(TERMO).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
   await db.collection('pacto_consultoras').doc(CONSULTORA).set({ _fixture: true, codigo: '1' });
+  const DEGUST = 'zzfix_1', SEQ = 'zzfix';
+  await db.collection('pacto_degustacoes').doc(DEGUST).set({ _fixture: true, unidade: 'zz', mes: '2026-08' });
+  await db.collection('pacto_contratos_seq').doc(SEQ).set({ _fixture: true, ultimo: 1 });
   try {
     const uidAdmin = await usuarioComPerfil('admin');
     const uidProf = await usuarioComPerfil('professor', ['admin', 'supervisao']);
@@ -113,6 +117,12 @@ async function usuarioComPerfil(perfil, semPerfil) {
     expect('admin NÃO grava pacto_termometro pelo navegador', await gravar(tkAdmin, `pacto_termometro/${TERMO}`), 'NEGADO');
     expect('supervisão NÃO grava pacto_termometro', await gravar(tkSup, `pacto_termometro/${TERMO}`), 'NEGADO');
     expect('admin NÃO lê pacto_consultoras pelo navegador', await ler(tkAdmin, `pacto_consultoras/${CONSULTORA}`), 'NEGADO');
+    // Degustação grátis achada pela numeração (30/09/2026): tem nome de cliente
+    expect('admin lê pacto_degustacoes', await ler(tkAdmin, `pacto_degustacoes/${DEGUST}`), 'OK');
+    expect('supervisão NÃO lê pacto_degustacoes', await ler(tkSup, `pacto_degustacoes/${DEGUST}`), 'NEGADO');
+    expect('vendedora NÃO lê pacto_degustacoes', await ler(tkVend, `pacto_degustacoes/${DEGUST}`), 'NEGADO');
+    expect('admin NÃO grava pacto_degustacoes pelo navegador', await gravar(tkAdmin, `pacto_degustacoes/${DEGUST}`), 'NEGADO');
+    expect('admin NÃO lê pacto_contratos_seq (só a Function usa)', await ler(tkAdmin, `pacto_contratos_seq/${SEQ}`), 'NEGADO');
     const intacto = (await db.collection('pacto_sombra_dias').doc(DIA).get()).data();
     expect('a tentativa de gravação não alterou o documento', intacto.invasao === undefined, true);
   } finally {
@@ -121,6 +131,8 @@ async function usuarioComPerfil(perfil, semPerfil) {
     await db.collection('pacto_termometro').doc(TERMO).delete();
     await db.collection('pacto_termometro_equipe').doc(TERMO).delete();
     await db.collection('pacto_consultoras').doc(CONSULTORA).delete();
+    await db.collection('pacto_degustacoes').doc(DEGUST).delete();
+    await db.collection('pacto_contratos_seq').doc(SEQ).delete();
     for (const uid of [SUP, VEND]) {
       await db.collection('users').doc(uid).delete();
       await admin.auth().deleteUser(uid).catch(() => {});   // o login por token cria a conta no Auth
