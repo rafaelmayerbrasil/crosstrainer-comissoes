@@ -100,6 +100,16 @@ Hoje `buscarDia` e `renovacoes-montar.completarContratos` gravam **todos** os co
 3. **Staging:** o Rafael clica "Atualizar pela Pacto" em setembro das duas unidades e confere a prévia.
 4. **Produção**, com o OK dele. Depende das credenciais por unidade no cofre da produção, que vão junto com a entrega das renovações.
 
+### 3.1 O que a primeira rodada da validação mudou (30/09, set/2026, PP)
+
+As contagens bateram de cara: **55 × 55 ativações**, com a mesma divisão por categoria. Mas três coisas estavam erradas, e só apareceram contra o arquivo real:
+
+1. **A consultora que o export mostra é a VINCULADA AO ALUNO, não a do contrato.** No contrato 4739 o contrato diz Bárbara, e o arquivo e o vínculo do aluno dizem Kali. Nos contratos 4553/4554 o contrato não tem consultora, mas o aluno tem. **Nova rota do gateway** (só leitura): `GET /clientes/dados-clientes/{codPessoa}` → `matricula` (a resposta traz CPF: só a matrícula sai) → `GET /clientes/{matricula}/dados-plano` → `vinculos[]` com `tipoVinculo: 'CO'`. O caderninho ganha `pessoa`, `alunoConsultado` e `consultorAluno`, e o conversor usa `consultoraDoContrato(c)`: a do aluno quando ele já foi consultado (vazio também é resposta), senão a do contrato.
+2. **Sem consultora, o export decide por quem LANÇOU o contrato** (Responsável 1). O gateway traz essa pessoa em `responsavelLancamento`. A linha passa a levar `resp1 = lancou`. Sem saber quem lançou, continua a regra de antes: quem registrou o pagamento não vira vendedora.
+3. **O balcão entrou em dobro (+R$ 1.496).** O núcleo junta vários itens num recibo (dois Monsters = uma linha de R$ 24), e o relatório de vendas lista item a item. O casamento passou a ser por **cliente + dia**: se o cliente já tem avulsa no dia pelos pagamentos, o dia dele está coberto. "1 AULA" e "N DIÁRIAS" também saem do balcão (o arquivo não os lista assim).
+
+**Custo:** agora são até três consultas ao gateway por contrato novo (contrato, pessoa e vínculo), cada uma uma vez só. A busca tem um **orçamento de 700 consultas** (cerca de 15 minutos). O que passar disso fica com aviso "a completar na próxima busca", e a primeira carga se completa em algumas noites ou pelo botão manual.
+
 ## 4. Quando algo dá errado
 
 | Situação | O que acontece |
