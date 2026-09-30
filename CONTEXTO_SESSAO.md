@@ -3,6 +3,76 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 77 (29/09/2026) — 🔑 CHAVE DA PACTO POR UNIDADE FUNCIONOU · 📋 os dois pedidos do Rodrigo (renovações e metas)
+
+### ▶️▶️ RETOMAR AQUI
+**Estamos no meio do BRAINSTORMING** (skill `superpowers:brainstorming`, passo 3 — perguntas de esclarecimento) dos
+dois documentos que o Rodrigo mandou em 29/09, salvos em **`docs/290926/`**:
+`prompt-lista-renovacoes-crosstainer-elite.md` (lista mensal de renovações para as consultoras) e
+`regras_metas_comerciais_crosstrainer.md` (como sugerir Meta/Super/Gold e as travas). **Nada foi construído.**
+
+**Pergunta pendente com o Rafael (a primeira do brainstorming):** a ordem. Proposta:
+- **A. Lista de renovações** — tela para as consultoras; independente, dado já disponível, e gera a "base de
+  renovações" que as travas de meta dele usam. **Recomendado começar por aqui.**
+- **B. Meta sugerida** — o desenho de 10/09 (`docs/superpowers/specs/2026-09-10-meta-sugerida-pelo-sistema-design.md`)
+  atualizado com o documento dele; a trava de renovação passa a sair da base da lista A.
+- **C. Nova regra de pagamento do bônus** — só depois de o Rodrigo confirmar e dizer a partir de que mês vale.
+
+Quando a ordem for decidida: seguir o brainstorming (oferecer o visual companion em mensagem própria antes das
+perguntas de tela da lista), uma pergunta por vez, depois spec → `writing-plans`.
+
+### 🔑 Credencial por unidade (orientação do consultor da Pacto) — FUNCIONOU
+- A tela "API Sistema Pacto" passou a gerar credencial **por unidade**. O Rafael gerou CP e PP, gravadas em
+  **`pacto-credencial-cp.txt`** e **`pacto-credencial-pp.txt`** (raiz; já no `.gitignore` e no `firebase.json`).
+- Com elas o **gateway** (`apigw`) lê a unidade, o que a credencial da Administração nunca fez:
+  `empresa/empresas` → "CrossTainer unid. Campeche (CP)" / "…Peq Príncipe (PP)"; `psec/clientes/ativos` → **305 / 247**;
+  `POST v2-indice-renovacao` → set/2026 previsão **77 / 31 renovados (CP)** e **50 / 19 (PP)**.
+- ⚠️ As primeiras chaves apareceram no terminal e na conversa (foram coladas como texto). **Trocadas e as antigas
+  apagadas pelo Rafael no mesmo dia**; as novas (pedido: só consultar) testadas com o mesmo resultado.
+- A busca diária e o termômetro **continuam** com a credencial antiga (`pacto-credencial.txt`, Administração,
+  chave da unidade no caminho do núcleo) — nada mudou em produção.
+- Gravar credencial sem expor: copiar e rodar `(Get-Clipboard -Raw).Trim() | Set-Content -NoNewline <arquivo>`,
+  **sem colar a chave**. **Nunca ler o terminal depois de pedir para gravar uma chave.**
+
+### 📋 O que a API entrega para a LISTA DE RENOVAÇÕES (medido 29/09, só leitura)
+- `POST apigw/v2-indice-renovacao` com `{empresa:1, dataInicial, dataFinal (ms, SP), retornarContratos:true}` →
+  `content.jsonDados` (string JSON) com contadores e listas: `contratosPrevisaoMes`, `…RenovadosPrevisaoMes`,
+  `…NaoRenovadosPrevisaoMes`, `…RenovadosDentroMes`, `…Tolerancia…`, `…MesesPassados/Futuros`, `…Total`.
+- **Outubro/2026:** CP **72** na previsão (2 já renovados), PP **42** (3). É a mesma tela "Previsão de Renovação" que
+  o Rodrigo usa — **antes** das exclusões dele (recorrente, crédito, avulso, permuta, teste, agregador).
+- Cada contrato traz só `nomeCliente, situacaoCliente, matriculaCliente, codigoCliente, codigoContrato` — **sem plano,
+  datas nem consultora**. Plano/início/vencimento: pelo número do contrato no núcleo (`consultarContratos` /
+  `psec/v2/vendas/{chave}/contrato/{codigo}`, já usados) e pelo caderninho `pacto_contratos`. Consultora: PP pela
+  `pacto_consultoras`; **CP não tem** (pendência na Pacto) → "Sem consultora", que o próprio documento prevê.
+- A lista precisa dos **dois períodos** do documento: mês M inteiro + 1 a 15 de M+1 (antecipação) + degustações.
+- ❓ Não verificado: se a API mostra o **plano original do TecnoFit** nas `IMPORTAÇÃO` ("Ver detalhes"). Em 10/09 os 5
+  casos do CP tinham o plano legível em outro registro do cliente (o histórico do TecnoFit está no nosso sistema).
+
+### ⚠️ O documento de METAS diverge do que está no ar — confirmar com o Rodrigo antes de mexer em pagamento
+1. **Regra do bônus da unidade.** Hoje (`commission.js` `calcP3`): novos+retorno abaixo do mínimo **zera**;
+   renovação abaixo ×0,70; voucher abaixo ×0,85. Documento: todas as travas = 100% · falhou 1 = **50%** · falhou 2+ =
+   zera · não bateu o total = sem bônus.
+2. **Travas POR FAIXA** (mínimos diferentes para Meta, Super e Gold) + trava nova de **antecipações** (Super ≈25% e
+   Gold ≈45% da base antecipável). Hoje um conjunto só de mínimos. Renovação = 65/70/75% das que vencem no mês.
+   Voucher = 35–50/45–60/60–80% da "base de vouchers" (❓ o que é a base não está claro). Conversão de voucher
+   30/40/50% com bônus próprio (hoje existe o P4 — comparar).
+3. **Cálculo da meta:** 50% mês anterior · 25% média 2–3 meses · 15% mesmo mês do ano anterior · 10% ajuste. Em
+   10/09 o "mesmo mês do ano anterior" foi a **pior** régua medida (erro 24,5 CP / 21,3 PP contra 13,0 / 8,3 da média
+   de 6 meses) e a sazonalidade foi reprovada → **medir a fórmula dele (backtest) antes de adotar**.
+4. **Contradição:** "venda zerada não conta" × a **degustação grátis (R$ 0) conta** como voucher e ativação,
+   decidido com ele em 29/09 ([[degustacao-gratis]]).
+5. Também no documento: mínimos individuais por pessoa (full-time 18, 30h 12, ramp-up 40–70%) — hoje
+   `minAtivacoesIndivP3` é um número por unidade/mês; vendas de sócios contam para a unidade e não comissionam.
+- ⚠️ Mudar `commission.js` exige autorização explícita (regra 1 do CLAUDE.md) e passa por staging.
+- 🟡 A meta de **outubro** precisa ser definida à mão pela gestão enquanto a parte B não existe.
+
+### Texto pronto para o Rafael responder ao Rodrigo ("o sisteminha já atualiza automaticamente?")
+> Em parte. O Termômetro do mês (menu de Comissões) atualiza sozinho toda madrugada pela API da Pacto: ativações,
+> metas e travas de cada unidade. A comissão de cada vendedora ainda é calculada pela planilha exportada, porque a
+> Pacto não informa pela API a consultora das vendas do Campeche — já cobramos isso deles.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 76 (27–28/09/2026) — ➗ a divisão derrubou a faixa do P3 (ponto flutuante) · os 5 nomes da Kali
 
 ### ✅ 29/09 — EDITAR LANÇAMENTO NO AR EM PRODUÇÃO (`c70af1c..fe412b4`)
