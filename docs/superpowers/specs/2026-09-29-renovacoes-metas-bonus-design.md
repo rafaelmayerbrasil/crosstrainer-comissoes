@@ -346,6 +346,23 @@ Em linguagem da academia, para o Rafael mandar. Cada uma diz o que acontece se f
    fechados e usar a que errar menos. De acordo? (Em 10/09 o "mesmo mês do ano anterior" foi o que mais errou,
    porque a academia cresceu e a sazonalidade de 2025 sumiu em 2026.)
 
+### 7.1 Respostas do Rodrigo (29/09) — e o que cada uma muda
+
+| # | Resposta | O que muda |
+|---|---|---|
+| 1 | Regra nova **vale em outubro, pago em novembro**; setembro fica nas regras atuais | a parte C ganha **prazo**: em produção e homologada antes da folha de outubro. `regraP3` gravado a partir de `2026-10` |
+| 2 | **Os mínimos são os mesmos para Meta, Super e Gold**; só o total de ativações sobe | ❗ desfaz as "travas por faixa" do documento dele. Um conjunto só de mínimos (o da Meta): renovação 65% da base, novos/retorno 35–40% da meta, voucher. **A trava de antecipação some** (na Meta ela é zero). A pergunta 2 deixa de existir: bateu a faixa + mínimos → 100%, 1 falha → 50%, 2+ → zera |
+| 3 | Voucher é distribuído **a todos os alunos ativos, todo mês: ~250 por unidade** | ⚠️ o "35–50% da base" do documento daria **88 a 125 degustações** por mês — o Campeche ativou 14 em agosto. A porcentagem não pode ser sobre os 250. **Proposta:** a trava de voucher continua como hoje (média dos meses anteriores × fator recente), com os alunos ativos mostrados só como contexto. Levar ao Rodrigo com o número |
+| 4 | Degustação grátis **continua contando** | nada muda |
+| 5 | CP: **Erica full-time, Fran 30h** · PP: **Kali full-time, Isa 30h** | mínimo individual por pessoa: full-time 18, 30h 12 (hoje é 10 no CP e 7 no PP para todas). Medir com agosto/setembro quem teria ficado fora do rateio antes de valer |
+| 6 | Pool da conversão de voucher na Gold: **"decida por mim"** | **Proposta:** degraus de 30% / 40% / 50% dos vouchers do funil, pool de **R$ 150 / R$ 300 / R$ 450** (o mesmo passo de R$ 150), com mínimo absoluto de 3 / 4 / 5 conversões. Decisão do Rafael |
+| 7 | Contrato que começa depois de 30 dias: **a ativação é do mês do início** | 🚨 é a volta do **diferimento**, encerrado em 09/09 porque **nunca pagou ninguém** (R$ 6.318,17 e 91 ativações sumidas desde jan/2025 — [[diferimento-nunca-pagou]]). **Proposta:** só a **contagem da ativação** vai para o mês do início; a **comissão em dinheiro fica no mês em que o dinheiro entrou** (regime de caixa). E a contagem é feita pelo sistema, sem depender de alguém re-subir arquivo — foi exatamente aí que o diferimento antigo quebrou. Decisão do Rafael |
+| 8 | Testar as duas fórmulas de meta e ficar com a melhor: **pode ser** | backtest da parte B segue como escrito |
+
+**Consequência na ordem:** a parte C tem data (folha de outubro, paga em novembro) e a parte A não.
+Proposta: **C primeiro**, A em seguida, B por último — a meta de outubro continua sendo definida à mão pela
+gestão, já no formato de um conjunto só de mínimos.
+
 ---
 
 ## 8. Casos de borda
