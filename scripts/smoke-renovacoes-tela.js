@@ -137,4 +137,12 @@ const H = '2026-10-05';
   ok('motivo da falha legível, sem o HTML da Pacto');
 }
 
+/* 7. o atalho no menu de Comissões (autorizado pelo Rafael em 30/09/2026) */
+{
+  const idx = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
+  assert.strictEqual((idx.match(/href="renovacoes\.html"/g) || []).length, 2, 'no menu da gestão e no da vendedora');
+  assert.ok(/<span class="icon">🔁<\/span>Renovações/.test(idx));
+  ok('atalho "Renovações" no menu lateral da gestão e da vendedora');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);
