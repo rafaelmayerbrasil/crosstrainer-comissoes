@@ -106,4 +106,38 @@ const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, 
   ok('index.html: botão na tela de Upload, trava sem processar, planilha recolhida como plano B');
 }
 
+{
+  // aviso do painel: a situação que a madrugada gravou em periodos/{id}.automatico
+  assert.strictEqual(U.automaticoHtml(null), '');
+  assert.strictEqual(U.automaticoHtml({}), '');
+  assert.strictEqual(U.automaticoHtml({ automatico: {} }), '', 'sem situação, nada');
+  assert.strictEqual(U.automaticoHtml({ automatico: { situacao: 'desconhecida' } }), '', 'situação que não conheço, nada');
+  const em = { toDate: () => new Date('2026-10-05T07:12:00Z') };   // 04:12 em São Paulo
+  const at = U.automaticoHtml({ automatico: { situacao: 'atualizado', em, dadosAte: '2026-10-04' } });
+  assert.ok(/Atualizado automaticamente pela Pacto em 05\/10 às 04:12/.test(at), at);
+  assert.ok(/dados até 04\/10/.test(at));
+  assert.ok(!/<div style="background/.test(at), 'atualizado é uma linha discreta, sem caixa');
+  const tr = U.automaticoHtml({ automatico: { situacao: 'travado', em: '2026-10-05T07:12:00Z', diasProblema: [{ dia: '2026-10-02' }, { dia: '2026-10-03' }] } });
+  assert.ok(/parou/.test(tr) && /02\/10, 03\/10/.test(tr) && /var\(--red\)/.test(tr), 'travado diz quais dias faltam, em vermelho');
+  assert.ok(/Atualizar pela Pacto/.test(tr) && /planilha/.test(tr), 'e o caminho para resolver');
+  const cg = U.automaticoHtml({ automatico: { situacao: 'congelado' } });
+  assert.ok(/congelado/.test(cg) && /recibos/.test(cg) && /confirmação/.test(cg), 'congelado explica o porquê e o caminho');
+  const er = U.automaticoHtml({ automatico: { situacao: 'erro', motivo: '<script>x</script>' } });
+  assert.ok(/deu erro/.test(er) && /&lt;script&gt;/.test(er) && !/<script>/.test(er), 'o motivo do erro sai escapado');
+  ok('aviso do painel: atualizado (linha), travado com os dias, congelado, erro escapado; o resto não aparece');
+}
+{
+  const recorta = (ini, fim) => { const a = html.indexOf(ini); const b = html.indexOf(fim, a + ini.length); assert.ok(a > 0 && b > a, 'não achei ' + ini); return html.slice(a, b); };
+  const fn = recorta('async function atualizarPelaPacto(', 'function handleFile(file)');
+  const iConf = fn.indexOf('Os recibos deste mês já foram emitidos');
+  const iProc = fn.indexOf('processarPlanilha(m.json');
+  assert.ok(iConf > 0 && iConf < iProc, 'confirma ANTES de processar');
+  const bloco = fn.slice(fn.lastIndexOf("db.collection('pagamentos')", iConf), iProc);
+  assert.ok(/where\('periodId', '==', `\$\{currentUnitId\}_\$\{mes\}`\)/.test(bloco), 'procura o recibo do mês e da unidade');
+  assert.ok(/!== 'cancelado'/.test(bloco), 'recibo cancelado não conta');
+  assert.ok(/!confirm\(/.test(bloco) && /return;/.test(bloco), 'quem não confirma para ali');
+  assert.ok(/UploadPelaApi\.automaticoHtml\(data\)/.test(html), 'o painel mostra o aviso da madrugada');
+  ok('botão: mês com recibo (não cancelado) pede confirmação antes de processar; painel mostra o aviso');
+}
+
 console.log('\n✅ smoke-upload-pela-api: ' + n);
