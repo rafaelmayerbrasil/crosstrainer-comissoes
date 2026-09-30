@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 //
 //   node scripts/carregar-pacto-sombra-local.js --project production --de 2026-07-01 --ate 2026-09-21 [--unidade PP]
+//        [--varrer-desde-cp 7025 --varrer-desde-pp 4555] [--sem-gateway]
 //
 // Mesmo código da Cloud Function (functions/pacto-sombra.js + pacto-api-cliente.js),
 // gravando pelo Admin SDK no projeto escolhido. Serve para a carga inicial de um
@@ -16,6 +17,9 @@
 //   para log nem para a tela.
 // • No fim, recalcula o termômetro dos meses tocados.
 // • Para na primeira credencial recusada ou limite de uso — e não insiste.
+// • Gateway (30/09/2026): com `pacto-credencial-cp.txt`/`-pp.txt`, completa a consultora
+//   do aluno, o balcão e a varredura da degustação — igual à função. Sem limite de
+//   consultas aqui (a carga é única). `--varrer-desde-XX` dá o número inicial.
 
 const fs = require('fs');
 const path = require('path');
@@ -33,11 +37,13 @@ if (!['staging', 'production'].includes(ALVO) || !/^\d{4}-\d{2}-\d{2}$/.test(de 
 const raiz = path.join(__dirname, '..');
 const S = require(path.join(raiz, 'functions', 'pacto-sombra.js'));
 const { criarCliente } = require(path.join(raiz, 'functions', 'pacto-api-cliente.js'));
+const { criarClienteGateway } = require(path.join(raiz, 'functions', 'pacto-gateway-cliente.js'));
 const credencial = fs.readFileSync(path.join(raiz, 'pacto-credencial.txt'), 'utf8').trim();
 
 admin.initializeApp({ credential: admin.credential.cert(require(path.join(__dirname, `serviceAccount-${ALVO}.json`))) });
 const db = admin.firestore();
 const agora = () => admin.firestore.FieldValue.serverTimestamp();
+const credsGwGlobal = {};
 const hojeSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
 (async () => {
@@ -48,18 +54,36 @@ const hojeSP = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' 
   for (let d = de; d <= ate && d <= ontem; d = S.somarDias(d, 1)) dias.push(d);
   console.log(`${ALVO} · ${dias.length} dia(s) · ${unidades.join('+')}`);
   const cliente = criarCliente({ fetch, credencial });
+  const credsGw = {};
+  const clientesGw = process.argv.includes('--sem-gateway') ? null : {};
+  if (clientesGw) {
+    for (const u of unidades) {
+      credsGw[u] = credsGwGlobal[u] = fs.readFileSync(path.join(raiz, 'pacto-credencial-' + u.toLowerCase() + '.txt'), 'utf8').trim();
+      clientesGw[u] = criarClienteGateway({ fetch, credencial: credsGw[u] });
+    }
+  }
+  const varrerDesde = {};
+  ['CP', 'PP'].forEach(u => { const v = arg('--varrer-desde-' + u.toLowerCase()); if (v) varrerDesde[u] = Number(v); });
   let parou = null;
   for (let i = 0; i < dias.length && !parou; i += 7) {
     const bloco = dias.slice(i, i + 7);
     const t0 = Date.now();
-    const r = await S.buscar({ db, cliente, unidades, dias: bloco, agora });
+    // a varredura com número inicial só no primeiro bloco; depois segue da marca
+    const r = await S.buscar({ db, cliente, clientesGw, unidades, dias: bloco, agora, limiteGw: 100000,
+      varrerDesde: i === 0 ? varrerDesde : null });
     const cont = {};
     r.resultados.forEach(x => { cont[x.situacao] = (cont[x.situacao] || 0) + 1; });
-    console.log(`${bloco[0]} → ${bloco[bloco.length - 1]} … ${Math.round((Date.now() - t0) / 1000)}s · ${JSON.stringify(cont)}${r.parouPor ? ' · PAROU: ' + r.parouPor : ''}`);
+    console.log(`${bloco[0]} → ${bloco[bloco.length - 1]} … ${Math.round((Date.now() - t0) / 1000)}s · ${JSON.stringify(cont)}${r.parouPor ? ' · PAROU: ' + r.parouPor : ''}` +
+      (r.varredura ? ' · varredura ' + JSON.stringify(r.varredura) : ''));
     parou = r.parouPor || null;
   }
   const meses = [...new Set(dias.map(d => d.slice(0, 7)))];
   const feitos = await S.atualizarTermometro({ db, unidades, meses, hoje: hojeSP, agora });
-  console.log(`termômetro: ${feitos.map(f => f.id).join(', ')} · chamadas à Pacto: ${cliente.chamadas}`);
+  console.log(`termômetro: ${feitos.map(f => f.id).join(', ')} · chamadas à Pacto: núcleo ${cliente.chamadas}` +
+    (clientesGw ? ' · gateway ' + Object.entries(clientesGw).map(([u, g]) => u + ' ' + g.chamadas).join(', ') : ''));
   process.exit(parou ? 2 : 0);
-})().catch(e => { console.error('ERRO:', String(e.message || e).split(credencial).join('<credencial>')); process.exit(1); });
+})().catch(e => {
+  let m = String(e.message || e).split(credencial).join('<credencial>');
+  Object.values(credsGwGlobal).forEach(c => { m = m.split(c).join('<credencial>'); });
+  console.error('ERRO:', m); process.exit(1);
+});
