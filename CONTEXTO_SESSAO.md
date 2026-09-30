@@ -60,8 +60,22 @@ voucher 7 · PP 52/60/68, novos 19, renov 9, voucher 3. ⚠️ Não publicado no
 - ⚠️ Não foi possível clicar logado (a senha iria para o Google, fora da máquina): as 4 páginas foram abertas no
   staging e carregam sem erro de console; as funções novas foram CHAMADAS pelos testes com banco falso.
 
-**C2 — espera o Rodrigo:** base de vouchers (mensagem com os números pronta, o Rafael manda), pool da conversão na Gold
-e a comissão do contrato que começa depois de 30 dias (só a contagem da ativação vai para o mês do início?).
+**C2 — ✅ o Rodrigo respondeu (30/09 de manhã) e está construído no STAGING:**
+- **Conversão de voucher:** R$ 30 por conversão confirmado; degraus **30% → R$ 150 · 40% → R$ 300 · 50% → R$ 450** de
+  out/2026. 🚨 **Achado:** desde a Pacto **nenhuma conversão era reconhecida** (casava pelo código; degustação e plano
+  cheio têm números diferentes, e a Pacto registra a maioria como "renovação") → 0 em jul/ago/set. De out/2026 casa pelo
+  **nome** e aceita a renovação de quem fez degustação. **Jul–set pela regra nova: 6 conversões, R$ 180** (Francini 90,
+  Kali 60, Erica 30), nenhum prêmio da unidade — **decisão do Rafael: pagar por fora ou não.** `smoke-p4-conversao` 3.
+- **Contrato que começa > 30 dias depois:** "Outubro" — comissão no mês do pagamento; o item ganha
+  `ativacaoAdiadaPara` e a **contagem** vai para o mês do início, buscada sozinha pelo recálculo nos 13 meses anteriores
+  (`ativacoesAdiadasPara` no index; `atualizarTermometro` na Function). Soma da unidade virou **uma função só**,
+  `CommissionEngine.contagensDaUnidade`. Abas de Ativações mostram o que sai e o que chega. `smoke-ativacao-adiada` 5.
+- **Vouchers da meta:** ele descartou o % dos ~250 convites e quer "exigir um pouco mais" → proposta **média dos 6
+  meses + 10%, para cima** (CP 10, PP 7 em outubro). **O +10% é minha proposta — confirmar com o Rafael.**
+- **Jul/ago/set continuam recalculando igual ao gravado** (rodado de novo depois de tudo). Suíte **106/107**.
+- ✅ A rodada automática das **5h de 30/09** montou CP set/out e PP out; PP set pegou a Pacto fora e manteve a lista.
+- ⚠️ **Categoria da conversão:** a Pacto chama a maioria de "renovação", então ela paga comissão de renovação (menor
+  que a de venda nova). **Perguntar ao Rodrigo** se conversão de degustação deve pagar como venda nova.
 
 **🔴 Para o Rafael, de manhã:** (1) homologar no staging as três partes; (2) autorizar o atalho "Renovações" no menu
 (mexe no `index.html`); (3) cadastrar as jornadas (CP Erica integral, Fran 30h; PP Kali integral, Isa 30h) — no staging
