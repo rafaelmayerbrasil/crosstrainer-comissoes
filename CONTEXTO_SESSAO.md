@@ -3,7 +3,36 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 78, parte 2 (30/09/2026, tarde) — 🔌 A API DA PACTO VAI VIRAR A FONTE OFICIAL · desenho aprovado, NADA construído
+## 🔖 ONDE PARAMOS — sessão 79 (30/09/2026, manhã) — 💳 PLANO PAGO EM DUAS FORMAS CONTAVA DUAS VENDAS · a PP NÃO bateu a Super Meta
+
+**O Rodrigo no grupo:** painel da PP com 57 ativações e "Super Meta atingida"; termômetro com 55, faltando 2.
+**Conferido contrato a contrato no banco de produção** (upload das 09:31 × termômetro das 4h, dados até 29/09):
+- **JULIA BORGER (PP, 4731)** renovou o anual e pagou R$ 148,96 no PIX + R$ 190,04 no débito. O export traz uma
+  linha por forma de pagamento, as duas com o nome do plano; o tradutor pôs a menor como "acessório" com esse texto
+  e o motor contou **outra ativação, como venda NOVA**, com mais R$ 30 de P2. **Defeito.**
+- **LIANNA FRANTZ (CP, 7264)**: o mesmo, R$ 250 + R$ 250. CP 75 → 74, segue Gold.
+- **HELENA SANDRIN (PP, 4730)**: renovação paga com crédito — o export remaneja o pagamento do contrato velho, a API
+  não. Não é defeito; é o padrão conhecido do modo sombra. É por isso que o termômetro fica em 55 e não em 56.
+- **Agosto não tem nenhum caso** (os pares de agosto são divisões 70/30).
+
+**Efeito com o arquivo real:** PP **57 → 56 = Meta, não Super Meta** (super = 57, a PP segue sem meta do mês);
+Kali −R$ 212,22 (P1 −3,72 · P2 −30 · P3 −178,50). CP: Francini −R$ 15,00 (P2 dobrado). Setembro ainda tem o dia 30.
+
+**Correção:** as outras linhas do mesmo contrato (fora taxa e rescisão) viram papel `pagamento` e o valor delas vai
+somado na linha do plano — o mesmo que a API faz. Caso 31 novo no `smoke-pacto-adapter.js`; o caso 12 (6735,
+R$ 20 + R$ 195) passa a dar uma venda de R$ 215. Suíte: só as 2 falhas que já existiam (`smoke-dashboard-mes-so-vendas`,
+depende da data; as que pedem `firebase-admin`). Commits: `0d86e1e` em **`fix-pagamento-duas-formas`** (de
+`origin/main`, é a que vai para produção) · cherry-pick em `renovacoes-metas-bonus` (**no ar no staging**, hosting
+conferido arquivo a arquivo) e em `api-pacto-oficial`.
+
+**🔴 Falta, com o Rafael:** (1) responder o Rodrigo; (2) homologar no staging arrastando o arquivo de setembro na PP
+(tem que dar 56); (3) OK para produção — inclui o bump do `?v=` do `pacto-adapter.js` no `index.html` (já é
+`20260930`, o segundo deploy do dia precisa de outro valor); (4) **re-subir setembro nas duas unidades em produção**,
+porque o período gravado não se corrige sozinho. Memória: [[pagamento-em-duas-formas]].
+
+---
+
+## 🔖 sessão 78, parte 2 (30/09/2026, tarde) — 🔌 A API DA PACTO VAI VIRAR A FONTE OFICIAL · desenho aprovado, NADA construído
 
 ### ▶️▶️ RETOMAR AQUI
 **Decisão do Rafael (30/09):** *"vamos tornar oficial e deixar a planilha como uma opção caso a API quebre e sempre em último caso"*.
