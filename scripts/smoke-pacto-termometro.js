@@ -78,7 +78,10 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
 /* 3. faixas e travas vêm da configuração e do calcP3 do motor */
 {
   assert.deepStrictEqual(r.faixas, { meta: 2, superMeta: 3, metaGold: 4, minNovos: 1, minRenov: 1, minVoucher: 1,
-    multFalhaRenov: CE.defaultConfig.multFalhaRenov, multFalhaVoucher: CE.defaultConfig.multFalhaVoucher });
+    multFalhaRenov: CE.defaultConfig.multFalhaRenov, multFalhaVoucher: CE.defaultConfig.multFalhaVoucher, regra: 'antiga' });
+  // outubro/2026 em diante: a regra dos mínimos (1 falha = metade, 2+ = zera)
+  const out = T.calcularMes({ ...base, mes: '2026-10', hoje: '2026-10-08', docs: [], codigosPagos: [], config: {}, metaDoMes: false });
+  assert.strictEqual(out.faixas.regra, 'minimos', 'o mês vai para o motor');
   assert.strictEqual(r.faixaAtual, 'meta');
   assert.deepStrictEqual(r.faltaPara, { meta: 0, superMeta: 1, metaGold: 2 });
   assert.strictEqual(r.metaDoMes, true);

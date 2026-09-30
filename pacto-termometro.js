@@ -63,7 +63,8 @@ const PactoTermometro = {
 
     const t = Adapter.traduzir(ApiLinhas.consolidarPorContrato(linhas), { mes, codigosPagos: codigosPagos || [] });
     const vendas = (t.porUnidade && t.porUnidade[unidade]) || [];
-    const cfg = Object.assign({}, Engine.defaultConfig, config || {});
+    // O mês vai na configuração: a regra do bônus mudou em out/2026 (commission.js)
+    const cfg = Object.assign({}, Engine.defaultConfig, config || {}, { mes });
     const rows = vendas.length ? Engine.cleanRawData([Adapter.CABECALHO_SAIDA, ...Adapter.paraPlanilha(vendas)]) : [];
     const u = rows.length
       ? Engine.calculate(rows, cfg).unitTotals
@@ -82,6 +83,7 @@ const PactoTermometro = {
       meta: cfg.meta, superMeta: cfg.superMeta, metaGold: cfg.metaGold,
       minNovos: cfg.minNovos, minRenov: cfg.minRenov, minVoucher: cfg.minVoucher,
       multFalhaRenov: cfg.multFalhaRenov, multFalhaVoucher: cfg.multFalhaVoucher,
+      regra: Engine.regraNovaDosMinimos(cfg) ? 'minimos' : 'antiga',
     };
 
     const esperados = this.diasEsperados(mes, hoje);

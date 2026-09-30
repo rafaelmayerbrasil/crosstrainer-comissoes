@@ -178,4 +178,18 @@ const doc = {
   ok('barra do celular da vendedora: termômetro como 5º botão');
 }
 
-console.log('\n✅ smoke-termometro-tela: ' + n + '/12');
+/* 13. outubro/2026 em diante: a regra dos mínimos (quantos faltam, não qual) */
+{
+  const out = { ...doc, mes: '2026-10', faixas: { ...doc.faixas, regra: 'minimos' } };
+  const t = lido(T.cartao(out));
+  assert.ok(/pela metade/.test(t) && /não há prêmio/.test(t), 'o efeito da regra nova nas travas');
+  assert.ok(!/cai 30%/.test(t) && !/cai 15%/.test(t), 'sem os percentuais da regra antiga');
+  assert.ok(/Hoje faltam 2 mínimos: o prêmio da unidade não sai/.test(t), 'renovação 18/25 e voucher 3/7: ' + t);
+  const umaFalta = { ...out, ativacoes: { ...doc.ativacoes, renovacao: 30 } };
+  assert.ok(/Hoje falta 1 mínimo: o prêmio da unidade sai pela metade/.test(lido(T.cartao(umaFalta))));
+  const set = lido(T.cartao(doc));
+  assert.ok(/cai 30%/.test(set), 'setembro continua com a regra antiga');
+  ok('regra de out/2026: travas dizem metade/sem prêmio e o resumo conta quantos mínimos faltam; setembro não muda');
+}
+
+console.log('\n✅ smoke-termometro-tela: ' + n + '/13');

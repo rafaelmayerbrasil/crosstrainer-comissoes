@@ -103,6 +103,16 @@
     return out.join('');
   }
 
+  const EFEITO_REGRA_NOVA = 'faltando 1 mínimo, o prêmio da unidade cai pela metade; faltando 2 ou 3, não há prêmio';
+
+  /** Regra de out/2026: quantos mínimos faltam e o que isso faz com o prêmio. */
+  function resumoRegraNova(a, fx, faixaAtual) {
+    const faltam = [a.novosRetorno < fx.minNovos, a.renovacao < fx.minRenov, a.voucher < fx.minVoucher].filter(Boolean).length;
+    if (!faltam) return '';
+    const efeito = faltam === 1 ? 'o prêmio da unidade sai pela metade' : 'o prêmio da unidade não sai';
+    return `<div class="${faltam === 1 ? 'aviso' : 'erro'}">Hoje ${faltam === 1 ? 'falta 1 mínimo' : `faltam ${faltam} mínimos`}: ${faixaAtual ? '' : 'mesmo batendo a faixa, '}${efeito}.</div>`;
+  }
+
   /** Cartão de uma unidade. `t` nulo = ainda não calculado (nunca vira zero). */
   function cartao(t, sigla) {
     const unidade = (t && t.unidade) || sigla || '';
@@ -121,6 +131,14 @@
     const semNovos = a.novosRetorno < fx.minNovos;
     // a cópia da equipe não tem o dinheiro (é o faturamento da unidade)
     const comDinheiro = typeof t.recebido === 'number';
+    // Regra do bônus: de out/2026 em diante conta QUANTOS mínimos faltam (commission.js)
+    const travasHtml = fx.regra === 'minimos'
+      ? [trava('Novos + retorno', a.novosRetorno, fx.minNovos, EFEITO_REGRA_NOVA),
+        trava('Renovações', a.renovacao, fx.minRenov, EFEITO_REGRA_NOVA),
+        trava('Vouchers', a.voucher, fx.minVoucher, EFEITO_REGRA_NOVA)].join('')
+      : [trava('Novos + retorno', a.novosRetorno, fx.minNovos, 'abaixo do mínimo: sem isto não há prêmio da unidade'),
+        trava('Renovações', a.renovacao, fx.minRenov, `abaixo do mínimo: o prêmio da unidade cai ${queda(fx.multFalhaRenov)}`),
+        trava('Vouchers', a.voucher, fx.minVoucher, `abaixo do mínimo: o prêmio da unidade cai ${queda(fx.multFalhaVoucher)}`)].join('');
 
     return `<section class="card unidade">
       <h2>${esc(nome)}</h2>
@@ -133,11 +151,9 @@
       ${barra(t)}
       ${falta}
       <div class="travas">
-        ${trava('Novos + retorno', a.novosRetorno, fx.minNovos, 'abaixo do mínimo: sem isto não há prêmio da unidade')}
-        ${trava('Renovações', a.renovacao, fx.minRenov, `abaixo do mínimo: o prêmio da unidade cai ${queda(fx.multFalhaRenov)}`)}
-        ${trava('Vouchers', a.voucher, fx.minVoucher, `abaixo do mínimo: o prêmio da unidade cai ${queda(fx.multFalhaVoucher)}`)}
+        ${travasHtml}
       </div>
-      ${semNovos && t.faixaAtual ? '<div class="erro">A faixa foi batida, mas sem o mínimo de novos + retorno o prêmio da unidade não sai.</div>' : ''}
+      ${fx.regra === 'minimos' ? resumoRegraNova(a, fx, t.faixaAtual) : (semNovos && t.faixaAtual ? '<div class="erro">A faixa foi batida, mas sem o mínimo de novos + retorno o prêmio da unidade não sai.</div>' : '')}
       <div class="kv">
         <span>Novos</span><span>${esc(a.novo)}</span>
         <span>Retornos</span><span>${esc(a.retorno)}</span>
