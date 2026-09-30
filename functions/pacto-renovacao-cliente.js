@@ -47,12 +47,18 @@ function lerListas(dados) {
   return { contratos, renovados };
 }
 
-function criarClienteRenovacao({ fetch, credencial, base = GW }) {
+// A Pacto aceita 1 consulta por segundo nesta rota: "Rate limit excedido. Máximo
+// 1 requisição(ões) por 1 segundo(s) para o mesmo endpoint" (HTTP 429, 29/09/2026,
+// quando o mês e a antecipação eram pedidos colados).
+function criarClienteRenovacao({ fetch, credencial, base = GW, pausaMs = 1500, dormir }) {
   if (typeof fetch !== 'function') throw new Error('criarClienteRenovacao: fetch é obrigatório');
   if (!credencial) throw new Error('criarClienteRenovacao: credencial é obrigatória');
+  const esperar = dormir || (ms => new Promise(r => setTimeout(r, ms)));
   let chamadas = 0;
 
-  async function uma(corpo) {
+  async function uma(corpo, esperaMinima) {
+    const espera = Math.max(chamadas > 0 ? pausaMs : 0, esperaMinima || 0);
+    if (espera > 0) await esperar(espera);                     // nunca em rajada
     chamadas++;
     let res, texto;
     try {
@@ -77,6 +83,7 @@ function criarClienteRenovacao({ fetch, credencial, base = GW }) {
         desconsiderarContratosRenovaveis: false, considerarMudancaDePlano: false };
       let r = await uma(corpo);
       if (r.situacao === 'falhou') r = await uma(corpo);       // falha passageira: uma vez só
+      else if (r.situacao === 'limite') r = await uma(corpo, 2500);   // limite por segundo: espera e tenta uma vez
       if (r.situacao !== 'ok') return r;
       const l = lerListas(r.dados);
       if (!l) return { situacao: 'falhou', motivo: 'resposta sem a lista de contratos da previsão' };

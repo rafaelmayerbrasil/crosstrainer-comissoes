@@ -77,5 +77,32 @@ const resposta = obj => ({ status: 200, texto: JSON.stringify({ content: { jsonD
     ok('401 recusa, falha passageira tenta de novo, erro no corpo e resposta sem a lista viram falha, credencial fora do motivo');
   }
 
+  /* 4. a Pacto aceita 1 consulta por segundo nesta rota (HTTP 429 em 29/09/2026):
+        espera entre as chamadas e, se mesmo assim recusar por limite, tenta de novo UMA vez */
+  {
+    const esperas = [];
+    const dormir = async ms => { esperas.push(ms); };
+    let f = fetchFalso([resposta({ contratosPrevisaoMes: [] }), resposta({ contratosPrevisaoMes: [] })]);
+    let c = R.criarClienteRenovacao({ fetch: f, credencial: CRED, dormir });
+    await c.previsao('2026-10-01', '2026-10-31');
+    assert.deepStrictEqual(esperas, [], 'a primeira chamada não espera');
+    await c.previsao('2026-11-01', '2026-11-15');
+    assert.ok(esperas.length === 1 && esperas[0] >= 1100, 'a segunda espera mais de 1 segundo: ' + esperas);
+
+    esperas.length = 0;
+    const limite = { status: 429, texto: 'Rate limit excedido. Maximo 1 requisicao(oes) por 1 segundo(s)' };
+    f = fetchFalso([limite, resposta({ contratosPrevisaoMes: [] })]);
+    c = R.criarClienteRenovacao({ fetch: f, credencial: CRED, dormir });
+    assert.strictEqual((await c.previsao('2026-10-01', '2026-10-31')).situacao, 'ok', 'limite passageiro: tenta de novo');
+    assert.strictEqual(c.chamadas, 2);
+    assert.ok(esperas.length === 1 && esperas[0] >= 2000, 'espera antes de tentar de novo: ' + esperas);
+
+    f = fetchFalso([limite, limite]);
+    c = R.criarClienteRenovacao({ fetch: f, credencial: CRED, dormir });
+    assert.strictEqual((await c.previsao('2026-10-01', '2026-10-31')).situacao, 'limite', 'duas recusas: para');
+    assert.strictEqual(c.chamadas, 2, 'não insiste mais de uma vez');
+    ok('1 consulta por segundo: espera entre as chamadas; limite tenta de novo uma vez e depois para');
+  }
+
   console.log('\n✅ smoke-pacto-renovacao-cliente: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });
