@@ -5327,43 +5327,17 @@
     // de metas-sugeridas.js marcada como "sistema". O recibo do mês não sai
     // enquanto ninguém revisar (Revisar / Está bom / salvar a janela de metas).
     async function proporMetaSeFaltar(periodId, data) {
-      const mes = (String(periodId).match(/(\d{4}-\d{2})$/) || [])[1];
       const ehAdmin = !!(userProfile && userProfile.role === 'admin' && !userProfile._previewMode);
-      if (!MetasSugeridas.precisaPropor({ mes, periodo: data, ehAdmin })) return false;
       try {
-        const unitId = data.unitId || currentUnitId;
-        const desde = (() => { const [a, m] = mes.split('-').map(Number); return new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7); })();
-        const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
-        const periodos = [];
-        for (const d of snap.docs) {
-          const pm = (d.id.match(/(\d{4}-\d{2})$/) || [])[1];
-          if (!pm || pm >= mes || pm < desde) continue;
-          const itens = await db.collection('periodos').doc(d.id).collection('itens').where('type', '==', 'processed').get();
-          periodos.push({ mes: pm, data: d.data(), maiorDia: MetasSugeridas.maiorData(itens.docs.map(x => x.data().data)) });
-        }
-        const { serie, metas } = MetasSugeridas.serieDosPeriodos(periodos, mes);
-        // Renovações que vencem no mês = Bloco 1 da lista de renovações, se já existir
-        const sigla = PactoAdapter.siglaDaUnidade(unitId, ['CP', 'PP']);
-        let renovacaoBase = null;
-        try {
-          const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
-          if (l.exists && l.data().situacao === 'ok') renovacaoBase = (l.data().blocos.renovacoes || []).length;
-        } catch (e) { console.warn('lista de renovações indisponível:', e.message); }
-        // % acima da média dos vouchers: configuração da unidade (decisão do Rafael, 30/09)
-        const cfgUnidade = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unitId)) };
-        const r = MetasSugeridas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase, pctVoucherAcima: cfgUnidade.pctVoucherAcimaDaMedia });
-        if (!r.confiavel) {
-          toast('Este mês não tem meta e o sistema não tem histórico suficiente para propor: defina em "Configurar Metas do Mês".', 'info');
+        // A proposta mora em comissoes-mes.js (30/09/2026): o automático da madrugada usa a mesma
+        const p = await comissoesMes().proporMeta(periodId, data, { ehAdmin });
+        if (!p.proposto) {
+          if (p.motivo === 'sem_historico') toast('Este mês não tem meta e o sistema não tem histórico suficiente para propor: defina em "Configurar Metas do Mês".', 'info');
           return false;
         }
-        await db.collection('periodos').doc(periodId).set({
-          metasMensais: r.campos,
-          metaSugerida: { origem: 'sistema', revisadaPor: null, porque: r.porque, base: r.base,
-            geradaPor: (currentUser && currentUser.email) || 'admin', geradaEm: firebase.firestore.FieldValue.serverTimestamp() },
-        }, { merge: true });
         await recalculatePeriod(periodId, { type: 'config_change', label: 'Meta do mês calculada pelo sistema' });
-        logAudit('settings_change', `Meta de ${periodId} calculada pelo sistema: ${r.campos.meta}/${r.campos.superMeta}/${r.campos.metaGold}, ` +
-          `mín. novos ${r.campos.minNovos}, renov ${r.campos.minRenov}, voucher ${r.campos.minVoucher} — aguardando revisão`);
+        logAudit('settings_change', `Meta de ${periodId} calculada pelo sistema: ${p.campos.meta}/${p.campos.superMeta}/${p.campos.metaGold}, ` +
+          `mín. novos ${p.campos.minNovos}, renov ${p.campos.minRenov}, voucher ${p.campos.minVoucher} — aguardando revisão`);
         toast('A meta deste mês foi calculada pelo sistema. Revise antes de emitir os recibos.', 'info');
         return true;
       } catch (e) {
@@ -5844,7 +5818,8 @@
         db, FieldValue: firebase.firestore.FieldValue, Timestamp: firebase.firestore.Timestamp,
         Engine: CommissionEngine, Adapter: typeof PactoAdapter !== 'undefined' ? PactoAdapter : null,
         Jornada: JornadaComercial,
-        autor: () => ({ uid: currentUser ? currentUser.uid : '', name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema' }),
+        Metas: typeof MetasSugeridas !== 'undefined' ? MetasSugeridas : null,
+        autor: () => ({ uid: currentUser ? currentUser.uid : '', email: currentUser ? currentUser.email : '', name: userProfile?.name || currentUser?.email?.split('@')[0] || 'Sistema' }),
         configAtual: unitId => (!unitId || unitId === currentUnitId ? unitConfig : undefined),
         log: console,
       });

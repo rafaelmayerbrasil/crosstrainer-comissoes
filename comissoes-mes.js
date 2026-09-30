@@ -602,6 +602,46 @@ const ComissoesMes = {
       },
 
       /**
+       * Mês sem meta (out/2026+): grava a meta que o sistema propõe, marcada como
+       * "aguardando revisão" — o recibo trava até a gestão revisar. NÃO recalcula:
+       * quem chama recalcula (a tela avisa; o automático registra).
+       * @returns {{ proposto: boolean, motivo?: 'nao_precisa'|'sem_historico', campos?, porque? }}
+       */
+      async proporMeta(periodId, data, { ehAdmin }) {
+        const Metas = deps.Metas;
+        const mes = (String(periodId).match(/(\d{4}-\d{2})$/) || [])[1];
+        if (!Metas || !Metas.precisaPropor({ mes, periodo: data, ehAdmin })) return { proposto: false, motivo: 'nao_precisa' };
+        const unitId = data.unitId || String(periodId).replace(/_\d{4}-\d{2}$/, '');
+        const desde = (() => { const [a, m] = mes.split('-').map(Number); return new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7); })();
+        const snap = await db.collection(PERIODOS).where('unitId', '==', unitId).get();
+        const periodos = [];
+        for (const d of snap.docs) {
+          const pm = (d.id.match(/(\d{4}-\d{2})$/) || [])[1];
+          if (!pm || pm >= mes || pm < desde) continue;
+          const itens = await db.collection(PERIODOS).doc(d.id).collection('itens').where('type', '==', 'processed').get();
+          periodos.push({ mes: pm, data: d.data(), maiorDia: Metas.maiorData(itens.docs.map(x => x.data().data)) });
+        }
+        const { serie, metas } = Metas.serieDosPeriodos(periodos, mes);
+        // Renovações que vencem no mês = Bloco 1 da lista de renovações, se já existir
+        const sigla = Adapter.siglaDaUnidade(unitId, ['CP', 'PP']);
+        let renovacaoBase = null;
+        try {
+          const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
+          if (l.exists && l.data().situacao === 'ok') renovacaoBase = (l.data().blocos.renovacoes || []).length;
+        } catch (e) { log.warn('lista de renovações indisponível:', e.message); }
+        // % acima da média dos vouchers: configuração da unidade (decisão do Rafael, 30/09)
+        const cfgUnidade = { ...Engine.defaultConfig, ...(await ops.configDaUnidade(unitId)) };
+        const r = Metas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase, pctVoucherAcima: cfgUnidade.pctVoucherAcimaDaMedia });
+        if (!r.confiavel) return { proposto: false, motivo: 'sem_historico' };
+        await db.collection(PERIODOS).doc(periodId).set({
+          metasMensais: r.campos,
+          metaSugerida: { origem: 'sistema', revisadaPor: null, porque: r.porque, base: r.base,
+            geradaPor: quem().email || 'admin', geradaEm: FieldValue.serverTimestamp() },
+        }, { merge: true });
+        return { proposto: true, campos: r.campos, porque: r.porque };
+      },
+
+      /**
        * Refaz a conta do período a partir de TODOS os lançamentos gravados.
        * @returns {Array} os itens (com `_docId`) — a tela guarda no cache dela
        */

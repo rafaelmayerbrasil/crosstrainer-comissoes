@@ -50,6 +50,12 @@ function recorta(ini, fim) {
       logAudit: (t, msg) => { chamadas.audit.push(msg); },
       toast: (msg) => { chamadas.toast.push(msg); },
     };
+    // desde 30/09/2026 a proposta mora em comissoes-mes.js; a tela só avisa e recalcula
+    const ComissoesMes = require(path.join(raiz, 'comissoes-mes.js'));
+    sandbox.comissoesMes = () => ComissoesMes.criar({ db, FieldValue: sandbox.firebase.firestore.FieldValue,
+      Engine: sandbox.CommissionEngine, Adapter: sandbox.PactoAdapter, Metas: sandbox.MetasSugeridas,
+      autor: () => ({ uid: 'admin', email: sandbox.currentUser.email }),
+      configAtual: () => ({ pctVoucherAcimaDaMedia: 10 }) });
     vm.createContext(sandbox);
     vm.runInContext(fonte, sandbox);
     const per = (await db.collection('periodos').doc('unit-cp_2026-10').get()).data();

@@ -2135,6 +2135,7 @@ const PACTO_API_KEY_PP = defineSecret('PACTO_API_KEY_PP');
 const pactoSombra = require('./pacto-sombra.js');
 const pactoCliente = require('./pacto-api-cliente.js');
 const pactoGateway = require('./pacto-gateway-cliente.js');
+const comissoesAutomatico = require('./comissoes-automatico.js');
 
 /** Hoje em São Paulo, 'AAAA-MM-DD' — a Cloud Function roda em UTC */
 function hojeSaoPaulo() {
@@ -2169,6 +2170,25 @@ async function rodarSombra(dias, unidades, opcoes = {}) {
     logger.info('pacto termometro', { docs: feitos.map(f => f.id) });
   } catch (e) {
     logger.error('pacto termometro falhou', { erro: String(e && e.message || e) });
+  }
+  // O MÊS DAS COMISSÕES, SOZINHO (decisão do Rafael, 30/09/2026): out/2026 em
+  // diante; recibo emitido congela; dia faltando trava. Mesmos módulos do botão.
+  // Desenho: docs/superpowers/specs/2026-09-30-api-pacto-oficial-design.md §7
+  if (!r.parouPor) {
+    const meses = [...new Set(dias.map(d => d.slice(0, 7)))];
+    for (const unidade of unidades) {
+      for (const mes of meses) {
+        try {
+          const a = await comissoesAutomatico.atualizarMesAutomatico({
+            db: db(), FieldValue: admin.firestore.FieldValue, Timestamp: admin.firestore.Timestamp,
+            sigla: unidade, mes, hoje: hojeSaoPaulo(), log: logger,
+          });
+          logger.info('comissoes automatico', { unidade, mes, situacao: a.situacao, ativacoes: a.ativacoes, motivo: a.motivo || null });
+        } catch (e) {
+          logger.error('comissoes automatico falhou', { unidade, mes, erro: String(e && e.message || e) });
+        }
+      }
+    }
   }
   return r;
 }
