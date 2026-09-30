@@ -23,7 +23,7 @@ Todas as consultas feitas só com leitura, usando a credencial de cada unidade (
    - A resposta traz o CPF da consultora: **só `nomeConsultorReponsavel` e `responsavelLancamento` saem da função**, nada mais é gravado.
    - Limite de 1 consulta por segundo: sem pausa, parte das respostas volta vazia (visto na 1ª rodada da amostra). Pausa de 1,2 s e repetir uma vez no 429.
 2. **As vendas de balcão existem na API.** `GET apigw/importacao/psec/relFaturamentoRecebido/vendas?inicio=dd/MM&fim=dd/MM` (máx. 7 dias, sem ano) lista cada venda com produto, valor, data e hora, cliente e contrato. PP agosto: 350 vendas, 20 produtos (água, Monster, camiseta, taxa de renegociação…). Era a diferença que sobrava da sombra: −R$ 226,50 no PP e −R$ 420,50 no CP em agosto.
-   - Não traz vendedora. A consultora do contrato (quando há) ou vazio.
+   - **Não traz vendedora.** No arquivo, a venda de balcão vai para a consultora do aluno ou para quem vendeu no balcão (`Responsável`). Pela API ela entra **sem vendedora**: o caixa da unidade fica certo e a comissão (cerca de R$ 15 por mês por unidade) cai em "Sem Vendedor". O script de validação mede esse valor, e ele vai para o Rafael decidir.
    - Degustação grátis (R$ 0) **não aparece** nesse relatório.
 3. **A degustação grátis se acha pela numeração dos contratos (validado em 30/09).** Os contratos são numerados em sequência por unidade, e `GET apigw/contratos/{codigo}` responde qualquer número: número inexistente volta `200` com `content` vazio. O 4638 vem com plano `MÊS DEGUSTAÇÃO LIVRE.`, `valor: 0`, `tipo: MA`, lançamento em 25/08/2026 e consultora.
    - **Varredura completa de agosto e setembro nas duas unidades** (PP 4555–4760, CP 7025–7275): **uma única degustação de valor zero, o 4638**. As outras 17 degustações (PP `MÊS DEGUSTAÇÃO LIVRE.`, CP `PLANO VOUCHER DEGUSTAÇÃO`) custaram R$ 89 e já vêm pelo recebido. É o mesmo número do relatório de vendas.
@@ -67,6 +67,11 @@ Todas as consultas feitas só com leitura, usando a credencial de cada unidade (
 - Todo contrato achado vai para o caderninho (`pacto_contratos`), com consultora e quem lançou. Isso já adianta a consulta da vendedora (2.1).
 - Plano de degustação com valor zero vira uma linha no formato do export, e o **próprio** `PactoAdapter.degustacoesGratis` decide, com a mesma regra de hoje (não é teste, não é migrado). O resultado vai para `degustacoes` do doc do dia do lançamento. O botão entrega isso ao mesmo `PactoAdapter.juntarDegustacoes`.
 - Carga inicial: agosto e setembro pela função manual. Gabarito: só o 4638 aparece.
+- **Onde fica (ajuste de 30/09, ao ler o código):** coleção nova **`pacto_degustacoes/{CP|PP}_{contrato}`**, com leitura só do admin e escrita só da Function. Não pode ficar no doc do dia, porque `gravarDia` regrava o dia inteiro a cada busca e a degustação sumiria. **Isso muda as regras do Firestore** (um `match` novo). Deploy de regras separado, validando antes com `validate-rules-comissoes.js`.
+
+### 2.1b O caderninho não pode perder a consultora (ajuste de 30/09)
+
+Hoje `buscarDia` e `renovacoes-montar.completarContratos` gravam **todos** os contratos de um aluno com `set` e `consultor: null` no CP. Isso apagaria a consultora trazida pelo gateway. A gravação passa a ser `set(..., { merge: true })`, sem os campos vazios (`consultor`/`lancou` nulos não são enviados).
 
 ### 2.4 O botão — `index.html` (tela de Upload)
 
@@ -80,7 +85,7 @@ Todas as consultas feitas só com leitura, usando a credencial de cada unidade (
   6. a prévia diz de onde veio: **"Pacto (API) · dados até 29/09 · buscado hoje às 04:04"**.
 - O upload grava `origem: 'api'` e `dadosAte` no registro do upload. O histórico mostra "API" ou "planilha".
 - **A planilha:** a área de arrastar fica recolhida, sob **"▸ Usar planilha (só se a Pacto falhar)"**. Continua funcionando igual.
-- Regras do Firestore: `pacto_sombra_dias` já é legível pelo admin. **Nada muda nas regras.**
+- Regras do Firestore: `pacto_sombra_dias` já é legível pelo admin. A única regra nova é `pacto_degustacoes` (2.3).
 
 ### 2.5 Tela de comparação e termômetro
 
