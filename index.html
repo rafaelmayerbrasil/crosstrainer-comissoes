@@ -3778,6 +3778,7 @@
         { key: 'minNovos', label: 'Mín. Novos+Retorno', val: cfg.minNovos },
         { key: 'minRenov', label: 'Mín. Renovações', val: cfg.minRenov },
         { key: 'minVoucher', label: 'Mín. Vouchers', val: cfg.minVoucher },
+        { key: 'pctVoucherAcimaDaMedia', label: 'Meta sugerida: vouchers = média + %', val: cfg.pctVoucherAcimaDaMedia },
         { key: 'multFalhaRenov', label: 'Mult. falha Renov', val: cfg.multFalhaRenov },
         { key: 'multFalhaVoucher', label: 'Mult. falha Voucher', val: cfg.multFalhaVoucher },
         { section: 'P4 — Conversão de Voucher' },
@@ -5763,7 +5764,9 @@
           const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
           if (l.exists && l.data().situacao === 'ok') renovacaoBase = (l.data().blocos.renovacoes || []).length;
         } catch (e) { console.warn('lista de renovações indisponível:', e.message); }
-        const r = MetasSugeridas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase });
+        // % acima da média dos vouchers: configuração da unidade (decisão do Rafael, 30/09)
+        const cfgUnidade = { ...CommissionEngine.defaultConfig, ...(await configDaUnidade(unitId)) };
+        const r = MetasSugeridas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase, pctVoucherAcima: cfgUnidade.pctVoucherAcimaDaMedia });
         if (!r.confiavel) {
           toast('Este mês não tem meta e o sistema não tem histórico suficiente para propor: defina em "Configurar Metas do Mês".', 'info');
           return false;
@@ -6369,6 +6372,28 @@
         });
       }
 
+      // Mês anterior: as degustações dele servem ao P4 e à conversão como venda nova
+      let previousProcessed = [];
+      try {
+        const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
+        const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
+        const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
+        const prevPeriodId = `${unidadeDoPeriodo}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
+        if (prevDoc.exists) {
+          const prevUploadId = prevDoc.data().uploadId;
+          const prevQuery = prevUploadId
+            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
+            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
+          const prevSnap = await prevQuery.get();
+          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
+        }
+      } catch (e) { console.warn('Could not load previous period for recalculate P4:', e); }
+
+      // Conversão de degustação paga como venda nova (out/2026+, decisão do Rafael 30/09).
+      // Antes do recálculo de cada item: muda a categoria, e o P1 sai de venda nova.
+      CommissionEngine.marcarConversoesComoNovas(processed, previousProcessed, cfg);
+
       // 1. Recalculate and Sync each item back to Firestore in batches
       try {
         const batch = db.batch();
@@ -6385,7 +6410,10 @@
             p2bonus: item.p2bonus,
             isActivation: item.isActivation,
             isNaoCom: item.isNaoCom,
-            label: item.label
+            label: item.label,
+            // conversão de degustação vira venda nova (out/2026+): a categoria também muda
+            category: item.category || null,
+            ...(item.conversaoDeDegustacao ? { conversaoDeDegustacao: true, categoriaPacto: item.categoriaPacto || 'renovacao' } : {})
           });
           
           batchCount++;
@@ -6410,25 +6438,7 @@
 
       CommissionEngine.applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg);
 
-      // P4
-      let previousProcessed = [];
-      try {
-        const [unit, yStr, mStr] = periodId.split('_')[1].split('-');
-        const currentYear = parseInt(periodId.split('_')[1].split('-')[0]);
-        const currentMonth = parseInt(periodId.split('_')[1].split('-')[1]);
-        const prevMonthDate = new Date(currentYear, currentMonth - 1, 0);
-        const prevPeriodId = `${unidadeDoPeriodo}_${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
-        const prevDoc = await db.collection('periodos').doc(prevPeriodId).get();
-        if (prevDoc.exists) {
-          const prevUploadId = prevDoc.data().uploadId;
-          const prevQuery = prevUploadId
-            ? db.collection('periodos').doc(prevPeriodId).collection('itens').where('uploadId', '==', prevUploadId).where('type', '==', 'processed')
-            : db.collection('periodos').doc(prevPeriodId).collection('itens').where('type', '==', 'processed');
-          const prevSnap = await prevQuery.get();
-          prevSnap.forEach(doc => previousProcessed.push(doc.data()));
-        }
-      } catch (e) { console.warn('Could not load previous period for recalculate P4:', e); }
-
+      // P4 — `previousProcessed` foi carregado antes do recálculo dos itens (conversão como venda nova)
       const p4result = CommissionEngine.calcP4(processed, previousProcessed, cfg);
       p4result.conversions.forEach(c => { if (vendorData[c.vendedora] && !c.isNaoCom) vendorData[c.vendedora].p4individual += c.bonus; });
       Object.entries(p4result.vendorPool).forEach(([name, amount]) => { if (vendorData[name]) vendorData[name].p4pool += amount; });

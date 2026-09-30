@@ -176,6 +176,19 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
   assert.ok(/atualizarTermometro\(/.test(rodar), 'rodarSombra atualiza o termômetro');
   ok('as duas buscas (4h e botão) atualizam o termômetro');
 
+  // conversão de degustação (a Pacto chama de "Renovação") conta como venda nova de outubro em diante
+  {
+    const docsOut = [doc('2026-10-05', [contrato('MARIA SILVA', 7101, '05/10/2026', '239,00', ANUAL, 'Renovação')])];
+    const deg = [{ isDegustacao: true, cliente: 'MARIA SILVA', data: '10/09/2026', item: 'MÊS DEGUSTAÇÃO LIVRE (10/09/2026 - 10/10/2026)' }];
+    const com = T.calcularMes({ ...base, mes: '2026-10', hoje: '2026-10-08', docs: docsOut, codigosPagos: [], config: {}, metaDoMes: true, anteriores: deg });
+    assert.strictEqual(com.ativacoes.novo, 1, 'conversão = venda nova');
+    assert.strictEqual(com.ativacoes.renovacao, 0);
+    assert.strictEqual(com.ativacoes.novosRetorno, 1);
+    const sem = T.calcularMes({ ...base, mes: '2026-10', hoje: '2026-10-08', docs: docsOut, codigosPagos: [], config: {}, metaDoMes: true });
+    assert.strictEqual(sem.ativacoes.renovacao, 1, 'sem degustação antes, é renovação');
+    ok('termômetro: conversão de degustação conta como venda nova');
+  }
+
   // contrato pago em outubro que começa em dezembro: a ativação conta no termômetro de dezembro
   {
     const db3 = makeFakeDb();
@@ -193,5 +206,5 @@ const r = T.calcularMes({ ...base, hoje: '2026-09-08', docs, codigosPagos: ['C65
     ok('termômetro: a ativação adiada chega no mês do início');
   }
 
-  console.log('\n✅ smoke-pacto-termometro: ' + n + '/11');
+  console.log('\n✅ smoke-pacto-termometro: ' + n + '/12');
 })().catch(e => { console.error(e); process.exit(1); });

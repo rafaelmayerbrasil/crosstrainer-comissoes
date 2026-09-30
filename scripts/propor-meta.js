@@ -43,7 +43,9 @@ const db = admin.firestore();
       const l = await db.collection('renovacoes_lista').doc(sigla + '_' + MES).get();
       if (l.exists && l.data().situacao === 'ok') base = l.data().blocos.renovacoes.length;
     }
-    const r = MS.sugerir({ mes: MES, serie, metasAnteriores: metas, renovacaoBase: base, formula: arg('--formula') || undefined });
+    const cfgU = (await db.collection('units').doc(unitId).get()).data() || {};
+    const pctV = ((cfgU.config || {}).pctVoucherAcimaDaMedia);
+    const r = MS.sugerir({ mes: MES, serie, metasAnteriores: metas, renovacaoBase: base, formula: arg('--formula') || undefined, pctVoucherAcima: typeof pctV === 'number' ? pctV : undefined });
     console.log(`\n=== ${sigla} ${MES} (${PROJ}) — renovações que vencem: ${base == null ? 'sem lista' : base}`);
     console.log('meses:', Object.keys(serie).sort().map(m => `${m}${serie[m].completo ? '' : '(parcial até ' + serie[m].ate + ')'}=${Math.round(serie[m].ativacoes)}`).join(' '));
     if (!r.confiavel) { console.log('NÃO PROPÕE:', r.porque.geral); continue; }

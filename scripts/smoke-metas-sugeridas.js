@@ -60,7 +60,13 @@ const METAS = {
   assert.strictEqual(r.campos.minVoucher, Math.ceil(med * 1.10), '8,83 × 1,1 = 9,7 → 10');
   assert.strictEqual(r.campos.minVoucher, 10);
   assert.ok(/média/.test(r.porque.minVoucher) && /10%/.test(r.porque.minVoucher), r.porque.minVoucher);
-  ok('voucher: média dos 6 meses fechados + 10%, arredondado para cima');
+  // decisão do Rafael (30/09): o percentual é da gestão (configuração da unidade)
+  const r20 = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 30, formula: 'media6', pctVoucherAcima: 20 });
+  assert.strictEqual(r20.campos.minVoucher, Math.ceil(med * 1.20), '20%: 10,6 → 11');
+  assert.ok(/20%/.test(r20.porque.minVoucher));
+  const r0 = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 30, formula: 'media6', pctVoucherAcima: 0 });
+  assert.strictEqual(r0.campos.minVoucher, 9, '0%: a média, para cima');
+  ok('voucher: média dos 6 meses fechados + % da gestão (padrão 10%), arredondado para cima');
 }
 
 /* 4. sem lista de renovações: renovação cai para a média × fator, e diz por quê */

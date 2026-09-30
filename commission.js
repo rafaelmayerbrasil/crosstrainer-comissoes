@@ -174,6 +174,8 @@ const CommissionEngine = {
     minIndivIntegral: 18,
     minIndiv30h: 12,
     pctAdaptacao: 50,
+    // Meta sugerida: mínimo de vouchers = média dos 6 meses + este % (decisão da gestão)
+    pctVoucherAcimaDaMedia: 10,
   },
 
   // ─── Classify a row from the Excel ───
@@ -953,6 +955,56 @@ const CommissionEngine = {
     return { dP1, dP2, dP3, p3Antes, p3Depois, total: dP1 + dP2 + dP3 };
   },
 
+  /** 'dd/mm/aaaa' (ou Date/Timestamp) → Date, ou null */
+  _dataDoItem(v) {
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    if (typeof v.toDate === 'function') return v.toDate();
+    const m = String(v).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
+  },
+
+  /**
+   * Decisão do Rafael (30/09/2026): conversão de degustação paga como VENDA NOVA
+   * de out/2026 em diante. A Pacto registra o plano cheio de quem fez degustação
+   * como "renovação" (a degustação é o 1º contrato): aqui ele vira "novo" — P1 de
+   * venda nova e conta em novos + retorno. Mesmo casamento do P4: nome do cliente,
+   * plano cheio, depois da degustação e até `prazoConversaoDias` do fim dela.
+   * Guarda `categoriaPacto` e `conversaoDeDegustacao`. Até setembro, nada muda.
+   * @returns {number} quantos itens mudaram
+   */
+  marcarConversoesComoNovas(processed, previousProcessed, config) {
+    const cfg = { ...this.defaultConfig, ...config };
+    if (!this.regraNovaDosMinimos(cfg)) return 0;
+    const degustacoes = [...(previousProcessed || []), ...(processed || [])]
+      .filter(v => v && v.isDegustacao)
+      .map(v => {
+        const ini = this._dataDoItem(v.dateObj || v.data);
+        const datas = this.parseStartDate(v.item);
+        const fim = this._dataDoItem(v.dateVoucherEnd) || (datas && datas.endDate) || ini;
+        return { nome: this._normNome(v.cliente), ini, fim };
+      })
+      .filter(v => v.nome && v.ini);
+    let mudou = 0;
+    (processed || []).forEach(d => {
+      if (!d || d.category !== 'renovacao' || !d.isContract || d.conversaoDeDegustacao) return;
+      if (!['BIANUAL', 'ANUAL', 'RECORRENTE'].includes(d.periodicidade)) return;
+      const quando = this._dataDoItem(d.dateObj || d.data);
+      const nome = this._normNome(d.cliente);
+      if (!quando || !nome) return;
+      const achou = degustacoes.some(v => v.nome === nome && quando - v.ini >= 0 &&
+        (quando - v.fim) / (1000 * 60 * 60 * 24) <= cfg.prazoConversaoDias);
+      if (!achou) return;
+      d.categoriaPacto = 'renovacao';
+      d.category = 'novo';
+      d.conversaoDeDegustacao = true;
+      d.label = 'Novo (conversão de degustação)';
+      this.applyCommissionsToItem(d, cfg);
+      mudou++;
+    });
+    return mudou;
+  },
+
   // ─── P4: Voucher conversion bonus ───
   calcP4(currentProcessed, previousProcessed, config) {
     const cfg = { ...this.defaultConfig, ...config };
@@ -1097,6 +1149,9 @@ const CommissionEngine = {
     // Rede de segurança da regra dos mínimos (out/2026): sem o mês na configuração,
     // vale o mês das vendas — um mês antigo nunca ganha a regra nova por esquecimento.
     if (!cfg.mes) cfg.mes = this.mesDosItens(processed);
+
+    // Conversão de degustação paga como venda nova (out/2026+, decisão do Rafael 30/09)
+    this.marcarConversoesComoNovas(processed, previousProcessed, cfg);
 
     // Build vendor data
     const vendorData = this.buildVendorData(processed, splits, cfg);

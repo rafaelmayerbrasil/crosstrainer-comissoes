@@ -22,7 +22,7 @@ const MetasSugeridas = {
   PCT_GOLD: 1.30,
   PCT_NOVOS: 0.35,
   PCT_RENOV: 0.65,
-  PCT_VOUCHER_ACIMA: 0.10,   // voucher: média + 10% (resposta do Rodrigo, 30/09/2026 — a confirmar com o Rafael)
+  PCT_VOUCHER_ACIMA: 0.10,   // padrão do % sobre a média dos vouchers; a unidade configura (pctVoucherAcimaDaMedia)
   MIN_MESES: 3,
 
   /** Maior dia ('AAAA-MM-DD') de uma lista de datas 'dd/mm/aaaa'. */
@@ -111,7 +111,9 @@ const MetasSugeridas = {
    * @param {number|null} a.renovacaoBase renovações que vencem no mês (Bloco 1 da lista); null = sem lista
    * @param {string} [a.formula]         'rodrigo' | 'media6'
    */
-  sugerir({ mes, serie, metasAnteriores, renovacaoBase, formula }) {
+  // `pctVoucherAcima`: % sobre a média dos vouchers (configuração da unidade,
+  // `pctVoucherAcimaDaMedia`; decisão do Rafael 30/09 — a gestão decide). Padrão 10.
+  sugerir({ mes, serie, metasAnteriores, renovacaoBase, formula, pctVoucherAcima }) {
     const f = formula || this.FORMULA_PADRAO;
     const completos = this._completosAntes(serie, mes);
     const janela = completos.slice(-6);
@@ -152,8 +154,9 @@ const MetasSugeridas = {
     // Resposta do Rodrigo (30/09): nada de % sobre os ~250 convites — partir do que
     // a unidade já faz e "sempre exigir um pouco mais". +10% é a proposta; a gestão revisa.
     const medV = this._media6(serie, mes, 'vouchers');
-    campos.minVoucher = Math.ceil(medV * (1 + this.PCT_VOUCHER_ACIMA));
-    porque.minVoucher = `média de vouchers dos meses fechados (${this._r1(medV)}) + ${Math.round(this.PCT_VOUCHER_ACIMA * 100)}%, arredondado para cima`;
+    const pctV = typeof pctVoucherAcima === 'number' && pctVoucherAcima >= 0 ? pctVoucherAcima / 100 : this.PCT_VOUCHER_ACIMA;
+    campos.minVoucher = Math.ceil(medV * (1 + pctV) - 1e-9);   // o -1e-9 evita 9,000…01 virar 10
+    porque.minVoucher = `média de vouchers dos meses fechados (${this._r1(medV)}) + ${Math.round(pctV * 100)}% (configuração da unidade), arredondado para cima`;
 
     const ultimos = Object.keys(metasAnteriores || {}).filter(x => x < mes && metasAnteriores[x]
       && typeof metasAnteriores[x].minAtivacoesIndivP3 === 'number').sort();

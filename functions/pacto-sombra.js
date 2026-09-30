@@ -238,9 +238,17 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
           it.docs.forEach(d => { const x = d.data(); if (x.type === 'processed') ativacoesAdiadas.push(x); });
         }
       }
+      // Mês anterior: as degustações dele reconhecem a conversão como venda nova (out/2026+)
+      let anteriores = [];
+      if (mes >= CE.INICIO_REGRA_MINIMOS && unitId) {
+        const [ay, am] = mes.split('-').map(Number);
+        const mesAnt = new Date(Date.UTC(ay, am - 2, 1)).toISOString().slice(0, 7);
+        const ant = await db.collection('periodos').doc(unitId + '_' + mesAnt).collection('itens').where('type', '==', 'processed').get();
+        anteriores = ant.docs.map(d => d.data()).filter(x => x.isDegustacao);
+      }
       const r = T.calcularMes({
         docs, mes, unidade, hoje, codigosPagos,
-        config: { ...unitConfig, ...(metasMensais || {}), ativacoesAdiadas }, metaDoMes,
+        config: { ...unitConfig, ...(metasMensais || {}), ativacoesAdiadas }, metaDoMes, anteriores,
         Adapter: PA, Engine: CE, ApiLinhas: L,
       });
       const id = unidade + '_' + mes;

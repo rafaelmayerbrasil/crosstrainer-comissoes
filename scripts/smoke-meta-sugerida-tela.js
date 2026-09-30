@@ -44,6 +44,8 @@ function recorta(ini, fim) {
       firebase: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
       MetasSugeridas: require(path.join(raiz, 'metas-sugeridas.js')),
       PactoAdapter: require(path.join(raiz, 'pacto-adapter.js')),
+      CommissionEngine: require(path.join(raiz, 'commission.js')),
+      configDaUnidade: async () => ({ pctVoucherAcimaDaMedia: 10 }),
       recalculatePeriod: async (id, ctx) => { chamadas.recalc.push(id + ' ' + ctx.label); },
       logAudit: (t, msg) => { chamadas.audit.push(msg); },
       toast: (msg) => { chamadas.toast.push(msg); },

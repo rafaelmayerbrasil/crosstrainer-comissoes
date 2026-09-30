@@ -51,7 +51,7 @@ const PactoTermometro = {
    * @param {Object} [a.config]      config já somada (unidade + meta do mês), sem o padrão
    * @param {boolean}[a.metaDoMes]   a gestão configurou a meta deste mês?
    */
-  calcularMes({ docs, mes, unidade, hoje, codigosPagos, config, metaDoMes, Adapter, Engine, ApiLinhas }) {
+  calcularMes({ docs, mes, unidade, hoje, codigosPagos, config, metaDoMes, anteriores, Adapter, Engine, ApiLinhas }) {
     if (!Adapter || !Engine || !ApiLinhas) throw new Error('calcularMes: Adapter, Engine e ApiLinhas são obrigatórios');
 
     const doMes = (docs || []).filter(d => String(d.dia || '').slice(0, 7) === mes)
@@ -66,14 +66,15 @@ const PactoTermometro = {
     // O mês vai na configuração: a regra do bônus mudou em out/2026 (commission.js)
     const cfg = Object.assign({}, Engine.defaultConfig, config || {}, { mes });
     const rows = vendas.length ? Engine.cleanRawData([Adapter.CABECALHO_SAIDA, ...Adapter.paraPlanilha(vendas)]) : [];
-    const u = rows.length
-      ? Engine.calculate(rows, cfg).unitTotals
+    // `anteriores`: itens do mês anterior (as degustações dele) — conversão como venda nova (out/2026+)
+    const res = rows.length ? Engine.calculate(rows, cfg, {}, anteriores || []) : null;
+    const u = res ? res.unitTotals
       : Engine.contagensDaUnidade([], cfg.ativacoesAdiadas);   // sem venda ainda, mas pode ter ativação adiada chegando
 
-    // por categoria, para a tela (o motor só devolve os agregados do prêmio)
+    // por categoria, para a tela — do MESMO cálculo (conversão já como venda nova)
     const cat = { novo: 0, renovacao: 0, retorno: 0, voucher: 0 };
-    if (rows.length) {
-      Engine.processRows(Engine.deduplicate(rows).unique, cfg, {}).processed.forEach(p => {
+    if (res) {
+      res.processed.forEach(p => {
         // contrato que começa depois (out/2026+) conta no mês do início, como no motor
         if (p.isActivation && !p.ativacaoAdiadaPara && cat[p.category] !== undefined) cat[p.category] += (p.splitAtivacao || 1);
       });
