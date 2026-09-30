@@ -28,7 +28,21 @@ conferido arquivo a arquivo) e em `api-pacto-oficial`.
 **✅ NO AR EM PRODUÇÃO (30/09, `fe412b4..561bbe7` no `main`)** — o Rafael autorizou publicar sem homologar no staging.
 `?v=` do `pacto-adapter.js` → `20261001` (segundo deploy do dia). Functions não mudaram (o termômetro já soma por contrato).
 **🔴 Falta, com o Rafael:** (1) responder o Rodrigo; (2) **re-subir setembro nas duas unidades em produção** — o período
-gravado não se corrige sozinho; na PP tem que dar 56 (ou mais, se entrar venda no dia 30). Memória: [[pagamento-em-duas-formas]].
+gravado não se corrige sozinho; na PP tem que dar 56 (ou mais, se entrar venda no dia 30).
+
+**Re-subida de 30/09 (11:28) — contagens bateram (PP 56, CP 74), valores não:** a regra antiga de proteção
+("mesma venda voltou com outro valor → guarda o original", `valor_alterado_ignorado` no `index.html`) manteve
+Julia em R$ 190,04 e Lianna em R$ 250 em vez de 339 e 500. Com OK do Rafael, **apaguei os dois lançamentos** (cópia em
+`backups/itens-duas-formas-2026-09-30.json`, registro no `audit_log`) → **falta o Rafael subir setembro de novo nas
+duas unidades** e eu conferir.
+
+**Margarida (4552), Ricardo (4553) e Sueli (4554), PP — estão CERTOS como estão:** planos anuais em 12× no cartão
+recorrente; a API mostra a 1ª parcela em 02/09 e a 2ª em 28/09, e o export de 28/09 em diante **junta as duas na linha
+de 02/09** (329→658, 199→398). Pela regra (A) do regime de caixa a comissão é sobre o **primeiro** pagamento — que é o
+valor gravado; a proteção acertou por acaso. ⚠️ Se setembro da PP for subido do zero, os três pagariam sobre o dobro.
+⚠️ **Para a API oficial:** `consolidarPorContrato` soma TODAS as parcelas do contrato no mês (daria 658) — o caminho
+oficial tem que somar só o dia do primeiro pagamento. Setembro: 12 contratos com pagamento em 2+ dias (5 PP, 7 CP),
+só esses 3 ainda comissionam. Memória: [[pagamento-em-duas-formas]].
 
 ---
 
