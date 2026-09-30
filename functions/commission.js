@@ -36,6 +36,67 @@ const CommissionEngine = {
    */
   FIM_DO_DIFERIMENTO: '2026-08',
 
+  /**
+   * Regra nova do bônus da unidade (P3), pedida pelo Rodrigo em 29/09/2026 para
+   * valer na comissão de OUTUBRO (paga em novembro): um conjunto só de mínimos
+   * para Meta, Super e Gold; bateu a faixa + os 3 mínimos → 100%; falhou 1 →
+   * 50%; falhou 2 ou 3 → zera. E o mínimo individual passa a ser por pessoa
+   * (jornada no cadastro). Até setembro vale a regra antiga, sempre.
+   *
+   * Data FIXA pelo mesmo motivo do FIM_DO_DIFERIMENTO: é o dia em que uma regra
+   * mudou, e editável alguém reescreveria uma folha paga sem querer.
+   * Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §5
+   */
+  INICIO_REGRA_MINIMOS: '2026-10',
+
+  /** A regra nova vale para esta configuração? Precisa de `cfg.mes`; sem ele, a antiga. */
+  regraNovaDosMinimos(cfg) {
+    return !!(cfg && cfg.mes && cfg.mes >= this.INICIO_REGRA_MINIMOS);
+  },
+
+  /**
+   * A configuração de um mês: padrão + unidade + metas do mês + QUAL mês é.
+   * Todo lugar que calcula ou mostra o bônus monta a configuração por aqui —
+   * sem o mês, o motor não sabe qual regra vale.
+   */
+  configDoMes({ unitConfig, metasMensais, mes, minimosPorPessoa } = {}) {
+    return {
+      ...this.defaultConfig, ...(unitConfig || {}), ...(metasMensais || {}),
+      mes: mes || null, minimosPorPessoa: minimosPorPessoa || null,
+    };
+  },
+
+  /** O mês ('AAAA-MM') da maioria dos itens — rede de segurança quando `cfg.mes` não veio. */
+  mesDosItens(itens) {
+    const cont = {};
+    (itens || []).forEach(d => {
+      const m = String((d && d.data) || '').match(/^\d{2}\/(\d{2})\/(\d{4})/);
+      if (m) cont[m[2] + '-' + m[1]] = (cont[m[2] + '-' + m[1]] || 0) + 1;
+    });
+    const ord = Object.entries(cont).sort((a, b) => b[1] - a[1]);
+    return ord.length ? ord[0][0] : null;
+  },
+
+  _normNome(s) {
+    return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  },
+
+  /**
+   * Mínimo de ativações para a vendedora entrar no rateio do P3. De outubro em
+   * diante, o da jornada dela (`cfg.minimosPorPessoa`, montado do cadastro); o
+   * nome do cadastro casa com o da venda por palavra inteira. Senão, o do mês.
+   */
+  minimoIndividual(nome, cfg) {
+    const padrao = cfg && cfg.minAtivacoesIndivP3 !== undefined && cfg.minAtivacoesIndivP3 !== null ? cfg.minAtivacoesIndivP3 : 10;
+    if (!this.regraNovaDosMinimos(cfg) || !cfg.minimosPorPessoa) return padrao;
+    const alvo = ' ' + this._normNome(nome) + ' ';
+    for (const [k, v] of Object.entries(cfg.minimosPorPessoa)) {
+      const kk = this._normNome(k);
+      if (kk && typeof v === 'number' && alvo.includes(' ' + kk + ' ')) return v;
+    }
+    return padrao;
+  },
+
   // ─── Default config ───
   defaultConfig: {
     pctNovo: 5,
@@ -685,9 +746,30 @@ const CommissionEngine = {
 
     result.goldRules.ativOk = result.tier !== null;
     result.goldRules.novosOk = unitNovosRetorno >= cfg.minNovos;
+    result.regra = this.regraNovaDosMinimos(cfg) ? 'minimos' : 'antiga';
 
     // Golden rules
     if (!result.goldRules.ativOk) { result.motivos.push('Não atingiu faixa de ativações'); return result; }
+
+    // ── Regra nova (outubro/2026 em diante): 3 mínimos → 100% · 1 falha → 50% · 2+ → zera ──
+    if (result.regra === 'minimos') {
+      if (result.tier === 'gold') { result.fixo = cfg.goldFixo; result.teto = cfg.tetoGold; }
+      else if (result.tier === 'super') { result.fixo = cfg.superFixo; result.teto = cfg.tetoSuper; }
+      else { result.fixo = cfg.metaFixo; result.teto = cfg.tetoMeta; }
+      result.pctValor = vendorP3Base * metaPct;
+      result.bruto = Math.min(result.fixo + result.pctValor, result.teto);
+      result.softLocks.renovOk = unitRenovacoes >= cfg.minRenov;
+      result.softLocks.voucherOk = unitVouchers >= cfg.minVoucher;
+      const falhas = [];
+      if (!result.goldRules.novosOk) falhas.push(`Novos + retorno ${unitNovosRetorno}/${cfg.minNovos}`);
+      if (!result.softLocks.renovOk) falhas.push(`Renovações ${unitRenovacoes}/${cfg.minRenov}`);
+      if (!result.softLocks.voucherOk) falhas.push(`Vouchers ${unitVouchers}/${cfg.minVoucher}`);
+      result.multiplier = falhas.length === 0 ? 1 : (falhas.length === 1 ? 0.5 : 0);
+      const efeito = falhas.length === 1 ? ' → metade do bônus (1 mínimo não batido)' : ` → bônus zera (${falhas.length} mínimos não batidos)`;
+      falhas.forEach(f => result.motivos.push(f + efeito));
+      result.final = Math.round(result.bruto * result.multiplier * 100) / 100;
+      return result;
+    }
     if (!result.goldRules.novosOk) { result.motivos.push(`Mín. novos/retorno: ${unitNovosRetorno}/${cfg.minNovos}`); return result; }
 
     // Tier values
@@ -720,7 +802,8 @@ const CommissionEngine = {
   // Calcula o Bolo da Unidade uma vez e distribui proporcionalmente ao caixa
   // apenas para vendedoras que atingiram o mínimo individual de ativações.
   applyP3Pool(vendorData, unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, cfg) {
-    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
+    // Mínimo de cada vendedora: o da jornada dela de outubro/2026 em diante, senão o do mês
+    const minDe = nome => this.minimoIndividual(nome, cfg);
 
     // Base caixa P3 = soma de todos os vendors não-comissionáveis excluídos
     const unitCaixaP3 = Object.values(vendorData).reduce(
@@ -731,10 +814,10 @@ const CommissionEngine = {
     const p3Pool = this.calcP3(unitAtivacoes, unitNovosRetorno, unitRenovacoes, unitVouchers, unitCaixaP3, cfg);
 
     // Soma o caixaP3Eligible APENAS das vendedoras elegíveis (ativações >= mínimo)
-    const atingiu = v => this.arredondaContagem(v.ativacoes) >= minAtiv;
-    const totalCaixaElegiveis = Object.values(vendorData)
-      .filter(v => !v.isNaoCom && atingiu(v))
-      .reduce((s, v) => s + (v.caixaP3Eligible || 0), 0);
+    const atingiu = (nome, v) => this.arredondaContagem(v.ativacoes) >= minDe(nome);
+    const totalCaixaElegiveis = Object.entries(vendorData)
+      .filter(([nome, v]) => !v.isNaoCom && atingiu(nome, v))
+      .reduce((s, [, v]) => s + (v.caixaP3Eligible || 0), 0);
 
     Object.entries(vendorData).forEach(([name, v]) => {
       if (v.isNaoCom) {
@@ -742,12 +825,12 @@ const CommissionEngine = {
         v.p3detail = { tier: null, final: 0, tierLabel: 'N/C', motivos: [] };
         return;
       }
-      if (!atingiu(v)) {
+      if (!atingiu(name, v)) {
         v.p3 = 0;
         v.p3detail = {
           ...p3Pool,
           final: 0,
-          motivos: [...(p3Pool.motivos || []), `Não atingiu o mínimo individual de ${minAtiv} ativações.`],
+          motivos: [...(p3Pool.motivos || []), `Não atingiu o mínimo individual de ${minDe(name)} ativações.`],
         };
         return;
       }
@@ -770,13 +853,12 @@ const CommissionEngine = {
   // `resumo` é o vendorSummary gravado (p3base = caixa elegível ao P3).
   agregadosP3(resumo, minhaVendedora, config) {
     const cfg = { ...this.defaultConfig, ...config };
-    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
     let baseUnidade = 0, baseOutrasElegiveis = 0;
     Object.entries(resumo || {}).forEach(([nome, v]) => {
       if (!v || v.isNaoCom) return;
       const base = v.p3base !== undefined ? v.p3base : (v.caixa || 0);
       baseUnidade += base;
-      if (nome !== minhaVendedora && this.arredondaContagem(v.ativacoes) >= minAtiv) baseOutrasElegiveis += base;
+      if (nome !== minhaVendedora && this.arredondaContagem(v.ativacoes) >= this.minimoIndividual(nome, cfg)) baseOutrasElegiveis += base;
     });
     return { baseUnidade, baseOutrasElegiveis };
   },
@@ -784,9 +866,10 @@ const CommissionEngine = {
   // Quanto ELA ganha fechando mais `qt` vendas novas de um plano (P1 + P2 + a
   // parte dela no P3). A diferença do P3 é sempre medida contra a mesma conta
   // sem as vendas novas, para não misturar com o que está gravado.
-  simularVendas({ minhas, totais, agregados, qt, valorCaixa, bonusP2, config }) {
+  // `nome`: o da vendedora no resumo do mês (o mínimo dela pode ser o da jornada, out/2026+)
+  simularVendas({ minhas, nome, totais, agregados, qt, valorCaixa, bonusP2, config }) {
     const cfg = { ...this.defaultConfig, ...config };
-    const minAtiv = cfg.minAtivacoesIndivP3 !== undefined ? cfg.minAtivacoesIndivP3 : 10;
+    const minAtiv = this.minimoIndividual(nome, cfg);
     const t = totais || {};
     const ag = agregados || { baseUnidade: 0, baseOutrasElegiveis: 0 };
     const minhaBase0 = minhas.p3base !== undefined ? minhas.p3base : (minhas.caixa || 0);
@@ -939,6 +1022,9 @@ const CommissionEngine = {
 
     // Process
     const { processed, excluded, deferred } = this.processRows(unique, cfg, splits);
+    // Rede de segurança da regra dos mínimos (out/2026): sem o mês na configuração,
+    // vale o mês das vendas — um mês antigo nunca ganha a regra nova por esquecimento.
+    if (!cfg.mes) cfg.mes = this.mesDosItens(processed);
 
     // Build vendor data
     const vendorData = this.buildVendorData(processed, splits, cfg);
