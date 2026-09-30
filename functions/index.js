@@ -2126,22 +2126,36 @@ function fmtCF(val) {
 // A credencial mora no Secret Manager (`PACTO_API_KEY`) e nunca vai para log.
 const { defineSecret } = require('firebase-functions/params');
 const PACTO_API_KEY = defineSecret('PACTO_API_KEY');
+// Credenciais POR UNIDADE (29/09/2026), no gateway: a lista de renovações e, desde
+// 30/09, a consultora do contrato (o Campeche só tem por ali), o balcão e a
+// varredura que acha a degustação grátis. Declaradas aqui porque as opções do
+// onSchedule da busca são lidas ao carregar o arquivo.
+const PACTO_API_KEY_CP = defineSecret('PACTO_API_KEY_CP');
+const PACTO_API_KEY_PP = defineSecret('PACTO_API_KEY_PP');
 const pactoSombra = require('./pacto-sombra.js');
 const pactoCliente = require('./pacto-api-cliente.js');
+const pactoGateway = require('./pacto-gateway-cliente.js');
 
 /** Hoje em São Paulo, 'AAAA-MM-DD' — a Cloud Function roda em UTC */
 function hojeSaoPaulo() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 
-async function rodarSombra(dias, unidades) {
+async function rodarSombra(dias, unidades, opcoes = {}) {
   const cliente = pactoCliente.criarCliente({ fetch, credencial: PACTO_API_KEY.value() });
+  const clientesGw = {
+    CP: pactoGateway.criarClienteGateway({ fetch, credencial: PACTO_API_KEY_CP.value() }),
+    PP: pactoGateway.criarClienteGateway({ fetch, credencial: PACTO_API_KEY_PP.value() }),
+  };
   const r = await pactoSombra.buscar({
-    db: db(), cliente, dias, unidades,
+    db: db(), cliente, clientesGw, dias, unidades,
+    varrerDesde: opcoes.varrerDesde || null,
     agora: () => admin.firestore.FieldValue.serverTimestamp(),
   });
   logger.info('pacto sombra', {
     dias: dias.length, chamadas: cliente.chamadas, parouPor: r.parouPor || null,
+    gateway: { CP: clientesGw.CP.chamadas, PP: clientesGw.PP.chamadas },
+    varredura: r.varredura || null,
     situacoes: r.resultados.map(x => x.unidade + ' ' + x.dia + ' ' + x.situacao),
   });
   // Termômetro do mês (só totais, lido pela gestão). Falhar aqui não pode
@@ -2165,7 +2179,7 @@ async function rodarSombra(dias, unidades) {
 exports.buscarPactoSombra = onSchedule({
   schedule: '0 4 * * *',
   timeZone: 'America/Sao_Paulo',
-  secrets: [PACTO_API_KEY],
+  secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
   timeoutSeconds: 1800,   // 21 dias × 2 unidades levaram 2min48s com o caderninho cheio; pior caso 40 dias
   memory: '512MiB',
 }, async () => {
@@ -2176,7 +2190,7 @@ exports.buscarPactoSombra = onSchedule({
 // Botão "buscar agora" — só admin. Serve para a carga inicial e para refazer
 // dia vermelho com mais de 3 dias. No máximo 62 dias por chamada.
 exports.buscarPactoSombraManual = onCall({
-  secrets: [PACTO_API_KEY],
+  secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
   // Carga inicial: cada cliente novo é uma consulta, com 2 s de pausa entre elas.
   // Um mês sem caderninho passa de 20 minutos — 60 min é o teto do Firebase.
   timeoutSeconds: 3600,
@@ -2202,8 +2216,19 @@ exports.buscarPactoSombraManual = onCall({
     throw new HttpsError('invalid-argument', e.message);
   }
   if (!dias.length) throw new HttpsError('invalid-argument', 'Nenhum dia a buscar (o dia de hoje nunca é buscado).');
-  const r = await rodarSombra(dias, unidades);
-  return { dias: dias.length, parouPor: r.parouPor || null, resultados: r.resultados };
+  // Carga inicial da varredura de contratos: `varrerDesde` {CP?, PP?} = número inicial
+  const varrerDesde = {};
+  if (data.varrerDesde && typeof data.varrerDesde === 'object') {
+    ['CP', 'PP'].forEach(u => {
+      const v = data.varrerDesde[u];
+      if (v != null) {
+        if (!Number.isInteger(v) || v <= 0) throw new HttpsError('invalid-argument', 'varrerDesde.' + u + ' tem que ser um número de contrato.');
+        varrerDesde[u] = v;
+      }
+    });
+  }
+  const r = await rodarSombra(dias, unidades, { varrerDesde });
+  return { dias: dias.length, parouPor: r.parouPor || null, resultados: r.resultados, varredura: r.varredura || null };
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2215,8 +2240,7 @@ exports.buscarPactoSombraManual = onCall({
 // Grava só `renovacoes_lista` e o caderninho `pacto_contratos`; o que a consultora
 // preenche fica em `renovacoes_acompanhamento` e aqui é só lido.
 // Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §3
-const PACTO_API_KEY_CP = defineSecret('PACTO_API_KEY_CP');
-const PACTO_API_KEY_PP = defineSecret('PACTO_API_KEY_PP');
+// PACTO_API_KEY_CP / _PP: declaradas no bloco do modo sombra, acima.
 const renovacoesMontar = require('./renovacoes-montar.js');
 const pactoRenovacaoCliente = require('./pacto-renovacao-cliente.js');
 

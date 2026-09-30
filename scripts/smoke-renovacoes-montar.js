@@ -117,7 +117,15 @@ const NUCLEO = {
     const ini = idx.indexOf('// LISTA DE RENOVAÇÕES');
     assert.ok(ini > 0, 'bloco da lista de renovações no index.js');
     const bloco = idx.slice(ini);
-    assert.ok(/defineSecret\('PACTO_API_KEY_CP'\)/.test(bloco) && /defineSecret\('PACTO_API_KEY_PP'\)/.test(bloco));
+    // declaradas uma vez só, no bloco do modo sombra (30/09/2026: a busca das 4h também usa)
+    assert.strictEqual((idx.match(/defineSecret\('PACTO_API_KEY_CP'\)/g) || []).length, 1);
+    assert.strictEqual((idx.match(/defineSecret\('PACTO_API_KEY_PP'\)/g) || []).length, 1);
+    assert.ok(idx.indexOf("defineSecret('PACTO_API_KEY_CP')") < idx.indexOf('exports.buscarPactoSombra ='), 'antes das opções que as leem');
+    ['exports.buscarPactoSombra =', 'exports.buscarPactoSombraManual =', 'exports.montarListaRenovacoes =', 'exports.montarListaRenovacoesManual ='].forEach(f => {
+      const trecho = idx.slice(idx.indexOf(f), idx.indexOf(f) + 400);
+      assert.ok(/secrets: \[PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP\]/.test(trecho), f + ' sem as credenciais das unidades');
+    });
+    assert.ok(/criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_CP\.value\(\) \}\)/.test(idx), 'a busca usa o gateway do CP');
     assert.ok(/exports\.montarListaRenovacoes\s*=\s*onSchedule\(\{[\s\S]*?schedule:\s*'0 5 \* \* \*'[\s\S]*?timeZone:\s*'America\/Sao_Paulo'/.test(bloco));
     assert.ok(/exports\.montarListaRenovacoesManual\s*=\s*onCall\(/.test(bloco));
     assert.ok(/callerProfiles\.includes\('admin'\)/.test(bloco.slice(bloco.indexOf('exports.montarListaRenovacoesManual'))), 'botão só do admin');
