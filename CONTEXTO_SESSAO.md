@@ -25,10 +25,10 @@ depende da data; as que pedem `firebase-admin`). Commits: `0d86e1e` em **`fix-pa
 `origin/main`, é a que vai para produção) · cherry-pick em `renovacoes-metas-bonus` (**no ar no staging**, hosting
 conferido arquivo a arquivo) e em `api-pacto-oficial`.
 
-**🔴 Falta, com o Rafael:** (1) responder o Rodrigo; (2) homologar no staging arrastando o arquivo de setembro na PP
-(tem que dar 56); (3) OK para produção — inclui o bump do `?v=` do `pacto-adapter.js` no `index.html` (já é
-`20260930`, o segundo deploy do dia precisa de outro valor); (4) **re-subir setembro nas duas unidades em produção**,
-porque o período gravado não se corrige sozinho. Memória: [[pagamento-em-duas-formas]].
+**✅ NO AR EM PRODUÇÃO (30/09, `fe412b4..561bbe7` no `main`)** — o Rafael autorizou publicar sem homologar no staging.
+`?v=` do `pacto-adapter.js` → `20261001` (segundo deploy do dia). Functions não mudaram (o termômetro já soma por contrato).
+**🔴 Falta, com o Rafael:** (1) responder o Rodrigo; (2) **re-subir setembro nas duas unidades em produção** — o período
+gravado não se corrige sozinho; na PP tem que dar 56 (ou mais, se entrar venda no dia 30). Memória: [[pagamento-em-duas-formas]].
 
 ---
 
