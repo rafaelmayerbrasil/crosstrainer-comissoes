@@ -40,8 +40,33 @@ Rodrigo × média de 6 meses **empatam** (CP 12,8 × 12,9; PP 8,6 × 8,1) → pa
 **Proposta real de outubro** (produção, só leitura, `scripts/propor-meta.js`): CP 58/67/75, novos 21, renov 13,
 voucher 7 · PP 52/60/68, novos 19, renov 9, voucher 3. ⚠️ Não publicado no hosting do staging ainda.
 
-**C1 — regra nova do bônus: ⏳ próxima.** Desenho na spec §5 (100/50/0 a partir de out/2026, `configDoMes` em todos
-os lugares do index que montam configuração, jornada da vendedora no Hub Pessoas).
+**C1 — regra nova do bônus: ✅ construída e no STAGING** (autorizada pelo Rafael: `commission.js` e `index.html`).
+- `commission.js`: `INICIO_REGRA_MINIMOS = '2026-10'` (fixa no código) · `configDoMes()` · `calcP3` 100/50/0 com
+  motivos · `minimoIndividual()` (jornada, por palavra inteira) no rateio, nos agregados e no simulador · sem `mes`,
+  o `calculate` usa o mês das vendas. Gêmeo em `functions/` idêntico.
+- `index.html`: 13 montagens de configuração passam por `configDoMes`; o recálculo busca a jornada das vendedoras
+  e grava `periodos.minimosPorPessoa`; Regras explicam a regra de out/2026; configuração ganha
+  `minIndivIntegral 18 · minIndiv30h 12 · pctAdaptacao 50`.
+- `jornada-comercial.js` + aba **💼 Comercial** no Hub Pessoas (só admin, só vendedora, "a partir de", mês passado
+  não muda). Termômetro conta quantos mínimos faltam em out/2026+.
+- **Prova contra a produção** (`scripts/comparar-regra-minimos.js`, só leitura): **jul/ago/set recalculam
+  IGUAL ao gravado, vendedora por vendedora.** Como setembro teria ficado na regra nova: CP faltou só voucher (8/10)
+  → metade (Erica 421,24 → 247,79; Francini 172,50 → 101,47); PP faltaram renovação e voucher → zera (Kali 225,71 → 0).
+  **Mostrar ao Rodrigo antes de outubro.**
+- Testes novos: `smoke-regra-minimos` 9 · `smoke-jornada-comercial` 4 · `smoke-config-do-mes` 3 · `smoke-aba-comercial` 4;
+  termômetro 10/10 e 13/13. **Suíte 104/105** (só o `smoke-9`, que pede `--project`, já falhava).
+- De brinde: no **último dia do mês a projeção sumia do painel** (comparava com a meia-noite do último dia) —
+  o `smoke-dashboard-mes-so-vendas` pegou em 30/09; corrigido no `index.html`.
+- ⚠️ Não foi possível clicar logado (a senha iria para o Google, fora da máquina): as 4 páginas foram abertas no
+  staging e carregam sem erro de console; as funções novas foram CHAMADAS pelos testes com banco falso.
+
+**C2 — espera o Rodrigo:** base de vouchers (mensagem com os números pronta, o Rafael manda), pool da conversão na Gold
+e a comissão do contrato que começa depois de 30 dias (só a contagem da ativação vai para o mês do início?).
+
+**🔴 Para o Rafael, de manhã:** (1) homologar no staging as três partes; (2) autorizar o atalho "Renovações" no menu
+(mexe no `index.html`); (3) cadastrar as jornadas (CP Erica integral, Fran 30h; PP Kali integral, Isa 30h) — no staging
+para testar, depois em produção; (4) mostrar ao Rodrigo o efeito da regra nova em setembro; (5) OK para produção
+(regras → secrets → functions → merge no `main` + push, conferindo as duas portas).
 
 ---
 
