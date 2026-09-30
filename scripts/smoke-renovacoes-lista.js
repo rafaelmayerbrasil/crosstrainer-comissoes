@@ -223,6 +223,28 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   ok('consultora da Pacto = vínculo do aluno quando consultado (a mesma regra das comissões)');
 }
 
+/* 11c. nome da Pacto → nome do cadastro, e robô do sistema não é consultora (homologação de 30/09/2026) */
+{
+  const PA = require(path.join(__dirname, '..', 'pacto-adapter.js'));
+  Object.entries(PA.APELIDOS).forEach(([pacto, cadastro]) =>
+    assert.strictEqual(RL.nomeCanonico(pacto), RL.norm(cadastro), 'apelido do tradutor faltando na lista: ' + pacto));
+  assert.strictEqual(RL.nomeCanonico('Kali  López'), 'KALI DUTRA');
+  assert.strictEqual(RL.nomeCanonico('ERICA FAUSTINO'), 'ERICA FAUSTINO');
+  assert.ok(RL.ehNaoConsultora('PACTO - MÉTODO DE GESTÃO'), 'o robô da migração');
+  assert.ok(RL.ehNaoConsultora('RECORRÊNCIA') && RL.ehNaoConsultora('ADMINISTRADOR'));
+  assert.ok(!RL.ehNaoConsultora('PATRICIA PACTOLO'), 'PACTO só como palavra inicial');
+  const CT = Object.assign({}, CONTRATOS, {
+    101: Object.assign({}, CONTRATOS[101], { consultor: 'KALI LÓPEZ' }),
+    109: Object.assign({}, CONTRATOS[109], { consultor: 'PACTO - METODO DE GESTAO' }),
+  });
+  const L4 = RL.montar({ mes: '2026-10', hoje: '2026-10-05', previsao: PREVISAO, contratos: CT, historico: HIST });
+  const de = c => L4.blocos.renovacoes.find(l => l.codigoContrato === c);
+  assert.strictEqual(de('101').consultora, 'KALI DUTRA', 'o nome do cadastro, o mesmo das comissões e do "só as minhas"');
+  assert.notStrictEqual(de('109').consultoraOrigem, 'pacto', 'o robô não vira consultora');
+  assert.ok(!L4.consultoras.some(c => /PACTO/.test(c)), 'nem na lista de consultoras');
+  ok('Kali López vira Kali Dutra (mesmos apelidos do tradutor); "PACTO - MÉTODO DE GESTÃO" não é consultora');
+}
+
 /* 12. situação: a da consultora, ou Sim quando a Pacto já registra */
 {
   assert.strictEqual(RL.statusEfetivo({ renovouSistema: false }, null), 'pendente');

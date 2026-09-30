@@ -46,6 +46,21 @@ const RenovacoesLista = {
   // Mesma lista do `naoComissionaveis` do motor: não são consultoras da lista
   NAO_CONSULTORAS: ['RODRIGO', 'RAFAEL ROJAIS', 'BENNY ELAND', 'SISTEMA'],
 
+  // Nome na Pacto → nome do cadastro. CÓPIA de PactoAdapter.APELIDOS (o tradutor das
+  // comissões); o smoke-renovacoes-lista falha se as duas divergirem. Sem isto a Kali
+  // aparecia como "KALI LÓPEZ" e o "só as minhas" dela (cadastro KALI DUTRA) ficava vazio.
+  APELIDOS: { 'KALI LOPEZ': 'KALI DUTRA', 'RODRIGO ROJAIS': 'RODRIGO' },
+
+  // Rótulos de sistema nas colunas de gente (como PactoAdapter.GENERICOS/PREFIXOS_GENERICOS):
+  // "PACTO - MÉTODO DE GESTÃO" é o robô da migração, não uma consultora.
+  GENERICOS: ['ADMINISTRADOR', 'RECORRENCIA', 'SISTEMA'],
+
+  /** Nome canônico: sem acento, maiúsculo e com o apelido da Pacto resolvido. */
+  nomeCanonico(nome) {
+    const n = this.norm(nome);
+    return this.APELIDOS[n] || n;
+  },
+
   /** Maiúsculas, sem acento, espaços simples. */
   norm(s) {
     return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -164,6 +179,7 @@ const RenovacoesLista = {
   ehNaoConsultora(nome, lista) {
     const n = this.norm(nome);
     if (!n || n === 'SEM VENDEDOR') return true;
+    if (this.GENERICOS.includes(n) || /^PACTO\b/.test(n)) return true;
     return (lista || this.NAO_CONSULTORAS).some(x => n.includes(this.norm(x)));
   },
 
@@ -342,7 +358,7 @@ const RenovacoesLista = {
     ficam.forEach(l => {
       const g = ges[l.codigoContrato] || {};
       if (g.consultoraAtribuida) { l.consultora = g.consultoraAtribuida; l.consultoraOrigem = 'gestao'; }
-      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) { l.consultora = l._consultorPacto; l.consultoraOrigem = 'pacto'; }
+      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) { l.consultora = this.nomeCanonico(l._consultorPacto); l.consultoraOrigem = 'pacto'; }
       else {
         const h = this.consultoraDoHistorico(l.nome, historico, naoConsultoras);
         if (h) { l.consultora = h; l.consultoraOrigem = 'historico'; }
