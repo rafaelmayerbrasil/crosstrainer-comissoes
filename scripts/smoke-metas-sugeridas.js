@@ -117,4 +117,45 @@ const METAS = {
   ok('mês completo quando o maior dia dos dados chega a 2 dias do fim');
 }
 
+/* 9. a tela: quando propor, quando travar o recibo, o aviso */
+{
+  const per = { totals: { unitAtivacoes: 3 }, month: 10, year: 2026 };
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: per, ehAdmin: true }), true);
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: per, ehAdmin: false }), false, 'só o admin grava');
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-09', periodo: per, ehAdmin: true }), false, 'mês antes do início nunca é tocado');
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: { ...per, metasMensais: { meta: 50 } }, ehAdmin: true }), false, 'mês com meta nunca é tocado');
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: { ...per, metasMensais: {} }, ehAdmin: true }), true, 'metasMensais vazio = sem meta');
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: { ...per, metaSugerida: { origem: 'sistema' } }, ehAdmin: true }), false, 'não propõe duas vezes');
+  assert.strictEqual(MS.precisaPropor({ mes: '2026-10', periodo: { vendasDoMes: [1] }, ehAdmin: true }), false, 'mês só com relatório de vendas ainda não tem conta');
+
+  assert.strictEqual(MS.aguardandoRevisao({ metaSugerida: { origem: 'sistema', revisadaPor: null } }), true);
+  assert.strictEqual(MS.aguardandoRevisao({ metaSugerida: { origem: 'sistema', revisadaPor: 'rafael@x' } }), false);
+  assert.strictEqual(MS.aguardandoRevisao({ metasMensais: { meta: 50 } }), false, 'meta da gestão não trava');
+  assert.strictEqual(MS.aguardandoRevisao(null), false);
+
+  const html = MS.avisoHtml({ ...per, metasMensais: { meta: 58, superMeta: 67, metaGold: 75, minNovos: 21, minRenov: 13, minVoucher: 7 },
+    metaSugerida: { origem: 'sistema', revisadaPor: null } });
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  assert.ok(/Out\/2026/.test(t) && /58/.test(t) && /67/.test(t) && /75/.test(t), t);
+  assert.ok(/recibo deste mês não sai/i.test(t), 'diz o efeito prático');
+  assert.ok(html.includes('revisarMetaSugerida()') && html.includes('confirmarMetaSugerida()'));
+  assert.strictEqual(MS.avisoHtml({ metasMensais: { meta: 50 } }), '', 'sem aviso quando não há o que revisar');
+  ok('tela: propõe só para admin, de outubro em diante, sem meta; trava o recibo até alguém revisar; o aviso diz o efeito');
+}
+
+/* 10. a série dos períodos (a mesma para a tela e para o script) */
+{
+  const { serie, metas } = MS.serieDosPeriodos([
+    { mes: '2026-08', data: { totals: { unitAtivacoes: 63, unitNovosRetorno: 33, unitRenovacoes: 16, unitVouchers: 14 }, metasMensais: { meta: 50 } }, maiorDia: '2026-08-31' },
+    { mes: '2026-09', data: { totals: { unitAtivacoes: 19, unitNovosRetorno: 9, unitRenovacoes: 5, unitVouchers: 0 } }, maiorDia: '2026-09-08' },
+    { mes: '2026-10', data: { totals: { unitAtivacoes: 3 } }, maiorDia: '2026-10-02' },
+    { mes: '2026-07', data: { vendasDoMes: [1] }, maiorDia: null },
+  ], '2026-10');
+  assert.deepStrictEqual(Object.keys(serie).sort(), ['2026-08', '2026-09'], 'o próprio mês e mês sem conta ficam fora');
+  assert.strictEqual(serie['2026-09'].completo, false);
+  assert.strictEqual(serie['2026-08'].renovacoes, 16);
+  assert.deepStrictEqual(metas, { '2026-08': { meta: 50 } });
+  ok('a série dos períodos: totais, mês completo pelo maior dia, metas definidas');
+}
+
 console.log('\n✅ smoke-metas-sugeridas: ' + n);

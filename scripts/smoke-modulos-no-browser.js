@@ -47,7 +47,7 @@ vm.createContext(sandbox);
 // A ordem é a do index.html: quem depende vem depois
 // O `?v=` é o cache-buster do deploy — faz parte do src, não do nome do arquivo.
 const nossos = [...html.matchAll(/<script src="([a-z0-9-]+\.js)(?:\?v=\d{8})?"><\/script>/g)].map(m => m[1]);
-const alvo = ['pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js', 'commission.js'];
+const alvo = ['pacto-adapter.js', 'estorno-comissao.js', 'vendas-aguardando.js', 'commission.js', 'metas-sugeridas.js'];
 
 {
   alvo.forEach(f => assert.ok(nossos.includes(f), `${f} precisa estar no index.html`));

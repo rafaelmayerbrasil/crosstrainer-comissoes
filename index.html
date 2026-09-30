@@ -3265,6 +3265,7 @@
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
   <script src="commission.js?v=20260929"></script>
+  <script src="metas-sugeridas.js?v=20260930"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20260930"></script>
@@ -5523,8 +5524,13 @@
         infoEl.style.display = 'flex';
       }
       document.getElementById('btnConfigMetasMes').style.display = 'flex';
-      const doc = await db.collection('periodos').doc(periodId).get();
+      let doc = await db.collection('periodos').doc(periodId).get();
       if (!doc.exists) return;
+      // Mês de outubro em diante sem meta: o sistema propõe (e relê o período recalculado)
+      if (await proporMetaSeFaltar(periodId, doc.data())) {
+        if (periodId !== currentPeriodId) return;          // trocou de mês enquanto calculava
+        doc = await db.collection('periodos').doc(periodId).get();
+      }
       const data = doc.data();
       window.currentPeriodData = data; // store for metas mes modal usage
       renderAdminDashboard(data, periodId);
@@ -5608,6 +5614,7 @@
       const rotulo = document.getElementById('mm_periodoLabel');
       const origem = document.getElementById('mm_origem');
       metasMesPeriodId = null;
+      window._metasMesTemSugerida = false;
       btn.disabled = true;
       rotulo.textContent = 'Carregando…';
       origem.textContent = '';
@@ -5637,6 +5644,20 @@
       origem.textContent = proprias
         ? 'Metas próprias deste mês, lidas agora do banco.'
         : '⚠️ Este mês ainda não tem metas próprias — os números abaixo são o padrão da unidade.';
+      // Meta posta pelo sistema (29/09/2026): diz de onde veio cada número.
+      // Salvar esta janela conta como revisão e destrava o recibo do mês.
+      const sug = data.metaSugerida;
+      window._metasMesTemSugerida = !!(sug && sug.origem === 'sistema');   // lido do banco agora, não da memória
+      if (sug && sug.origem === 'sistema') {
+        const p = sug.porque || {};
+        const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        origem.innerHTML = (sug.revisadaPor
+          ? `Metas calculadas pelo sistema e <strong>revisadas por ${esc(sug.revisadaPor)}</strong>.`
+          : '⚠️ <strong>Metas calculadas pelo sistema — ninguém revisou ainda.</strong> Salvar esta janela conta como revisão e libera o recibo do mês.')
+          + '<ul style="margin:6px 0 0 16px">'
+          + ['meta', 'minNovos', 'minRenov', 'minVoucher'].filter(k => p[k]).map(k => `<li>${esc({ meta: 'Meta', minNovos: 'Mín. novos', minRenov: 'Mín. renovações', minVoucher: 'Mín. vouchers' }[k])}: ${esc(p[k])}</li>`).join('')
+          + '</ul>';
+      }
 
       const cfg = { ...CommissionEngine.defaultConfig, ...unitConfig, ...(data.metasMensais || {}) };
       document.getElementById('mm_meta').value = cfg.meta;
@@ -5684,7 +5705,11 @@
 
       try {
         toast('Salvando metas e recalculando...', 'info');
-        await db.collection('periodos').doc(periodId).set({ metasMensais }, { merge: true });
+        // Salvar a janela revisa a meta que o sistema pôs e destrava o recibo
+        const revisao = window._metasMesTemSugerida
+          ? { metaSugerida: { revisadaPor: (currentUser && currentUser.email) || 'admin', revisadaEm: firebase.firestore.FieldValue.serverTimestamp() } }
+          : {};
+        await db.collection('periodos').doc(periodId).set({ metasMensais, ...revisao }, { merge: true });
         closeMetasMesModal();
         await recalculatePeriod(periodId, { type: 'config_change', label: 'Metas mensais atualizadas' });
         await loadPeriod(periodId);
@@ -5693,6 +5718,73 @@
           `meta ${metasMensais.meta}/${metasMensais.superMeta}/${metasMensais.metaGold}, corte ${metasMensais.minAtivacoesIndivP3}`);
       } catch (e) {
         toast('Erro ao salvar metas: ' + e.message, 'error');
+      }
+    }
+
+    // ─── Meta sugerida pelo sistema (29/09/2026) ─────────────────────────
+    // Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §4.
+    // Ao abrir um mês de outubro em diante sem meta, o admin grava a proposta
+    // de metas-sugeridas.js marcada como "sistema". O recibo do mês não sai
+    // enquanto ninguém revisar (Revisar / Está bom / salvar a janela de metas).
+    async function proporMetaSeFaltar(periodId, data) {
+      const mes = (String(periodId).match(/(\d{4}-\d{2})$/) || [])[1];
+      const ehAdmin = !!(userProfile && userProfile.role === 'admin' && !userProfile._previewMode);
+      if (!MetasSugeridas.precisaPropor({ mes, periodo: data, ehAdmin })) return false;
+      try {
+        const unitId = data.unitId || currentUnitId;
+        const desde = (() => { const [a, m] = mes.split('-').map(Number); return new Date(Date.UTC(a, m - 14, 1)).toISOString().slice(0, 7); })();
+        const snap = await db.collection('periodos').where('unitId', '==', unitId).get();
+        const periodos = [];
+        for (const d of snap.docs) {
+          const pm = (d.id.match(/(\d{4}-\d{2})$/) || [])[1];
+          if (!pm || pm >= mes || pm < desde) continue;
+          const itens = await db.collection('periodos').doc(d.id).collection('itens').where('type', '==', 'processed').get();
+          periodos.push({ mes: pm, data: d.data(), maiorDia: MetasSugeridas.maiorData(itens.docs.map(x => x.data().data)) });
+        }
+        const { serie, metas } = MetasSugeridas.serieDosPeriodos(periodos, mes);
+        // Renovações que vencem no mês = Bloco 1 da lista de renovações, se já existir
+        const sigla = PactoAdapter.siglaDaUnidade(unitId, ['CP', 'PP']);
+        let renovacaoBase = null;
+        try {
+          const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
+          if (l.exists && l.data().situacao === 'ok') renovacaoBase = (l.data().blocos.renovacoes || []).length;
+        } catch (e) { console.warn('lista de renovações indisponível:', e.message); }
+        const r = MetasSugeridas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase });
+        if (!r.confiavel) {
+          toast('Este mês não tem meta e o sistema não tem histórico suficiente para propor: defina em "Configurar Metas do Mês".', 'info');
+          return false;
+        }
+        await db.collection('periodos').doc(periodId).set({
+          metasMensais: r.campos,
+          metaSugerida: { origem: 'sistema', revisadaPor: null, porque: r.porque, base: r.base,
+            geradaPor: (currentUser && currentUser.email) || 'admin', geradaEm: firebase.firestore.FieldValue.serverTimestamp() },
+        }, { merge: true });
+        await recalculatePeriod(periodId, { type: 'config_change', label: 'Meta do mês calculada pelo sistema' });
+        logAudit('settings_change', `Meta de ${periodId} calculada pelo sistema: ${r.campos.meta}/${r.campos.superMeta}/${r.campos.metaGold}, ` +
+          `mín. novos ${r.campos.minNovos}, renov ${r.campos.minRenov}, voucher ${r.campos.minVoucher} — aguardando revisão`);
+        toast('A meta deste mês foi calculada pelo sistema. Revise antes de emitir os recibos.', 'info');
+        return true;
+      } catch (e) {
+        console.error('proporMetaSeFaltar:', e);
+        toast('Não consegui calcular a meta sugerida: ' + e.message, 'error');
+        return false;
+      }
+    }
+
+    function revisarMetaSugerida() { openMetasMesModal(); }
+
+    async function confirmarMetaSugerida() {
+      if (!currentPeriodId) return;
+      if (!confirm('Confirmar a meta calculada pelo sistema para este mês, sem mudar nada?')) return;
+      try {
+        await db.collection('periodos').doc(currentPeriodId).set({
+          metaSugerida: { revisadaPor: (currentUser && currentUser.email) || 'admin', revisadaEm: firebase.firestore.FieldValue.serverTimestamp() },
+        }, { merge: true });
+        logAudit('settings_change', `Meta sugerida de ${currentPeriodId} confirmada sem alteração ("Está bom")`);
+        toast('Meta confirmada. O recibo deste mês está liberado.', 'success');
+        await loadPeriod(currentPeriodId);
+      } catch (e) {
+        toast('Erro ao confirmar a meta: ' + e.message, 'error');
       }
     }
 
@@ -6472,7 +6564,7 @@
         const vendorsWithNoName = Object.keys(vs).filter(n => n === 'SEM VENDEDOR' || n === 'Sem Vendedor' || !n.trim());
         if (vendorsWithNoName.length > 0) alerts.push('⚠ Existem registros sem vendedor identificado ("Sem Vendedor")');
 
-        let html = avisoSoVendas + '<div id="vendidoXPagoHome"></div>' + `
+        let html = MetasSugeridas.avisoHtml(data) + avisoSoVendas + '<div id="vendidoXPagoHome"></div>' + `
       <div class="admin-tabs">
         <button class="tab-btn active" onclick="switchDashTab('tabResumo',this)">Resumo</button>
         <button class="tab-btn" onclick="switchDashTab('tabRegistros',this)">Registros</button>
@@ -11479,6 +11571,11 @@
       // Carrega vendedores pendentes do período
       const pDoc = await db.collection('periodos').doc(periodId).get();
       const pData = pDoc.exists ? pDoc.data() : {};
+      // Meta posta pelo sistema e ainda não revisada: o recibo não sai (desenho de 10/09, revisto)
+      if (MetasSugeridas.aguardandoRevisao(pData)) {
+        toast('A meta deste mês foi calculada pelo sistema e ninguém revisou. Abra o mês no Dashboard e clique em "Revisar" ou "Está bom" antes de emitir o recibo.', 'error');
+        return;
+      }
       const vs = pData.vendorSummary || {};
       const months = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       const periodLabel = `${months[pData.month]} ${pData.year}`;
@@ -11584,6 +11681,12 @@
       if (!data) return;
       const selecionados = [...document.querySelectorAll('.recibo-check:checked')].map(cb => cb.value);
       if (selecionados.length === 0) return;
+      // Relê o período: alguém pode ter mexido na meta com a janela aberta
+      const pAtual = (await db.collection('periodos').doc(data.periodId || document.getElementById('pagPeriodSelect')?.value).get()).data() || {};
+      if (MetasSugeridas.aguardandoRevisao(pAtual)) {
+        toast('A meta deste mês foi calculada pelo sistema e ninguém revisou — revise antes de emitir o recibo.', 'error');
+        return;
+      }
 
       const btnEl = document.getElementById('btnConfirmarEmitir');
       const errEl = document.getElementById('emitirReciboError');

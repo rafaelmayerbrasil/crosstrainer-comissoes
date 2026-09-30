@@ -163,6 +163,67 @@ const MetasSugeridas = {
 
     return { campos, porque, base, confiavel: true };
   },
+
+  // ─── O que a tela (index.html) pergunta ───
+
+  // A proposta automática vale de outubro/2026 em diante — meses anteriores
+  // nunca são tocados (setembro/PP fica sem meta por decisão da gestão).
+  INICIO: '2026-10',
+
+  /**
+   * `periodos`: [{ mes, data (doc do período), maiorDia ('AAAA-MM-DD' dos itens) }].
+   * Devolve a série dos meses ANTERIORES a `mes` que têm conta, e as metas definidas.
+   */
+  serieDosPeriodos(periodos, mes) {
+    const serie = {}, metas = {};
+    (periodos || []).forEach(p => {
+      if (!p || !p.mes || p.mes >= mes || !p.data) return;
+      const mm = p.data.metasMensais;
+      if (mm && Object.keys(mm).length) metas[p.mes] = mm;
+      const t = p.data.totals;
+      if (!t || typeof t.unitAtivacoes !== 'number') return;
+      serie[p.mes] = {
+        ativacoes: t.unitAtivacoes, novosRetorno: t.unitNovosRetorno || 0, renovacoes: t.unitRenovacoes || 0,
+        vouchers: t.unitVouchers || 0, completo: this.mesCompleto(p.mes, p.maiorDia), ate: p.maiorDia || null,
+      };
+    });
+    return { serie, metas };
+  },
+
+  /** Admin abrindo um mês de outubro em diante, com conta e sem meta nenhuma. */
+  precisaPropor({ mes, periodo, ehAdmin }) {
+    if (!ehAdmin || !mes || mes < this.INICIO || !periodo || !periodo.totals) return false;
+    const mm = periodo.metasMensais;
+    if (mm && Object.keys(mm).length) return false;
+    return !periodo.metaSugerida;
+  },
+
+  /** A meta foi posta pelo sistema e ninguém revisou: o recibo do mês não sai. */
+  aguardandoRevisao(periodo) {
+    return !!(periodo && periodo.metaSugerida && periodo.metaSugerida.origem === 'sistema' && !periodo.metaSugerida.revisadaPor);
+  },
+
+  /** Aviso do painel do admin; '' quando não há o que revisar. */
+  avisoHtml(periodo) {
+    if (!this.aguardandoRevisao(periodo)) return '';
+    const m = periodo.metasMensais || {};
+    const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const rot = (MESES[periodo.month] || '') + '/' + (periodo.year || '');
+    const num = v => (typeof v === 'number' ? v : '—');
+    return `
+      <div style="background:var(--yellow-bg, rgba(253,216,53,0.08));border:1px solid var(--yellow, #FDD835);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+        <div style="font-size:11px;font-weight:800;color:var(--yellow, #FDD835);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⚠️ A meta de ${rot} foi calculada pelo sistema e ninguém revisou</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          Meta <strong>${num(m.meta)}</strong> · Super <strong>${num(m.superMeta)}</strong> · Gold <strong>${num(m.metaGold)}</strong> —
+          mínimos: novos + retorno ${num(m.minNovos)}, renovações ${num(m.minRenov)}, vouchers ${num(m.minVoucher)}.
+          <br>O erro típico da conta é de ~10 ativações. <strong>O recibo deste mês não sai até alguém confirmar.</strong>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-sm" onclick="revisarMetaSugerida()">Revisar</button>
+          <button class="btn btn-sm btn-outline" onclick="confirmarMetaSugerida()">Está bom</button>
+        </div>
+      </div>`;
+  },
 };
 
 if (typeof module !== 'undefined') module.exports = MetasSugeridas;
