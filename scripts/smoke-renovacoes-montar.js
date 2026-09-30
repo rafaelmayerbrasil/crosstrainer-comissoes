@@ -111,5 +111,19 @@ const NUCLEO = {
     ok('do dia 25 em diante mantém o mês seguinte; credencial recusada para só a unidade dela');
   }
 
+  /* 5. as Functions: 5h e botão só do admin, com as credenciais das unidades */
+  {
+    const idx = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+    const ini = idx.indexOf('// LISTA DE RENOVAÇÕES');
+    assert.ok(ini > 0, 'bloco da lista de renovações no index.js');
+    const bloco = idx.slice(ini);
+    assert.ok(/defineSecret\('PACTO_API_KEY_CP'\)/.test(bloco) && /defineSecret\('PACTO_API_KEY_PP'\)/.test(bloco));
+    assert.ok(/exports\.montarListaRenovacoes\s*=\s*onSchedule\(\{[\s\S]*?schedule:\s*'0 5 \* \* \*'[\s\S]*?timeZone:\s*'America\/Sao_Paulo'/.test(bloco));
+    assert.ok(/exports\.montarListaRenovacoesManual\s*=\s*onCall\(/.test(bloco));
+    assert.ok(/callerProfiles\.includes\('admin'\)/.test(bloco.slice(bloco.indexOf('exports.montarListaRenovacoesManual'))), 'botão só do admin');
+    assert.ok(/renovacoesMontar\.montarTudo\(/.test(bloco));
+    ok('Functions: todo dia às 5h (São Paulo) e botão só do admin, com as credenciais das unidades no cofre');
+  }
+
   console.log('\n✅ smoke-renovacoes-montar: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

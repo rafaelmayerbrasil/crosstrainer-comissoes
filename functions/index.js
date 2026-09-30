@@ -2205,3 +2205,66 @@ exports.buscarPactoSombraManual = onCall({
   const r = await rodarSombra(dias, unidades);
   return { dias: dias.length, parouPor: r.parouPor || null, resultados: r.resultados };
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// LISTA DE RENOVAÇÕES (29/09/2026)
+// ═══════════════════════════════════════════════════════════════════════
+// Monta, todo dia às 5h (depois da busca das 4h), a lista de renovações de cada
+// unidade a partir da Previsão de Renovação da Pacto. Lê com as credenciais POR
+// UNIDADE (gateway) e completa os contratos pelo núcleo com a credencial antiga.
+// Grava só `renovacoes_lista` e o caderninho `pacto_contratos`; o que a consultora
+// preenche fica em `renovacoes_acompanhamento` e aqui é só lido.
+// Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §3
+const PACTO_API_KEY_CP = defineSecret('PACTO_API_KEY_CP');
+const PACTO_API_KEY_PP = defineSecret('PACTO_API_KEY_PP');
+const renovacoesMontar = require('./renovacoes-montar.js');
+const pactoRenovacaoCliente = require('./pacto-renovacao-cliente.js');
+
+async function rodarRenovacoes(unidades) {
+  const clientesGw = {
+    CP: pactoRenovacaoCliente.criarClienteRenovacao({ fetch, credencial: PACTO_API_KEY_CP.value() }),
+    PP: pactoRenovacaoCliente.criarClienteRenovacao({ fetch, credencial: PACTO_API_KEY_PP.value() }),
+  };
+  const clienteNucleo = pactoCliente.criarCliente({ fetch, credencial: PACTO_API_KEY.value() });
+  const resultados = await renovacoesMontar.montarTudo({
+    db: db(), clientesGw, clienteNucleo, unidades, hoje: hojeSaoPaulo(),
+    agora: () => admin.firestore.FieldValue.serverTimestamp(),
+  });
+  logger.info('lista de renovacoes', {
+    resultados: resultados.map(r => r.id + ' ' + r.situacao + (r.consultas != null ? ' (' + r.consultas + ' consultas)' : '')),
+  });
+  return resultados;
+}
+
+exports.montarListaRenovacoes = onSchedule({
+  schedule: '0 5 * * *',
+  timeZone: 'America/Sao_Paulo',
+  secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
+  timeoutSeconds: 1800,   // 1ª montagem: ~150 clientes por unidade × 2 s de pausa no núcleo
+  memory: '512MiB',
+}, async () => {
+  await rodarRenovacoes(['CP', 'PP']);
+});
+
+// Botão "Atualizar agora" — só admin.
+exports.montarListaRenovacoesManual = onCall({
+  secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
+  timeoutSeconds: 1800,
+  memory: '512MiB',
+}, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError('unauthenticated', 'É preciso estar autenticado.');
+  }
+  const callerDoc = await db().collection('users').doc(request.auth.uid).get();
+  const callerData = callerDoc.exists ? callerDoc.data() : {};
+  const callerProfiles = callerData.profiles || (callerData.role ? [callerData.role] : []);
+  if (!callerProfiles.includes('admin')) {
+    throw new HttpsError('permission-denied', 'Apenas admin pode atualizar a lista de renovações.');
+  }
+  const data = request.data || {};
+  const unidades = Array.isArray(data.unidades) && data.unidades.length
+    ? data.unidades.filter(u => u === 'CP' || u === 'PP')
+    : ['CP', 'PP'];
+  const resultados = await rodarRenovacoes(unidades);
+  return { resultados };
+});
