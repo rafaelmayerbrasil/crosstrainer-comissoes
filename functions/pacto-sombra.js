@@ -253,7 +253,11 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
 
   // Balcão pelo relatório de vendas do gateway: não vem nos pagamentos do núcleo.
   // A rota não aceita ano — dia de outro ano (dezembro relido em janeiro) fica sem.
+  // Fica À PARTE (`linhasBalcao`): conta no dinheiro recebido, mas NÃO paga
+  // comissão — o relatório não diz quem vendeu, e o Rafael decidiu (30/09/2026)
+  // que o valor não vale o esforço. Para pagar um dia, basta juntar às linhas.
   let balcao = 0;
+  let linhasBalcao = [];
   if (gw) {
     const ano = anoCorrente || anoSaoPaulo();
     if (dia.slice(0, 4) !== String(ano)) {
@@ -264,7 +268,8 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
         avisosGw.push({ motivo: 'vendas de balcão: ' + v.situacao + ' ' + (v.motivo || '') });
       } else {
         const b = L.linhasDeBalcao({ vendas: v.dados, linhas: m.linhas, unidade });
-        b.linhas.forEach(l => { m.linhas.push(l); balcao += L._valor(l[L.COL.valor]); });
+        linhasBalcao = b.linhas;
+        b.linhas.forEach(l => { balcao += L._valor(l[L.COL.valor]); });
       }
     }
   }
@@ -278,6 +283,7 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
     situacao,
     motivo: '',
     linhas: JSON.stringify(m.linhas),          // Firestore não aceita array de arrays
+    linhasBalcao: JSON.stringify(linhasBalcao),
     foraDeProposito: m.foraDeProposito,
     avisos: m.avisos,
     totais: m.totais,

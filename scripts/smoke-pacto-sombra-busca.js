@@ -350,8 +350,11 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     const c7001 = linhas.find(l => l[7] === '7001');
     assert.strictEqual(c7001[21], 'CONSULTORA CP', 'a linha do CP sai com a consultora do gateway');
     assert.strictEqual(c7001[4], 'CONSULTORA CP', 'e Responsável 1 = quem lançou o contrato');
-    const agua = linhas.find(l => l[6] === 'ÁGUA SEM GÁS');
-    assert.ok(agua && agua[7] === '0' && agua[15] === '5,00', 'o balcão entra como avulsa');
+    // Decisão do Rafael (30/09/2026): balcão sem vendedora NÃO paga comissão —
+    // fica à parte (`linhasBalcao`), fora das linhas que vão para o cálculo
+    assert.ok(!linhas.some(l => l[6] === 'ÁGUA SEM GÁS'), 'balcão sem vendedora fora das linhas da comissão');
+    const agua = JSON.parse(doc.linhasBalcao).find(l => l[6] === 'ÁGUA SEM GÁS');
+    assert.ok(agua && agua[7] === '0' && agua[15] === '5,00', 'o balcão fica guardado à parte');
     assert.strictEqual(doc.totais.recebido, 244, 'o balcão soma no recebido');
     assert.strictEqual(doc.totais.balcao, 5);
     const cad = (await db.collection('pacto_contratos').doc('CP_7001').get()).data();

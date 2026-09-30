@@ -171,7 +171,7 @@ function calcular(json, { sigla, codigosPagos, degustacoes, cfg, previousProcess
         if (x.c.lancou) l[L.COL.resp1] = x.c.lancou;
         if (!consultora) semConsultora++;
       }
-      if (d.situacao !== 'falhou' && d.dia.slice(0, 4) === String(new Date().getFullYear())) {
+      if (false) {  // decisão 7 (30/09): balcão sem vendedora não paga comissão
         const v = await vendasGw(gw, sigla, d.dia);
         if (v) {
           const b = L.linhasDeBalcao({ vendas: v, linhas, unidade: sigla });
