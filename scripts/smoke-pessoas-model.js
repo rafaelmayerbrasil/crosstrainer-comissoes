@@ -87,4 +87,17 @@ assert.strictEqual(PM.filterPeople(comDivergencia, { search: 'login@gmail.com' }
   'e pelo de acesso');
 console.log('✓ e-mail: a tela mostra o que serve pra entrar');
 
+// Aba 💼 Comercial (29/09/2026): a jornada da vendedora mora no cadastro dela
+{
+  const vend = { key: 'U:v1', uid: 'v1', name: 'Kali', teacher: null, user: { id: 'v1', role: 'vendedor', profiles: ['vendedor'] } };
+  const prof = { key: 'U:p1', uid: 'p1', name: 'Prof', teacher: null, user: { id: 'p1', profiles: ['professor'] } };
+  const ids = t => t.map(x => x.id);
+  assert.ok(ids(PM.tabsFor(vend, { admin: true })).includes('comercial'), 'admin vê a aba Comercial da vendedora');
+  assert.ok(!ids(PM.tabsFor(vend, { admin: false })).includes('comercial'), 'só admin — define quanto ela precisa vender');
+  assert.ok(!ids(PM.tabsFor(prof, { admin: true })).includes('comercial'), 'professor não tem jornada comercial');
+  const semLogin = { key: 'U:v2', uid: 'v2', name: 'Nova', teacher: null, user: { id: 'v2', role: 'vendedor', email: '', status: 'pendente' } };
+  assert.ok(ids(PM.tabsFor(semLogin, { admin: true })).includes('comercial'), 'vendedora cadastrada pela planilha também');
+  console.log('✓ aba Comercial: só para vendedora, só para admin');
+}
+
 console.log('✓ smoke-pessoas-model: todos os casos passaram');

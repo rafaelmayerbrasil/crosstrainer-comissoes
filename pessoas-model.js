@@ -119,6 +119,10 @@
     if (temFicha || ctx.admin) tabs.push({ id: 'professor', label: 'Professor' });
     if (temFicha && ctx.salario) tabs.push({ id: 'salarial', label: '🔒 Salário' });
     if (ctx.admin) tabs.push({ id: 'acesso', label: '🔑 Acesso' });
+    // Jornada da vendedora → mínimo individual do bônus (29/09/2026). Só admin:
+    // é o que decide quanto ela precisa vender para entrar no rateio.
+    const perfis = [].concat((pessoa && pessoa.profiles) || [], profilesOf(pessoa && pessoa.user));
+    if (ctx.admin && perfis.indexOf('vendedor') >= 0) tabs.push({ id: 'comercial', label: '💼 Comercial' });
     return tabs;
   }
 

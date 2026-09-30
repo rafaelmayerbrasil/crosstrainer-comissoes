@@ -277,6 +277,9 @@ function renderPessoaTabContent(p) {
     case 'acesso':
       if (!isStrictAdmin()) { PessoasState.activeTab = 'identidade'; return renderPessoaTabIdentidade(p); }
       return renderPessoaTabAcesso(p);
+    case 'comercial':
+      if (!isStrictAdmin()) { PessoasState.activeTab = 'identidade'; return renderPessoaTabIdentidade(p); }
+      return renderPessoaTabComercial(p);
     default: return renderPessoaTabIdentidade(p);
   }
 }
@@ -335,6 +338,86 @@ async function savePessoaIdentity(key) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     toast('Identidade atualizada.', 'success');
+    await renderPessoasPage();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// ── Aba 💼 Comercial (29/09/2026) ─────────────────────────────────────
+// Jornada da vendedora → mínimo individual do prêmio da unidade (P3), da
+// comissão de outubro/2026 em diante. É uma lista com "a partir de (mês)":
+// mudar a jornada é ACRESCENTAR uma linha — os meses passados continuam com a
+// jornada que valia neles. Só dá para remover linha do mês corrente em diante,
+// para ninguém reescrever sem querer o mínimo de um mês já pago.
+// Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §5.2
+function mesCorrenteSP() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7);
+}
+
+function renderPessoaTabComercial(p) {
+  const u = p.user || {};
+  const mesAtual = mesCorrenteSP();
+  const lista = (u.jornadasComerciais || []).slice().sort((a, b) => (a.desde < b.desde ? 1 : -1));
+  const mesBR = m => m.slice(5, 7) + '/' + m.slice(0, 4);
+  const valendo = JornadaComercial.entradaDoMes(u.jornadasComerciais, mesAtual);
+  const linhas = lista.map(j => `
+      <tr>
+        <td>${escapeHtml(mesBR(j.desde))}</td>
+        <td>${escapeHtml(JornadaComercial.TIPOS[j.tipo] || j.tipo)}${valendo === j || (valendo && valendo.desde === j.desde) ? ' <span class="pill pill-active">valendo</span>' : ''}</td>
+        <td>${j.desde >= mesAtual
+          ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="pessoaRemoverJornada('${p.key}', '${escapeHtml(j.desde)}')">Remover</button>`
+          : '<span class="muted" title="Mês que já passou: a comissão dele pode ter sido paga">—</span>'}</td>
+      </tr>`).join('');
+  return `
+    <div class="info-callout" style="margin-bottom:12px;">
+      <p>O <strong>mínimo de ativações</strong> para entrar no rateio do prêmio da unidade depende da jornada:
+      <strong>integral</strong>, <strong>30 horas</strong> ou <strong>começando</strong> (adaptação). Vale da comissão
+      de <strong>outubro/2026</strong> em diante; os números ficam em <strong>Comissões → Regras</strong>.</p>
+      <p>Mudou a jornada? <strong>Acrescente</strong> uma linha a partir do mês novo — os meses passados continuam
+      com a que valia neles. Sem jornada cadastrada, vale o mínimo do mês da unidade.</p>
+    </div>
+    ${lista.length ? `<table class="table" style="margin-bottom:12px;"><thead><tr><th>A partir de</th><th>Jornada</th><th></th></tr></thead><tbody>${linhas}</tbody></table>`
+      : '<p class="muted" style="margin-bottom:12px;">Nenhuma jornada cadastrada — vale o mínimo do mês da unidade.</p>'}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;">
+      <label class="form-group" style="margin:0">A partir de<input type="month" id="jcDesde" class="input" value="${escapeHtml(mesAtual)}"></label>
+      <label class="form-group" style="margin:0">Jornada<select id="jcTipo" class="input">
+        ${Object.entries(JornadaComercial.TIPOS).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join('')}
+      </select></label>
+      <button class="btn btn-primary btn-sm" onclick="pessoaAddJornada('${p.key}')">Acrescentar</button>
+    </div>`;
+}
+
+async function pessoaAddJornada(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid) return;
+  const entrada = { desde: document.getElementById('jcDesde').value, tipo: document.getElementById('jcTipo').value };
+  const atuais = (p.user && p.user.jornadasComerciais) || [];
+  const erros = JornadaComercial.validarEntrada(entrada, atuais);
+  if (entrada.desde && entrada.desde < mesCorrenteSP()) erros.push('Não dá para mudar a jornada de um mês que já passou — a comissão dele pode ter sido paga.');
+  if (erros.length) { toast(erros.join(' '), 'error'); return; }
+  try {
+    await db.collection('users').doc(p.uid).update({
+      jornadasComerciais: [...atuais, entrada],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('Jornada registrada. Vale no próximo recálculo do mês.', 'success');
+    PessoasState.activeTab = 'comercial';
+    await renderPessoasPage();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+async function pessoaRemoverJornada(key, desde) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid) return;
+  if (desde < mesCorrenteSP()) { toast('Mês que já passou não se remove.', 'error'); return; }
+  if (!confirm('Remover a jornada a partir de ' + desde.slice(5, 7) + '/' + desde.slice(0, 4) + '?')) return;
+  try {
+    const atuais = (p.user && p.user.jornadasComerciais) || [];
+    await db.collection('users').doc(p.uid).update({
+      jornadasComerciais: atuais.filter(j => j.desde !== desde),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('Jornada removida.', 'success');
+    PessoasState.activeTab = 'comercial';
     await renderPessoasPage();
   } catch (e) { toast('Erro: ' + e.message, 'error'); }
 }
