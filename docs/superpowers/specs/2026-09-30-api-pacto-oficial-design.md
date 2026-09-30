@@ -12,6 +12,14 @@
 | 3 | **Parcela renegociada: vale o valor COBRADO** (o que a API traz), não o original da parcela (o que o arquivo mostrava). Coerente com o regime de caixa. |
 | 4 | **A planilha vira plano B**: continua na mesma tela, recolhida, com o aviso "use só se a Pacto falhar". |
 
+**Decisões de 30/09, à tarde (substituem a ordem A-depois-B):**
+
+| # | Decisão |
+|---|---|
+| 5 | **O padrão é AUTOMÁTICO.** *"Não quero ter que clicar; clicar fica como um gatilho pontual para atualizar na hora, e subir a carga manual só em último caso."* A opção B deixa de ser "depois": é o objetivo desta entrega. |
+| 6 | **Outubro/2026 é o primeiro mês automático** (*"automático começa amanhã, dia 01/10/26"*). Setembro fecha como está hoje. **O mês atualiza sozinho todo dia até a gestão emitir os recibos dele; depois congela**, e mudança só pelo botão, com confirmação. |
+| 7 | **Balcão sem vendedora (o que vem do relatório de vendas) NÃO paga comissão.** *"O valor não é significativo e não vale o esforço; se a gestão mudar de ideia, pensamos em outras alternativas."* Continua contando no dinheiro recebido do dia (termômetro); fica fora do cálculo. O balcão com recibo no núcleo tem quem vendeu e segue como hoje. |
+
 Autorização de mexer no `index.html`: implícita na decisão 1 (o botão mora na tela de Upload). `commission.js` **não muda**.
 
 ## 1. O que a sondagem de 30/09 estabeleceu
