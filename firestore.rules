@@ -267,6 +267,48 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── Lista de renovações (29/09/2026) ──
+    // A lista é montada pela Cloud Function (ninguém grava pelo navegador). A
+    // consultora lê as unidades dela e grava SÓ os campos dela no acompanhamento,
+    // que é por contrato (a virada de mês leva tudo). A gestão também atribui a
+    // consultora e classifica o "Verificar manualmente". Nada de dinheiro aqui.
+    // Desenho: docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md §3.6
+    // `.get(campo, padrão)`: ler campo que não existe no cadastro dá ERRO na
+    // regra (e nega), por isso nunca `u.allowedUnits` direto.
+    function podeUnidade(sigla) {
+      let u = uData();
+      let s = sigla.lower();
+      let lista = u.get('allowedUnits', []);
+      let unica = u.get('unitId', '');
+      return s in lista || ('unit-' + s) in lista || unica == s || unica == 'unit-' + s;
+    }
+    function camposMudados() {
+      return resource == null ? request.resource.data.keys()
+                              : request.resource.data.diff(resource.data).affectedKeys();
+    }
+    function camposDaConsultora() {
+      return ['unidade', 'codigoContrato', 'planoAlvo', 'dataContato', 'renovou', 'planoFechado',
+              'motivo', 'observacoes', 'semanas', 'atualizadoPor', 'atualizadoEm'];
+    }
+    match /renovacoes_lista/{id} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv() ||
+                     (hasP('vendedor') && podeUnidade(resource.data.unidade)));
+      allow write: if false;
+    }
+    match /renovacoes_acompanhamento/{docId} {
+      allow read:  if isAuth() && (isAdmin() || isSuperv() ||
+                     (hasP('vendedor') && podeUnidade(resource.data.unidade)));
+      allow create, update: if isAuth() &&
+        docId == request.resource.data.unidade + '_' + request.resource.data.codigoContrato &&
+        (request.resource.data.unidade == 'CP' || request.resource.data.unidade == 'PP') && (
+          ((isAdmin() || isSuperv()) &&
+             camposMudados().hasOnly(camposDaConsultora().concat(['consultoraAtribuida', 'blocoGestao']))) ||
+          (hasP('vendedor') && podeUnidade(request.resource.data.unidade) &&
+             camposMudados().hasOnly(camposDaConsultora()))
+        );
+      allow delete: if false;
+    }
+
     // ─── Banco de horas do estagiário (bloco 2, 07/08/2026) ───────────
     // Quem escreve é SÓ o fechamento, pela Cloud Function (Admin SDK ignora
     // estas regras). Ninguém edita saldo pelo app — nem o admin: o saldo é
