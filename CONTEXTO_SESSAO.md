@@ -74,8 +74,15 @@ voucher 7 · PP 52/60/68, novos 19, renov 9, voucher 3. ⚠️ Não publicado no
   meses + 10%, para cima** (CP 10, PP 7 em outubro). **O +10% é minha proposta — confirmar com o Rafael.**
 - **Jul/ago/set continuam recalculando igual ao gravado** (rodado de novo depois de tudo). Suíte **106/107**.
 - ✅ A rodada automática das **5h de 30/09** montou CP set/out e PP out; PP set pegou a Pacto fora e manteve a lista.
-- ⚠️ **Categoria da conversão:** a Pacto chama a maioria de "renovação", então ela paga comissão de renovação (menor
-  que a de venda nova). **Perguntar ao Rodrigo** se conversão de degustação deve pagar como venda nova.
+- ✅ **Decisões do Rafael (30/09, manhã) — construídas e no STAGING:** (1) o % acima da média dos vouchers na meta
+  sugerida é **configurável pela gestão** (`pctVoucherAcimaDaMedia`, padrão 10, tela Regras); (2) as conversões não
+  reconhecidas de jul–set (R$ 180) **não serão pagas**; (3) **conversão de degustação paga como VENDA NOVA** de out/2026
+  (`marcarConversoesComoNovas`: P1 de venda nova e conta em novos + retorno; guarda `categoriaPacto`); (4) **atalho
+  "🔁 Renovações" no menu lateral** de Comissões, gestão e vendedora (barra do celular ficou com 5 botões).
+- 🐛 **Erro meu, corrigido:** um `String.replace` com `"R$'"` no texto de troca **duplicou o final do `index.html`**
+  (21.835 linhas) e foi ao staging (`de7deec`); restaurado do commit anterior (`$'` = "o resto do arquivo"). Teste de
+  integridade novo em `smoke-config-do-mes` (caso 0). Produção intocada. Memória [[replace-com-cifrao-duplica-arquivo]].
+- Suíte **107/108** (só o `smoke-9`).
 
 **🔴 Para o Rafael, de manhã:** (1) homologar no staging as três partes; (2) autorizar o atalho "Renovações" no menu
 (mexe no `index.html`); (3) cadastrar as jornadas (CP Erica integral, Fran 30h; PP Kali integral, Isa 30h) — no staging
