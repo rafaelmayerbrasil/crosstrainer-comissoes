@@ -139,3 +139,43 @@ As contagens bateram de cara: **55 × 55 ativações**, com a mesma divisão por
 
 - **Opção B** (recálculo automático no servidor): desenho próprio depois.
 - **Tela "A receber"** (vendido e não pago): continua pelo relatório de vendas. A varredura de números novos de contrato (2.3) pode alimentá-la depois, porque todo contrato novo passa por ali.
+
+---
+
+## 7. O AUTOMÁTICO (decisões 5 e 6, 30/09/2026)
+
+**Objetivo:** todo dia, logo depois da busca das 4h, o mês das comissões de cada unidade é recalculado e gravado sozinho, pelo mesmo caminho do botão. Ninguém precisa clicar. O botão "Atualizar pela Pacto" vira gatilho pontual (com a prévia), e a planilha, último caso.
+
+### 7.1 Uma conta só: `comissoes-mes.js`
+
+Hoje a gravação do mês mora na tela: `processarPlanilha` (tradução e cálculo da prévia), `confirmUpload` (gravar o período, os lançamentos com a deduplicação, apagar o que sumiu, `codigosPagos`, histórico, vendedoras novas) e `recalculatePeriod` (refazer a conta a partir dos lançamentos gravados). Para o servidor rodar isso **sem uma segunda cópia** (a lição do fechamento de R$ 7.580,84), essa parte sai do `index.html` para um módulo **`comissoes-mes.js`**, com gêmeo em `functions/` e um teste que falha se divergirem:
+
+- **Funções puras** que se mudam como estão: `generateStableId`, `generateSoftId`, `idsComRepeticao`, `ehValorAlterado`, `codigosDeContrato`, `mesDoPeriodoId`.
+- **`ComissoesMes.criar(deps)`** devolve as operações que falam com o banco. `deps` = `{ db, FieldValue, Timestamp, Engine, Adapter, Jornada, autor, unitConfigAtual, log }`. O Firestore do navegador (compat) e o Admin SDK têm a mesma forma (`collection/doc/get/set/update/batch/where`), e só o `FieldValue`/`Timestamp` muda, por isso entram injetados.
+  - `preparar(json, { unitId, opcoes })`: a parte de cálculo do `processarPlanilha`, sem tela.
+  - `gravar(preparado, { unitId, mes, nomeFonte, origem, dadosAte })`: o `confirmUpload` sem tela.
+  - `recalcularPeriodo(periodId, trigger)`: o `recalculatePeriod`.
+  - Auxiliares: `configDaUnidade`, `minimosDoPeriodo`, `ativacoesAdiadasPara`, `carregarCodigosPagosAnteriores`, `gravarCodigosPagos`, `salvarHistorico`, `registrarVendedoras`, `congelado(periodId)`.
+- **Na tela**, as funções de hoje continuam com o mesmo nome, mas viram casca: cuidam só de botão, toast e prévia, e chamam o módulo.
+
+**Prova de que nada mudou:** antes de mexer, o código atual dessas funções é guardado como referência num teste (`scripts/smoke-comissoes-mes-paridade.js`). O mesmo arquivo de entrada, no mesmo banco falso, tem que deixar **exatamente o mesmo banco** pelo caminho antigo e pelo novo: período, lançamentos, `codigosPagos` e histórico.
+
+### 7.2 A rotina automática (servidor)
+
+- No fim da busca das 4h (`rodarSombra`), para cada unidade e cada mês relido pela busca: `atualizarMesAutomatico({ sigla, mes })`.
+- **Só a partir de out/2026** (`INICIO_AUTOMATICO = '2026-10'`). Setembro fecha como hoje.
+- **Congelado não mexe:** se já existe recibo emitido ou pagamento daquele período (`pagamentos` com o `periodId`), o automático para naquele mês. A partir daí, só pelo botão.
+- **Dia faltando não mexe:** se `UploadPelaApi.montar` travar, o mês fica com o último cálculo bom.
+- **Todo resultado vai para `periodos/{id}.automatico`:** `{ em, situacao: 'atualizado'|'travado'|'congelado'|'erro', dadosAte, diasProblema?, motivo? }`. O painel mostra isso para a gestão, e em vermelho quando travado ou com erro.
+- **Autor:** `{ uid: 'sistema', name: 'Sistema (Pacto, madrugada)' }` no histórico e no `audit_log`.
+- **Vendedora nova:** o automático cadastra como pendente, igual ao upload (`registrarVendedoras`).
+- **Meta do mês:** se o mês não tem meta, o automático propõe pela `MetasSugeridas`, como a tela faz ao abrir, e deixa aguardando a revisão da gestão. O recibo continua travado até ela revisar.
+
+### 7.3 O botão e a tela
+
+- "Atualizar pela Pacto" continua com a prévia e o Confirmar, pelo mesmo `preparar`/`gravar`. Em mês congelado, pede confirmação ("os recibos deste mês já foram emitidos; atualizar muda valores já pagos?").
+- Painel do mês (gestão): linha "🔄 Atualizado automaticamente em DD/MM às HH:MM, dados até DD/MM", ou o aviso do travamento com o botão.
+
+### 7.4 Fora
+- Recalcular automático de meses anteriores a out/2026.
+- A tela "A receber" sem o relatório de vendas.
