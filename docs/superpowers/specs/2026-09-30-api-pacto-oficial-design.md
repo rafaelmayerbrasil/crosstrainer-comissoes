@@ -118,6 +118,12 @@ As contagens bateram de cara: **55 × 55 ativações**, com a mesma divisão por
 
 **Custo:** agora são até três consultas ao gateway por contrato novo (contrato, pessoa e vínculo), cada uma uma vez só. A busca tem um **orçamento de 700 consultas** (cerca de 15 minutos). O que passar disso fica com aviso "a completar na próxima busca", e a primeira carga se completa em algumas noites ou pelo botão manual.
 
+### 3.2 Staging, semana 23–29/09 × produção (30/09, noite)
+
+Carga pelo código publicado no staging (`carregar-pacto-sombra-local.js`, 7 dias, 16 min, nenhuma falha; varredura CP até 7269, PP até 4747, nenhuma degustação grátis na semana). Contrato a contrato contra os lançamentos de produção: **CP 12/12 idênticos** (vendedora, valor, categoria); **PP 12 idênticos**, e os outros 9 com causa: 5 já comissionados em jul/ago (4540, 4566 · 4555, 4637, 4641 — o caminho oficial desconta pelos `codigosPagos`), 3 anuais com a 1ª parcela em 02/09 (4552/53/54, a de 28/09 não comissiona) e **o 4742**.
+
+**Matrícula dentro da parcela (4742):** a Pacto manda UM pagamento e UMA parcela de R$ 520 ("PARCELA 1"); o export separa pelo produto em MATRÍCULA R$ 50 + plano R$ 470. Nem o pagamento nem o `contratosLancados` informam a matrícula à parte, então a API não tem como separar. **Comissão igual** (R$ 41,00 dos dois lados), porque em contrato novo a matrícula e o plano pagam o mesmo `pctNovo`. Só mudaria em renovação (`pctRenov`) ou voucher (valor fixo) que cobrasse matrícula — raro. Diferença conhecida, não defeito: na tela aparece uma linha de R$ 520 em vez de duas.
+
 ## 4. Quando algo dá errado
 
 | Situação | O que acontece |
