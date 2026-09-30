@@ -3,7 +3,49 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 77 (29/09/2026) — 🔑 CHAVE DA PACTO POR UNIDADE FUNCIONOU · 📋 os dois pedidos do Rodrigo (renovações e metas)
+## 🔖 ONDE PARAMOS — sessão 78 (29–30/09/2026, noite, em /loop autônomo) — 🔁 LISTA DE RENOVAÇÕES NO STAGING · 🎯 META SUGERIDA CONSTRUÍDA · branch `renovacoes-metas-bonus`
+
+### ▶️▶️ RETOMAR AQUI
+O Rafael foi dormir e pediu para seguir até terminar, testar e validar, retomando sozinho se o limite de uso
+chegar. **Ordem combinada: A (lista) → B (meta) → C1 (regra do bônus, a parte que não depende do Rodrigo).
+Nada vai para produção sem OK explícito dele.** Especificação única:
+`docs/superpowers/specs/2026-09-29-renovacoes-metas-bonus-design.md` (seções 2.4, 5 e 7.1 atualizadas nesta
+sessão). Plano da A: `docs/superpowers/plans/2026-09-29-lista-de-renovacoes.md`.
+
+**A — lista de renovações: ✅ no STAGING** (regras, 2 Functions `montarListaRenovacoes` 5h +
+`montarListaRenovacoesManual`, credenciais `PACTO_API_KEY_CP/PP` no cofre do staging, página `renovacoes.html`).
+- Testes: `smoke-renovacoes-lista` 17 · `smoke-pacto-renovacao-cliente` 4 · `smoke-renovacoes-montar` 5 ·
+  `smoke-renovacoes-tela` 6 · `validar-regras-renovacoes` 23/23 no staging por REST.
+- **3 defeitos pegos pela homologação contra a Pacto real, nenhum pelos testes:** (1) a Previsão aceita **1
+  consulta por segundo** (HTTP 429) → espera entre chamadas e tenta de novo uma vez; (2) plano original da
+  IMPORTAÇÃO pegava o último contrato do aluno → agora o do **mesmo vencimento/início**; (3) no TecnoFit a
+  **degustação não vinha marcada como contrato** → maio saía com 0 degustações contra 8 do PDF.
+- **Maio × PDF do Rodrigo** (`Downloads/Renovações CP MAI26.pdf`, comparado por primeiro nome + vencimento,
+  nada impresso): 47 linhas no PDF → **38 no mesmo bloco**, 4 recorrentes (a regra nova dele exclui), 1 aluno
+  repetido, 1 no verificar, 3 fora da Previsão. O sistema tem **28 a mais** (mensais e degustações, provável que
+  entraram depois de o PDF ser feito) — **conferir com o Rodrigo**.
+- **Outubro a seco com o histórico da produção** (staging só tem jul–set e não resolve importações):
+  CP 20 renovações · 12 antecipação · 10 degustações · 3 verificar; PP 13 · 4 · 6 · 9. Conferência bate.
+- A Pacto ficou instável na madrugada (503/502): **a proteção funcionou ao vivo** — as listas de setembro no
+  staging ficaram com `ultimaFalha` e não foram apagadas; o motivo aparece em português na tela.
+- ⏳ **Conferir de manhã** o log da rodada das 5h: `firebase functions:log --only montarListaRenovacoes --project staging`.
+- 🔴 **Falta com o Rafael:** homologar no staging (`crosstrainer-comissoes-staging.web.app/renovacoes.html`),
+  **autorizar o atalho no menu** (mexe no `index.html`) e OK para produção.
+
+**B — meta sugerida: ✅ construída, no branch** (`metas-sugeridas.js`, ganchos no `index.html`: abrir mês de
+out/2026+ sem meta propõe e grava `metaSugerida.origem='sistema'`; aviso no painel com Revisar / Está bom;
+recibo trava até revisar; salvar a janela de metas revisa). Testes: `smoke-metas-sugeridas` 10 ·
+`smoke-meta-sugerida-tela` 3 (chama a função recortada do index com banco falso). **Backtest (29/09):** fórmula do
+Rodrigo × média de 6 meses **empatam** (CP 12,8 × 12,9; PP 8,6 × 8,1) → padrão = a do Rodrigo.
+**Proposta real de outubro** (produção, só leitura, `scripts/propor-meta.js`): CP 58/67/75, novos 21, renov 13,
+voucher 7 · PP 52/60/68, novos 19, renov 9, voucher 3. ⚠️ Não publicado no hosting do staging ainda.
+
+**C1 — regra nova do bônus: ⏳ próxima.** Desenho na spec §5 (100/50/0 a partir de out/2026, `configDoMes` em todos
+os lugares do index que montam configuração, jornada da vendedora no Hub Pessoas).
+
+---
+
+## 🔖 sessão 77 (29/09/2026) — 🔑 CHAVE DA PACTO POR UNIDADE FUNCIONOU · 📋 os dois pedidos do Rodrigo (renovações e metas)
 
 ### ▶️▶️ RETOMAR AQUI
 **Estamos no meio do BRAINSTORMING** (skill `superpowers:brainstorming`, passo 3 — perguntas de esclarecimento) dos
