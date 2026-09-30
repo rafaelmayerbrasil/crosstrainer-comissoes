@@ -86,6 +86,22 @@ A lista do mês M faz **duas consultas por unidade**: mês M inteiro e 1–15 de
   arquivo (a credencial "Comissões" da Pacto permite apagar cliente; estas duas foram pedidas "só consultar",
   mas o código não depende disso).
 
+### 2.4 Achados da A1 (29/09/2026, `scripts/sondar-previsao-renovacao.js`)
+
+| | CP out/26 | PP out/26 | CP mai/26 | PP mai/26 |
+|---|---:|---:|---:|---:|
+| `contratosPrevisaoMes` | 72 | 42 | 68 | 41 |
+| `contratosRenovadosPrevisaoMes` | 2 | 3 | 17 | 7 |
+| `contratosRenovadosDentroMes` | 0 | 1 | 17 | 7 |
+
+- As listas de renovados estão **todas contidas** na previsão (100% nos 4 casos). Usada:
+  `contratosRenovadosPrevisaoMes` (em outubro traz 2 no CP, contra 0 de "dentro do mês").
+- **Nenhuma matrícula é CPF** (0 de 223). A matrícula pode aparecer na lista.
+- **A degustação vem na Previsão** (amostra de out: 3 no CP, 6 no PP). As do histórico só completam o que faltar.
+- Vencimento no núcleo: `dd/MM/yyyy` — `iso()` já lê.
+- 🟡 **Importação pesa:** amostra de outubro 10/40 (CP) e 13/40 (PP) ainda como `IMPORTAÇÃO`; maio, 40/40.
+  O plano original pelo histórico é o caminho principal, não exceção — e maio é o gabarito dele.
+
 ---
 
 ## 3. Parte A — Lista de renovações
@@ -256,43 +272,82 @@ for verdade — número de trava na tela que não trava nada é o tipo de coisa 
 
 ---
 
-## 5. Parte C — Nova regra do bônus (BLOQUEADA até as respostas da seção 7)
+## 5. Parte C — Nova regra do bônus (vale da comissão de OUTUBRO/2026 em diante)
 
-O que está escrito aqui é a **proposta**; os números e o comportamento em cada ponto marcado com a pergunta
-correspondente mudam conforme o Rodrigo responder.
+Redesenhada em 29/09 com as respostas do Rodrigo (seção 7.1) e aprovada pelo Rafael, que **autorizou mexer
+no `commission.js` e no `index.html`** para esta entrega. Dividida em duas etapas:
 
-### 5.1 A regra nova, como o documento descreve
+- **C1 — pronta para construir:** a regra 100% / 50% / zera e o mínimo individual por pessoa.
+- **C2 — espera o Rodrigo:** o pool da conversão de voucher na Gold (pergunta 3 da mensagem de 29/09) e o
+  contrato que começa mais de 30 dias depois (pergunta 4). A base de vouchers (perguntas 1 e 2) **não muda
+  nada no código**: enquanto ele não responder, o mínimo de voucher segue definido pela gestão, como hoje.
+
+### 5.1 A regra (C1)
 
 ```
-bateu o total da faixa + todas as travas da faixa  → bônus integral
-bateu o total da faixa + falhou 1 trava            → 50% do bônus
-bateu o total da faixa + falhou 2 ou mais          → zera
-não bateu o total                                   → sem bônus
+não bateu nem a Meta                            → sem bônus
+bateu a faixa + cumpriu os 3 mínimos            → 100% do bônus da faixa
+bateu a faixa + falhou 1 mínimo                 → 50%
+bateu a faixa + falhou 2 ou 3 mínimos           → zera
 ```
 
-Travas da faixa: novos/retorno, renovação, voucher e (Super e Gold) antecipação.
+- **Um conjunto só de mínimos** para as três faixas (resposta 2): `minNovos`, `minRenov`, `minVoucher` — os
+  mesmos campos de hoje. Não existe trava de antecipação.
+- ⚠️ **Muda uma coisa que hoje é diferente:** faltar o mínimo de novos + retorno **sozinho** hoje zera o bônus;
+  passa a dar 50%. Os multiplicadores `multFalhaRenov` (0,70) e `multFalhaVoucher` (0,85) deixam de valer.
+- A faixa, o fixo, o % sobre o caixa e o teto **não mudam**.
 
-**Proposta para a pergunta 2 (a faixa de cima falha, a de baixo passa):** o sistema calcula as três faixas e
-**paga a que der mais**. Exemplo: bateu o total da Gold, falhou 2 travas da Gold (zera), mas cumpriu tudo da
-Super → recebe a Super inteira. Sem isso, bater a Gold pode pagar menos que parar na Super.
+### 5.2 O mínimo individual por pessoa (C1)
 
-### 5.2 Como entra no motor sem mexer no passado
+- **Jornada no cadastro da vendedora** (decisão do Rafael): aba nova **💼 Comercial** no Hub Pessoas, só para
+  quem tem o perfil de vendedora, só o admin edita. É uma lista com **"a partir de (mês)"**, igual ao histórico
+  de salário dos professores:
 
-- A regra nova vira um **regime com data de início**: `regraP3: 'travas_por_faixa'` gravado na meta do mês. Mês
-  sem o campo segue a regra de hoje (novos zera, renovação ×0,70, voucher ×0,85). **Recalcular ou re-subir
-  agosto ou setembro nunca muda o valor deles.**
-- Uma função só no `commission.js` decide o bônus; o Termômetro, o simulador "E se" da vendedora e o recibo
-  continuam chamando a mesma. O gêmeo em `functions/` segue o teste de igualdade que já existe.
-- Mínimo individual por pessoa (pergunta 5): `minIndivPorVendedora: { NOME: n }` na meta do mês; quem não
-  estiver lá usa o `minAtivacoesIndivP3` da unidade, como hoje.
-- Conversão de voucher (P4): hoje tem Meta e Super (30% e 37,5%, pool de R$ 150 e R$ 300). Passa a ter as três
-  faixas do documento (30/40/50%) — **o valor do pool da Gold é pergunta 6**.
+  ```
+  users/{uid}.jornadasComerciais = [ { desde: '2026-10', tipo: 'integral' | '30h' | 'adaptacao' } ]
+  ```
 
-### 5.3 O que o documento pede e **já é assim** hoje
+- **O mínimo do mês M** = a entrada mais recente com `desde ≤ M`: integral → `minIndivIntegral` (18), 30h →
+  `minIndiv30h` (12), adaptação → `minIndivIntegral × pctAdaptacao` arredondado para cima (padrão 50% → 9).
+  Os três valores ficam na **configuração da unidade** (tela Regras), editáveis pela gestão.
+- **Quem não tem jornada** (ou só tem entradas depois de M) usa o `minAtivacoesIndivP3` do mês, como hoje.
+- O cadastro é ligado à vendedora da planilha **pelo nome**, do mesmo jeito que a tela da vendedora já faz
+  (maiúsculas, sem acento; o nome do cadastro igual ou contido no nome da venda).
+- **Congelado no período:** ao subir ou recalcular o mês, o admin grava em `periodos/{id}.minimosPorPessoa`
+  (`{ NOME DA VENDA: mínimo }`). As telas da vendedora e o simulador leem dali — a vendedora não lê o cadastro
+  das colegas. Como a jornada tem data, recalcular um mês passado dá o mesmo mapa.
+
+### 5.3 Como entra no motor sem mexer no passado
+
+- **A data fica fixa no código**, como a do fim do diferimento: `CommissionEngine.INICIO_REGRA_MINIMOS =
+  '2026-10'`. Não é configuração: é o dia em que uma regra mudou, e editável alguém reescreveria uma folha paga.
+- O motor precisa saber **de que mês é a conta**. Hoje nenhuma chamada diz — a configuração é montada em 11
+  lugares do `index.html` como `{ ...defaultConfig, ...unitConfig, ...metasMensais }`. Todos passam a usar uma
+  função só, **`CommissionEngine.configDoMes({ unitConfig, metasMensais, mes, minimosPorPessoa })`**, que põe
+  `mes` e `minimosPorPessoa` no `cfg`. Um teste falha se sobrar montagem de configuração fora dela.
+- `calcP3` usa a regra nova quando `cfg.mes >= INICIO_REGRA_MINIMOS`; sem `mes`, **a regra antiga** (e o
+  `calculate` tenta descobrir o mês pelas datas dos itens antes de desistir). `applyP3Pool`, `agregadosP3` e
+  `simularVendas` passam a pedir o mínimo de cada vendedora a `minimoIndividual(nome, cfg)` — que só olha o
+  mapa por pessoa de outubro em diante.
+- O **Termômetro** passa o `mes` (ele já sabe qual é) e mostra o efeito certo de cada trava. A tela de
+  **Regras** e a janela **Configurar Metas do Mês** explicam a regra do mês aberto.
+- O gêmeo em `functions/commission.js` continua idêntico (teste que já existe).
+
+### 5.4 O que o documento pede e **já é assim** hoje
 
 - Venda de sócio conta para a meta da unidade, não comissiona e não entra no rateio (`naoComissionaveis`).
 - Mínimo individual só decide quem entra no rateio; abaixo dele a pessoa recebe a comissão normal.
 - Estorno não conta (registro de estorno da gestão, sessão 62).
+
+### 5.5 Como se prova (C1)
+
+- **Setembro e agosto recalculados dão exatamente o valor de hoje** — por teste com os números do banco e na
+  homologação contra o staging.
+- Um mês de outubro inventado, com cada combinação de falha (0, 1 só de novos, 1 só de renovação, 2, 3),
+  paga 100 / 50 / 50 / 0 / 0.
+- Mínimo por pessoa: integral, 30h, adaptação, sem jornada, jornada que muda no meio do ano.
+- **Outubro real lado a lado** nas duas regras, em reais por vendedora, para o Rafael e o Rodrigo verem antes
+  de valer. E agosto/setembro simulados com os mínimos novos (18/12), para ninguém ser pego de surpresa.
 
 ---
 
