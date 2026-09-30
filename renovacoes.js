@@ -46,6 +46,16 @@
     return ['CP', 'PP'].filter(s => ids.some(x => String(x).toUpperCase().replace(/[^A-Z]/g, '').endsWith(s)));
   }
 
+  /** Motivo gravado pela Function → frase para a gestão. A Pacto devolve páginas HTML de erro. */
+  function motivoLegivel(m) {
+    const s = String(m || '');
+    const h = s.match(/HTTP (\d{3})/);
+    if (h && h[1] === '429') return 'a Pacto recusou por excesso de consultas';
+    if (h && (h[1] === '401' || h[1] === '403')) return `a Pacto recusou a credencial (erro ${h[1]})`;
+    if (h && h[1][0] === '5') return `a Pacto estava fora do ar (erro ${h[1]})`;
+    return s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+  }
+
   function alertasHtml(als) {
     return als.map(a => `<div class="alerta ${a.nivel}">${a.nivel === 'vermelho' ? '🔴' : '🟠'} ${esc(a.texto)}</div>`).join('');
   }
@@ -108,7 +118,7 @@
   function painelHtml(lista, acomps, unidade, perfil, hoje) {
     if (!lista) return `<section class="card"><h2>${esc(NOMES[unidade])}</h2><p class="muted">A lista deste mês ainda não foi montada.</p></section>`;
     if (lista.situacao !== 'ok') {
-      return `<section class="card"><h2>${esc(NOMES[unidade])}</h2><div class="erro">Não foi possível montar a lista: ${esc(lista.motivo || lista.situacao)}</div></section>`;
+      return `<section class="card"><h2>${esc(NOMES[unidade])}</h2><div class="erro">Não foi possível montar a lista: ${esc(motivoLegivel(lista.motivo) || lista.situacao)}. A próxima tentativa é às 5h.</div></section>`;
     }
     const p = RL.painel(lista, acomps, hoje);
     const b = p.porBloco;
@@ -117,7 +127,7 @@
       .map(([nome, x]) => `<span>${esc(nome)}</span><span>${esc(x.renovados)} de ${esc(x.total)}</span>`).join('');
     return `<section class="card">
       <h2>${esc(NOMES[unidade])}</h2>
-      ${lista.ultimaFalha ? `<div class="aviso">A última atualização falhou (${esc(lista.ultimaFalha.motivo || lista.ultimaFalha.situacao)}). Mostrando a lista anterior.</div>` : ''}
+      ${lista.ultimaFalha ? `<div class="aviso">A última atualização falhou: ${esc(motivoLegivel(lista.ultimaFalha.motivo) || lista.ultimaFalha.situacao)}. Mostrando a lista anterior; a próxima tentativa é às 5h.</div>` : ''}
       <div class="numeros">
         <div><div class="num">${esc(p.totalARenovar)}</div><div class="muted">Total a renovar no mês</div></div>
         <div><div class="num">${esc(b.antecipacao.total)}</div><div class="muted">Antecipação</div></div>
@@ -170,7 +180,7 @@
     </form>`;
   }
 
-  window.RenovacoesTela = { BLOCOS, NOMES, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, hojeSP };
+  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, hojeSP };
 
   // ─── A página ───
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;

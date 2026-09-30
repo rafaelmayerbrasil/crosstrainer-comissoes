@@ -126,4 +126,15 @@ const H = '2026-10-05';
   ok('formulário: campos da consultora, 10 motivos, planos recentes, 4 semanas na degustação; gestão atribui e classifica');
 }
 
+/* 6. o motivo da falha em português, nunca o HTML da página de erro da Pacto (visto em 29/09/2026) */
+{
+  assert.strictEqual(T.motivoLegivel('HTTP 503 <html>\n<head><title>503 Service Temporarily Unavailable</title></head>'), 'a Pacto estava fora do ar (erro 503)');
+  assert.strictEqual(T.motivoLegivel('HTTP 429 Rate limit excedido'), 'a Pacto recusou por excesso de consultas');
+  assert.strictEqual(T.motivoLegivel('HTTP 401'), 'a Pacto recusou a credencial (erro 401)');
+  assert.strictEqual(T.motivoLegivel('a Pacto respondeu sem nenhum contrato, e antes havia'), 'a Pacto respondeu sem nenhum contrato, e antes havia');
+  const p = lido(T.painelHtml({ ...LISTA, ultimaFalha: { situacao: 'falhou', motivo: 'HTTP 503 <html><head><title>503</title></head>' } }, {}, 'CP', 'gestao', H));
+  assert.ok(p.includes('fora do ar') && !/html|head/i.test(p), p.slice(0, 200));
+  ok('motivo da falha legível, sem o HTML da Pacto');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);
