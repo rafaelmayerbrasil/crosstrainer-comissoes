@@ -268,6 +268,31 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   ok('painel: por bloco, taxa de renovação (Sim ÷ Bloco 1), conversão, por consultora, total de alertas');
 }
 
+/* 17. importação: o plano original é o do contrato do TecnoFit com a MESMA vigência
+       (achado ao medir maio/2026: pegar só o último contrato do aluno virava a
+       degustação dele em "renovação" e escondia as 8 degustações do PDF do Rodrigo) */
+{
+  const H2 = [
+    { cliente: 'OLGA', item: 'ANUAL, ACESSO ILIMITADO (01/05/2024 - 30/04/2025)', data: '01/05/2024', vendedor: 'ERICA', codigo: 'T1', isContract: true },
+    { cliente: 'OLGA', item: 'MÊS DEGUSTAÇÃO LIVRE (10/04/2026 - 09/05/2026)', data: '10/04/2026', vendedor: 'ERICA', codigo: 'T2', isContract: true, isDegustacao: true },
+    { cliente: 'PEDRO', item: 'SEMESTRAL, TREINO LIVRE', data: '05/11/2025', vendedor: 'KALI', codigo: 'T3', isContract: true,
+      planStartDate: '05/11/2025', planEndDate: '04/05/2026' },
+  ];
+  assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2026-05-09' }), 'MÊS DEGUSTAÇÃO LIVRE', 'mesma data de fim');
+  assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2025-04-30' }), 'ANUAL, ACESSO ILIMITADO');
+  assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2027-01-01', inicio: '2026-04-10' }), 'MÊS DEGUSTAÇÃO LIVRE', 'mesma data de início');
+  assert.strictEqual(RL.planoOriginal('OLGA', H2, { vencimento: '2027-01-01' }), 'ANUAL, ACESSO ILIMITADO', 'sem data igual: o último que não é degustação, como antes');
+  assert.strictEqual(RL.planoOriginal('PEDRO', H2, { vencimento: '2026-05-04' }), 'SEMESTRAL, TREINO LIVRE', 'datas dos campos do item');
+
+  const L3 = RL.montar({ mes: '2026-05', hoje: '2026-05-02',
+    previsao: { mes: { contratos: [K('401', '41', 'OLGA')], renovados: [] }, antecipacao: { contratos: [], renovados: [] } },
+    contratos: { 401: C('IMPORTAÇÃO', '10/04/2026', '09/05/2026') }, historico: H2 });
+  assert.deepStrictEqual(L3.blocos.degustacoes.map(l => l.codigoContrato), ['401'], 'a importação de uma degustação vai para o Bloco 3');
+  assert.strictEqual(L3.blocos.degustacoes[0].planoOriginal, 'MÊS DEGUSTAÇÃO LIVRE');
+  assert.strictEqual(L3.blocos.renovacoes.length, 0);
+  ok('importação: plano original pelo contrato com a mesma vigência; a degustação importada cai no Bloco 3');
+}
+
 /* 16. a cópia de functions/ é idêntica à da raiz */
 {
   assert.strictEqual(fs.readFileSync(path.join(raiz, 'functions', 'renovacoes-lista.js'), 'utf8'),

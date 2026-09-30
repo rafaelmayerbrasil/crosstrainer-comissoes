@@ -27,7 +27,55 @@ const db = admin.firestore();
 const cred = f => fs.readFileSync(path.join(RAIZ, f), 'utf8').trim();
 const hoje = arg('--hoje') || new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
+// ── Modo a seco com o histórico da PRODUÇÃO ──────────────────────────
+//   node scripts/homologar-renovacoes.js --seco-producao [--mes 2026-10]
+// O staging só tem vendas de jul–set/2026; o plano original das IMPORTAÇÕES está
+// no histórico do TecnoFit, que só a produção tem (desde jan/2025). Este modo lê
+// a Pacto e o histórico da produção e NÃO GRAVA NADA em lugar nenhum.
+async function aSecoComProducao(mes) {
+  const prod = admin.initializeApp({ credential: admin.credential.cert(require(path.join(__dirname, 'serviceAccount-production.json'))) }, 'producao').firestore();
+  const L = require(path.join(RAIZ, 'functions', 'pacto-api-linhas.js'));
+  const { PACTO_UNIDADES } = require(path.join(RAIZ, 'functions', 'pacto-sombra.js'));
+  const clienteNucleo = CN.criarCliente({ fetch, credencial: cred('pacto-credencial.txt') });
+  const per = RL.periodos(mes);
+  for (const U of ['CP', 'PP']) {
+    const gw = CR.criarClienteRenovacao({ fetch, credencial: cred(`pacto-credencial-${U.toLowerCase()}.txt`) });
+    const r1 = await gw.previsao(per.mes.de, per.mes.ate);
+    const r2 = await gw.previsao(per.antecipacao.de, per.antecipacao.ate);
+    if (r1.situacao !== 'ok' || r2.situacao !== 'ok') { console.log(U, 'Pacto:', r1.situacao, r2.situacao); continue; }
+    const brutos = [...r1.dados.contratos, ...r2.dados.contratos];
+    // contratos: o caderninho da PRODUÇÃO (só leitura) e, o que faltar, direto do núcleo, sem gravar
+    const contratos = {};
+    const faltam = new Set();
+    for (const b of brutos) {
+      const s = await prod.collection('pacto_contratos').doc(U + '_' + b.codigoContrato).get();
+      if (s.exists) contratos[b.codigoContrato] = s.data(); else if (b.codigoCliente) faltam.add(b.codigoCliente);
+    }
+    for (const cli of faltam) {
+      const r = await clienteNucleo.contratosDoCliente(PACTO_UNIDADES[U], cli);
+      if (r.situacao === 'ok') r.dados.forEach(x => { if (x && x.codigo != null) contratos[String(x.codigo)] = L.limparContrato(x, U, null, null); });
+    }
+    const unitId = U.toLowerCase();
+    const historico = await M.carregarHistorico(prod, unitId);
+    const lista = RL.montar({ mes, hoje, previsao: { mes: r1.dados, antecipacao: r2.dados }, contratos, historico });
+    const b = lista.blocos;
+    const todas = Object.values(b).flat();
+    console.log(`\n=== ${U} ${mes} (a seco, histórico da produção: ${historico.length} itens; ${faltam.size} clientes consultados no núcleo)`);
+    console.log(`Bloco 1 ${b.renovacoes.length} · Bloco 2 ${b.antecipacao.length} · Bloco 3 ${b.degustacoes.length} (do histórico ${b.degustacoes.filter(l => l.origem === 'historico').length}) · Bloco 4 ${b.verificar.length}`);
+    console.log('excluídos:', JSON.stringify(lista.excluidos), '· conferência:', JSON.stringify(lista.conferencia));
+    console.log(`importações resolvidas pelo histórico: ${todas.filter(l => l.planoOriginal).length} · com consultora: ${todas.filter(l => l.consultora).length} de ${todas.length}`);
+    const motivos = {};
+    b.verificar.forEach(l => { const k = l.motivoVerificar.replace(/\(.*\)/, '(…)'); motivos[k] = (motivos[k] || 0) + 1; });
+    console.log('verificar por motivo:', JSON.stringify(motivos));
+    if (process.argv.includes('--planos')) { const cont = {}; b.renovacoes.forEach(l => { const k = (l.planoOriginal ? 'IMP→ ' + l.planoOriginal : l.plano).slice(0, 70); cont[k] = (cont[k] || 0) + 1; }); console.log('Bloco 1 por plano:'); Object.entries(cont).sort((x, y) => y[1] - x[1]).forEach(([k, q]) => console.log('  ' + q + '× ' + k)); }
+  }
+}
+
 (async () => {
+  if (process.argv.includes('--seco-producao')) {
+    await aSecoComProducao(arg('--mes') || hoje.slice(0, 7));
+    process.exit(0);
+  }
   const antes = (await db.collection('renovacoes_acompanhamento').get()).docs.map(d => d.id + JSON.stringify(d.data())).sort().join('|');
   const clientesGw = {
     CP: CR.criarClienteRenovacao({ fetch, credencial: cred('pacto-credencial-cp.txt') }),

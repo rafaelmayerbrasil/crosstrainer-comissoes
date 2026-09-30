@@ -164,9 +164,29 @@ const RenovacoesLista = {
     return (lista || this.NAO_CONSULTORAS).some(x => n.includes(this.norm(x)));
   },
 
-  /** Plano do TecnoFit de um contrato que veio da migração como "IMPORTAÇÃO". */
-  planoOriginal(nome, historico) {
-    const h = this._doCliente(nome, historico).find(x => x.isContract && !x.isDegustacao && !this._semPlanoReal(x.item));
+  /** Início e fim do plano de um item: dos campos do motor ou do "(dd/mm/aaaa - dd/mm/aaaa)" do nome. */
+  _vigenciaDoItem(h) {
+    let inicio = this.iso(h.planStartDate), fim = this.iso(h.planEndDate);
+    if (!inicio || !fim) {
+      const m = String(h.item || '').match(/\((\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})\)/);
+      if (m) { inicio = inicio || this.iso(m[1]); fim = fim || this.iso(m[2]); }
+    }
+    return { inicio, fim };
+  },
+
+  /**
+   * Plano do TecnoFit de um contrato que veio da migração como "IMPORTAÇÃO".
+   * Primeiro o contrato do aluno com a MESMA vigência (fim, depois início) —
+   * pegar só o último contrato transformava a degustação importada em
+   * "renovação" (maio/2026: 0 degustações contra 8 do PDF do Rodrigo). Sem data
+   * igual, o último que não é degustação.
+   */
+  planoOriginal(nome, historico, vigencia) {
+    const v = vigencia || {};
+    const doCliente = this._doCliente(nome, historico).filter(x => x.isContract && !this._semPlanoReal(x.item));
+    const porData = (v.vencimento && doCliente.find(x => this._vigenciaDoItem(x).fim === v.vencimento))
+      || (v.inicio && doCliente.find(x => this._vigenciaDoItem(x).inicio === v.inicio));
+    const h = porData || doCliente.find(x => !x.isDegustacao);
     return h ? this.limparNomePlano(h.item) : null;
   },
 
@@ -273,7 +293,7 @@ const RenovacoesLista = {
       };
       let cls = c ? this.classificarPlano(linha.plano) : { tipo: 'verificar', motivo: 'A Pacto não devolveu os dados deste contrato' };
       if (cls.tipo === 'importacao') {
-        const orig = this.planoOriginal(linha.nome, historico);
+        const orig = this.planoOriginal(linha.nome, historico, { vencimento: linha.vencimento, inicio: linha.inicio });
         if (orig) {
           linha.planoOriginal = orig;
           cls = this.classificarPlano(orig);
