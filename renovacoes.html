@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Renovações — CrossTainer</title>
+  <meta name="robots" content="noindex">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+
+  <style>
+    /* Tokens do termometro.html — nenhuma variável inventada */
+    :root {
+      --bg: #0a0a0a; --surface: #131315; --surface2: #1a1a1e; --surface3: #222226;
+      --border: #2a2a30; --border2: #353538;
+      --text: #eee9e0; --text2: #908a82; --text3: #5a5650;
+      --orange: #E8920D; --orange-dim: rgba(232, 146, 13, 0.08);
+      --green: #5cb85c; --green-bg: rgba(92, 184, 92, 0.08);
+      --red: #e05a3a; --red-bg: rgba(224, 90, 58, 0.06);
+      --yellow: #FDD835; --yellow-bg: rgba(253, 216, 53, 0.08);
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    header h1 { font-size: 16px; font-weight: 700; }
+    header .sub { color: var(--text2); font-size: 12px; }
+    header .esp { flex: 1; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border2); color: var(--text2); }
+    .badge.staging { color: var(--yellow); border-color: var(--yellow); background: var(--yellow-bg); }
+    .badge.production { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+    main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: grid; gap: 10px; align-content: start; }
+    .card h2 { font-size: 15px; }
+    .card h3 { font-size: 13px; color: var(--text2); margin-top: 4px; }
+    .muted { color: var(--text2); font-size: 12.5px; }
+    .pequeno { font-size: 11.5px; }
+    .aviso { background: var(--yellow-bg); border: 1px solid var(--yellow); border-radius: var(--radius); padding: 8px 10px; font-size: 12.5px; }
+    .erro { background: var(--red-bg); border: 1px solid var(--red); border-radius: var(--radius); padding: 8px 10px; font-size: 12.5px; }
+    .ok { color: var(--green); } .erro-txt { color: var(--red); }
+    .barra-topo { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input, select, textarea { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); border-radius: 6px; padding: 7px 9px; font-size: 13px; font-family: inherit; }
+    button { background: var(--orange); color: #111; border: 0; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    button.sec { background: var(--surface3); color: var(--text); border: 1px solid var(--border2); }
+    button.aba[aria-pressed="true"] { outline: 2px solid var(--orange); }
+    .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+    .num { font-size: 28px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+    .kv { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 13px; }
+    .kv span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+    .tabela { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--text2); font-weight: 600; white-space: nowrap; }
+    tbody tr { cursor: pointer; } tbody tr:hover, tbody tr:focus { background: var(--surface2); outline: none; }
+    td.n { color: var(--text2); font-variant-numeric: tabular-nums; }
+    .status { font-size: 11.5px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border2); white-space: nowrap; }
+    .status.sim { color: var(--green); border-color: var(--green); }
+    .status.nao { color: var(--red); border-color: var(--red); }
+    .status.negociacao { color: var(--yellow); border-color: var(--yellow); }
+    .etiqueta { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--orange-dim); color: var(--orange); white-space: nowrap; }
+    .alerta { font-size: 11.5px; } .alerta.vermelho { color: var(--red); } .alerta.laranja { color: var(--orange); }
+    #fundo { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: grid; place-items: center; padding: 16px; z-index: 10; }
+    .editor { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 16px; display: grid; gap: 10px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+    .editor fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 8px; display: grid; gap: 6px; }
+    .acoes { display: flex; gap: 8px; justify-content: flex-end; }
+    .login { max-width: 360px; margin: 60px auto; }
+    label { display: grid; gap: 4px; font-size: 12px; color: var(--text2); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Renovações</h1>
+      <div class="sub">Lista do mês da CrossTainer, montada toda madrugada pela Previsão de Renovação da Pacto.</div>
+    </div>
+    <div class="esp"></div>
+    <a href="index.html" class="muted" style="text-decoration:none">← Comissões</a>
+    <span id="ambiente" class="badge"></span>
+    <span id="usuario" class="muted"></span>
+    <button id="sair" class="sec" hidden>Sair</button>
+  </header>
+
+  <section id="telaLogin" class="card login" hidden>
+    <h2>Entrar</h2>
+    <label>E-mail <input id="loginEmail" type="email" autocomplete="username"></label>
+    <label>Senha <input id="loginSenha" type="password" autocomplete="current-password"></label>
+    <button id="entrar">Entrar</button>
+    <div id="loginErro" class="erro" hidden></div>
+  </section>
+
+  <section id="telaRestrita" class="card login" hidden>
+    <h2>Acesso restrito</h2>
+    <p class="muted">Esta tela é da gestão e das consultoras de vendas.</p>
+  </section>
+
+  <main id="app" hidden>
+    <div class="barra-topo">
+      <span id="abas"></span>
+      <button id="anterior" class="sec" aria-label="Mês anterior">◀</button>
+      <input id="mes" type="month" aria-label="Mês">
+      <button id="seguinte" class="sec" aria-label="Mês seguinte">▶</button>
+      <label style="display:flex;gap:6px;align-items:center"><input id="soMinhas" type="checkbox"> só as minhas</label>
+      <button id="atualizar" class="sec" hidden>Atualizar agora</button>
+      <span id="atualizadoEm" class="muted"></span>
+    </div>
+    <div id="conteudo"></div>
+  </main>
+
+  <div id="fundo" hidden></div>
+
+  <script src="firebase-config.js?v=20260930"></script>
+  <script src="renovacoes-lista.js?v=20260930"></script>
+  <script src="renovacoes.js?v=20260930"></script>
+</body>
+</html>
