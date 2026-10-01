@@ -28,6 +28,7 @@ const internBank = require('./intern-hour-bank.js');
 const payroll = require('./closing-payroll.js');
 const classPropagation = require('./class-propagation.js');
 const emailConfig = require('./email-config.js');
+const escalaTroca = require('./escala-troca.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -717,11 +718,13 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
   try {
     const firestore = db();
     const classRef = firestore.collection('classes').doc(after.classId);
+    let aulaAntes = null;   // a aula como estava ANTES da troca — é dela que sai a vaga da escala
     await firestore.runTransaction(async (txn) => {
       const classDoc = await txn.get(classRef);
       if (!classDoc.exists) throw new Error('Class not found: ' + after.classId);
       const cls = classDoc.data();
       if (cls.monthClosingId) throw new Error('Class in closed month, cannot apply substitution');
+      aulaAntes = cls;
       txn.update(classRef, {
         teacherId: after.substituteTeacherId,
         status: 'substituida',
@@ -733,6 +736,17 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     });
+
+    // Aula de escala: a VAGA em special_scales acompanha. Sem isto a escala
+    // seguia com o nome de quem não trabalhou — o rodízio contava errado, o
+    // texto pro grupo saía errado e republicar desfazia a troca (01/10/2026).
+    // Não derruba nada: a aula já trocou; se falhar aqui, fica só no log.
+    const sinc = await escalaTroca.sincronizarEscalaComTroca(firestore, {
+      cls: aulaAntes, sub: after,
+      agoraISO: new Date().toISOString(),
+      carimbo: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    logger.info('[processSubstitutionAcceptance] escala', subId, sinc.mudou ? 'vaga atualizada' : ('sem mudança: ' + sinc.motivo));
 
     // Avisa os dois lados: quem registrou e quem confirmou.
     const avisados = [after.requestingUserId, after.substituteUserId].filter(Boolean);

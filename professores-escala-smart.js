@@ -715,6 +715,8 @@ const ESCALA_ACAO_LABEL = Object.assign(Object.create(null), {
   janela_aberta: '📨 Janela aberta', consolidada: '🧮 Montada', refeita: '🔄 Refeita',
   publicada: '📅 Publicada', despublicada: '↩️ Despublicada', invertida: '⇄ Invertida',
   vaga_trocada: '✋ Vaga trocada', rebalanceada: '⚖ Rebalanceada', tirada_do_lote: '🚫 Tirada do lote',
+  // Gravada pela Function quando a gestão confirma uma troca de AULA de escala.
+  troca_de_aula: '🔁 Troca entre professores',
 });
 
 /**
@@ -1986,6 +1988,7 @@ function renderEscalaDetail(scale) {
     if (r === 'justica') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--blue-bg,#1a2a3a);color:var(--blue);">⚖ Justiça</span>`;
     if (r === 'merito') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#2a2410;color:#caa23a;">★ Mérito</span>`;
     if (r === 'manual') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:#2a1a2e;color:#c77dff;">✋ Escolha da gestão</span>`;
+    if (r === 'troca') return `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--surface3);color:var(--text2);">🔁 Troca entre professores</span>`;
     return '';
   };
 
