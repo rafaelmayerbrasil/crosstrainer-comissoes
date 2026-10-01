@@ -242,8 +242,27 @@ const horasDaFolha = (aulas) => Math.round(Payroll.horasDasAulas(aulas.filter(c 
     passou('mês em andamento: corrige dia a dia, mas só envia depois da última aula');
   }
 
+  /* ── 6c. Vale o que está NO CAMPO, mesmo sem o evento de mudança ───── */
+  {
+    // Achado clicando no staging (01/10/2026): o horário foi trocado no campo e
+    // o evento "change" não chegou — a tela confirmou o dia com o horário velho.
+    // É o mesmo defeito do "Enviar para a gestão" do iPhone: confiar no evento
+    // em vez de ler o que a pessoa está vendo.
+    const dbc = makeFakeDb(); await semear(dbc);
+    const c = novoSandbox({ db: dbc, professorId: 'theo' });
+    await c.sandbox.renderMinhasHorasPage();
+    c.sandbox.horasAbrirDia(D(2));
+    const campo = (valor, turno, qual) => ({ value: valor, getAttribute: (a) => ({ 'data-turno': String(turno), 'data-campo': qual }[a]) });
+    c.sandbox.document.querySelectorAll = (sel) => (/horas-editor/.test(sel) ? [campo('09:30', 0, 'inicio'), campo('13:10', 0, 'fim')] : []);
+    await c.sandbox.horasConfirmarDia();
+    const d = await decl(dbc, 'theo', '2026-09');
+    assert.ok(d && d.dias[D(2)], 'o dia foi gravado como diferente da agenda');
+    assert.deepStrictEqual(plano(d.dias[D(2)].turnos), [{ inicio: '09:30', fim: '13:10' }], 'com o horário que está no campo');
+    passou('confirmar o dia lê o que está no campo, não só o que o evento avisou');
+  }
+
   /* ═══ GESTÃO ══════════════════════════════════════════════════════ */
-  const ges = novoSandbox({ db, gestao: true });
+  const ges =novoSandbox({ db, gestao: true });
   const G = ges.sandbox;
   const telaG = () => ges.el('page-horas-do-mes').innerHTML;
 

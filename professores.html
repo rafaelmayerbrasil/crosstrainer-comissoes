@@ -991,6 +991,7 @@
     .horas-previa { font-size: 13px; color: var(--text); min-height: 18px; }
     .horas-erro { color: var(--red); font-size: 13px; font-weight: 600; }
     .horas-editor-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .horas-editor .btn { width: auto; align-self: flex-start; }
     .horas-novo-dia { margin-top: 14px; font-size: 13px; color: var(--text2); }
     .horas-novo-dia-campos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
     .horas-novo-dia-campos input { width: auto; }
@@ -1003,8 +1004,17 @@
     .horas-det-dia ul { margin: 4px 0 0 18px; color: var(--text2); }
     .horas-det-rodape { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border2); color: var(--text); }
     @media (max-width: 640px) {
-      .horas-dia-acoes { width: 100%; justify-content: flex-start; }
+      /* No celular o dia cabe numa linha só: data, horário e o botão à direita. */
+      .horas-dia-cab { flex-wrap: nowrap; gap: 8px; padding: 10px 12px; }
+      .horas-dia-data { min-width: 72px; }
+      .horas-dia-info { flex: 1 1 0; min-width: 0; }
+      .horas-dia-acoes { flex-direction: column; align-items: stretch; }
+      .horas-dia-acoes .btn { padding: 7px 12px; }
+      /* A lista da gestão tem vários botões por pessoa: esses quebram para baixo. */
+      .horas-pessoa .horas-dia-cab { flex-wrap: wrap; }
+      .horas-pessoa .horas-dia-acoes { width: 100%; flex-direction: row; justify-content: flex-start; }
       .horas-rodape .btn { width: 100%; }
+      .horas-turno input[type="time"] { width: 118px; }
     }
 
     .empty-state-small {

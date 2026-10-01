@@ -323,7 +323,7 @@ function exige(txt, ondeNome, assuntos) {
     'o OK geral': 'Validar todas',
     'devolver com motivo': 'Devolver',
     'fechar valendo a agenda': 'Fechar valendo a agenda',
-    'lançar pela pessoa': 'Lançar por ele',
+    'lançar pela pessoa': 'Lançar as horas',
     'validar mexe nas aulas': 'Validar ajusta as próprias aulas',
     'trava o fechamento': 'Horas enviadas e não validadas travam o fechamento',
   });

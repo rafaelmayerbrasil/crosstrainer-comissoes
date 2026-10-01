@@ -412,8 +412,7 @@ function horasDesenhar() {
     faixa = `<div class="info-callout" style="border-left:3px solid var(--red);">↩️ <strong>A gestão devolveu para corrigir:</strong> "${escapeHtml(decl.devolvidaMotivo || 'sem motivo informado')}"
       <p style="margin-top:6px;">Corrija o que falta e envie de novo.</p></div>`;
   } else if (gestao) {
-    faixa = `<div class="info-callout">Mexa só nos dias que foram diferentes da agenda. Ao salvar, as horas voltam para a lista esperando o seu OK
-      ${sit === 'validada' ? '— este mês <strong>já tinha sido validado</strong>; o que você mudar aqui precisa ser validado de novo' : ''}.</div>`;
+    faixa = `<div class="info-callout">Mexa só nos dias que foram diferentes da agenda. Ao salvar, as horas voltam para a lista esperando o seu OK${sit === 'validada' ? ' — este mês <strong>já tinha sido validado</strong>; o que você mudar aqui precisa ser validado de novo' : ''}.</div>`;
   } else {
     faixa = `<div class="info-callout">Confira o mês: a lista abaixo é o que <strong>a agenda registrou</strong>. Mexa só nos dias que foram diferentes
       — o que você corrigir fica guardado na hora. No fim, envie para a gestão validar.</div>`;
@@ -499,8 +498,8 @@ function horasEditorHtml() {
   const e = HorasState.editor;
   const turnos = e.naoTrabalhei ? '' : e.turnos.map((t, i) => `
       <div class="horas-turno">
-        <label>Entrei às <input type="time" class="input" value="${escapeHtml(t.inicio || '')}" onchange="horasSetTurno(${i},'inicio',this.value)"></label>
-        <label>Saí às <input type="time" class="input" value="${escapeHtml(t.fim || '')}" onchange="horasSetTurno(${i},'fim',this.value)"></label>
+        <label>Entrei às <input type="time" class="input" data-turno="${i}" data-campo="inicio" value="${escapeHtml(t.inicio || '')}" oninput="horasSetTurno(${i},'inicio',this.value)" onchange="horasSetTurno(${i},'inicio',this.value)"></label>
+        <label>Saí às <input type="time" class="input" data-turno="${i}" data-campo="fim" value="${escapeHtml(t.fim || '')}" oninput="horasSetTurno(${i},'fim',this.value)" onchange="horasSetTurno(${i},'fim',this.value)"></label>
         ${e.turnos.length > 1 ? `<button class="btn btn-ghost btn-sm" title="Tirar este turno" onclick="horasRemTurno(${i})">✕</button>` : ''}
       </div>`).join('') + `<button class="btn btn-ghost btn-sm" onclick="horasAddTurno()">+ Outro turno neste dia</button>`;
   const colegas = Array.from(AgendaState.teachersMap.values())
@@ -510,7 +509,7 @@ function horasEditorHtml() {
       <div class="horas-fora">
         <div><strong>Este dia não estava na sua agenda. Foi:</strong></div>
         <label><input type="radio" name="horasFora" ${e.fora === 'no_lugar_de' ? 'checked' : ''} onchange="horasSetFora('no_lugar_de')"> No lugar de um colega</label>
-        ${e.fora === 'no_lugar_de' ? `<select class="input" onchange="horasSetNoLugarDe(this.value)">
+        ${e.fora === 'no_lugar_de' ? `<select class="input" data-campo="noLugarDe" onchange="horasSetNoLugarDe(this.value)">
             <option value="">Quem?</option>
             ${colegas.map(t => `<option value="${t.id}"${e.noLugarDe === t.id ? ' selected' : ''}>${escapeHtml(t.name || '—')}</option>`).join('')}
           </select>
@@ -521,7 +520,7 @@ function horasEditorHtml() {
       ${turnos}
       ${e.novo ? '' : `<label class="horas-check"><input type="checkbox" ${e.naoTrabalhei ? 'checked' : ''} onchange="horasNaoTrabalhei()"> Não trabalhei neste dia</label>`}
       ${fora}
-      <input type="text" class="input" maxlength="300" placeholder="Observação para a gestão (opcional)" value="${escapeHtml(e.obs || '')}" onchange="horasSetObs(this.value)">
+      <input type="text" class="input" maxlength="300" placeholder="Observação para a gestão (opcional)" data-campo="obs" value="${escapeHtml(e.obs || '')}" onchange="horasSetObs(this.value)">
       <div class="horas-previa" id="horasPrevia">${escapeHtml(horasPreviaTexto())}</div>
       ${e.erro ? `<div class="horas-erro">${escapeHtml(e.erro)}</div>` : ''}
       <div class="horas-editor-acoes">
@@ -587,23 +586,48 @@ function horasSetTurno(i, campo, valor) {
   e.erro = '';
   horasAtualizarPrevia();
 }
+/**
+ * Traz para o estado o que está ESCRITO nos campos. O evento de mudança nem
+ * sempre chega (seletor de hora do celular, preenchimento automático): sem
+ * isto a tela confirmaria o dia com o horário antigo — achado clicando no
+ * staging em 01/10/2026, e é o mesmo defeito do "Enviar para a gestão" do
+ * iPhone. Vale o que a pessoa está vendo.
+ */
+function horasLerCampos() {
+  const e = HorasState.editor;
+  if (!e || typeof document.querySelectorAll !== 'function') return;
+  document.querySelectorAll('.horas-editor [data-campo]').forEach(el => {
+    const campo = el.getAttribute('data-campo');
+    const valor = String(el.value == null ? '' : el.value);
+    if (campo === 'inicio' || campo === 'fim') {
+      const i = Number(el.getAttribute('data-turno'));
+      if (e.turnos[i]) e.turnos[i][campo] = valor.trim();
+    } else if (campo === 'obs') e.obs = valor;
+    else if (campo === 'noLugarDe') e.noLugarDe = valor || null;
+  });
+}
+
 function horasAddTurno() {
   const e = HorasState.editor; if (!e) return;
+  horasLerCampos();
   e.naoTrabalhei = false; e.turnos.push({ inicio: '', fim: '' }); e.erro = '';
   horasDesenhar();
 }
 function horasRemTurno(i) {
   const e = HorasState.editor; if (!e || e.turnos.length < 2) return;
+  horasLerCampos();
   e.turnos.splice(i, 1); e.erro = '';
   horasDesenhar();
 }
 function horasNaoTrabalhei() {
   const e = HorasState.editor; if (!e || e.novo) return;
+  horasLerCampos();
   e.naoTrabalhei = !e.naoTrabalhei; e.erro = '';
   horasDesenhar();
 }
 function horasSetFora(tipo) {
   const e = HorasState.editor; if (!e) return;
+  horasLerCampos();
   e.fora = (tipo === 'no_lugar_de' || tipo === 'turno_extra') ? tipo : null; e.erro = '';
   horasDesenhar();
 }
@@ -647,6 +671,7 @@ async function horasConfirmarDia() {
   const H = HourDeclaration;
   const e = HorasState.editor;
   if (!e || horasSomenteLeitura()) return;
+  horasLerCampos();
   const falha = (msg) => { e.erro = msg; horasDesenhar(); };
   const dec = horasDiaDoEditor();
   const v = H.validarDia(dec);
@@ -880,9 +905,9 @@ function horasGestaoLinhaHtml(p) {
     if (p.aValidar) botoes += b('Validar', 'horasGestaoValidar', 'btn-primary') + b('Devolver', 'horasGestaoDevolver') + b('Corrigir', 'horasGestaoCorrigir');
     else if (p.sit === 'enviada') botoes += b('Devolver', 'horasGestaoDevolver');
     else if (p.sit === 'validada' || p.sit === 'dispensada') botoes += b('Corrigir', 'horasGestaoCorrigir');
-    else botoes += b('Lançar por ele', 'horasGestaoCorrigir') + b('Fechar valendo a agenda', 'horasGestaoDispensar');
+    else botoes += b('Lançar as horas', 'horasGestaoCorrigir') + b('Fechar valendo a agenda', 'horasGestaoDispensar');
   }
-  return `<div class="horas-dia${p.aValidar ? ' horas-dia-mudou' : ''}">
+  return `<div class="horas-dia horas-pessoa${p.aValidar ? ' horas-dia-mudou' : ''}">
       <div class="horas-dia-cab">
         <div class="horas-dia-data" style="min-width:150px;"><b>${escapeHtml(p.nome)}</b><div class="horas-sub">agenda: ${H.fmtHoras(p.minutosAgenda)}</div></div>
         <div class="horas-dia-info">${chip}${texto ? `<div class="horas-sub" style="margin-top:4px;">${texto}</div>` : ''}</div>
@@ -908,7 +933,7 @@ function horasGestaoDetalheHtml(p) {
   const blocos = p.r.dias.filter(l => l.declarado).map(l => {
     const pd = porDia.get(l.dia) || { ops: [], novas: [], pendencias: [] };
     const itens = [];
-    pd.novas.forEach(n => itens.push(`${n.inicio}–${n.fim} — <b>turno novo</b> (${H.fmtHoras(n.minutos)}): vira aula na agenda dele`));
+    pd.novas.forEach(n => itens.push(`${n.inicio}–${n.fim} — <b>turno novo</b> (${H.fmtHoras(n.minutos)}): vira aula na agenda da pessoa`));
     pd.ops.forEach(op => {
       if (op.campos.status === 'nao_realizada') { itens.push(`${op.inicio}–${op.fim} — <b>não realizada</b>: sai da conta de horas`); return; }
       const c = op.campos, partes = [];
@@ -921,9 +946,14 @@ function horasGestaoDetalheHtml(p) {
     if (l.erro) itens.push(`<span class="horas-menos">${escapeHtml(l.erro)}</span>`);
     if (!itens.length) itens.push('sem mudança nas aulas');
     const de = l.turnosAgenda.length ? horasTurnosTxt(l.turnosAgenda) : 'fora da agenda';
+    // A tela fala em horas TRABALHADAS. Em feriado a folha paga em dobro — dizer
+    // aqui evita a gestão validar "+2h" e estranhar "+4h" no fechamento.
+    const agDia = p.agenda.find(a => a.dia === l.dia);
+    const feriado = !!agDia && agDia.aulas.some(a => a.isHoliday);
     const para = l.naoTrabalhei ? 'não trabalhou' : horasTurnosTxt(l.turnosInformados);
     return `<div class="horas-det-dia"><b>${horasDiaTexto(l.dia)}</b> · ${de} → <b>${para}</b>
         ${l.delta ? `<span class="chip-mini ${l.delta < 0 ? 'chip-yellow' : 'chip-green'}">${H.fmtHoras(l.delta, { sinal: true })}</span>` : ''}
+        ${feriado ? '<span class="chip-mini chip-orange">feriado · a folha paga em dobro</span>' : ''}
         ${l.obs ? `<div class="horas-sub">"${escapeHtml(l.obs)}"</div>` : ''}
         <ul>${itens.map(i => `<li>${i}</li>`).join('')}</ul></div>`;
   }).join('');
@@ -932,7 +962,7 @@ function horasGestaoDetalheHtml(p) {
   return `<div class="horas-detalhe">${blocos}
       <div class="horas-det-rodape">Se validar: <b>${pl.deltaMinutos ? H.fmtHoras(pl.deltaMinutos, { sinal: true }) : 'nenhuma mudança'}</b> na conta de horas.
         ${pl.minutosPendentes ? ` ${H.fmtHoras(pl.minutosPendentes)} informadas no lugar de um colega não entram por aqui.` : ''}
-        ${avisos ? ` ${avisos} aviso(s) dele nesses dias ${avisos === 1 ? 'fica respondido' : 'ficam respondidos'}: vale o horário informado aqui.` : ''}</div>
+        ${avisos ? ` ${avisos} aviso(s) da pessoa nesses dias ${avisos === 1 ? 'fica respondido' : 'ficam respondidos'}: vale o horário informado aqui.` : ''}</div>
     </div>`;
 }
 
