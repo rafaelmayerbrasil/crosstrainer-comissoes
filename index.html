@@ -3294,7 +3294,7 @@
   <!-- "Atualizar pela Pacto" (30/09/2026): a API vira a fonte oficial, a planilha fica
        como plano B. As linhas da busca diária entram pelo MESMO caminho do arquivo. -->
   <script src="pacto-api-linhas.js?v=20261001"></script>
-  <script src="upload-pela-api.js?v=20261002"></script>
+  <script src="upload-pela-api.js?v=20261003"></script>
   <!-- A gravação e a conta do mês (30/09/2026): o MESMO código que o servidor usa
        para atualizar o mês sozinho toda madrugada. As funções da tela chamam daqui. -->
   <script src="comissoes-mes.js?v=20261001"></script>
@@ -4526,11 +4526,13 @@
         if (m.trava) {
           const lista = m.diasProblema.map(d => `${UploadPelaApi.diaCurto(d.dia)} (${UploadPelaApi.ROTULO[d.situacao] || d.situacao})`).join(', ');
           const de = m.diasProblema[0].dia, ate = m.diasProblema[m.diasProblema.length - 1].dia;
+          // Só a vendedora faltando = buscar de novo (limite de consultas); dia que falhou = planilha
+          const orient = UploadPelaApi.orientacaoDaTrava(m.diasProblema, depoisDeBuscar);
           status.innerHTML = `
             <div style="color:var(--red);margin-bottom:8px">⚠️ Faltam dados da Pacto em ${m.diasProblema.length} dia(s): <strong>${lista}</strong>. O mês não é calculado sem eles — sairia a menos.</div>
             <button class="btn btn-sm" onclick="buscarDeNovoPacto('${sigla}', '${de}', '${ate}')">🔁 Buscar de novo agora</button>
-            <div style="color:var(--text3);margin-top:6px">${depoisDeBuscar ? 'A Pacto ainda não entregou esses dias. Use a planilha abaixo.' : 'Se continuar falhando, use a planilha abaixo.'}</div>`;
-          if (depoisDeBuscar) document.getElementById('uploadPlanilhaB').open = true;
+            <div style="color:var(--text3);margin-top:6px">${orient.texto}</div>`;
+          if (orient.abrirPlanilha) document.getElementById('uploadPlanilhaB').open = true;
           return;
         }
 

@@ -75,6 +75,27 @@ const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, 
   ok('dia buscado sem a vendedora (formato antigo, sem credencial ou incompleto) trava o mês; aviso de balcão e de aluno sem vínculo não');
 }
 {
+  // O que a tela diz depois da trava. Em produção (30/09/2026) a 1ª busca de setembro do CP parou no
+  // limite de consultas no dia 27 e a tela mandou "usar a planilha" — era só clicar de novo.
+  const P = s => [{ dia: '2026-09-27', situacao: s, motivo: '' }];
+  const inc = U.orientacaoDaTrava(P('vendedora_incompleta'), true);
+  assert.ok(/limite de consultas/.test(inc.texto) && /mais uma vez/.test(inc.texto) && !/planilha/.test(inc.texto), inc.texto);
+  assert.strictEqual(inc.abrirPlanilha, false, 'não empurra para a planilha');
+  const antigo = U.orientacaoDaTrava(P('sem_vendedora'), false);
+  assert.ok(/sem a vendedora/.test(antigo.texto) && /Buscar de novo agora/.test(antigo.texto) && !/planilha/.test(antigo.texto), antigo.texto);
+  assert.strictEqual(antigo.abrirPlanilha, false);
+  // dia que a Pacto não entregou: aí sim a planilha é o plano B
+  const falhou = U.orientacaoDaTrava(P('falhou'), true);
+  assert.ok(/planilha/.test(falhou.texto));
+  assert.strictEqual(falhou.abrirPlanilha, true);
+  assert.strictEqual(U.orientacaoDaTrava(P('falhou'), false).abrirPlanilha, false, 'antes de tentar buscar, não abre a planilha');
+  const misto = U.orientacaoDaTrava([{ dia: '2026-09-26', situacao: 'nao_buscado' }, { dia: '2026-09-27', situacao: 'vendedora_incompleta' }], true);
+  assert.ok(/planilha/.test(misto.texto) && misto.abrirPlanilha === true, 'com dia que falhou no meio, vale a orientação da falha');
+  const idx = html.slice(html.indexOf('async function atualizarPelaPacto('), html.indexOf('function handleFile(file)'));
+  assert.ok(/UploadPelaApi\.orientacaoDaTrava\(m\.diasProblema, depoisDeBuscar\)/.test(idx), 'a tela usa a orientação do módulo');
+  ok('depois da trava: vendedora incompleta manda buscar de novo (limite de consultas), dia que falhou manda para a planilha');
+}
+{
   // o mesmo contrato pago em dois dias vira UMA linha (uma ativação)
   const docs = [dia('2026-09-01', 'buscado', [linha('4001', '01/09/2026', '100,00')]),
     dia('2026-09-02', 'vazio_conferir'),

@@ -37,6 +37,29 @@ const UploadPelaApi = {
     return doc.linhasBalcao === undefined;      // dias gravados em 30/09 já têm `linhasBalcao`, ainda sem a marca
   },
 
+  /**
+   * O que a tela orienta depois da trava. Quando o único problema é a vendedora
+   * (dia antigo ou busca que parou no limite de consultas), o caminho é buscar de
+   * novo — não a planilha. Em 30/09/2026, em produção, a tela mandava para a
+   * planilha depois de uma busca que só tinha batido no limite.
+   */
+  orientacaoDaTrava(diasProblema, depoisDeBuscar) {
+    const soVendedora = (diasProblema || []).length > 0 &&
+      diasProblema.every(d => d.situacao === 'sem_vendedora' || d.situacao === 'vendedora_incompleta');
+    if (soVendedora) {
+      return {
+        abrirPlanilha: false,
+        texto: depoisDeBuscar
+          ? 'A busca tem um limite de consultas por vez e ainda não completou a vendedora destes dias: clique em "Buscar de novo agora" mais uma vez.'
+          : 'Estes dias foram buscados sem a vendedora de cada venda: clique em "Buscar de novo agora" (em mês cheio, pode precisar de mais de uma vez).',
+      };
+    }
+    return {
+      abrirPlanilha: !!depoisDeBuscar,
+      texto: depoisDeBuscar ? 'A Pacto ainda não entregou esses dias. Use a planilha abaixo.' : 'Se continuar falhando, use a planilha abaixo.',
+    };
+  },
+
   /** A busca não conseguiu completar a vendedora de algum contrato (limite da noite ou gateway fora). */
   _vendedoraIncompleta(doc) {
     return (doc.avisos || []).some(a => /^consultora a completar|^gateway: /.test(String((a && a.motivo) || '')));
