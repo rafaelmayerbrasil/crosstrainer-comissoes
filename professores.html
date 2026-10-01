@@ -516,10 +516,13 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ─── TOAST ─── */
+    /* Acima de TODA janela (.modal = 1000/1001) e do painel de avisos (4000).
+       Com 200 o aviso ficava atrás da janela aberta: erro disparado de dentro
+       de um modal não aparecia pra ninguém (Theo, 01/10/2026). */
     .toast-container {
       position: fixed;
       top: 20px; right: 20px;
-      z-index: 200;
+      z-index: 5000;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -2829,21 +2832,23 @@
           A aula não aconteceu
         </button>
 
-        <div class="section-label" style="margin-top:16px;">Ou informe os minutos</div>
-        <div class="form-row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+        <!-- Hora, não minutos: as pessoas pensam em horário ("saí 14:05"), e o
+             campo de número no iPhone engolia isso calado (Theo, 01/10/2026).
+             Quem faz a conta dos minutos é o sistema. -->
+        <div class="section-label" style="margin-top:16px;">Ou informe o horário</div>
+        <div class="hint" id="classProfHorarioHint" style="margin-bottom:8px;">Preencha só o que foi diferente do horário da aula.</div>
+        <div class="form-row" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
           <div class="form-group">
-            <label for="classProfAtraso">Cheguei atrasado</label>
-            <input type="number" id="classProfAtraso" min="0" max="600" step="1" placeholder="min">
+            <label for="classProfChegou">Cheguei às</label>
+            <input type="time" id="classProfChegou" oninput="atualizarPreviaProfessor()">
           </div>
           <div class="form-group">
-            <label for="classProfSaida">Saí antes</label>
-            <input type="number" id="classProfSaida" min="0" max="600" step="1" placeholder="min">
-          </div>
-          <div class="form-group">
-            <label for="classProfExtra">Fiquei além</label>
-            <input type="number" id="classProfExtra" min="0" max="600" step="1" placeholder="min">
+            <label for="classProfSaiu">Saí às</label>
+            <input type="time" id="classProfSaiu" oninput="atualizarPreviaProfessor()">
           </div>
         </div>
+        <div class="hint" id="classProfPrevia" style="margin-bottom:8px;"></div>
+        <div class="error-msg" id="classProfErro"></div>
         <button class="btn btn-outline btn-sm" onclick="professorAvisaOcorrencia()">
           Enviar para a gestão
         </button>

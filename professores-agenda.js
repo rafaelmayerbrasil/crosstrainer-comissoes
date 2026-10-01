@@ -1357,9 +1357,15 @@ async function openClassModal(classId) {
         avisoJaEscrito = true;
       }
     }
-    ['classProfNota', 'classProfAtraso', 'classProfSaida', 'classProfExtra'].forEach(id => {
+    ['classProfNota', 'classProfChegou', 'classProfSaiu'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
+    ['classProfPrevia', 'classProfErro'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '';
+    });
+    // O horário da aula fica à vista: é contra ele que a pessoa compara.
+    const dica = document.getElementById('classProfHorarioHint');
+    if (dica) dica.textContent = `O horário desta aula é ${cls.startTime || '—'}–${cls.endTime || '—'}. Preencha só o que foi diferente.`;
   }
 
   const noteHint = document.getElementById('classModalReadOnlyHint');
@@ -1467,26 +1473,117 @@ async function professorAvisaAulaNaoAconteceu() {
   await recarregarAgendaAtual();
 }
 
-// Professor informa atraso / saída antecipada / hora extra. Vira aviso, não
-// lançamento: só entra no fechamento depois que a gestão confirmar.
+/**
+ * PURO: da hora em que a pessoa chegou e saiu para os minutos de ocorrência.
+ *
+ * A tela pedia a conta pronta ("quantos minutos além?") e as pessoas pensam em
+ * horário. Em 01/10/2026 o Theo digitou "14:05" no campo de minutos: o iPhone
+ * deixa digitar isso num <input type="number">, mas entrega valor vazio — o
+ * código lia zero, o erro saía atrás da janela, e "o botão não funcionava".
+ * Agora quem faz a conta é o sistema; o que vai pro banco continua em minutos.
+ *
+ * Campo vazio = igual ao horário da aula. Chegar ANTES do início não conta
+ * (não é atraso nem hora extra). Horário impossível vira `erro`, nunca zero.
+ *
+ * @param {{startTime:string, endTime:string}} cls
+ * @param {string} chegou 'HH:MM' ou ''
+ * @param {string} saiu   'HH:MM' ou ''
+ * @returns {{atrasoMinutos:number, saidaAntecipadaMinutos:number, horaExtraMinutos:number, erro:string}}
+ */
+function ocorrenciaPorHorario(cls, chegou, saiu) {
+  const out = { atrasoMinutos: 0, saidaAntecipadaMinutos: 0, horaExtraMinutos: 0, erro: '' };
+  const emMin = (hhmm) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm == null ? '' : hhmm).trim());
+    if (!m) return null;
+    const h = Number(m[1]), mi = Number(m[2]);
+    return (h > 23 || mi > 59) ? null : h * 60 + mi;
+  };
+  const ini = emMin(cls && cls.startTime), fim = emMin(cls && cls.endTime);
+  if (ini == null || fim == null) { out.erro = 'Esta aula está sem horário cadastrado — fale com a gestão.'; return out; }
+  const txtChegou = String(chegou == null ? '' : chegou).trim();
+  const txtSaiu = String(saiu == null ? '' : saiu).trim();
+  const c = txtChegou ? emMin(txtChegou) : null;
+  const s = txtSaiu ? emMin(txtSaiu) : null;
+  if ((txtChegou && c == null) || (txtSaiu && s == null)) {
+    out.erro = 'Horário inválido. Use hora e minuto, como 14:05.'; return out;
+  }
+  if (c != null && s != null && s <= c) { out.erro = 'A saída ficou antes da chegada. Confira os dois horários.'; return out; }
+  if (c != null && c >= fim) {
+    out.erro = `Você chegou depois do fim desta aula (${cls.endTime}). Se ela não aconteceu, use o botão "A aula não aconteceu".`;
+    return out;
+  }
+  if (s != null && s <= ini) {
+    out.erro = `Você saiu antes de começar esta aula (${cls.startTime}). Se ela não aconteceu, use o botão "A aula não aconteceu".`;
+    return out;
+  }
+  if (c != null && c > ini) out.atrasoMinutos = c - ini;
+  if (s != null && s < fim) out.saidaAntecipadaMinutos = fim - s;
+  if (s != null && s > fim) out.horaExtraMinutos = s - fim;
+  return out;
+}
+
+/** "15 min de atraso · 35 min além" — o mesmo texto na prévia e na confirmação. */
+function ocorrenciaEmPalavras(r) {
+  const partes = [];
+  if (r.atrasoMinutos) partes.push(`${r.atrasoMinutos} min de atraso`);
+  if (r.saidaAntecipadaMinutos) partes.push(`saiu ${r.saidaAntecipadaMinutos} min antes`);
+  if (r.horaExtraMinutos) partes.push(`${r.horaExtraMinutos} min além do horário`);
+  return partes.join(' · ');
+}
+
+function aulaAbertaNoModal() {
+  const id = MinhaAgendaState.selectedClassId;
+  return MinhaAgendaState.classes.find(c => c.id === id) || AgendaGeralState.classes.find(c => c.id === id) || null;
+}
+
+/** Mostra a conta enquanto a pessoa preenche — ela vê os minutos antes de enviar. */
+function atualizarPreviaProfessor() {
+  const previa = document.getElementById('classProfPrevia');
+  const erro = document.getElementById('classProfErro');
+  if (erro) erro.textContent = '';
+  if (!previa) return;
+  const cls = aulaAbertaNoModal();
+  const chegou = (document.getElementById('classProfChegou').value || '').trim();
+  const saiu = (document.getElementById('classProfSaiu').value || '').trim();
+  if (!cls || (!chegou && !saiu)) { previa.textContent = ''; return; }
+  const r = ocorrenciaPorHorario(cls, chegou, saiu);
+  const texto = r.erro ? '' : ocorrenciaEmPalavras(r);
+  previa.textContent = texto ? `Isso dá: ${texto}.` : '';
+}
+
+// Professor informa a hora em que chegou e/ou saiu. Vira aviso, não lançamento:
+// só entra no fechamento depois que a gestão confirmar.
 async function professorAvisaOcorrencia() {
   const classId = MinhaAgendaState.selectedClassId;
   if (!classId) return;
-  const num = (id) => Number(document.getElementById(id).value) || 0;
+  // O motivo vai pra DENTRO da janela: o aviso flutuante sozinho ficava atrás
+  // dela e a pessoa não via nada acontecer.
+  const errEl = document.getElementById('classProfErro');
+  const falha = (msg) => { if (errEl) errEl.textContent = msg; toast(msg, 'error'); };
+  if (errEl) errEl.textContent = '';
+
+  const cls = aulaAbertaNoModal();
+  if (!cls) { falha('Aula não encontrada — feche e abra de novo.'); return; }
+  const chegou = (document.getElementById('classProfChegou').value || '').trim();
+  const saiu = (document.getElementById('classProfSaiu').value || '').trim();
+  if (!chegou && !saiu) {
+    falha(`Informe a hora em que você chegou ou saiu. O horário desta aula é ${cls.startTime}–${cls.endTime}.`);
+    return;
+  }
+  const r = ocorrenciaPorHorario(cls, chegou, saiu);
+  if (r.erro) { falha(r.erro); return; }
+  if (!r.atrasoMinutos && !r.saidaAntecipadaMinutos && !r.horaExtraMinutos) {
+    falha(`Esses horários são iguais ao da aula (${cls.startTime}–${cls.endTime}) — não há o que avisar.`);
+    return;
+  }
   const dados = {
-    atrasoMinutos: num('classProfAtraso'),
-    saidaAntecipadaMinutos: num('classProfSaida'),
-    horaExtraMinutos: num('classProfExtra'),
+    atrasoMinutos: r.atrasoMinutos,
+    saidaAntecipadaMinutos: r.saidaAntecipadaMinutos,
+    horaExtraMinutos: r.horaExtraMinutos,
     nota: (document.getElementById('classProfNota').value || '').trim(),
   };
-  if (!dados.atrasoMinutos && !dados.saidaAntecipadaMinutos && !dados.horaExtraMinutos) {
-    toast('Preencha ao menos um dos campos de minutos.', 'error'); return;
-  }
-  const partes = [];
-  if (dados.atrasoMinutos) partes.push(`${dados.atrasoMinutos} min de atraso`);
-  if (dados.saidaAntecipadaMinutos) partes.push(`saiu ${dados.saidaAntecipadaMinutos} min antes`);
-  if (dados.horaExtraMinutos) partes.push(`${dados.horaExtraMinutos} min a mais`);
-  if (!confirm(`Enviar para a gestão: ${partes.join(' · ')}?\n\nEla confirma antes de entrar no fechamento.`)) return;
+  const horarios = [chegou ? `chegou ${chegou}` : '', saiu ? `saiu ${saiu}` : ''].filter(Boolean).join(' · ');
+  if (!confirm(`Enviar para a gestão (${horarios}): ${ocorrenciaEmPalavras(r)}?\n\nEla confirma antes de entrar no fechamento.`)) return;
 
   const res = await ClassService.avisarOcorrencia(classId, dados);
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); return; }

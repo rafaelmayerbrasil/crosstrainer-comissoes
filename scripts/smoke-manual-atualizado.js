@@ -256,6 +256,15 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: troca na mão que avisa, texto para o WhatsApp e folga mínima configurável');
 }
 {
+  // 01/10/2026: o campo pedia MINUTOS e o Theo digitou o horário ("14:05") — o
+  // iPhone engolia calado. Agora a pessoa informa a hora e o sistema faz a conta.
+  exige(prof, 'manual-professores', {
+    'chegou atrasado ou saiu em outro horário': 'Cheguei às',
+    'o sistema faz a conta dos minutos': 'faz a conta',
+  });
+  ok('professor: avisar atraso e saída pelo horário, não por minutos');
+}
+{
   exige(prof, 'manual-professores', {
     'aviso quando a gestão troca o dia': 'trocar você de dia',
     'aviso antes de registrar troca que cola escalas': 'escalas próximas',
