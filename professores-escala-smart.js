@@ -328,9 +328,43 @@ function renderEquilibrioPainel() {
   </div>`;
 }
 
-function whyTableHtml(slot, tipo) {
+/**
+ * A explicação de uma vaga em texto corrido: o motivo da escolha + a conta do
+ * mês (quantas vagas pra quantas pessoas habilitadas).
+ *
+ * Rafael Rojais, 01/10/2026: "Sabe dizer porque o Vaguinho ficou com 2 sábados
+ * em outubro? Teria como o sistema explicar o porquê a pessoa está naquele
+ * dia?". O motivo já existia em cada vaga, mas só como tabela de pontos na tela
+ * da gestão — e sumia justamente nas vagas trocadas na mão.
+ *
+ * `voce: true` é a versão do professor ("você"), e a conta só enxerga escala
+ * PUBLICADA: a prévia da gestão não pode vazar por aqui.
+ */
+function escalaPorQueTexto(scale, slot, voce) {
+  if (!scale || !slot || !slot.assignedPersonId) return '';
+  const nomePorId = escalaNomePorId();
+  const modalidadePorId = {};
+  if (EscalaSmartState.modMap) EscalaSmartState.modMap.forEach((m, id) => { modalidadePorId[id] = m.name; });
+  const motivo = ScaleService.explicarVaga({ scale, slot, nomePorId, voce });
+  const base = (EscalaSmartState.scales || []).filter(s => s && (voce === false || s.published));
+  const conta = ScaleService.contaDoMes({
+    scales: base, scale, slot, personId: slot.assignedPersonId, voce, nomePorId, modalidadePorId,
+    teachers: Array.from(EscalaSmartState.teacherMap.values()),
+  });
+  return [motivo.texto, conta.texto].filter(Boolean).join(' ');
+}
+
+function whyTableHtml(slot, tipo, scale) {
   const ex = slot.explain || [];
-  if (!ex.length) return '';
+  // A frase vem primeiro e existe em TODA vaga preenchida — inclusive nas
+  // trocadas na mão, onde não há tabela de candidatos e o "por quê?" sumia.
+  const frase = scale ? escalaPorQueTexto(scale, slot, false) : '';
+  const fraseHtml = frase
+    ? `<div style="font-size:12px;color:var(--text);margin-top:6px;line-height:1.5;">${escalaEsc(frase)}</div>` : '';
+  if (!ex.length) {
+    return frase ? `<details style="margin-top:8px;">
+    <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>${fraseHtml}</details>` : '';
+  }
   const prefLabel = (p) => (p === 'prefiro' || p === 'quer') ? 'prefiro' : (p === 'pode_ser' ? 'pode ser' : (p === 'nao_posso' ? 'não posso' : (p === 'nao_quer' ? '—' : '—')));
   const rows = ex.map(c => {
     const win = c.personId === slot.assignedPersonId;
@@ -343,6 +377,7 @@ function whyTableHtml(slot, tipo) {
   }).join('');
   return `<details style="margin-top:8px;">
     <summary style="cursor:pointer;font-size:12px;color:var(--blue);">por quê?</summary>
+    ${fraseHtml}
     <table style="width:100%;font-size:11px;margin-top:6px;border-collapse:collapse;">
       <thead><tr style="color:var(--text2);text-align:left;"><th style="padding:3px 6px;font-weight:400;">Candidato</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pontos</th><th style="padding:3px 6px;font-weight:400;text-align:center;">${(tipo === 'feriado' || tipo === 'domingo_especial') ? 'Feriados' : 'Sábados'} (12 meses)</th><th style="padding:3px 6px;font-weight:400;text-align:center;">Pref.</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -2069,7 +2104,7 @@ function renderEscalaDetail(scale) {
                 onchange="trocarPessoaEscala('${scale.id}','${slot.id}',this.value)"
                 title="Trocar quem trabalha nesta vaga">${pessoaOpts(slot)}</select>
         ${inverterSelect(slot)}
-        ${filled ? whyTableHtml(slot, scale.tipo) : ''}
+        ${filled ? whyTableHtml(slot, scale.tipo, scale) : ''}
       </div>`;
     }).join('');
     unitsHtml += `<div style="margin-bottom:12px;">
@@ -3096,8 +3131,18 @@ function escalaEquipeHtml(scale, pid, opts) {
   const posto = (slot) => [uNome(slot.unitId), mNome(slot)].filter(Boolean).join(' · ');
   const hora = (slot) => slot.startTime ? `${slot.startTime}–${slot.endTime || ''}` : '';
 
+  // "Por que estou neste dia?" — a resposta mora na própria linha, onde a
+  // pergunta nasce. Só em sábado e feriado: fim de ano tem outra lógica.
+  const explicavel = ['sabado', 'feriado', 'domingo_especial'].indexOf(scale.tipo) !== -1;
+  const porQue = (slot) => {
+    const texto = explicavel ? escalaPorQueTexto(scale, slot, true) : '';
+    return texto ? `<details style="margin-top:4px;">
+      <summary style="cursor:pointer;font-size:12px;color:var(--blue);">Por que estou neste dia?</summary>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5;">${escalaEsc(texto)}</div>
+    </details>` : '';
+  };
   const meu = eq.meus.map(slot =>
-    `<div style="font-size:12px;color:var(--text);margin-top:2px;">📍 <strong>${escalaEsc(posto(slot))}</strong>${hora(slot) ? ` · 🕗 ${escalaEsc(hora(slot))}` : ''}</div>`
+    `<div style="font-size:12px;color:var(--text);margin-top:2px;">📍 <strong>${escalaEsc(posto(slot))}</strong>${hora(slot) ? ` · 🕗 ${escalaEsc(hora(slot))}` : ''}</div>${porQue(slot)}`
   ).join('');
 
   const colegas = eq.colegas.length

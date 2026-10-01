@@ -256,6 +256,20 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: troca na mão que avisa, texto para o WhatsApp e folga mínima configurável');
 }
 {
+  // 01/10/2026 (Rafael Rojais: "Teria como o sistema explicar o porquê a pessoa
+  // está naquele dia?") — a explicação em frase, pra gestão e pro professor, e a
+  // escala que passou a acompanhar a troca de professor confirmada.
+  exige(admin, 'manual-admin', {
+    'o porquê de cada vaga, em frase': 'Por que esta pessoa está neste dia',
+    'a conta do mês: vagas × pessoas': 'vagas no mês',
+    'a escala acompanha a troca confirmada': 'Troca entre professores',
+  });
+  exige(prof, 'manual-professores', {
+    'o professor vê por que foi escalado': 'Por que estou neste dia',
+  });
+  ok('gestão e professor: o porquê de cada dia de escala, e a escala que acompanha a troca');
+}
+{
   // 01/10/2026: o campo pedia MINUTOS e o Theo digitou o horário ("14:05") — o
   // iPhone engolia calado. Agora a pessoa informa a hora e o sistema faz a conta.
   exige(prof, 'manual-professores', {

@@ -950,6 +950,130 @@
     return datasVizinhasDaPessoa(p.scales, p.substitutoId, p.dateISO, p.dias).filter(d => !ignorar.has(d));
   }
 
+  // ── "Por que estou neste dia?" ───────────────────────────────────────
+  const MESES_MIN = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const _dataBR = (ts) => {
+    const d = new Date(ts);
+    if (!ts || isNaN(d)) return '';
+    const z = (n) => String(n).padStart(2, '0');
+    return `${z(d.getDate())}/${z(d.getMonth() + 1)}/${d.getFullYear()}`;
+  };
+
+  /**
+   * PURO: por que esta pessoa está nesta vaga, em frase de gente.
+   *
+   * O motivo já era guardado em cada vaga (`reason` + `explain`), mas só a
+   * gestão via, numa tabela de pontos e contagens. O professor não via nada
+   * (Rafael Rojais, 01/10/2026: "Teria como o sistema explicar o porquê a
+   * pessoa está naquele dia?"). Não cita o nome de quem ficou atrás: a frase é
+   * sobre a pessoa, e o professor não precisa ver a contagem do colega.
+   *
+   * @param {{scale:Object, slot:Object, nomePorId:Object, voce:boolean}} p
+   *   `voce: false` troca "você" pelo nome — é a versão da tela da gestão.
+   * @returns {{motivo:'rodizio'|'desempate'|'cota'|'gestao'|'troca'|'desconhecido', texto:string}}
+   */
+  function explicarVaga(p) {
+    const slot = (p && p.slot) || {};
+    const scale = (p && p.scale) || {};
+    const pid = slot.assignedPersonId || null;
+    const nome = ((p && p.nomePorId) || {})[pid] || pid || '';
+    const quem = (p && p.voce === false) ? nome : 'você';
+    const ex = Array.isArray(slot.explain) ? slot.explain : [];
+    const eu = ex.find(c => c && c.personId === pid) || null;
+    const seguinte = ex.find(c => c && c.personId !== pid) || null;
+    const temNumeros = eu && seguinte && typeof eu.diasTrabalhados === 'number' && typeof seguinte.diasTrabalhados === 'number';
+    const dias = (n) => `${n} ${n === 1 ? 'dia' : 'dias'}`;
+
+    // As linhas do histórico em que ESTA pessoa entrou na vaga.
+    const entradas = (Array.isArray(scale.historico) ? scale.historico : [])
+      .filter(h => h && typeof h.detalhe === 'string' && nome && h.detalhe.indexOf('entrou ' + nome) !== -1);
+    const ultima = (acoes) => {
+      for (let i = entradas.length - 1; i >= 0; i--) if (acoes.indexOf(entradas[i].acao) !== -1) return entradas[i];
+      return null;
+    };
+    const porQuemQuando = (h) => (h ? `${h.nome ? ` por ${h.nome}` : ''}${_dataBR(h.ts) ? ` em ${_dataBR(h.ts)}` : ''}` : '');
+
+    if (slot.reason === 'justica') {
+      const numeros = temNumeros ? ` (${quem}: ${dias(eu.diasTrabalhados)} · a pessoa seguinte: ${dias(seguinte.diasTrabalhados)})` : '';
+      return { motivo: 'rodizio', texto: `Foi o rodízio: quando a escala foi montada, ${quem} era quem tinha menos dias na contagem entre as pessoas disponíveis para esta vaga${numeros}.` };
+    }
+    if (slot.reason === 'merito') {
+      return { motivo: 'desempate', texto: temNumeros
+        ? `O rodízio empatou: ${quem} e a pessoa seguinte tinham ${dias(eu.diasTrabalhados)} na contagem. O desempate foi pelos pontos de engajamento.`
+        : `O rodízio empatou com outra pessoa disponível para esta vaga, e o desempate foi pelos pontos de engajamento.` };
+    }
+    if (slot.reason === 'cota') {
+      return { motivo: 'cota', texto: `Quem estava na frente no rodízio já tinha chegado ao número de dias que pediu nesta janela, e a vaga passou para ${quem}.` };
+    }
+    if (slot.reason === 'manual') {
+      const h = ultima(['vaga_trocada', 'rebalanceada', 'invertida']);
+      if (h && h.acao === 'rebalanceada') {
+        return { motivo: 'gestao', texto: `Foi escolha da gestão, não do rodízio: a vaga veio de um ajuste na quantidade de dias de cada um, feito${porQuemQuando(h)}.` };
+      }
+      return { motivo: 'gestao', texto: h
+        ? `Foi escolha da gestão, não do rodízio: ${quem} entrou nesta vaga numa troca feita na mão${porQuemQuando(h)}.`
+        : `Foi escolha da gestão, não do rodízio: uma troca feita na mão, sem registro de quem fez ou quando.` };
+    }
+    if (slot.reason === 'troca') {
+      const h = ultima(['troca_de_aula']);
+      const m = h ? /saiu (.+?), entrou/.exec(h.detalhe) : null;
+      return { motivo: 'troca', texto: `Veio de uma troca entre professores${m ? `, no lugar de ${m[1]}` : ''}, confirmada pela gestão${h && _dataBR(h.ts) ? ` em ${_dataBR(h.ts)}` : ''}.` };
+    }
+    return { motivo: 'desconhecido', texto: 'O sistema não guardou o motivo desta escolha.' };
+  }
+
+  /**
+   * PURO: a conta do mês — quantas vagas existem pra quantas pessoas habilitadas.
+   *
+   * É o que responde "antes era 1 sábado por mês, agora são 2": com mais vagas
+   * do que gente habilitada, alguém pega mais de uma, e a frase diz quantas
+   * pessoas. Conta só o mesmo grupo (sábado com sábado, feriado com feriado),
+   * mas TODAS as vagas do mês e todo mundo habilitado em alguma delas.
+   * Quem escolhe quais escalas entram (só as publicadas, pro professor) é a tela.
+   *
+   * @param {{scales:Array, scale:Object, slot:Object, teachers:Array, personId:string,
+   *          voce:boolean, nomePorId:Object, modalidadePorId:Object}} p
+   * @returns {{vagas:number, pessoas:number, meus:number, texto:string}}
+   */
+  function contaDoMes(p) {
+    const out = { vagas: 0, pessoas: 0, meus: 0, texto: '' };
+    const scale = p && p.scale, slot = p && p.slot;
+    if (!scale || !slot || !/^\d{4}-\d{2}-\d{2}$/.test(String(scale.date || ''))) return out;
+    const mes = scale.date.slice(0, 7);
+    const tipos = tiposIrmaos(scale.tipo);
+    const doMes = (p.scales || []).filter(s => s && String(s.date || '').slice(0, 7) === mes && tipos.indexOf(s.tipo) !== -1);
+    // TODAS as vagas do mês, e todo mundo habilitado em PELO MENOS UMA das
+    // modalidades pedidas. Contar só a modalidade desta vaga enganava: quem dá
+    // TOI também ocupa vaga de Hiit. Em outubro/2026 eram 10 vagas de TOI pra
+    // 13 habilitados ("nem todo mundo entra"), mas 20 vagas no total pra 16
+    // pessoas — quatro delas pegam dois sábados de qualquer jeito.
+    const modalidades = new Set();
+    let vagaLivre = false;   // vaga sem modalidade exigida: qualquer um serve
+    doMes.forEach(s => {
+      (s.slots || []).forEach(sl => {
+        if (!sl) return;
+        out.vagas++;
+        if (sl.requiredModalityId) modalidades.add(sl.requiredModalityId); else vagaLivre = true;
+      });
+      if (p.personId && (s.slots || []).some(sl => sl && sl.assignedPersonId === p.personId)) out.meus++;
+    });
+    out.pessoas = (p.teachers || []).filter(t => t && t.isActive !== false
+      && (vagaLivre || (t.modalityIds || []).some(id => modalidades.has(id)))).length;
+    if (!out.vagas || !out.pessoas) return out;
+
+    const feriado = tipos.indexOf('feriado') !== -1;
+    const dia = (n) => (feriado ? (n === 1 ? 'feriado' : 'feriados') : (n === 1 ? 'sábado' : 'sábados'));
+    const sobra = out.vagas - out.pessoas;
+    const conta = sobra > 0
+      ? `não dá uma para cada — pelo menos ${sobra} ${sobra === 1 ? 'pessoa pega' : 'pessoas pegam'} mais de uma`
+      : (sobra === 0 ? 'dá exatamente uma para cada' : 'nem todo mundo entra no mês');
+    const sujeito = (p.voce === false) ? (((p.nomePorId || {})[p.personId]) || 'A pessoa') : 'Você';
+    out.texto = `Em ${MESES_MIN[parseInt(mes.slice(5, 7), 10) - 1]} há ${out.vagas} ${out.vagas === 1 ? 'vaga' : 'vagas'} em ${dia(2)} `
+      + `para ${out.pessoas} ${out.pessoas === 1 ? 'pessoa' : 'pessoas'} no rodízio: ${conta}. `
+      + `${sujeito} está em ${out.meus} ${dia(out.meus)} do mês.`;
+    return out;
+  }
+
   // ── Escala em texto, pronta pra colar no WhatsApp ────────────────────
   const DIAS_CURTOS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const PARTICULAS = { de: 1, da: 1, do: 1, dos: 1, das: 1, e: 1 };
@@ -1690,5 +1814,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, explicarVaga, contaDoMes, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });
