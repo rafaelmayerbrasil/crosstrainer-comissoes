@@ -256,6 +256,14 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: troca na mão que avisa, texto para o WhatsApp e folga mínima configurável');
 }
 {
+  // 01/10/2026: trocar uma pessoa numa escala publicada apagava e recriava TODAS
+  // as aulas do dia — e com elas o que a gestão tinha lançado nas outras.
+  exige(admin, 'manual-admin', {
+    'trocar uma vaga não mexe nas outras aulas do dia': 'só a aula da vaga que mudou',
+  });
+  ok('admin: trocar ou inverter refaz só a aula da vaga que mudou');
+}
+{
   // 01/10/2026: o que o professor "envia para a gestão" não chegava a ninguém —
   // 21 avisos parados em produção desde 26/08. Agora há lista, sino, alerta na
   // tela inicial e trava no fechamento.

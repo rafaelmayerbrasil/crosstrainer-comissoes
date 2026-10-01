@@ -1615,7 +1615,39 @@
 
   // ── Publicar na agenda (§5) ──────────────────────────────────────
   // Escalas especiais são off-grid: publicar = CRIAR aulas taggeadas com
-  // specialScaleId/specialScaleSlotId. Idempotente: republicar apaga e recria.
+  // specialScaleId/specialScaleSlotId.
+  //
+  // Republicar NÃO apaga mais tudo. Até 01/10/2026 apagava e recriava todas as
+  // aulas da escala — e a troca de uma única pessoa (que republica) jogava fora
+  // o que a gestão e os professores tinham registrado nas OUTRAS aulas do dia:
+  // minutos aceitos, falta, aviso pendente, troca confirmada; e a troca
+  // pendente ficava apontando pra uma aula que não existia mais. Visto no
+  // staging ao inverter duas vagas. A "regra de operação" de 25/08 ("só
+  // reconsolide sábado que ainda não aconteceu") era a gestão tendo que lembrar
+  // de não usar o sistema. Agora a aula que já serve pra vaga fica onde está.
+
+  /** O dia local ('YYYY-MM-DD') de um `scheduledDate` — Timestamp, Date ou texto. */
+  function _diaDaAula(v) {
+    const d = v && v.toDate ? v.toDate() : (v ? new Date(v) : null);
+    if (!d || isNaN(d)) return null;
+    const z = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  }
+
+  /**
+   * PURO: a aula que já existe serve pra esta vaga do jeito que a vaga está agora?
+   * Mesma pessoa, mesma unidade, mesmo horário, mesmo dia. Aula `substituida`
+   * cujo titular original é a pessoa da vaga também serve: é uma troca de
+   * professor confirmada, e recriar a aula desfaria a troca.
+   */
+  function aulaServeNaVaga(cls, slot, slotDay) {
+    if (!cls || !slot || !slot.assignedPersonId) return false;
+    const pessoa = cls.teacherId === slot.assignedPersonId
+      || (cls.status === 'substituida' && cls.originalTeacherId === slot.assignedPersonId);
+    return pessoa && cls.unitId === slot.unitId
+      && cls.startTime === slot.startTime && cls.endTime === slot.endTime
+      && _diaDaAula(cls.scheduledDate) === slotDay;
+  }
   function _slotMinutes(s) {
     const a = parseInt(s.startTime.slice(0, 2), 10) * 60 + parseInt(s.startTime.slice(3), 10);
     const b = parseInt(s.endTime.slice(0, 2), 10) * 60 + parseInt(s.endTime.slice(3), 10);
@@ -1639,17 +1671,70 @@
       const scaleRes = await getScale(scaleId, deps);
       if (!scaleRes.success) return scaleRes;
       const scale = scaleRes.data;
-      const del = await _deleteScaleClasses(scaleId, deps); // idempotência
-      const congelados = new Set(del.blockedSlotIds || []);  // M1: slot já pago não recria (evita aula duplicada)
+      const classes = rdb(deps).collection('classes');
+
+      // As aulas que já existem desta escala, por vaga. Aula de mês fechado
+      // (M1) não se apaga nem se recria — a vaga dela fica congelada.
+      const snap = await classes.where('specialScaleId', '==', scaleId).get();
+      const congelados = new Set();
+      const porVaga = new Map();
+      for (const doc of snap.docs) {
+        const c = doc.data();
+        const vagaId = c.specialScaleSlotId || '';
+        if (c.monthClosingId) { if (vagaId) congelados.add(vagaId); continue; }
+        if (!porVaga.has(vagaId)) porVaga.set(vagaId, []);
+        porVaga.get(vagaId).push({ id: doc.id, data: c });
+      }
+      const apagar = async (lista) => { for (const a of (lista || [])) await classes.doc(a.id).delete(); };
+
+      // O que a aula herda da ESCALA (e não do que aconteceu nela). Aula que
+      // fica recebe só isto, pra acompanhar, por exemplo, o sábado que virou feriado.
+      const daEscala = (s) => ({
+        modalityId: s.requiredModalityId || null,
+        // Feriado manda, venha a escala pela aba Sábados ou pela aba Feriados.
+        // Antes só `tipo === 'feriado'` pagava em dobro — sábado que também
+        // era feriado nascia com peso 1 (Rafael, 25/08/2026: "quando um
+        // feriado cai em um sabado ele nao entra como feriado"; Rodrigo
+        // confirmou: "é pago em dobro como feriado normal").
+        isHoliday: scale.tipo === 'feriado' || !!scale.feriadoNaData,
+        holidayName: scale.tipo === 'feriado' ? (scale.name || null) : (scale.feriadoNaData || null),
+        // Vinha null: a agenda não sabia dizer o que era a aula (mostrava "—") e
+        // o peso da escala nunca era aplicado. Os tipos que casam com scale_types
+        // dão o mesmo peso de hoje (sabado=1; feriado=2 já vinha por isHoliday),
+        // então preencher NÃO muda pagamento de escala nenhuma.
+        specialScaleType: scale.tipo || null,
+        // Escola Interna não é paga (confirmado pelo Rafael em 04/08/2026). Sem
+        // isso ela entraria na folha como aula normal — 1h/dia por professor.
+        remunerada: scale.tipo !== 'escola_interna',
+      });
+
       const slots = scale.slots || [];
+      const idsDasVagas = new Set(slots.map(s => s.id));
       const vagasAbertas = [];
-      let created = 0, jaCongelados = 0;
+      let created = 0, mantidas = 0, jaCongelados = 0;
       for (const s of slots) {
-        if (congelados.has(s.id)) { jaCongelados++; continue; }
-        if (!s.assignedPersonId) { vagasAbertas.push(s.id); continue; }
-        if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); continue; }
+        const existentes = porVaga.get(s.id) || [];
+        if (congelados.has(s.id)) { jaCongelados++; await apagar(existentes); continue; }
+        if (!s.assignedPersonId) { vagasAbertas.push(s.id); await apagar(existentes); continue; }
+        if (!s.startTime || !s.endTime) { vagasAbertas.push(s.id); await apagar(existentes); continue; }
         // fim de ano: cada slot tem seu próprio dia; sábado/feriado usa a data da escala.
         const slotDay = s.day || scale.date;
+
+        // A aula que já existe e SERVE fica onde está, com tudo o que tem.
+        // Só é refeita a aula da vaga que mudou (pessoa, horário, unidade, dia).
+        const serve = existentes.find(a => aulaServeNaVaga(a.data, s, slotDay)) || null;
+        await apagar(existentes.filter(a => a !== serve));
+        if (serve) {
+          const novo = daEscala(s);
+          const mudou = Object.keys(novo).filter(k => (serve.data[k] === undefined ? null : serve.data[k]) !== novo[k]);
+          if (mudou.length) {
+            const patch = { updatedAt: rts(deps) };
+            mudou.forEach(k => { patch[k] = novo[k]; });
+            await classes.doc(serve.id).update(patch);
+          }
+          mantidas++; created++;
+          continue;
+        }
         // SEMPRE Date. Antes era Timestamp no navegador e a STRING crua em
         // qualquer outro lugar — e string não entra em busca por intervalo de
         // data, que é como a Agenda e o fechamento acham aula. Rodando este
@@ -1657,41 +1742,31 @@
         // nasceram invisíveis: `where scheduledDate >= X <= Y` devolvia zero.
         // Os dois SDKs convertem Date em Timestamp sozinhos.
         const dateVal = new Date(slotDay + 'T00:00:00');
-        await rdb(deps).collection('classes').doc().set({
+        await classes.doc().set(Object.assign({
           unitId: s.unitId, teacherId: s.assignedPersonId, originalTeacherId: s.assignedPersonId,
-          modalityId: s.requiredModalityId || null, startTime: s.startTime, endTime: s.endTime,
+          startTime: s.startTime, endTime: s.endTime,
           durationMinutes: _slotMinutes(s), status: 'prevista',
-          // Feriado manda, venha a escala pela aba Sábados ou pela aba Feriados.
-          // Antes só `tipo === 'feriado'` pagava em dobro — sábado que também
-          // era feriado nascia com peso 1 (Rafael, 25/08/2026: "quando um
-          // feriado cai em um sabado ele nao entra como feriado"; Rodrigo
-          // confirmou: "é pago em dobro como feriado normal").
-          isHoliday: scale.tipo === 'feriado' || !!scale.feriadoNaData,
-          holidayName: scale.tipo === 'feriado' ? (scale.name || null) : (scale.feriadoNaData || null),
           holidayType: null,
           cancellationReason: null, cancellationNote: null,
           adjustedBy: null, adjustedAt: null, adjustmentNote: null,
           scheduledDate: dateVal, generatedBy: 'escala-smart',
           specialScaleId: scaleId, specialScaleSlotId: s.id,
-          // Vinha null: a agenda não sabia dizer o que era a aula (mostrava "—") e
-          // o peso da escala nunca era aplicado. Os tipos que casam com scale_types
-          // dão o mesmo peso de hoje (sabado=1; feriado=2 já vinha por isHoliday),
-          // então preencher NÃO muda pagamento de escala nenhuma.
-          specialScaleType: scale.tipo || null,
-          // Escola Interna não é paga (confirmado pelo Rafael em 04/08/2026). Sem
-          // isso ela entraria na folha como aula normal — 1h/dia por professor.
-          remunerada: scale.tipo !== 'escola_interna',
           monthClosingId: null, createdAt: rts(deps), updatedAt: rts(deps),
-        });
+        }, daEscala(s)));
         created++;
       }
+      // Aula de vaga que não existe mais na escala sai da agenda.
+      for (const [vagaId, lista] of porVaga) if (!idsDasVagas.has(vagaId)) await apagar(lista);
+
       await rdb(deps).collection('special_scales').doc(scaleId)
         .set({ published: true, updatedAt: rts(deps), updatedBy: ruid(deps) }, { merge: true });
       await registrarHistorico(scaleId, {
         acao: 'publicada',
         detalhe: `${created} aula(s) na agenda${vagasAbertas.length ? ` · ${vagasAbertas.length} vaga(s) aberta(s)` : ''}`,
       }, deps);
-      return { success: true, data: { created, vagasAbertas, jaCongelados } };
+      // `created` = aulas que a escala tem na agenda agora (novas + mantidas);
+      // `mantidas` = as que já existiam e não foram tocadas.
+      return { success: true, data: { created, mantidas, vagasAbertas, jaCongelados } };
     } catch (err) { console.error('[ScaleService.publishToAgenda]', err); return { success: false, error: err.message }; }
   }
 
@@ -1774,7 +1849,10 @@
         if (mv.published) aRepublicar.add(mv.scaleId);
       }
       for (const scaleId of aRepublicar) {
-        // 🚨 `publishToAgenda` APAGA e recria TODAS as aulas do documento, não
+        // (Desde 01/10/2026 `publishToAgenda` só refaz a aula da vaga que mudou;
+        // a trava abaixo ficou mais cautelosa do que o necessário e foi mantida
+        // de propósito — afrouxar é decisão à parte, com teste próprio.)
+        // Histórico: `publishToAgenda` APAGAVA e recriava TODAS as aulas do documento, não
         // só as do dia mexido. No fim de ano o período inteiro divide um único
         // `scaleId`: ajustar uma pessoa num dia jogaria fora a aula já dada de
         // outro dia — `realizada` voltaria a `prevista`, e presença/ocorrência
@@ -1814,5 +1892,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, explicarVaga, contaDoMes, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, explicarVaga, contaDoMes, aulaServeNaVaga, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });
