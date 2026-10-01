@@ -398,7 +398,7 @@ function horasDesenhar() {
     const pend = (ap.pendencias || []).map(p =>
       `${p.dia.slice(8, 10)}/${p.dia.slice(5, 7)} ${p.inicio}–${p.fim}${p.noLugarDe ? ' (no lugar de ' + escapeHtml(horasNome(p.noLugarDe)) + ')' : ''}`).join(' · ');
     faixa = `<div class="info-callout">✅ <strong>Validada pela gestão${horasDataBR(decl.validadaEm) ? ' em ' + horasDataBR(decl.validadaEm) : ''}.</strong>
-      ${ap.deltaMinutos ? `Entraram <strong>${H.fmtHoras(ap.deltaMinutos, { sinal: true })}</strong> na sua conta de horas — a lista abaixo já mostra o mês como ficou.` : 'O mês ficou como a lista abaixo.'}
+      ${ap.deltaMinutos ? `${ap.deltaMinutos > 0 ? 'Entraram' : 'Saíram'} <strong>${H.fmtHoras(Math.abs(ap.deltaMinutos))}</strong> ${ap.deltaMinutos > 0 ? 'na' : 'da'} sua conta de horas — a lista abaixo já mostra o mês como ficou.` : 'O mês ficou como a lista abaixo.'}
       ${pend ? `<p style="margin-top:6px;">Não entraram por aqui, porque foram no lugar de um colega e dependem de a troca ser registrada em Substituições: ${pend}.</p>` : ''}</div>`;
   } else if (sit === 'dispensada' && !gestao) {
     faixa = `<div class="info-callout">A gestão fechou as suas horas de ${mesNome} <strong>valendo a agenda</strong>. Se algo está errado, fale com a gestão.</div>`;
@@ -891,7 +891,7 @@ function horasGestaoLinhaHtml(p) {
   else if (p.sit === 'validada') {
     const ap = p.decl.aplicado || {};
     chip = `<span class="chip-mini chip-green">${H.ROTULOS.validada}</span>`;
-    texto = `${ap.deltaMinutos ? 'entraram <b>' + H.fmtHoras(ap.deltaMinutos, { sinal: true }) + '</b>' : 'sem mudança no total'}`
+    texto = `${ap.deltaMinutos ? (ap.deltaMinutos > 0 ? 'entraram' : 'saíram') + ' <b>' + H.fmtHoras(Math.abs(ap.deltaMinutos)) + '</b>' : 'sem mudança no total'}`
       + `${ap.minutosPendentes ? ' · ' + H.fmtHoras(ap.minutosPendentes) + ' dependem de troca' : ''}`;
   } else if (p.sit === 'dispensada') { chip = `<span class="chip-mini chip-green">${H.ROTULOS.dispensada}</span>`; }
   else if (p.sit === 'devolvida') { chip = `<span class="chip-mini chip-yellow">${H.ROTULOS.devolvida}</span>`; texto = `"${escapeHtml(p.decl.devolvidaMotivo || '')}"`; }
@@ -988,7 +988,7 @@ async function horasGestaoAplicar(p) {
   if (!res.success) return res;
   const ap = res.data;
   const corpo = `A gestão validou as suas horas de ${horasMesNome(g.ano, g.mes)}: `
-    + (ap.deltaMinutos ? `${ap.deltaMinutos > 0 ? 'entraram' : 'saíram'} ${H.fmtHoras(Math.abs(ap.deltaMinutos))} na sua conta de horas.` : 'o total não mudou.')
+    + (ap.deltaMinutos ? `${ap.deltaMinutos > 0 ? 'entraram' : 'saíram'} ${H.fmtHoras(Math.abs(ap.deltaMinutos))} ${ap.deltaMinutos > 0 ? 'na' : 'da'} sua conta de horas.` : 'o total não mudou.')
     + (ap.minutosPendentes ? ` ${H.fmtHoras(ap.minutosPendentes)} que você informou no lugar de um colega não entram por aqui: dependem de a troca ser registrada em Substituições.` : '');
   await horasAvisarProfessor(p.id, 'horas_validadas', 'Suas horas do mês foram validadas', corpo);
   return res;
@@ -1006,7 +1006,7 @@ async function horasGestaoValidar(id) {
   if (p.pl.erros.length) { toast('Há dia com horário inválido: ' + p.pl.erros.join(' · ') + '. Devolva para corrigir.', 'error'); return; }
   const mesNome = horasMesNome(HorasState.g.ano, HorasState.g.mes);
   const msg = `Validar as horas de ${p.nome} em ${mesNome}?\n\n`
-    + (p.pl.deltaMinutos ? `${p.pl.deltaMinutos > 0 ? 'Entram' : 'Saem'} ${H.fmtHoras(Math.abs(p.pl.deltaMinutos))} na conta de horas.` : 'O total de horas não muda.')
+    + (p.pl.deltaMinutos ? `${p.pl.deltaMinutos > 0 ? 'Entram' : 'Saem'} ${H.fmtHoras(Math.abs(p.pl.deltaMinutos))} ${p.pl.deltaMinutos > 0 ? 'na' : 'da'} conta de horas.` : 'O total de horas não muda.')
     + (p.pl.minutosPendentes ? `\n${H.fmtHoras(p.pl.minutosPendentes)} informadas no lugar de um colega NÃO entram: dependem da troca.` : '')
     + `\n\nAs aulas são ajustadas agora e é isso que a folha vai pagar.`;
   if (!confirm(msg)) return;

@@ -387,6 +387,22 @@ const horasDaFolha = (aulas) => Math.round(Payroll.horasDasAulas(aulas.filter(c 
     assert.ok(g3.st.toasts.some(t => t.type === 'error' && /fechado/i.test(t.msg)));
     passou('mês já fechado: validação recusada');
 
+    // Horas A MENOS: a frase não pode dizer "entraram −4h00" (visto no staging em 01/10/2026)
+    const db4 = makeFakeDb(); await semear(db4);
+    const p4 = novoSandbox({ db: db4, professorId: 'theo' });
+    await p4.sandbox.renderMinhasHorasPage();
+    p4.sandbox.horasAbrirDia(D(5)); p4.sandbox.horasNaoTrabalhei(); await p4.sandbox.horasConfirmarDia(); await p4.sandbox.horasEnviar();
+    const g4 = novoSandbox({ db: db4, gestao: true });
+    await g4.sandbox.renderHorasGestaoPage(); await g4.sandbox.horasGestaoValidar('theo');
+    assert.ok(/Saem 4h00 da conta de horas/.test(g4.st.confirms[0]), 'a confirmação fala em horas que SAEM: ' + g4.st.confirms[0]);
+    assert.ok(g4.st.sends.some(s => /saíram 4h00 da sua conta de horas/.test(s.body)), 'o aviso ao professor também: ' + JSON.stringify(g4.st.sends.map(s => s.body)));
+    const linha4 = g4.el('page-horas-do-mes').innerHTML;
+    assert.ok(/saíram <b>4h00<\/b>/.test(linha4) && !/entraram <b>−/.test(linha4), 'a lista da gestão diz "saíram 4h00"');
+    await p4.sandbox.renderMinhasHorasPage();
+    const tela4 = p4.el('page-minhas-horas').innerHTML;
+    assert.ok(/Saíram <strong>4h00<\/strong> da sua conta de horas/.test(tela4) && !/Entraram <strong>−/.test(tela4), 'e a tela do professor também');
+    passou('horas a menos: as frases dizem "saíram", nunca "entraram −4h00"');
+
     const fora = novoSandbox({ db: db2, professorId: 'theo' });
     await fora.sandbox.renderHorasGestaoPage();
     assert.ok(!/horasGestaoValidar/.test(fora.el('page-horas-do-mes').innerHTML), 'professor não vê a tela da gestão');
