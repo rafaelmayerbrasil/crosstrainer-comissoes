@@ -112,6 +112,12 @@ async function limpar() {
     checa('validada: nem muda os dias', await mudar(ID_VALIDADA, { obs: 'x' }, tProf), 403);
     checa('validada: continua lendo', await ler(ID_VALIDADA, tProf), 200);
 
+    console.log('\nDevolvida para corrigir:');
+    await db.collection(COL).doc(ID_MEU).set({ teacherId: MEU, mes: MES, status: 'devolvida', devolvidaMotivo: 'falta um dia' });
+    checa('devolvida: o professor corrige os dias', await mudar(ID_MEU, { obs: 'corrigi' }, tProf), 200);
+    checa('devolvida: não escreve quem devolveu', await mudar(ID_MEU, { devolvidaPor: UID_PROF }, tProf), 403);
+    checa('devolvida: envia de novo', await mudar(ID_MEU, { status: 'enviada' }, tProf), 200);
+
     console.log('\nA gestão:');
     checa('lê a de qualquer um', await ler(ID_OUTRO, tAdmin), 200);
     checa('consulta o mês inteiro', (await consultar(tAdmin, null)).status, 200);
@@ -120,6 +126,11 @@ async function limpar() {
     checa('nem a gestão apaga', await apagar(ID_OUTRO, tAdmin), 403);
   } finally {
     await limpar();
+    // Os envios deste teste acordam a Function que avisa a gestão. Apaga os
+    // avisos do mês de mentira, senão o sino do staging fica com "janeiro/2099".
+    await new Promise(r => setTimeout(r, 6000));
+    const avisos = await db.collection('notifications').where('type', '==', 'horas_enviadas').get();
+    for (const d of avisos.docs) if (String((d.data().link || {}).mes || '').startsWith('2099')) await d.ref.delete();
   }
   console.log(`\n${passou} ✓ · ${falhou} ✗`);
   process.exit(falhou ? 1 : 0);

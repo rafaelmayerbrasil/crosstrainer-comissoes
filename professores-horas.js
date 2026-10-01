@@ -768,7 +768,7 @@ async function horasConfirmarIgual() {
 async function horasReabrir() {
   if (HorasState.alvo || HorasState.fechado) return;
   if (HourDeclaration.situacao(HorasState.decl) !== 'enviada') return;
-  if (!confirm('Voltar a corrigir este mês?\n\nA gestão deixa de ver as suas horas até você enviar de novo.')) return;
+  if (!confirm('Voltar a corrigir este mês?\n\nAs suas horas saem da fila da gestão até você enviar de novo.')) return;
   const ok = await horasGravar({ status: 'rascunho', semDiferenca: false });
   if (ok) horasDesenhar();
 }

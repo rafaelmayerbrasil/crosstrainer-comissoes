@@ -1010,9 +1010,11 @@
       .horas-dia-info { flex: 1 1 0; min-width: 0; }
       .horas-dia-acoes { flex-direction: column; align-items: stretch; }
       .horas-dia-acoes .btn { padding: 7px 12px; }
-      /* A lista da gestão tem vários botões por pessoa: esses quebram para baixo. */
-      .horas-pessoa .horas-dia-cab { flex-wrap: wrap; }
-      .horas-pessoa .horas-dia-acoes { width: 100%; flex-direction: row; justify-content: flex-start; }
+      /* Dia já corrigido tem dois botões e mais texto, e a lista da gestão tem
+         vários botões por pessoa: nesses, os botões descem para a linha de baixo. */
+      .horas-dia-mudou .horas-dia-cab, .horas-pessoa .horas-dia-cab { flex-wrap: wrap; }
+      .horas-dia-mudou .horas-dia-info, .horas-pessoa .horas-dia-info { flex: 1 1 160px; }
+      .horas-dia-mudou .horas-dia-acoes, .horas-pessoa .horas-dia-acoes { width: 100%; flex-direction: row; justify-content: flex-start; }
       .horas-rodape .btn { width: 100%; }
       .horas-turno input[type="time"] { width: 118px; }
     }
