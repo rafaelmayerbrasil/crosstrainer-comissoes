@@ -209,6 +209,30 @@ const MetasSugeridas = {
     return !periodo.metaSugerida;
   },
 
+  /**
+   * Os dois textos explicativos da janela "Configurar Metas do Mês", conforme a
+   * regra do bônus que VALE no mês aberto. Eram fixos e descreviam a regra antiga
+   * mesmo em outubro/2026 (homologação de 30/09/2026).
+   */
+  textosDaJanela({ regraNova, minIntegral, min30h } = {}) {
+    if (!regraNova) {
+      return {
+        travas: 'Se qualquer trava não for atingida, o P3 sofre redução. Deixe igual às configurações globais para seguir o padrão da unidade.',
+        individual: 'Quem ficar <strong>abaixo deste número não recebe P3</strong> — é corte seco, não é proporcional. ' +
+          'A venda dela continua contando para a unidade bater a meta, e o prêmio <strong>não diminui</strong>: o que seria dela é redividido entre as que passaram. ' +
+          'Padrão da casa: <strong>10</strong>. Numa unidade menor, considere algo perto de 20% da meta.',
+      };
+    }
+    return {
+      travas: 'Regra de outubro/2026 em diante: com os <strong>três mínimos batidos</strong> o bônus sai inteiro; ' +
+        '<strong>um</strong> mínimo não batido paga <strong>metade</strong>; <strong>dois ou mais</strong>, o bônus <strong>zera</strong>.',
+      individual: 'De outubro/2026 em diante o mínimo de cada vendedora vem da <strong>jornada</strong> dela ' +
+        `(integral <strong>${minIntegral}</strong> · 30h <strong>${min30h}</strong>), cadastrada em Pessoas → aba 💼 Comercial. ` +
+        'Este número vale só para quem está <strong>sem jornada</strong> cadastrada. ' +
+        'Continua sendo corte seco: quem fica abaixo não recebe P3, a venda dela conta para a unidade e a parte dela é redividida entre as que passaram.',
+    };
+  },
+
   /** A meta foi posta pelo sistema e ninguém revisou: o recibo do mês não sai. */
   aguardandoRevisao(periodo) {
     return !!(periodo && periodo.metaSugerida && periodo.metaSugerida.origem === 'sistema' && !periodo.metaSugerida.revisadaPor);

@@ -2759,7 +2759,7 @@
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--blue);font-weight:700;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border)">
           🔒 Travas — Mínimos para Ativar o P3
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5">
+        <div id="mm_textoTravas" style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5">
           Se qualquer trava não for atingida, o P3 sofre redução. Deixe igual às configurações globais para seguir o padrão da unidade.
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:4px">
@@ -2791,7 +2791,7 @@
             <input type="number" id="mm_minAtivIndiv" required step="1" min="0">
             <div style="font-size:10px;color:var(--text3);margin-top:3px">Ativações dela no mês</div>
           </div>
-          <div style="font-size:11px;color:var(--text3);line-height:1.5">
+          <div id="mm_textoIndiv" style="font-size:11px;color:var(--text3);line-height:1.5">
             Quem ficar <strong>abaixo deste número não recebe P3</strong> — é corte seco, não é
             proporcional. A venda dela continua contando para a unidade bater a meta, e o prêmio
             <strong>não diminui</strong>: o que seria dela é redividido entre as que passaram.
@@ -3286,7 +3286,7 @@
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
   <script src="commission.js?v=20260930"></script>
-  <script src="metas-sugeridas.js?v=20261001"></script>
+  <script src="metas-sugeridas.js?v=20261002"></script>
   <script src="jornada-comercial.js?v=20260930"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
@@ -5280,6 +5280,10 @@
       // Corte individual do P3. Até 07/09/2026 só existia na config da unidade,
       // que vale para SEMPRE — então uma exceção de um mês virava regra fixa.
       document.getElementById('mm_minAtivIndiv').value = cfg.minAtivacoesIndivP3;
+      // Os dois textos descrevem a regra do bônus que vale NESTE mês (de out/2026: 100/50/0 e mínimo pela jornada)
+      const txt = MetasSugeridas.textosDaJanela({ regraNova: CommissionEngine.regraNovaDosMinimos(cfg), minIntegral: cfg.minIndivIntegral, min30h: cfg.minIndiv30h });
+      document.getElementById('mm_textoTravas').innerHTML = txt.travas;
+      document.getElementById('mm_textoIndiv').innerHTML = txt.individual;
       metasMesPeriodId = periodId;
       btn.disabled = false;
     }

@@ -45,7 +45,7 @@ const ok = m => console.log('✓ ' + (++n) + '. ' + m);
 
 const IDS = ['mm_meta', 'mm_metaFixo', 'mm_superMeta', 'mm_superFixo', 'mm_metaGold', 'mm_goldFixo',
   'mm_minNovos', 'mm_minRenov', 'mm_minVoucher', 'mm_minAtivIndiv',
-  'mm_periodoLabel', 'mm_origem', 'mm_btnSalvar', 'metasMesModal'];
+  'mm_periodoLabel', 'mm_origem', 'mm_btnSalvar', 'metasMesModal', 'mm_textoTravas', 'mm_textoIndiv'];
 
 // Metas de produção em 28/09/2026
 const METAS_AGO_PP = { meta: 35, metaFixo: 300, superMeta: 41, superFixo: 600, metaGold: 49, goldFixo: 900,
@@ -84,6 +84,8 @@ function montar({ periodos, currentPeriodId, currentPeriodData, falhaLeitura = f
     logAudit: () => {},
     // desde 30/09/2026 a casca da tela chama comissoes-mes.js
     ComissoesMes: require(path.join(__dirname, '..', 'comissoes-mes.js')),
+    // os textos da janela seguem a regra do bônus do mês (30/09/2026)
+    MetasSugeridas: require(path.join(__dirname, '..', 'metas-sugeridas.js')),
   };
   vm.createContext(sb);
   ['openMetasMesModal', 'closeMetasMesModal', 'saveMetasMes', 'mesDoPeriodoId'].forEach(f => vm.runInContext(extrair(f), sb));
@@ -96,6 +98,7 @@ const PERIODOS = {
   'pp_2026-08': { unitId: 'pp', year: 2026, month: 8, metasMensais: METAS_AGO_PP },
   'pp_2026-09': { unitId: 'pp', year: 2026, month: 9 }, // sem metas próprias
   'cp_2026-08': { unitId: 'cp', year: 2026, month: 8, metasMensais: METAS_AGO_PP },
+  'pp_2026-10': { unitId: 'pp', year: 2026, month: 10, metasMensais: METAS_AGO_PP },
 };
 
 (async () => {
@@ -165,6 +168,19 @@ const PERIODOS = {
     assert.ok(t.els.mm_btnSalvar.disabled, 'período do CP com a unidade PP aberta: travado');
     assert.ok(t.toasts.some(x => x.t === 'error'));
     ok('período de outra unidade não abre para edição');
+  }
+  {
+    // Os dois textos explicam a regra do bônus que vale NO MÊS aberto (homologação de 30/09/2026)
+    const ago = montar({ periodos: PERIODOS, currentPeriodId: 'pp_2026-08', currentPeriodData: null });
+    await ago.sb.openMetasMesModal();
+    assert.ok(/sofre redução/.test(ago.els.mm_textoTravas.innerHTML), 'agosto: regra antiga');
+    assert.ok(/Padrão da casa/.test(ago.els.mm_textoIndiv.innerHTML));
+    const out = montar({ periodos: PERIODOS, currentPeriodId: 'pp_2026-10', currentPeriodData: null });
+    await out.sb.openMetasMesModal();
+    assert.ok(/metade/.test(out.els.mm_textoTravas.innerHTML) && /zera/.test(out.els.mm_textoTravas.innerHTML), 'outubro: 100/50/0');
+    assert.ok(/jornada/.test(out.els.mm_textoIndiv.innerHTML) && /18/.test(out.els.mm_textoIndiv.innerHTML) && !/undefined/.test(out.els.mm_textoIndiv.innerHTML), out.els.mm_textoIndiv.innerHTML);
+    assert.ok(!out.els.mm_btnSalvar.disabled, 'e a janela abre normalmente');
+    ok('os textos da janela seguem a regra do mês: antiga em agosto, 100/50/0 e jornada em outubro');
   }
 
   console.log('\n' + n + '/' + n + ' casos passaram.');

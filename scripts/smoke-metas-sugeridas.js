@@ -167,4 +167,17 @@ const METAS = {
   ok('a série dos períodos: totais, mês completo pelo maior dia, metas definidas');
 }
 
+/* a janela de metas descreve a regra do bônus que VALE no mês (homologação de 30/09/2026) */
+{
+  const antiga = MS.textosDaJanela({ regraNova: false });
+  assert.ok(/sofre redução/.test(antiga.travas) && !/metade/.test(antiga.travas), antiga.travas);
+  assert.ok(/corte seco/.test(antiga.individual) && /Padrão da casa/.test(antiga.individual), antiga.individual);
+  const nova = MS.textosDaJanela({ regraNova: true, minIntegral: 18, min30h: 12 });
+  assert.ok(/três mínimos batidos/.test(nova.travas) && /metade/.test(nova.travas) && /zera/.test(nova.travas), nova.travas);
+  assert.ok(!/sofre redução/.test(nova.travas), 'sem o texto da regra antiga');
+  assert.ok(/jornada/.test(nova.individual) && /18/.test(nova.individual) && /12/.test(nova.individual) && /Comercial/.test(nova.individual), nova.individual);
+  assert.ok(/sem jornada/.test(nova.individual) && !/Padrão da casa/.test(nova.individual), nova.individual);
+  ok('janela de metas: texto da regra antiga até set/2026; de out/2026, 100/50/0 e mínimo pela jornada');
+}
+
 console.log('\n✅ smoke-metas-sugeridas: ' + n);

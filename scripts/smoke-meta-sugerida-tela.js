@@ -102,6 +102,14 @@ function recorta(ini, fim) {
     assert.ok(/<script src="metas-sugeridas\.js\?v=\d{8}"><\/script>/.test(html));
     ok('ganchos: abrir o mês propõe, painel avisa, recibo trava (abrir e confirmar), janela de metas revisa');
   }
+  {
+    // a janela de metas troca os dois textos conforme a regra do bônus do mês
+    const abrir = recorta('async function openMetasMesModal', 'async function saveMetasMes');
+    assert.ok(/id="mm_textoTravas"/.test(html) && /id="mm_textoIndiv"/.test(html), 'os dois textos têm id');
+    assert.ok(/MetasSugeridas\.textosDaJanela\(\{ regraNova: CommissionEngine\.regraNovaDosMinimos\(cfg\)/.test(abrir), 'decide pela regra do mês aberto');
+    assert.ok(/mm_textoTravas'\)\.innerHTML = /.test(abrir) && /mm_textoIndiv'\)\.innerHTML = /.test(abrir), 'e escreve nos dois');
+    ok('janela de metas: os textos da trava e do mínimo individual seguem a regra do mês');
+  }
 
   console.log('\n✅ smoke-meta-sugerida-tela: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });
