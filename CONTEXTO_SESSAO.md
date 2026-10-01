@@ -3,9 +3,25 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · 🚀 TUDO NO AR EM PRODUÇÃO · D (horas do mês) só desenhada
+## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · 🚀 A–C NO AR EM PRODUÇÃO · 🕒 D (horas do mês) CONSTRUÍDA, NO STAGING
 
 ### ▶️▶️ RETOMAR AQUI
+**🕒 PROPOSTA D CONSTRUÍDA — "MINHAS HORAS DO MÊS" · 🟡 NO STAGING, NADA EM PRODUÇÃO (branch `horas-do-mes`, a partir do `main`, até `0b265e3` + docs).** Rafael, depois de eu explicar que o caso do Theo só estava resolvido em parte: *"eu acho que o professor poderia corrigir e colocar pra gestão validar, achei que seria assim"*. Construído com as decisões que ele já tinha dado (todos conferem · quem não conferir trava o fechamento · basta o OK geral da gestão · atalho "Ver as horas").
+
+- **Professor — menu "Minhas horas"** (`professores-horas.js`): o mês já vem preenchido pela agenda, **um dia por linha, em turnos** (entrada e saída). Ele toca em **Corrigir** só no dia diferente: muda horário, acrescenta turno, marca "Não trabalhei", ou **inclui um dia que não estava na agenda** (dizendo se foi no lugar de um colega ou turno a mais). Cada dia corrigido é gravado na hora (rascunho). No fim: **Enviar para a gestão** ou **"Está tudo igual à agenda"**. Até o dia 10 a tela abre no mês que acabou. O envio só abre depois da última aula do mês. Enquanto a gestão não validou, dá pra voltar atrás.
+- **Gestão — menu "Horas do mês"**: todo mundo do mês com a situação de cada um. **Ver o que muda** mostra, dia a dia, o que a pessoa informou e o que isso faz em cada aula; **Validar**, **Validar todas** (o OK geral), **Devolver** (com motivo), **Fechar valendo a agenda** (pra quem não conferiu; fica gravado quem decidiu), **Lançar as horas** (a gestão digita por alguém — é como dá pra lançar a lista de setembro do Theo).
+- **🧱 A decisão de projeto: validar AJUSTA AS PRÓPRIAS AULAS, não cria conta paralela.** Aula que não deu → `nao_realizada` (sem falta); entrou depois/saiu antes → atraso/saída; tempo colado antes ou depois → tempo além na aula vizinha; turno sem aula por perto → **aula avulsa** (`generatedBy:'horas-do-mes'`, id fixo `hm_{pessoa}_{dia}_{hora}`). A folha (`closing-payroll.js`), o banco de horas e os relatórios continuam lendo as aulas. O plano é em valores **absolutos**: validar duas vezes não soma duas vezes. As contas moram em `hour-declaration.js` (puro, gêmeo em `functions/`).
+- **⚠️ "No lugar de um colega" NÃO vira hora por esta tela** — é troca de professor (senão os dois receberiam). A tela avisa quais dias são, pra gestão registrar em Substituições.
+- **Fechamento:** horas **enviadas e não validadas travam sempre**; **quem não conferiu trava a partir de outubro/2026** (`INICIO_CONFERENCIA`), até a pessoa conferir ou a gestão fechar valendo a agenda. O botão do checklist abre a lista já no mês certo. Setembro e agosto **não** são travados por falta de conferência.
+- **Avisos:** Function nova `onHourDeclarationSent` (sino da gestão quando o professor envia) · sino do professor ao validar/devolver/fechar pela agenda · chip na home da gestão e lembrete na home do professor. Os avisos de aula que o professor já tinha mandado **nos dias que ele declarou** ficam respondidos junto (vale o horário das horas do mês).
+- **Regras** (`hour_declarations`): o professor lê e escreve só a própria, nos estados rascunho/enviada/devolvida, e **nunca** os campos da validação. **26/26 contra o Firestore do staging** (`scripts/validar-regras-horas-do-mes.js`).
+- **Testes:** `smoke-horas-do-mes` (contas, com o setembro real do Theo: 139h30 × 167h15) · `smoke-horas-do-mes-tela` 20 (as duas telas + serviço, folha de verdade conferindo 158h25) · `smoke-horas-do-mes-ligacoes` 10 (aviso, menu, regras, trava do fechamento). **Suíte 124 ✓.**
+- **✅ Homologado no staging comigo clicando, logado como Admin Teste:** lançar as horas do Marcos (6 dias: tempo além, não trabalhei, turno a mais, atraso, dia fora da agenda no lugar da Bruna e turno extra) → "o que muda" → validar → aulas ajustadas no banco, 2 aulas avulsas criadas, **prévia do fechamento de setembro pagando o validado**, sino do professor e sino da gestão criados; "Minhas horas" no celular. **🐛 Achado clicando:** o horário trocado no campo era ignorado quando o evento de mudança não chegava → o editor agora **lê o que está no campo** (teste novo).
+- **🔴 Falta:** o Rafael logar como **professor** no staging (`professor2.teste@`, a Bruna, que está sem conferir) e eu seguir clicando — é o único caminho que não rodou com login de professor na tela (as regras, sim) · OK explícito → produção: `main` + **regras** (rodar antes `node scripts/validate-rules-comissoes.js`) + Function `onHourDeclarationSent`; bump do `?v=` já está em `20261002`.
+- **Estado do staging:** Marcos com setembro **validado** (lançado pela gestão); os outros 5 sem conferir.
+
+---
+**Antes disso, na mesma sessão:**
 **🚀 PUBLICADO EM PRODUÇÃO em 01/10/2026, com o "pode publicar" do Rafael** (`8aad3fc..c1cbfe5` no `main` + Functions `processSubstitutionAcceptance` (atualizada) e `onClassAvisoProfessor` (nova) em `us-central1`). Sem regra nem índice novo. **Conferido depois:** GitHub Pages serve arquivo por arquivo o mesmo conteúdo do `main` (`?v=20261001`), `index.html`/`commission.js`/`sw.js`/`manifest.json` intactos, a página de produção carrega sem erro de console, as duas Functions aparecem na lista, e a consulta da tela nova acha os **21 avisos pendentes** (12 de aulas de agosto, 9 de setembro — Alan 5, Eduarda 5, Vagner 4, Theo 3, Karin 3, João Vitor 1). E-mail de produção: `ativo:true, modoTeste:false` → **troca na mão em escala publicada manda e-mail de verdade**. Folga mínima não configurada → vale 1 sábado, como sempre. **Ninguém clicou logado em produção** (não havia sessão de produção no painel); a homologação foi toda no staging.
 
 **O que a gestão precisa saber / fazer:**
@@ -13,7 +29,7 @@
 2. **Escala de 26/09 fica como está** (decisão do Rafael: "até porque 26/09 já passou") — na escala continua o Thiago, embora o Vagner tenha dado a aula; o rodízio conta esse sábado pro Thiago.
 3. Avisar o grupo do que entrou (texto pronto entregue ao Rafael na conversa).
 4. **Setembro do Theo** e a **grade dele**: continuam esperando a gestão confirmar a lista.
-5. **Proposta D** (horas do mês): desenho pronto, com as decisões do Rafael e o atalho "Ver as horas"; falta construir.
+5. **Proposta D** (horas do mês): **construída e no staging** (ver o bloco acima); falta o Rafael homologar como professor e dar o OK.
 6. Pendências da sessão 80 (rodadas da Pacto, 1º automático de outubro, venda avulsa) seguem abaixo.
 
 ---

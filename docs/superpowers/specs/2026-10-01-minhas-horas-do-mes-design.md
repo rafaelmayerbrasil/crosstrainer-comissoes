@@ -63,3 +63,24 @@ Dá para lançar por script, com backup, depois de a gestão confirmar a lista e
 - no sistema e fora da lista: sábados **05/09** e **26/09**.
 
 E corrigir a grade dele, senão outubro repete.
+
+---
+
+## Como foi construído (01/10/2026, branch `horas-do-mes`)
+
+Estado: **no staging, homologado como gestão; falta homologar como professor e o OK para produção.**
+
+O que saiu igual ao desenho: o professor confere o mês em turnos e envia; a gestão valida com OK geral ou pessoa a pessoa; quem não conferiu trava o fechamento a partir de outubro/2026, com "Ver as horas" e "Fechar valendo a agenda".
+
+O que foi decidido na construção:
+
+- **Validar ajusta as próprias aulas.** Não existe ajuste de horas em separado: a aula não dada vira `nao_realizada`, a diferença de horário vira atraso, saída antecipada ou tempo além, e o turno que não existia vira uma aula avulsa (`generatedBy: 'horas-do-mes'`). A folha continua lendo as aulas.
+- **O plano é em valores absolutos** e a aula avulsa tem identificador fixo: validar de novo depois de uma falha não soma em dobro.
+- **Dia "no lugar de um colega" não vira hora por aqui.** É troca de professor; a tela mostra à gestão quais são, para registrar em Substituições.
+- **"Está tudo igual à agenda"** conta como conferência completa e não pede OK da gestão.
+- **A gestão pode lançar as horas por alguém** ("Lançar as horas"), para a lista que chega por fora.
+- **Os avisos de aula** que o professor já tinha mandado nos dias declarados ficam respondidos junto com a validação.
+- **O envio só abre depois da última aula do mês**; antes disso o professor corrige e fica em rascunho.
+- **Em feriado a folha paga em dobro**, inclusive o turno novo; a tela "o que muda" avisa nesses dias.
+
+Arquivos: `hour-declaration.js` (contas, gêmeo em `functions/`), `professores-horas.js` (serviço e as duas telas), regra `hour_declarations`, Function `onHourDeclarationSent`. Testes: `smoke-horas-do-mes`, `smoke-horas-do-mes-tela`, `smoke-horas-do-mes-ligacoes`, `validar-regras-horas-do-mes` (contra o staging).
