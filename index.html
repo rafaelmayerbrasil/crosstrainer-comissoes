@@ -3286,7 +3286,7 @@
        é pior que um erro, porque a conta sai errada sem avisar.
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
   <script src="commission.js?v=20260930"></script>
-  <script src="metas-sugeridas.js?v=20261002"></script>
+  <script src="metas-sugeridas.js?v=20261003"></script>
   <script src="jornada-comercial.js?v=20260930"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
@@ -6073,12 +6073,7 @@
             </div>
             <div>
               <div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:10px">Condições para a Meta</div>
-              <div class="tripe-grid">
-                ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, true)}
-                ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, false)}
-                ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, false)}
-                ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
-              </div>
+              ${condicoesDaMetaHtml(t, cfg)}
             </div>
           </div></div>`;
 
@@ -6420,10 +6415,55 @@
       wrap.innerHTML = tHtml;
     }
 
-    function tripeCard(label, val, min, isGold) {
+    // `tipo`: true = zera o bônus se falhar · false = reduz (regra até set/2026) ·
+    // 'minimo' = um dos três mínimos da regra de out/2026 (todos pesam igual)
+    function tripeCard(label, val, min, tipo) {
       const ok = val >= min;
+      if (tipo === 'minimo') {
+        return `<div class="tripe ${ok ? 'ok' : 'warn'}"><div class="t-label">${label}</div><div class="t-val">${val}</div><div class="t-min">mín. ${min}</div><div class="t-status">${ok ? '✅ OK' : '❌ NÃO BATIDO'}</div></div>`;
+      }
+      const isGold = !!tipo;
       const cls = isGold ? (ok ? 'gold' : 'fail') : (ok ? 'ok' : 'warn');
       return `<div class="tripe ${cls}"><div class="t-label">${label}</div><div class="t-val">${val}</div><div class="t-min">mín. ${min}</div><div class="t-status">${ok ? '✅ OK' : isGold ? '❌ ZERA' : '⚠ REDUZ'}</div></div>`;
+    }
+
+    // Alertas dos mínimos no painel da VENDEDORA, pela regra que vale no mês. Em out/2026
+    // ainda diziam "reduz P3 em 30%" e "em 15%" — é o que orienta o esforço dela (30/09/2026).
+    function alertasDosMinimos(t, cfg) {
+      const linha = txt => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>${txt}</span></div>`;
+      if (!CommissionEngine.regraNovaDosMinimos(cfg)) {
+        const out = [];
+        if (t.unitRenovacoes < cfg.minRenov) out.push(linha(`Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)`));
+        if (t.unitVouchers < cfg.minVoucher) out.push(linha(`Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)`));
+        return out;
+      }
+      const falhas = [];
+      if (t.unitNovosRetorno < cfg.minNovos) falhas.push(`Novos + retorno <strong>${t.unitNovosRetorno}/${cfg.minNovos}</strong>`);
+      if (t.unitRenovacoes < cfg.minRenov) falhas.push(`Renovações <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong>`);
+      if (t.unitVouchers < cfg.minVoucher) falhas.push(`Vouchers <strong>${t.unitVouchers}/${cfg.minVoucher}</strong>`);
+      if (!falhas.length) return [];
+      const efeito = falhas.length === 1 ? 'com 1 mínimo não batido o bônus da unidade sai pela <strong>metade</strong>'
+        : `com ${falhas.length} mínimos não batidos o <strong>bônus da unidade zera</strong>`;
+      return [linha(`Abaixo do mínimo na unidade: ${falhas.join(' · ')} — ${efeito}.`)];
+    }
+
+    // Os quatro quadros de "Condições para a Meta". De out/2026 os três mínimos pesam
+    // igual (1 não batido = metade · 2+ = zera) e o painel diz em que pé o mês está —
+    // antes mostrava "ZERA"/"REDUZ" da regra antiga também em outubro (30/09/2026).
+    function condicoesDaMetaHtml(t, cfg) {
+      const nova = CommissionEngine.regraNovaDosMinimos(cfg);
+      const grade = `<div class="tripe-grid">
+                ${tripeCard('Novos+Ret', t.unitNovosRetorno, cfg.minNovos, nova ? 'minimo' : true)}
+                ${tripeCard('Renovações', t.unitRenovacoes, cfg.minRenov, nova ? 'minimo' : false)}
+                ${tripeCard('Vouchers', t.unitVouchers, cfg.minVoucher, nova ? 'minimo' : false)}
+                ${tripeCard('Ativações', t.unitAtivacoes, cfg.meta, true)}
+              </div>`;
+      if (!nova) return grade;
+      const falhas = [t.unitNovosRetorno < cfg.minNovos, t.unitRenovacoes < cfg.minRenov, t.unitVouchers < cfg.minVoucher].filter(Boolean).length;
+      const hoje = falhas === 0 ? 'Os <strong>três mínimos batidos</strong>: o bônus sai inteiro.'
+        : falhas === 1 ? '<strong>1 mínimo não batido</strong>: o bônus sai pela <strong>metade</strong>.'
+          : `<strong>${falhas} mínimos não batidos</strong>: o <strong>bônus zera</strong>.`;
+      return grade + `<div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5">${hoje} Sem a meta de ativações não há bônus.</div>`;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -6659,8 +6699,7 @@
       if (!hitGold && faltaGold <= 10 && faltaGold > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>👑</span><span><strong>Faltam ${faltaGold} ativações</strong> para a Meta Gold (R$900 fixo + 0,5% do caixa)</span></div>`);
       else if (!hitSuper && faltaSuper <= 10 && faltaSuper > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🔥</span><span><strong>Faltam ${faltaSuper} ativações</strong> para a Super Meta (R$600 fixo + 0,5%)</span></div>`);
       else if (!hitMeta && faltaMeta <= 15 && faltaMeta > 0) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>🏅</span><span><strong>Faltam ${faltaMeta} ativações</strong> para a Meta (R$300 fixo + 0,5%)</span></div>`);
-      if (t.unitRenovacoes < cfg.minRenov) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Renovações abaixo do mínimo — Unidade: <strong>${t.unitRenovacoes}/${cfg.minRenov}</strong> (reduz P3 em 30%)</span></div>`);
-      if (t.unitVouchers < cfg.minVoucher) alertsHtml.push(`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>⚠️</span><span>Vouchers abaixo do mínimo — Unidade: <strong>${t.unitVouchers}/${cfg.minVoucher}</strong> (reduz P3 em 15%)</span></div>`);
+      alertasDosMinimos(t, cfg).forEach(a => alertsHtml.push(a));
 
       if (alertsHtml.length > 0) {
         html += `<div style="background:rgba(232,146,13,0.08);border:1px solid var(--orange);border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:12px;color:var(--text2)">

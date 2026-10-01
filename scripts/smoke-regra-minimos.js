@@ -138,4 +138,62 @@ const p3 = (mes, novos, renov, vouch, ativ = 58) => CE.calcP3(ativ, novos, renov
   ok('functions/commission.js idêntico ao da raiz');
 }
 
+/* O painel da gestão mostra os mínimos pela regra que vale no mês (homologação de 30/09/2026):
+   em out/2026 ainda dizia "❌ ZERA" nos novos e "⚠ REDUZ" em renovação e voucher — a regra antiga. */
+{
+  const vm = require('vm');
+  const html = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
+  const extrair = nome => {
+    const ini = html.indexOf('function ' + nome + '(');
+    assert.ok(ini > 0, 'função ' + nome + ' não existe no index.html');
+    let nivel = 0;
+    for (let j = html.indexOf('{', ini); j < html.length; j++) {
+      if (html[j] === '{') nivel++;
+      else if (html[j] === '}') { nivel--; if (!nivel) return html.slice(ini, j + 1); }
+    }
+    throw new Error('não achei o fim de ' + nome);
+  };
+  const sb = { CommissionEngine: CE };
+  vm.createContext(sb);
+  ['tripeCard', 'condicoesDaMetaHtml'].forEach(f => vm.runInContext(extrair(f), sb));
+  const cfgDe = mes => CE.configDoMes({ unitConfig: {}, metasMensais: { meta: 63, superMeta: 72, metaGold: 82, minNovos: 23, minRenov: 14, minVoucher: 10 }, mes });
+  const tot = (n, r, v, a) => ({ unitNovosRetorno: n, unitRenovacoes: r, unitVouchers: v, unitAtivacoes: a });
+
+  const antiga = sb.condicoesDaMetaHtml(tot(10, 5, 2, 70), cfgDe('2026-09'));
+  assert.ok(/❌ ZERA/.test(antiga) && /⚠ REDUZ/.test(antiga), 'setembro: rótulos da regra antiga');
+  assert.ok(!/NÃO BATIDO/.test(antiga) && !/metade/.test(antiga));
+
+  const umaFalha = sb.condicoesDaMetaHtml(tot(30, 20, 9, 70), cfgDe('2026-10'));
+  assert.strictEqual((umaFalha.match(/❌ NÃO BATIDO/g) || []).length, 1, 'só o voucher não bateu');
+  assert.ok(!/⚠ REDUZ/.test(umaFalha), 'sem o rótulo da regra antiga');
+  assert.ok(/1 mínimo não batido/.test(umaFalha) && /metade/.test(umaFalha), umaFalha);
+
+  const duasFalhas = sb.condicoesDaMetaHtml(tot(30, 10, 9, 70), cfgDe('2026-10'));
+  assert.ok(/2 mínimos não batidos/.test(duasFalhas) && /zera/.test(duasFalhas), duasFalhas);
+  const tudoOk = sb.condicoesDaMetaHtml(tot(30, 20, 12, 70), cfgDe('2026-10'));
+  assert.ok(/três mínimos batidos/.test(tudoOk) && /inteiro/.test(tudoOk) && !/NÃO BATIDO/.test(tudoOk), tudoOk);
+  const semFaixa = sb.condicoesDaMetaHtml(tot(30, 20, 12, 40), cfgDe('2026-10'));
+  assert.ok(/❌ ZERA/.test(semFaixa), 'sem a faixa de ativações o bônus continua zerando');
+  // o resumo tem que dizer o MESMO que o motor paga
+  [[30, 20, 9, 1], [30, 10, 9, 0], [30, 20, 12, 1]].forEach(([nv, r, v]) => {
+    const p3 = CE.calcP3(70, nv, r, v, 10000, cfgDe('2026-10'));
+    const texto = sb.condicoesDaMetaHtml(tot(nv, r, v, 70), cfgDe('2026-10'));
+    assert.strictEqual(p3.multiplier === 0.5, /metade/.test(texto), 'metade só quando o motor paga metade');
+    assert.strictEqual(p3.multiplier === 0, /bônus zera/.test(texto), 'zera só quando o motor zera');
+  });
+  ok('painel: rótulos da regra antiga até setembro; de outubro, "não batido" + o resumo 100/50/0 igual ao motor');
+
+  // os alertas do painel da VENDEDORA: em outubro diziam "reduz P3 em 30%" e "em 15%"
+  vm.runInContext(extrair('alertasDosMinimos'), sb);
+  const junta = a => a.join(' ');
+  const aAntiga = junta(sb.alertasDosMinimos(tot(30, 10, 2, 70), cfgDe('2026-09')));
+  assert.ok(/reduz P3 em 30%/.test(aAntiga) && /reduz P3 em 15%/.test(aAntiga), 'setembro: como era');
+  const aUma = junta(sb.alertasDosMinimos(tot(30, 20, 9, 70), cfgDe('2026-10')));
+  assert.ok(/Vouchers/.test(aUma) && /9\/10/.test(aUma) && /metade/.test(aUma) && !/30%|15%/.test(aUma), aUma);
+  const aDuas = junta(sb.alertasDosMinimos(tot(20, 20, 9, 70), cfgDe('2026-10')));
+  assert.ok(/Novos/.test(aDuas) && /20\/23/.test(aDuas) && /Vouchers/.test(aDuas) && /zera/.test(aDuas) && !/metade/.test(aDuas), aDuas);
+  assert.deepStrictEqual(sb.alertasDosMinimos(tot(30, 20, 12, 70), cfgDe('2026-10')).length, 0, 'tudo batido: sem alerta');
+  ok('painel da vendedora: alertas dos mínimos pela regra do mês (metade com 1, zera com 2+)');
+}
+
 console.log('\n✅ smoke-regra-minimos: ' + n);
