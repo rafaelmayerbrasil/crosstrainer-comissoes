@@ -43,6 +43,12 @@
 - **Aviso** (`NotifyService`): prazo chegando, declaração devolvida, declaração validada.
 - **Fora do escopo agora:** catraca; ponto eletrônico; mudar a geração da agenda.
 
+## Respostas do Rafael (01/10/2026, tarde)
+
+- **Aprovação:** confirmado — a gestão não precisa olhar linha por linha, mas **algum OK é necessário** (o OK geral basta) para a diferença entrar na folha.
+- **Quem não conferiu:** fica com o caminho recomendado (trava o fechamento e a gestão destrava pessoa a pessoa), **com um atalho**: ao lado de cada nome que falta conferir, um botão **"Ver as horas"** que abre o mês daquela pessoa como a agenda registrou (dia a dia, com as trocas e os avisos), para quem está fechando decidir com a informação na frente antes de usar o **"Fechar com as horas da agenda"**. *"Acho que deveria ter esse atalho para facilitar quem está fechando."*
+- **Avisos por aula** ("não aconteceu", atraso, saída, tempo além): desde 01/10 já têm tela própria da gestão (**Avisos dos professores**), sino, alerta na home e trava no fechamento — construído à parte desta proposta (`class-avisos.js`, `professores-avisos.js`). A tela de horas do mês deve **conviver** com eles: um dia já corrigido por aviso aceito aparece como tal, sem pedir de novo.
+
 ## Perguntas em aberto (precisam do Rafael antes de construir)
 
 1. **"A folha da pessoa espera" — espera como?** O fechamento hoje é **um só por mês** e irreversível. Duas leituras:
