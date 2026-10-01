@@ -7,7 +7,7 @@
 // Gestão (admin e supervisão) lê `pacto_termometro`; vendedora (22/09/2026)
 // lê `pacto_termometro_equipe`, a mesma coisa SEM o dinheiro da unidade. A
 // Cloud Function grava os dois depois de cada busca na API da Pacto — nenhuma
-// conta mora aqui. É prévia: o cálculo oficial da comissão continua sendo o arquivo.
+// conta mora aqui. É prévia: a comissão oficial é a do painel (automática de out/2026 em diante).
 //
 // As funções que desenham ficam em `window.TermometroTela` para o smoke
 // chamá-las num sandbox.
@@ -161,7 +161,7 @@
         <span>Vouchers</span><span>${esc(a.voucher)}</span>
         ${comDinheiro ? `<span>Dinheiro recebido</span><span>${esc(brl(t.recebido))}</span>` : ''}
       </div>
-      ${comDinheiro ? '<p class="muted pequeno">O dinheiro não inclui a vendinha de balcão (água, lanche), que a Pacto não entrega pela API.</p>' : ''}
+      ${comDinheiro ? '<p class="muted pequeno">A vendinha de balcão (água, lanche) entra no dinheiro recebido, mas não paga comissão. Dias buscados antes de 30/09/2026 podem estar sem ela.</p>' : ''}
       ${avisosDosDias(t)}
     </section>`;
   }

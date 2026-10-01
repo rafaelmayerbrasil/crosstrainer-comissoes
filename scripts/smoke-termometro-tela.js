@@ -24,7 +24,8 @@ const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
   assert.ok(nossos.every(x => x.v === nossos[0].v), 'todos com o mesmo ?v=');
   assert.ok(/firebase-firestore-compat\.js/.test(html) && /firebase-auth-compat\.js/.test(html));
   assert.ok(/<meta name="viewport"/.test(html), 'celular');
-  assert.ok(/prévia automática/i.test(html) && /arquivo exportado/i.test(html), 'a página diz que não é o oficial');
+  // 30/09/2026: o oficial deixou de ser o arquivo exportado; é o painel das Comissões (automático de out/2026)
+  assert.ok(/prévia automática/i.test(html) && /comissão oficial é a do painel/i.test(html) && !/arquivo exportado/i.test(html), 'a página diz que não é o oficial, e onde o oficial está');
   ok('termometro.html: firebase-config e termometro.js com o mesmo ?v=, e o aviso de prévia');
 }
 
