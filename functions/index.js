@@ -29,6 +29,7 @@ const payroll = require('./closing-payroll.js');
 const classPropagation = require('./class-propagation.js');
 const emailConfig = require('./email-config.js');
 const escalaTroca = require('./escala-troca.js');
+const classAvisos = require('./class-avisos.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -645,6 +646,7 @@ const NOTIF_TYPE_TITLES = {
   event_reminder:         'Lembrete de evento',
   vacation_requested:     'Nova solicitação de férias',
   vacation_cancelled:     'Pedido de férias cancelado',
+  class_aviso_professor:  'Aviso de professor',
 };
 
 /** Admins/gestão que devem receber avisos de férias. Só CF chama (lê /users). */
@@ -761,6 +763,52 @@ exports.processSubstitutionAcceptance = onDocumentUpdated({
     logger.info('[processSubstitutionAcceptance] OK', subId);
   } catch (err) {
     logger.error('[processSubstitutionAcceptance] FALHA', err);
+  }
+});
+
+/**
+ * onClassAvisoProfessor — avisa a gestão quando um professor avisa algo da aula.
+ *
+ * O botão na janela da aula diz "Enviar para a gestão", mas até 01/10/2026 o
+ * aviso só ficava gravado na aula: ninguém era avisado e não havia lista. Em
+ * produção, 21 ficaram parados de 26/08 a 01/10 sem resposta. Sai daqui, e não
+ * do navegador do professor, porque ele não pode ler /users pra achar a gestão
+ * (a mesma razão do onVacationRequested).
+ *
+ * A aula é alterada o tempo todo (confirmação automática da madrugada); só
+ * interessa a alteração em que o aviso NASCE — `classAvisos.avisoNovo`.
+ */
+exports.onClassAvisoProfessor = onDocumentUpdated({
+  document: 'classes/{classId}',
+  region: 'us-central1',
+}, async (event) => {
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+  if (!classAvisos.avisoNovo(before, after)) return;
+  const classId = event.params.classId;
+  try {
+    const firestore = db();
+    let nome = 'Um professor';
+    if (after.teacherId) {
+      const t = await firestore.collection('teachers').doc(after.teacherId).get();
+      if (t.exists && t.data().name) nome = t.data().name;
+    }
+    const d = after.scheduledDate && after.scheduledDate.toDate ? after.scheduledDate.toDate() : null;
+    const dia = d ? d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }) : '';
+    const aula = `aula de ${dia}${after.startTime ? ' às ' + after.startTime : ''}`;
+    const nota = after.avisoProfessor.nota ? ` — "${String(after.avisoProfessor.nota).slice(0, 120)}"` : '';
+    const body = `${nome}, ${aula}: ${classAvisos.resumo(after.avisoProfessor)}${nota}. Responda em Avisos dos professores.`;
+    const admins = await listAdminUserIds();
+    for (const userId of admins) {
+      await createNotification({
+        recipientUserId: userId, type: 'class_aviso_professor', body,
+        link: { type: 'avisos-professores', id: classId },
+      });
+    }
+    logger.info('[onClassAvisoProfessor] gestão avisada', admins.length, classId);
+  } catch (err) {
+    // Não relança: o aviso está gravado na aula e aparece na lista. Falhar aqui só perde o sino.
+    logger.error('[onClassAvisoProfessor] FALHA ao avisar a gestão', classId, err);
   }
 });
 

@@ -366,6 +366,8 @@ async function handleNotifClick(notifId, link) {
       if (typeof openInboxModal === 'function') openInboxModal();
     } else if (link.type === 'escala-smart' && typeof navigateTo === 'function') {
       navigateTo('escala-smart');
+    } else if (link.type === 'avisos-professores' && typeof navigateTo === 'function') {
+      navigateTo('avisos-professores');
     }
   }
   // Fecha dropdown
@@ -571,6 +573,8 @@ function navigateTo(pageId) {
     renderAgendaGeralPage();
   } else if (pageId === 'substituicoes' && typeof renderSubstituicoesPage === 'function') {
     renderSubstituicoesPage();
+  } else if (pageId === 'avisos-professores' && typeof renderAvisosProfessoresPage === 'function') {
+    renderAvisosProfessoresPage();
   } else if (pageId === 'fechamento' && typeof renderFechamentoPage === 'function') {
     renderFechamentoPage();
   } else if (pageId === 'pagamentos' && typeof renderPagamentosPage === 'function') {

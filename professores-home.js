@@ -77,7 +77,17 @@ async function _renderHomeAdmin() {
   const subsColega = await _homeSafeCount(() =>
     db.collection('substitutions').where('status', '==', 'pending').get());
 
+  // O que os professores avisaram das aulas e ainda espera resposta. Sem este
+  // chip a gestão não tinha como saber: 21 avisos ficaram parados em produção
+  // de 26/08 a 01/10/2026.
+  let avisos = null;
+  try {
+    const av = await ClassService.listAvisosPendentes();
+    avisos = av.success ? av.data.length : null;
+  } catch (e) { console.warn('[home avisos]', e && e.message); }
+
   const chips = [];
+  if (avisos) chips.push(_homeChip(avisos, avisos === 1 ? 'aviso de professor a responder' : 'avisos de professores a responder', "navigateTo('avisos-professores')"));
   if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'pedido de férias a aprovar' : 'pedidos de férias a aprovar', "navigateTo('ferias')"));
   // Abre a caixa de pedidos (com a visão de gestão), não a lista de aulas:
   // a Agenda Geral não mostra pedidos, então o aviso levava a lugar nenhum.

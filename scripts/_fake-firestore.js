@@ -36,7 +36,13 @@ module.exports = function makeFakeDb() {
       orderBy(field) { return query(name, filters, field); },
       async get() {
         let rows = Object.keys(col(name)).map(id => ({ id, data: () => col(name)[id] }));
-        filters.forEach(([f, op, v]) => { rows = rows.filter(r => r.data()[f] === v); });
+        // Caminho com ponto ("avisoProfessor.tipo") lê dentro do mapa, e `in`
+        // compara com a lista — como o Firestore de verdade. Os demais
+        // operadores seguem tratados como igualdade, como sempre foram aqui.
+        const pega = (o, f) => String(f).split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+        filters.forEach(([f, op, v]) => {
+          rows = rows.filter(r => (op === 'in' && Array.isArray(v)) ? v.indexOf(pega(r.data(), f)) !== -1 : pega(r.data(), f) === v);
+        });
         if (order) rows.sort((a, b) => (a.data()[order] > b.data()[order] ? 1 : a.data()[order] < b.data()[order] ? -1 : 0));
         // `docs` sempre existiu; `forEach`/`size`/`empty` acompanham o snapshot
         // de verdade e evitam que o smoke passe por um fake mais pobre que o real.

@@ -38,6 +38,8 @@ const FechamentoState = {
   previewData: null,    // resultado de ClosingService.preview()
   trocasAbertas: null,  // null = ainda não checado · [] = nenhuma · [..] = travam
   trocasErro: null,     // mensagem, quando não deu pra checar
+  avisosPendentes: undefined,  // undefined = não checado · [] = nenhum · [..] = travam
+  avisosErro: null,            // mensagem, quando não deu pra checar
   closingDoc: null,     // doc de monthly_closings (se já fechado)
   mode: 'select',       // 'select' | 'preview' | 'closed' | 'history'
   history: [],
@@ -256,7 +258,25 @@ async function loadFechamentoPreview() {
   // As trocas em aberto entram na conferência, não só no modal de confirmação:
   // eram 20 aulas em agosto/2026 e a gestão só descobria ao clicar em fechar.
   await carregarTrocasAbertas();
+  await carregarAvisosPendentes();
   renderFechamentoUI();
+}
+
+/**
+ * Avisos de professor sem resposta, das aulas do mês que está sendo conferido.
+ * "A aula não aconteceu" sem resposta seria PAGA: a aula vira realizada sozinha
+ * de madrugada. Por isso trava, como as trocas — e falha fechada.
+ */
+async function carregarAvisosPendentes() {
+  try {
+    const r = await ClassService.listAvisosPendentes();
+    if (!r.success) throw new Error(r.error || 'erro desconhecido');
+    FechamentoState.avisosPendentes = ClassAvisos.doMes(r.data || [], FechamentoState.selectedYear, FechamentoState.selectedMonth);
+    FechamentoState.avisosErro = null;
+  } catch (err) {
+    FechamentoState.avisosPendentes = null;
+    FechamentoState.avisosErro = (err && err.message) || 'erro desconhecido';
+  }
 }
 
 /** Trocas de professor ainda abertas no mês que está sendo conferido. */
@@ -373,6 +393,21 @@ function montarChecklist(data) {
           situacao: '<b>' + abertas.length + '</b> aula(s) ainda no nome de quem não deu',
           acao: { rotulo: 'Resolver', pagina: 'substituicoes' } }
       : { nivel: 'ok', titulo: 'Trocas de professor', situacao: 'nenhuma em aberto', acao: null });
+  }
+
+  // 1b. Avisos de professor sem resposta — "não aconteceu" sem resposta seria pago.
+  if (FechamentoState.avisosErro) {
+    itens.push({ nivel: 'bloqueia', titulo: 'Avisos dos professores',
+      situacao: 'Não consegui verificar (' + escapeHtml(FechamentoState.avisosErro)
+        + '). Fechar é irreversível — sem essa checagem, não dá.',
+      acao: null });
+  } else if (Array.isArray(FechamentoState.avisosPendentes)) {
+    const av = FechamentoState.avisosPendentes;
+    itens.push(av.length
+      ? { nivel: 'bloqueia', titulo: 'Avisos dos professores sem resposta',
+          situacao: '<b>' + av.length + '</b> aula(s) com aviso do professor que ninguém respondeu',
+          acao: { rotulo: 'Responder', pagina: 'avisos-professores' } }
+      : { nivel: 'ok', titulo: 'Avisos dos professores', situacao: 'todos respondidos', acao: null });
   }
 
   // 2. Cadastro que faz a pessoa receber errado.

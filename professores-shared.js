@@ -1620,6 +1620,78 @@ const ClassService = {
       return { success: false, error: err.message, code: err.code };
     }
   },
+
+  /**
+   * Os avisos de professor que ainda esperam a gestão, do mais antigo pro mais
+   * novo. Até 01/10/2026 não existia esta lista: o aviso só aparecia abrindo
+   * aula por aula, e 21 ficaram parados em produção sem ninguém ver.
+   *
+   * Uma consulta por tipo, por igualdade: campo dentro de mapa tem índice
+   * automático, então não há índice composto pra esquecer de criar.
+   */
+  async listAvisosPendentes() {
+    try {
+      const snaps = await Promise.all(ClassAvisos.TIPOS.map(tipo =>
+        db.collection('classes').where('avisoProfessor.tipo', '==', tipo).get()));
+      const todas = [];
+      snaps.forEach(s => s.docs.forEach(d => todas.push({ id: d.id, ...d.data() })));
+      return { success: true, data: ClassAvisos.pendentes(todas) };
+    } catch (err) {
+      console.error('[ClassService.listAvisosPendentes]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+
+  /**
+   * A gestão responde ao aviso do professor. O que cada resposta grava está em
+   * ClassAvisos.camposDaDecisao; aqui entra o carimbo, o autor e o rastro do
+   * que o professor tinha dito (o aviso sai da fila e vira `avisoProfessorAtendido`).
+   *
+   * @param {'aceitar'|'cancelar'|'falta_justificada'|'falta_sem_aviso'|'dispensar'} decisao
+   */
+  async atenderAviso(classId, decisao, nota = '') {
+    if (!classId) return { success: false, error: 'classId obrigatório' };
+    try {
+      const ref = db.collection('classes').doc(classId);
+      const doc = await ref.get();
+      if (!doc.exists) return { success: false, error: 'Aula não encontrada' };
+      const before = doc.data();
+      const r = ClassAvisos.camposDaDecisao(before, decisao);
+      if (!r.ok) return { success: false, error: r.erro };
+
+      const uid = currentUserId();
+      const motivo = (nota || '').toString().slice(0, 500) || null;
+      const after = Object.assign({}, r.campos, {
+        avisoProfessor: null,
+        avisoProfessorAtendido: {
+          ...before.avisoProfessor,
+          decisao, motivo,
+          atendidoPor: uid,
+          atendidoEm: serverTs(),
+        },
+        adjustedBy: uid,
+        adjustedAt: serverTs(),
+        adjustmentNote: motivo || `Aviso do professor: ${ClassAvisos.ROTULOS[decisao]}`,
+        // Mão humana passou aqui: deixa de ser "confirmada automaticamente"
+        registroAutomatico: false,
+        updatedAt: serverTs(),
+      });
+      if (after.status === 'cancelada' && motivo) after.cancellationNote = motivo;
+
+      await ref.update(after);
+      await AuditService.log({
+        type: 'class_aviso_atendido',
+        details: `Gestão respondeu ao aviso do professor (${ClassAvisos.resumo(before.avisoProfessor)}): ${ClassAvisos.ROTULOS[decisao]}`,
+        entityType: 'class', entityId: classId,
+        before, after: { ...before, ...after },
+        module: 'agenda',
+      });
+      return { success: true, data: { decisao } };
+    } catch (err) {
+      console.error('[ClassService.atenderAviso]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
 };
 
 // ─── Dias sem expediente ────────────────────────────────────────────────
@@ -1734,6 +1806,9 @@ const NOTIF_TYPE_META = {
   scale_confirmed:         { icon: '🗓️', title: 'Escala confirmada' },
   event_invite:            { icon: '📣', title: 'Convite de evento' },
   event_reminder:          { icon: '⏰', title: 'Lembrete de evento' },
+  // O professor avisou algo da aula → gestão; e a resposta da gestão → professor.
+  class_aviso_professor:   { icon: '📣', title: 'Aviso de professor' },
+  class_aviso_respondido:  { icon: '📣', title: 'Resposta ao seu aviso' },
 };
 
 // Rótulos vêm do módulo puro — a tela e o serviço têm que contar a mesma história.

@@ -256,6 +256,21 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: troca na mão que avisa, texto para o WhatsApp e folga mínima configurável');
 }
 {
+  // 01/10/2026: o que o professor "envia para a gestão" não chegava a ninguém —
+  // 21 avisos parados em produção desde 26/08. Agora há lista, sino, alerta na
+  // tela inicial e trava no fechamento.
+  exige(admin, 'manual-admin', {
+    'a tela onde a gestão responde': 'Avisos dos professores',
+    'as respostas possíveis': 'Falta sem aviso',
+    'o aviso não entra na folha sozinho': 'não entra na folha sozinho',
+    'aviso sem resposta trava o fechamento': 'aviso sem resposta',
+  });
+  exige(prof, 'manual-professores', {
+    'o professor fica sabendo da resposta': 'A gestão respondeu ao seu aviso',
+  });
+  ok('gestão: a tela Avisos dos professores; professor: fica sabendo da resposta');
+}
+{
   // 01/10/2026 (Rafael Rojais: "Teria como o sistema explicar o porquê a pessoa
   // está naquele dia?") — a explicação em frase, pra gestão e pro professor, e a
   // escala que passou a acompanhar a troca de professor confirmada.

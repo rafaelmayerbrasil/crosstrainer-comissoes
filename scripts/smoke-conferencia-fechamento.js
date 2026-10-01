@@ -104,7 +104,7 @@ const trocaAberta = (status) => ({
 });
 
 /** Renderiza a prévia e devolve o HTML que a tela escreveu. */
-function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto() } = {}) {
+function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto(), avisos, avisosErro = null } = {}) {
   let html = '';
   t.document.getElementById = (id) => {
     if (id === 'fechamentoContent') return { set innerHTML(v) { html = v; }, get innerHTML() { return html; } };
@@ -117,6 +117,9 @@ function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto()
   st.filtroUnitId = '';
   st.trocasAbertas = trocasErro ? null : trocas;
   st.trocasErro = trocasErro;
+  // `undefined` = a tela ainda não checou os avisos (o comportamento de antes).
+  st.avisosPendentes = avisosErro ? null : avisos;
+  st.avisosErro = avisosErro;
   dentro(t, 'renderPreviewContent')();
   return html;
 }
@@ -362,6 +365,30 @@ function renderizar(t, { trocas = [], trocasErro = null, prev = previaDeAgosto()
   assert.ok(/pertencem à pessoa/.test(bloco6),
     'e tem que dizer por quê: bolsa, VR e VT são mensais, da pessoa');
   ok('o custo por unidade aparece, e a tela diz que é rateio');
+}
+
+/* ── aviso de professor sem resposta TRAVA o fechamento ──────────── */
+// 01/10/2026: 21 avisos de professor parados em produção desde 26/08, nenhum
+// respondido. "A aula não aconteceu" sem resposta seria PAGA — a aula vira
+// realizada sozinha de madrugada. Trava como as trocas, e falha fechada.
+{
+  const semCadastroErrado = () => { const p = previaDeAgosto(); p.teachers = p.teachers.filter(x => x.teacherId !== 'thi'); return p; };
+  const aviso = { id: 'c1', avisoProfessor: { tipo: 'nao_aconteceu' } };
+
+  let html = renderizar(montarTela(), { trocas: [], prev: semCadastroErrado(), avisos: [aviso, aviso] });
+  assert.ok(/Avisos dos professores sem resposta/.test(html) && /<b>2<\/b>/.test(html), 'a conferência diz quantos avisos estão sem resposta');
+  assert.ok(/avisos-professores/.test(html), 'e leva pra tela onde se responde');
+  assert.ok(/Resolva as pendências primeiro/.test(html), 'com aviso sem resposta o botão de fechar fica travado');
+
+  html = renderizar(montarTela(), { trocas: [], prev: semCadastroErrado(), avisos: [] });
+  assert.ok(/🔒 Fechar mês/.test(html) && /todos respondidos/.test(html), 'tudo respondido: o botão libera e a linha fica verde');
+
+  html = renderizar(montarTela(), { trocas: [], prev: semCadastroErrado(), avisosErro: 'sem rede' });
+  assert.ok(/Resolva as pendências primeiro/.test(html) && /sem rede/.test(html), 'sem conseguir checar os avisos, não fecha — e diz por quê');
+
+  html = renderizar(montarTela(), { trocas: [], prev: semCadastroErrado() });
+  assert.ok(/🔒 Fechar mês/.test(html), 'tela que ainda não checou os avisos não inventa pendência');
+  ok('aviso de professor sem resposta trava o fechamento (e falha fechada)');
 }
 
 console.log('');
