@@ -18,6 +18,9 @@ const SubsState = {
   filtroDe: '', filtroAte: '',
   pedi: [], cobri: [], todas: [],
   loading: false,
+  // Escalas de sábado/feriado e a folga configurada — pra avisar quando uma
+  // troca de aula deixa alguém com escalas coladas. Vazio = sem aviso.
+  escalas: [], vizDias: 7,
 };
 
 function subsEhGestao() {
@@ -46,6 +49,83 @@ function subsDataAula(sub) {
 function subsModalidade(sub) {
   const m = AgendaState.modalitiesMap.get(sub.classModalityId);
   return m ? m.name : '—';
+}
+
+/** 'YYYY-MM-DD' no fuso de quem está na tela (a data da aula é local). */
+function subsISO(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function subsHojeISO() { return subsISO(new Date()); }
+function subsListaDatas(datas) {
+  const d = (datas || []).map(iso => iso.slice(8, 10) + '/' + iso.slice(5, 7));
+  return d.length > 1 ? `${d.slice(0, -1).join(', ')} e ${d[d.length - 1]}` : (d[0] || '');
+}
+
+/**
+ * Carrega as escalas e a folga configurada. Nunca derruba a tela de trocas: se
+ * a leitura falhar, as trocas continuam funcionando — só sem o aviso.
+ */
+async function subsCarregarEscalas() {
+  SubsState.escalas = []; SubsState.vizDias = 7;
+  if (typeof ScaleService !== 'object' || !ScaleService) return;
+  try {
+    const [sc, cfg] = await Promise.all([ScaleService.listScales(), ScaleService.ScaleConfigService.get()]);
+    SubsState.escalas = (sc && sc.success) ? (sc.data || []) : [];
+    SubsState.vizDias = ScaleService.vizinhancaDias((cfg && cfg.success) ? cfg.data : null);
+  } catch (e) {
+    console.warn('[Substituições] não deu pra ler as escalas — a tela segue sem o aviso de escalas próximas', e);
+  }
+}
+
+/**
+ * Esta troca deixa quem ASSUME a aula com escalas de sábado/feriado coladas?
+ *
+ * Reclamação do Vagner (01/10/2026): escalado em 19/09, 03/10 e 17/10, trocou o
+ * 19/09 pelo 26/09 com o Thiago e ficou com 26/09 e 03/10 seguidos. Ninguém viu
+ * antes de confirmar — a regra da folga só existia na montagem da escala.
+ *
+ * Só olha troca EM ABERTO de aula que ainda vai acontecer: depois de confirmada
+ * não há o que decidir, e registrar uma aula já dada é anotar um fato. O dia do
+ * qual a pessoa está saindo por outra troca (a troca casada) não conta.
+ * @returns {string[]} datas ISO
+ */
+function subsDatasColadas(sub) {
+  if (!sub || SubstitutionFlow.STATUS_ABERTO.indexOf(sub.status) === -1) return [];
+  if (!SubsState.escalas.length || typeof ScaleService !== 'object') return [];
+  const quando = (s) => (s.classDate && s.classDate.toDate ? subsISO(s.classDate.toDate()) : null);
+  const dateISO = quando(sub);
+  if (!dateISO || dateISO < subsHojeISO()) return [];
+  const saindo = (SubsState.todas || [])
+    .filter(o => o && o.id !== sub.id && o.requestingTeacherId === sub.substituteTeacherId
+      && (o.status === 'accepted' || SubstitutionFlow.STATUS_ABERTO.indexOf(o.status) !== -1))
+    .map(quando).filter(Boolean);
+  return ScaleService.vizinhasDaTrocaDeAula({
+    scales: SubsState.escalas, dateISO, dias: SubsState.vizDias, ignorarDatas: saindo,
+    titularId: sub.requestingTeacherId, substitutoId: sub.substituteTeacherId,
+  });
+}
+
+/**
+ * O mesmo aviso, pra quem REGISTRA a troca na agenda — antes de enviar.
+ * @returns {Promise<string>} '' quando não há o que avisar
+ */
+async function subsAvisoAntesDeRegistrar(p) {
+  const cls = p && p.cls;
+  if (!cls || !p.substitutoId) return '';
+  if (['sabado', 'feriado', 'domingo_especial'].indexOf(cls.specialScaleType) === -1) return '';
+  const d = cls.scheduledDate && cls.scheduledDate.toDate ? cls.scheduledDate.toDate() : null;
+  if (!d || subsISO(d) < subsHojeISO()) return '';
+  await subsCarregarEscalas();
+  // Professor só conhece escala PUBLICADA ("nada aparece pro professor antes de
+  // publicar"). O aviso não pode contar o que a prévia ainda guarda.
+  const escalas = subsEhGestao() ? SubsState.escalas : SubsState.escalas.filter(s => s && s.published);
+  if (!escalas.length) return '';
+  const datas = ScaleService.vizinhasDaTrocaDeAula({
+    scales: escalas, dateISO: subsISO(d), dias: SubsState.vizDias,
+    titularId: cls.teacherId, substitutoId: p.substitutoId,
+  });
+  return datas.length ? `${subsNomeProf(p.substitutoId)} fica com escalas próximas: ${subsListaDatas(datas)}` : '';
 }
 
 const SUBS_STATUS_STYLE = {
@@ -77,6 +157,7 @@ async function renderSubstituicoesPage() {
   }
 
   if (subsEhGestao()) {
+    await subsCarregarEscalas();
     const res = await SubstitutionService.listAll();
     SubsState.todas = res.success ? res.data : [];
     renderSubsGestao(page, res);
@@ -167,6 +248,8 @@ function renderSubCard(sub, lado) {
   // sem que ninguém da gestão pudesse tocá-las. Confirmar sem resposta continua
   // sendo outra coisa: fica dito na tela e gravado no pedido.
   const semResposta = sub.status === 'pending';
+  // Troca de aula de escala que deixa quem assume com sábados/feriados colados.
+  const coladas = lado === 'gestao' ? subsDatasColadas(sub) : [];
 
   const registradoLabel = por === 'gestao'
     ? 'lançada pela gestão'
@@ -185,6 +268,7 @@ function renderSubCard(sub, lado) {
           · ${registradoLabel}
         </div>
         ${sub.responseNote ? `<div class="class-card-unit">resposta: "${subsEsc(sub.responseNote)}"</div>` : ''}
+        ${coladas.length ? `<div class="class-card-unit" style="color:var(--orange);">⚠️ ${subsEsc(subsNomeProf(sub.substituteTeacherId))} fica com escalas próximas: ${subsListaDatas(coladas)}</div>` : ''}
       </div>
       <div class="class-card-status">
         <span class="class-status-badge" style="color:${st.cor};border:1px solid ${st.cor};">${st.label}</span>
@@ -206,11 +290,18 @@ function renderSubCard(sub, lado) {
 }
 
 async function subsHomologar(subId, semResposta) {
-  const aviso = semResposta
+  const sub = (SubsState.todas || []).find(s => s.id === subId);
+  const coladas = subsDatasColadas(sub);
+  const alerta = coladas.length
+    ? `⚠️ ${subsNomeProf(sub.substituteTeacherId)} fica com escalas próximas: ${subsListaDatas(coladas)}.
+
+`
+    : '';
+  const aviso = alerta + (semResposta
     ? 'O professor ainda NÃO confirmou esta troca.\n\n'
       + 'Confirmando assim, a aula passa para o outro professor, o pagamento acompanha '
       + 'e fica registrado que foi a gestão quem decidiu sem a resposta dele.\n\nConfirmar mesmo assim?'
-    : 'Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.';
+    : 'Confirmar a troca? A aula passa para o outro professor e o pagamento acompanha.');
   if (!confirm(aviso)) return;
   const res = await SubstitutionService.homologar(subId, '');
   if (!res.success) { toast('Erro: ' + res.error, 'error'); return; }
@@ -313,5 +404,6 @@ window.aplicarFiltroSubs = aplicarFiltroSubs;
 window.limparFiltroSubs = limparFiltroSubs;
 window.subsHomologar = subsHomologar;
 window.subsRecusar = subsRecusar;
+window.subsAvisoAntesDeRegistrar = subsAvisoAntesDeRegistrar;
 
 console.log('[CrossTainer Professores] professores-substituicoes.js carregado · bloco 3');

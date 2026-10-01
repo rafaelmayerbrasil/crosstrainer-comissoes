@@ -81,6 +81,7 @@ function novoSandbox() {
       tiposIrmaos: SS.tiposIrmaos,
       contarPorPessoa: SS.contarPorPessoa,
       fmtDataLonga: SS.fmtDataLonga,
+      vizinhancaDias: SS.vizinhancaDias,
       personsOnVacation: () => new Set(),
       listWindowQuotas: async () => ({ success: true, data: {} }),
       // Respostas "não posso" por data. O teste sobrescreve `prefsPorEscala`
@@ -529,6 +530,27 @@ function baseState(sandbox, scales, loteId) {
     assert.ok(/onclick="despublicarEscala\('fda1'\)"/.test(publicada), 'já publicada: mostra o botão de despublicar');
     passou('renderFimDeAnoDetail: já publicada esconde a barra e mostra despublicar');
   }
+
+  // ── 10. o ajuste usa a folga mínima configurada (01/10/2026) ─────────────
+  // A régua de "data vizinha" deixou de ser 7 dias fixos: a gestão escolhe 1,
+  // 2 ou 3 sábados de folga. Se o ajuste ficasse nos 7 dias de sempre, a
+  // montagem respeitaria a folga e o "Ajustar" a desfaria logo depois.
+  for (const [config, esperado] of [[{}, 7], [{ folgaMinimaSabados: 2 }, 14], [{ folgaMinimaSabados: 3 }, 21]]) {
+    const scales = [
+      escala('s1', '2026-09-05', 'hel', 'lote1', false),
+      escala('s2', '2026-09-19', 'hel', 'lote1', false),
+      escala('s3', '2026-10-03', 'bru', 'lote1', false),
+    ];
+    const { sandbox, state } = novoSandbox();
+    baseState(sandbox, scales, 'lote1');
+    sandbox.EscalaSmartState.config = config;
+    state.promptReturn = '1';
+    await sandbox.abrirAjusteFrequencia('hel');
+    assert.strictEqual(state.planejarCalls.length, 1, 'o plano foi montado');
+    assert.strictEqual(state.planejarCalls[0].vizinhanca, esperado,
+      `config ${JSON.stringify(config)} → o motor do ajuste recebe ${esperado} dias de vizinhança`);
+  }
+  passou('o ajuste de frequência usa a folga mínima configurada (7, 14 ou 21 dias)');
 
   console.log(`\n${ok} blocos OK`);
   console.log('\n✓ smoke-escala-rebalanceio-tela: todas as seções OK');

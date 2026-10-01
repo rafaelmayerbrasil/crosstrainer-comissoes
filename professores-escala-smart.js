@@ -366,6 +366,91 @@ function escalaNomePorId() {
   return out;
 }
 
+/** Nome da unidade como a equipe fala: sem o "CrossTainer" na frente. */
+function escalaNomeUnidade(unitId) {
+  const u = (EscalaSmartState.units || []).find(x => x.id === unitId) || {};
+  return (u.name || unitId || '').replace(/CrossTainer\s*/i, '') || unitId;
+}
+
+/** A folga que a gestão configurou, em dias (1 sábado de folga = 7). */
+function escalaVizinhancaDias() {
+  return ScaleService.vizinhancaDias(EscalaSmartState.config);
+}
+
+/** '2026-09-05' → '05/09'. */
+function escalaDiaMes(iso) { return String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7); }
+function escalaListaDatas(datas) {
+  const d = (datas || []).map(escalaDiaMes);
+  return d.length > 1 ? `${d.slice(0, -1).join(', ')} e ${d[d.length - 1]}` : (d[0] || '');
+}
+
+/**
+ * As respostas ("Prefiro / Pode ser / Não posso") da escala aberta no painel.
+ * Só valem pra ELA: carregadas de uma escala e lidas em outra, marcariam
+ * "Não posso" em quem nunca disse isso.
+ */
+function escalaPrefsDe(scaleId) {
+  const p = EscalaSmartState.prefsSel;
+  return (p && p.scaleId === scaleId && p.prefById) || {};
+}
+
+/**
+ * O que a gestão precisa ver antes de pôr alguém numa vaga, em frases curtas.
+ *
+ * A lista de troca mostrava todo mundo igual, e em set/out de 2026 a gestão pôs
+ * três vezes alguém num dia em que a pessoa tinha marcado "Não posso" (grupo,
+ * 01/10/2026: "Quando preenchi, coloquei lá que não podia dia 12").
+ */
+function escalaAvisosDaSituacao(sit) {
+  const out = [];
+  if (!sit) return out;
+  if (sit.naoPosso) out.push('marcou Não posso');
+  if (sit.noMesmoDia) out.push('já está em outra vaga do dia');
+  if (sit.vizinhas && sit.vizinhas.length) out.push(`trabalha também em ${escalaListaDatas(sit.vizinhas)}`);
+  return out;
+}
+
+/** Onde e quando é a vaga, pro texto do aviso: "sábado, 12/09/2026 · Príncipe · 08:00–12:00 (TOI)". */
+function escalaOndeDaVaga(scale, slot) {
+  const mod = slot.requiredModalityName
+    || (slot.requiredModalityId === (EscalaSmartState.modToi || {}).id ? 'TOI'
+      : slot.requiredModalityId === (EscalaSmartState.modHiit || {}).id ? 'Hiit' : '');
+  const hora = slot.startTime ? ` · ${slot.startTime}–${slot.endTime || ''}` : '';
+  return `${ScaleService.fmtDataLonga(slot.day || scale.date)} · ${escalaNomeUnidade(slot.unitId)}${hora}${mod ? ` (${mod})` : ''}`;
+}
+
+/**
+ * Avisa quem entrou e quem saiu de uma vaga trocada na mão.
+ *
+ * A troca republicava a agenda e não dizia nada a ninguém: o Alan Brito foi
+ * tirado do 26/09 e posto no 12/09 e só descobriu olhando a agenda. Só avisa
+ * escala PUBLICADA e que ainda vai acontecer — antes de publicar o professor
+ * não vê a escala, e corrigir o registro de um dia que já passou não é notícia.
+ *
+ * @param {Array<{pid:string, title:string, body:string}>} avisos
+ * @returns {Promise<{avisados:number, semLogin:string[]}>}
+ */
+async function escalaEnviarAvisosDeVaga(scaleId, avisos) {
+  const out = { avisados: 0, semLogin: [] };
+  for (const a of avisos) {
+    const t = EscalaSmartState.teacherMap.get(a.pid);
+    if (!t || !t.userId) { out.semLogin.push(escalaPersonName(a.pid)); continue; }
+    await NotifyService.send({
+      recipients: [t.userId], type: 'scale_confirmed', title: a.title, body: a.body,
+      link: { type: 'escala-smart', id: scaleId }, channels: ['inapp'],
+    });
+    out.avisados++;
+  }
+  return out;
+}
+
+/** Complemento do toast: quantos avisos saíram e quem a gestão tem que avisar por fora. */
+function escalaResumoDosAvisos(r) {
+  let msg = r.avisados ? ` ${r.avisados} aviso(s) enviado(s).` : '';
+  if (r.semLogin.length) msg += ` ⚠️ ${r.semLogin.join(', ')} não tem login — avise por fora.`;
+  return msg;
+}
+
 /**
  * Ajustar quantos dias uma pessoa tem na janela. Ocupa o lugar do antigo
  * botão de lançar dias fora do sistema na mão — que o Rodrigo leu como
@@ -496,7 +581,13 @@ async function abrirAjusteFrequencia(personId, tipoExplicito) {
       indisponivel: indisponivelPorPessoa[t.id] || [],
     }));
 
-  const plano = ScaleRebalance.planejar({ pessoaId: personId, alvo: Math.round(alvo), datas, candidatos });
+  // A folga entre escalas é a que a gestão configurou — a mesma da montagem.
+  // Com os 7 dias fixos de antes, o "Ajustar" desfaria a folga que a montagem
+  // acabou de respeitar. No fim de ano os dias são corridos dentro do mesmo
+  // período e a folga de sábado não se aplica: fica o padrão do motor.
+  const plano = ScaleRebalance.planejar(Object.assign(
+    { pessoaId: personId, alvo: Math.round(alvo), datas, candidatos },
+    contagemLocal ? {} : { vizinhanca: escalaVizinhancaDias() }));
   EscalaSmartState._planoAjuste = { plano, personId, de: atual, para: Math.round(alvo) };
   renderPreviaAjuste();
 }
@@ -758,6 +849,7 @@ function escalaCardDoc(s) {
 function renderConfigEscalaHtml() {
   if (!(typeof isAdminGestao === 'function' && isAdminGestao())) return '';
   const marco = (EscalaSmartState.config || {}).marcoZero || '';
+  const folga = escalaVizinhancaDias() / 7;
   return `<details style="margin-bottom:12px;">
     <summary style="cursor:pointer;font-size:13px;color:var(--blue);">⚙️ Configurações da escala</summary>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;">
@@ -772,8 +864,50 @@ function renderConfigEscalaHtml() {
         <button class="btn-primary" onclick="salvarMarcoZero()">Salvar</button>
         ${marco ? `<button class="btn-secondary" onclick="salvarMarcoZero(true)">Voltar aos 12 meses</button>` : ''}
       </div>
+      <div style="font-size:13px;font-weight:600;margin:16px 0 4px;">Sábados de folga entre uma escala e outra</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
+        Quantos sábados livres a pessoa deve ter entre dois dias de escala (sábado ou feriado).
+        1 = não pega dois seguidos. É preferência: se não houver outra pessoa habilitada,
+        o sistema escala assim mesmo — nunca deixa vaga aberta. Vale na montagem, no ajuste
+        e nos avisos da troca na mão.
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select class="input" id="escalaFolgaMinima" style="max-width:190px;">
+          ${[1, 2, 3].map(n => `<option value="${n}"${n === folga ? ' selected' : ''}>${n} ${n === 1 ? 'sábado' : 'sábados'}</option>`).join('')}
+        </select>
+        <button class="btn-primary" onclick="salvarFolgaMinima()">Salvar</button>
+      </div>
     </div>
   </details>`;
+}
+
+/**
+ * Folga mínima entre escalas (Rafael Rojais, 01/10/2026: "pelo menos duas ou
+ * três semanas de distância de uma escala entre a outra"). Não refaz escala
+ * nenhuma: muda a régua da PRÓXIMA montagem e dos avisos.
+ */
+async function salvarFolgaMinima() {
+  const el = document.getElementById('escalaFolgaMinima');
+  const novo = Number(el && el.value);
+  if ([1, 2, 3].indexOf(novo) === -1) { toast('Escolha 1, 2 ou 3 sábados.', 'error'); return; }
+  const antes = escalaVizinhancaDias() / 7;
+  if (novo === antes) { toast('Nada mudou.', 'info'); return; }
+  if (!confirm(`A folga entre uma escala e outra passa a ser de ${novo} ${novo === 1 ? 'sábado' : 'sábados'}.\n\n`
+             + `Vale a partir da próxima vez que uma escala for montada ou refeita, e nos avisos da troca. `
+             + `Nenhuma escala já montada é alterada agora.\n\nContinuar?`)) return;
+  const res = await ScaleService.ScaleConfigService.save({ folgaMinimaSabados: novo });
+  if (!res || res.success === false) { toast('Erro ao salvar: ' + ((res && res.error) || 'falha'), 'error'); return; }
+  if (typeof AuditService === 'object') {
+    await AuditService.log({
+      type: 'scale_folga_minima', module: 'agenda',
+      details: `Folga mínima entre escalas: ${antes} → ${novo} sábado(s)`,
+      entityType: 'scale_config', entityId: 'default',
+      before: { folgaMinimaSabados: antes }, after: { folgaMinimaSabados: novo },
+    });
+  }
+  toast('Folga mínima salva.', 'success');
+  await escalaLoadBase();
+  renderEscalaGestao();
 }
 
 async function salvarMarcoZero(limpar) {
@@ -816,11 +950,23 @@ async function renderEscalaGestao() {
 
   // Se o evento selecionado está aberto, carrega os RSVP dele p/ o painel de staff/consolidado.
   EscalaSmartState.eventoRsvp = null;
+  EscalaSmartState.prefsSel = null;
   if (EscalaSmartState.selectedId) {
     const sel = EscalaSmartState.scales.find(s => s.id === EscalaSmartState.selectedId);
     if (sel && sel.tipo === 'evento') {
       const rr = await ScaleService.listEventRsvp(sel.id);
       EscalaSmartState.eventoRsvp = new Map((rr.success ? rr.data : []).map(r => [r.personId, r]));
+    }
+    // Sábado/feriado aberto no painel: carrega as respostas, pra lista de troca
+    // de cada vaga dizer quem marcou "Não posso". Se a leitura falhar, a lista
+    // sai sem as marcas — e a troca em si relê e recusa se não conseguir.
+    if (sel && ['sabado', 'feriado', 'domingo_especial'].indexOf(sel.tipo) !== -1) {
+      const pr = await ScaleService.listPreferences(sel.id);
+      if (pr.success) {
+        const prefById = {};
+        (pr.data || []).forEach(p => { if (p) prefById[p.personId] = p.pref; });
+        EscalaSmartState.prefsSel = { scaleId: sel.id, prefById };
+      }
     }
   }
 
@@ -843,6 +989,12 @@ async function renderEscalaGestao() {
     `<div style="display:inline-flex;gap:4px;margin-right:8px;">
       ${['futuros', 'todos', 'passados'].map(v => `<button onclick="escalaSetTimeframe('${v}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid ${EscalaSmartState.timeframe === v ? 'var(--blue)' : 'var(--border)'};background:${EscalaSmartState.timeframe === v ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${EscalaSmartState.timeframe === v ? '#5EA8FF' : 'var(--text2)'};">${v === 'futuros' ? 'Próximos' : v === 'passados' ? 'Passados' : 'Todos'}</button>`).join('')}
     </div>`;
+
+  // A escala em texto, pra colar no grupo (Rafael Rojais, 01/10/2026). Só nas
+  // abas de sábado e feriado, que são o que o texto cobre.
+  const whatsBtn = (tab === 'sabado' || tab === 'feriado')
+    ? `<button class="btn-secondary" style="margin-right:auto;" onclick="abrirTextoWhatsApp()">📋 Texto para o WhatsApp</button>`
+    : '';
 
   // 'minhas' e 'pessoa' são lista sozinha: não têm escala selecionada à direita.
   const soLista = (tab === 'pessoa' || tab === 'minhas');
@@ -903,7 +1055,7 @@ async function renderEscalaGestao() {
     ${soLista ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
     ${tab === 'minhas' ? '' : revisaoBar + refazerBar}
-    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px;">${tfSel}${yearSel}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:10px;">${whatsBtn}${tfSel}${yearSel}</div>
     ${tab === 'minhas' || !EscalaSmartState.selected.size ? '' : (EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
       <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
@@ -917,6 +1069,119 @@ async function renderEscalaGestao() {
     <div id="escalaModal" class="modal" style="display:none;"></div>`;
 
   escalaConsumirPendingNew(); // atalho vindo da Confirmar Presença
+}
+
+/* ─── Escala em texto para o WhatsApp ──────────────────────────────── */
+const ESCALA_MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+
+/**
+ * Tudo o que a janela do texto mostra, calculado num lugar só — a janela e o
+ * botão "Copiar" leem daqui, então não há como copiar um texto diferente do
+ * que está na tela.
+ *
+ * Só entra escala PUBLICADA: é o que o professor já vê. Data montada e ainda
+ * não publicada fica de fora, e a janela diz quais são — sumir calado faria a
+ * gestão mandar pro grupo um mês com buraco sem perceber.
+ */
+function escalaWhatsDados() {
+  const tipos = ['sabado', 'feriado', 'domingo_especial'];
+  const doTipo = (EscalaSmartState.scales || []).filter(s =>
+    s && tipos.indexOf(s.tipo) !== -1 && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || '')));
+  const publicadas = doTipo.filter(s => s.published);
+  const meses = Array.from(new Set(publicadas.map(s => s.date.slice(0, 7)))).sort();
+  const st = EscalaSmartState._whats || {};
+  let mes = meses.indexOf(st.mes) !== -1 ? st.mes : null;
+  if (!mes) {
+    // Abre no mês da próxima data que ainda vai acontecer; sem nenhuma, no
+    // último que tem escala.
+    const hoje = escalaTodayISO();
+    const proxima = publicadas.map(s => s.date).filter(d => d >= hoje).sort()[0];
+    mes = proxima ? proxima.slice(0, 7) : (meses[meses.length - 1] || null);
+  }
+  const formato = st.formato === 'pessoa' ? 'pessoa' : 'dia';
+  if (!mes) return { meses, mes: null, formato, texto: '', fora: [] };
+
+  const unidadePorId = {};
+  (EscalaSmartState.units || []).forEach(u => { unidadePorId[u.id] = u.name || u.id; });
+  const modalidadePorId = {};
+  if (EscalaSmartState.modMap) EscalaSmartState.modMap.forEach((m, id) => { modalidadePorId[id] = m.name; });
+  const texto = ScaleService.textoParaWhatsApp(publicadas.filter(s => s.date.slice(0, 7) === mes), {
+    formato, titulo: `ESCALA DE ${ESCALA_MESES[parseInt(mes.slice(5, 7), 10) - 1]}`,
+    nomePorId: escalaNomePorId(), unidadePorId, modalidadePorId,
+  });
+  const fora = doTipo
+    .filter(s => !s.published && s.date.slice(0, 7) === mes && (s.slots || []).some(x => x.assignedPersonId))
+    .map(s => s.date).sort();
+  return { meses, mes, formato, texto, fora };
+}
+
+function abrirTextoWhatsApp() {
+  EscalaSmartState._whats = EscalaSmartState._whats || {};
+  renderTextoWhatsApp();
+}
+
+function escalaWhatsSet(campo, valor) {
+  EscalaSmartState._whats = Object.assign({}, EscalaSmartState._whats, { [campo]: valor });
+  renderTextoWhatsApp();
+}
+
+function renderTextoWhatsApp() {
+  const overlay = document.getElementById('escalaModalOverlay');
+  const modal = document.getElementById('escalaModal');
+  if (!overlay || !modal) return;
+  overlay.style.display = 'flex';
+  modal.style.display = 'block';
+  const d = escalaWhatsDados();
+  const fechar = `<button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>`;
+  if (!d.mes) {
+    modal.innerHTML = `
+      <h2>📋 Texto para o WhatsApp</h2>
+      <p style="color:var(--text2);">Nenhuma escala publicada ainda. O texto sai das escalas de sábado e feriado
+        que já foram publicadas na agenda — publique primeiro e volte aqui.</p>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end;">${fechar}</div>`;
+    return;
+  }
+  const rotMes = (m) => `${ESCALA_MESES[parseInt(m.slice(5, 7), 10) - 1].toLowerCase()}/${m.slice(0, 4)}`;
+  const btnFormato = (id, rot) => {
+    const on = d.formato === id;
+    return `<button onclick="escalaWhatsSet('formato','${id}')" style="font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid ${on ? 'var(--blue)' : 'var(--border)'};background:${on ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${on ? 'var(--blue)' : 'var(--text2)'};">${rot}</button>`;
+  };
+  const foraHtml = d.fora.length
+    ? `<div style="font-size:12px;background:#3a2f1a;border:1px solid #caa23a;color:#caa23a;border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+        ${d.fora.length === 1 ? '1 data deste mês ainda não publicada ficou' : `${d.fora.length} datas deste mês ainda não publicadas ficaram`} de fora:
+        ${escalaListaDatas(d.fora)}. Publique para entrar no texto.</div>`
+    : '';
+  modal.innerHTML = `
+    <h2>📋 Texto para o WhatsApp</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">A escala publicada, pronta para colar no grupo.
+      Se trocar alguém depois, é só abrir de novo e copiar.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      <select class="input" style="width:auto;" onchange="escalaWhatsSet('mes', this.value)">
+        ${d.meses.map(m => `<option value="${m}"${m === d.mes ? ' selected' : ''}>${rotMes(m)}</option>`).join('')}
+      </select>
+      ${btnFormato('dia', 'Por dia')}${btnFormato('pessoa', 'Por pessoa')}
+    </div>
+    ${foraHtml}
+    <textarea id="escalaWhatsTexto" class="input" readonly rows="16" style="width:100%;font-family:inherit;font-size:13px;line-height:1.45;">${escalaEsc(d.texto)}</textarea>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
+      ${fechar}
+      <button class="btn-primary" onclick="copiarTextoWhatsApp()">Copiar</button>
+    </div>`;
+}
+
+async function copiarTextoWhatsApp() {
+  const d = escalaWhatsDados();
+  if (!d.texto) return;
+  try {
+    await navigator.clipboard.writeText(d.texto);
+    toast('Copiado. Agora é só colar no grupo.', 'success');
+  } catch (e) {
+    // Navegador que nega a cópia (ou não tem a API): deixa o texto selecionado
+    // e diz o que fazer — melhor que um "copiado" que não copiou.
+    const el = document.getElementById('escalaWhatsTexto');
+    if (el && typeof el.select === 'function') el.select();
+    toast('Não consegui copiar sozinho. O texto está selecionado: copie com Ctrl+C (no celular, segure o dedo sobre ele).', 'info', 9000);
+  }
 }
 
 /* ─── Abas (listas por tipo) ───────────────────────────────────────── */
@@ -1593,7 +1858,41 @@ async function salvarStaffEvento(scaleId) {
  * de mês já pago, então republicar aqui é seguro.
  */
 async function trocarPessoaEscala(scaleId, slotId, personId) {
-  const res = await ScaleService.reassignSlot(scaleId, slotId, personId || null, { nomePorId: escalaNomePorId() });
+  const scale = (EscalaSmartState.scales || []).find(s => s.id === scaleId) || null;
+  const slotAntes = scale ? ((scale.slots || []).find(s => s.id === slotId) || null) : null;
+  const saiId = slotAntes ? (slotAntes.assignedPersonId || null) : null;
+  const entraId = personId || null;
+
+  // Antes de trocar: a pessoa marcou "Não posso"? Já trabalha numa data
+  // colada nesta? A gestão pode pôr assim mesmo (às vezes combinou por
+  // telefone) — mas sabendo. As respostas são lidas AGORA, e não da memória
+  // da tela: alguém pode ter respondido depois que o painel abriu.
+  const comResposta = scale && ['sabado', 'feriado', 'domingo_especial'].indexOf(scale.tipo) !== -1;
+  if (entraId && comResposta) {
+    const pr = await ScaleService.listPreferences(scaleId);
+    if (!pr.success) {
+      // Seguir sem as respostas escalaria quem disse que não podia.
+      toast('Não consegui ler as respostas desta data. Troca cancelada — tente de novo.', 'error');
+      renderEscalaGestao();
+      return;
+    }
+    const prefById = {};
+    (pr.data || []).forEach(p => { if (p) prefById[p.personId] = p.pref; });
+    const sit = ScaleService.situacaoParaTroca({
+      scale, slotId, personId: entraId, prefById,
+      scales: EscalaSmartState.scales, dias: escalaVizinhancaDias(),
+    });
+    const motivos = [];
+    if (sit.naoPosso) motivos.push('marcou "Não posso" neste dia');
+    if (sit.vizinhas.length) motivos.push(`já trabalha em ${escalaListaDatas(sit.vizinhas)}`);
+    if (motivos.length && !confirm(`${escalaPersonName(entraId)} ${motivos.join(' e ')}.\n\n`
+        + `Colocar mesmo assim? Use quando já combinou com a pessoa.`)) {
+      renderEscalaGestao();   // o seletor ficou mostrando quem não entrou
+      return;
+    }
+  }
+
+  const res = await ScaleService.reassignSlot(scaleId, slotId, entraId, { nomePorId: escalaNomePorId() });
   if (!res.success) { toast('Erro: ' + (res.error || 'falha'), 'error'); renderEscalaGestao(); return; }
   if (!res.data.changed) return;
 
@@ -1601,8 +1900,17 @@ async function trocarPessoaEscala(scaleId, slotId, personId) {
   if (res.data.published) {
     const pub = await ScaleService.publishToAgenda(scaleId);
     msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
+    if (scale && slotAntes && !escalaEhPassada(slotAntes.day || scale.date)) {
+      const onde = escalaOndeDaVaga(scale, slotAntes);
+      const avisos = [];
+      if (entraId) avisos.push({ pid: entraId, title: 'Você entrou na escala',
+        body: `A gestão colocou você em ${onde}. Já está na sua agenda.` });
+      if (saiId) avisos.push({ pid: saiId, title: 'Você saiu da escala',
+        body: `A gestão tirou você de ${onde}.${entraId ? ` Quem entrou no seu lugar: ${escalaPersonName(entraId)}.` : ''} Sua agenda já está atualizada.` });
+      msg += escalaResumoDosAvisos(await escalaEnviarAvisosDeVaga(scaleId, avisos));
+    }
   }
-  toast(msg, res.data.published ? 'success' : 'success');
+  toast(msg, 'success', 8000);
   await escalaLoadBase();
   renderEscalaGestao();
 }
@@ -1642,8 +1950,20 @@ async function inverterVagasEscala(scaleId, slotAId, slotBId) {
   if (res.data.published) {
     const pub = await ScaleService.publishToAgenda(scaleId);
     msg += pub.success ? ' Agenda republicada.' : ' ⚠️ Falhou republicar na agenda — republique na mão.';
+    // Os dois mudaram de posto (unidade e/ou modalidade) e a agenda mudou
+    // junto: sem aviso, cada um aparece na unidade antiga.
+    if (!escalaEhPassada(a.day || scale.date)) {
+      const avisos = [];
+      const novoPosto = (pid, vagaNova) => {
+        if (pid) avisos.push({ pid, title: 'Sua vaga na escala mudou',
+          body: `A gestão trocou as vagas deste dia: você agora fica em ${escalaOndeDaVaga(scale, vagaNova)}. Sua agenda já está atualizada.` });
+      };
+      novoPosto(a.assignedPersonId, b);
+      novoPosto(b.assignedPersonId, a);
+      msg += escalaResumoDosAvisos(await escalaEnviarAvisosDeVaga(scaleId, avisos));
+    }
   }
-  toast(msg, 'success');
+  toast(msg, 'success', 8000);
   await escalaLoadBase();
   renderEscalaGestao();
 }
@@ -1676,9 +1996,25 @@ function renderEscalaDetail(scale) {
     const req = slot.requiredModalityId;
     const ativos = Array.from(EscalaSmartState.teacherMap.values()).filter(t => t.isActive !== false);
     const temMod = (t) => !req || (t.modalityIds || []).includes(req);
-    const opt = (t) => `<option value="${t.id}" ${t.id === slot.assignedPersonId ? 'selected' : ''}>${t.name}</option>`;
-    const aptos = ativos.filter(temMod).map(opt).join('');
-    const outros = ativos.filter(t => !temMod(t)).map(opt).join('');
+    // Cada nome leva junto o que a gestão precisa saber antes de escolher:
+    // marcou "Não posso", já está no dia, trabalha numa data colada. Quem está
+    // livre vem primeiro e quem marcou "Não posso" fica por último — <option>
+    // não aceita cor, então a ordem e o texto fazem o serviço.
+    const prefById = escalaPrefsDe(scale.id);
+    const dias = escalaVizinhancaDias();
+    const comSituacao = (t) => {
+      if (t.id === slot.assignedPersonId) return { t, peso: 0, marca: '' };
+      const sit = ScaleService.situacaoParaTroca({
+        scale, slotId: slot.id, personId: t.id, prefById, scales: EscalaSmartState.scales, dias,
+      });
+      const avisos = escalaAvisosDaSituacao(sit);
+      return { t, peso: sit.naoPosso ? 2 : (avisos.length ? 1 : 0), marca: avisos.length ? ` — ${avisos.join(' · ')}` : '' };
+    };
+    // `sort` é estável: dentro do mesmo peso, a ordem do cadastro se mantém.
+    const ordenar = (lista) => lista.map(comSituacao).sort((a, b) => a.peso - b.peso);
+    const opt = (x) => `<option value="${x.t.id}" ${x.t.id === slot.assignedPersonId ? 'selected' : ''}>${escalaEsc(x.t.name)}${escalaEsc(x.marca)}</option>`;
+    const aptos = ordenar(ativos.filter(temMod)).map(opt).join('');
+    const outros = ordenar(ativos.filter(t => !temMod(t))).map(opt).join('');
     return `<option value="">— vaga aberta —</option>${aptos}` +
            (outros ? `<optgroup label="Não habilitados nesta modalidade">${outros}</optgroup>` : '');
   };
@@ -2974,5 +3310,9 @@ window.escalaJanelasPorTipo = escalaJanelasPorTipo;
 window.salvarStaffEvento = salvarStaffEvento;
 window.abrirAjusteFrequencia = abrirAjusteFrequencia;
 window.aplicarAjusteFrequencia = aplicarAjusteFrequencia;
+window.salvarFolgaMinima = salvarFolgaMinima;
+window.abrirTextoWhatsApp = abrirTextoWhatsApp;
+window.escalaWhatsSet = escalaWhatsSet;
+window.copiarTextoWhatsApp = copiarTextoWhatsApp;
 
 console.log('[CrossTainer Professores] professores-escala-smart.js carregado · Escala Inteligente (5b)');

@@ -855,6 +855,215 @@
     return out;
   }
 
+  /**
+   * PURO: quantos DIAS de distância contam como "data vizinha".
+   *
+   * A gestão escolhe em sábados de folga entre uma escala e outra (Rafael
+   * Rojais, 01/10/2026: "uma regra de ter pelo menos duas ou três semanas de
+   * distância"). 1 sábado de folga = o de sempre (±7 dias: não pega dois
+   * seguidos); 2 = ±14; 3 = ±21. Qualquer coisa fora de 1–3 cai no padrão —
+   * um valor torto em `scale_config` não pode virar regra sem ninguém ver.
+   */
+  const FOLGA_PADRAO = 1;
+  function vizinhancaDias(config) {
+    const n = Number(config && config.folgaMinimaSabados);
+    return 7 * ((n === 1 || n === 2 || n === 3) ? n : FOLGA_PADRAO);
+  }
+
+  /**
+   * PURO: em quais datas de escala PERTO desta a pessoa já está. Mesma régua de
+   * `personsOnNearbyScale` (sábado, feriado e domingo especial; a própria data
+   * fica de fora), mas respondendo por UMA pessoa e dizendo QUAIS datas — é o
+   * que a tela precisa pra avisar "trabalha também em 26/09".
+   * @returns {string[]} datas ISO, em ordem
+   */
+  function datasVizinhasDaPessoa(scales, personId, dateISO, dias) {
+    if (!personId || !dateISO) return [];
+    const janela = (dias == null) ? 7 : dias;
+    const base = new Date(dateISO + 'T12:00:00');
+    if (isNaN(base)) return [];
+    const out = new Set();
+    (scales || []).forEach(s => {
+      if (!s || !s.date || s.date === dateISO) return;
+      if (s.tipo !== 'sabado' && s.tipo !== 'feriado' && s.tipo !== 'domingo_especial') return;
+      const d = new Date(s.date + 'T12:00:00');
+      if (isNaN(d)) return;
+      if (Math.abs(Math.round((d - base) / 86400000)) > janela) return;
+      if ((s.slots || []).some(sl => sl.assignedPersonId === personId)) out.add(s.date);
+    });
+    return Array.from(out).sort();
+  }
+
+  /**
+   * PURO: o que a gestão precisa saber ANTES de pôr esta pessoa nesta vaga.
+   *
+   * O motor nunca escala quem marcou "Não posso" — mas a troca na mão punha, e
+   * a lista não dizia nada (Alan Brito, 12/09/2026: tirado do 26/09 e posto no
+   * dia em que tinha avisado que não podia). Não decide nada: só informa. Quem
+   * decide é a gestão, que às vezes combinou por telefone.
+   *
+   * @param {{scale:Object, slotId:string, personId:string|null,
+   *          prefById:Object<string,string>, scales:Array, dias:number}} p
+   * @returns {{naoPosso:boolean, noMesmoDia:boolean, vizinhas:string[]}}
+   */
+  function situacaoParaTroca(p) {
+    const out = { naoPosso: false, noMesmoDia: false, vizinhas: [] };
+    const scale = (p && p.scale) || null;
+    const pid = p && p.personId;
+    if (!scale || !pid) return out;
+    const slot = (scale.slots || []).find(s => s.id === p.slotId) || {};
+    out.naoPosso = ((p.prefById || {})[pid] === 'nao_posso');
+    // Mesma leitura de dia do `reassignSlot`: sem `day` dos dois lados é o
+    // mesmo dia (sábado/feriado); no fim de ano cada vaga tem o seu.
+    const mesmoDia = (s) => !s.day || !slot.day || s.day === slot.day;
+    out.noMesmoDia = (scale.slots || []).some(s => s.id !== p.slotId && mesmoDia(s) && s.assignedPersonId === pid);
+    out.vizinhas = datasVizinhasDaPessoa(p.scales, pid, scale.date, p.dias);
+    return out;
+  }
+
+  /**
+   * PURO: uma troca de AULA entre professores deixa quem assume com escalas
+   * coladas?
+   *
+   * A regra da folga só existia na montagem. A troca combinada entre dois
+   * professores passava por fora dela: em set/2026 o Vagner assumiu o 26/09 do
+   * Thiago e ficou com 26/09 e 03/10 seguidos, sem que quem registrou ou a
+   * gestão que confirmou vissem isso.
+   *
+   * Só fala de aula DE ESCALA: a data tem escala de sábado/feriado/domingo
+   * especial e o titular está numa vaga dela. Aula de grade não entra.
+   * `ignorarDatas` são os dias dos quais o substituto está SAINDO por outra
+   * troca (a troca casada) — contar esses seria avisar de um dia que ele não
+   * vai mais trabalhar.
+   *
+   * @param {{scales:Array, dateISO:string, titularId:string, substitutoId:string,
+   *          dias:number, ignorarDatas:string[]}} p
+   * @returns {string[]} datas ISO em ordem; [] quando não há o que avisar
+   */
+  function vizinhasDaTrocaDeAula(p) {
+    if (!p || !p.dateISO || !p.titularId || !p.substitutoId) return [];
+    const daEscala = (p.scales || []).some(s => s && s.date === p.dateISO
+      && (s.tipo === 'sabado' || s.tipo === 'feriado' || s.tipo === 'domingo_especial')
+      && (s.slots || []).some(sl => sl.assignedPersonId === p.titularId));
+    if (!daEscala) return [];
+    const ignorar = new Set(p.ignorarDatas || []);
+    return datasVizinhasDaPessoa(p.scales, p.substitutoId, p.dateISO, p.dias).filter(d => !ignorar.has(d));
+  }
+
+  // ── Escala em texto, pronta pra colar no WhatsApp ────────────────────
+  const DIAS_CURTOS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const PARTICULAS = { de: 1, da: 1, do: 1, dos: 1, das: 1, e: 1 };
+  const _palavras = (nome) => String(nome || '').trim().split(/\s+/).filter(Boolean).map(w => {
+    const min = w.toLocaleLowerCase('pt-BR');
+    return PARTICULAS[min] ? min : min.charAt(0).toLocaleUpperCase('pt-BR') + min.slice(1);
+  });
+  /** "VAGNER TEIXEIRA DE LIMA" → "Vagner Teixeira": o primeiro nome e o próximo que não seja de/da/dos. */
+  function nomeCurto(nome) {
+    const ws = _palavras(nome);
+    if (ws.length <= 1) return ws.join('');
+    const segundo = ws.slice(1).find(w => !PARTICULAS[w]);
+    return segundo ? `${ws[0]} ${segundo}` : ws[0];
+  }
+
+  /**
+   * PURO: a escala em texto, do jeito que o grupo do WhatsApp já lia antes do
+   * sistema (Rafael Rojais, 01/10/2026: "uma coisa mais fácil de ver, como se
+   * fosse uma mensagem do WhatsApp, daí a gente mandava no grupo").
+   *
+   * Só sábado, feriado e domingo especial — Escola Interna, evento e fim de
+   * ano têm outra forma e outro público. Vaga aberta APARECE: omitir
+   * esconderia justamente o que o grupo precisa ver. Quem escolhe o período e
+   * se entra só o que está publicado é a tela; aqui não há filtro de data.
+   *
+   * @param {Array} scales
+   * @param {{formato:'dia'|'pessoa', titulo:string, nomePorId:Object,
+   *          unidadePorId:Object, modalidadePorId:Object}} opts
+   * @returns {string} '' quando não há o que mostrar
+   */
+  function textoParaWhatsApp(scales, opts) {
+    opts = opts || {};
+    const lista = (scales || [])
+      .filter(s => s && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || ''))
+        && (s.tipo === 'sabado' || s.tipo === 'feriado' || s.tipo === 'domingo_especial'))
+      .slice().sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+    if (!lista.length) return '';
+
+    const nomes = opts.nomePorId || {};
+    const unidades = opts.unidadePorId || {};
+    const mods = opts.modalidadePorId || {};
+    const unidade = (id) => String(unidades[id] || id || '').replace(/CrossTainer\s*/i, '') || String(id || '');
+    const modalidade = (sl) => sl.requiredModalityName || mods[sl.requiredModalityId] || '';
+    const horario = (sl) => (sl.startTime && sl.endTime) ? `${sl.startTime}–${sl.endTime}` : '';
+    const rotTipo = (s) => (s.tipo === 'feriado' ? 'feriado' : s.tipo === 'domingo_especial' ? 'domingo especial' : '');
+    const quando = (s) => { const [, m, d] = s.date.split('-'); return `${DIAS_CURTOS[new Date(s.date + 'T12:00:00').getDay()]} ${d}/${m}`; };
+
+    // Nome curto, a não ser que dois escalados fiquem iguais — aí os dois saem
+    // por extenso, senão o grupo não sabe qual "Ana Silva" é.
+    const ids = new Set();
+    lista.forEach(s => (s.slots || []).forEach(sl => { if (sl && sl.assignedPersonId) ids.add(sl.assignedPersonId); }));
+    const vezes = {};
+    ids.forEach(id => { if (nomes[id]) { const c = nomeCurto(nomes[id]); vezes[c] = (vezes[c] || 0) + 1; } });
+    const pessoa = (id) => {
+      if (!nomes[id]) return String(id);
+      const c = nomeCurto(nomes[id]);
+      return vezes[c] > 1 ? _palavras(nomes[id]).join(' ') : c;
+    };
+    const horariosDe = (slots) => Array.from(new Set(slots.map(horario).filter(Boolean)));
+
+    const linhas = [`*${opts.titulo || 'ESCALA'} · CrossTainer*`];
+    const rodape = 'Algo errado? Avise a gestão e registre a troca no sistema.';
+
+    if (opts.formato === 'pessoa') {
+      linhas.push('_Quem trabalha em quais dias_', '');
+      const todos = [];
+      lista.forEach(s => (s.slots || []).forEach(sl => { if (sl) todos.push(sl); }));
+      const hs = horariosDe(todos.filter(sl => sl.assignedPersonId));
+      const unico = hs.length === 1 ? hs[0] : null;
+      const porPessoa = new Map();
+      const abertas = [];
+      lista.forEach(s => (s.slots || []).forEach(sl => {
+        if (!sl) return;
+        const dia = quando(s).toLocaleLowerCase('pt-BR') + (rotTipo(s) ? ` (${rotTipo(s)})` : '');
+        if (!sl.assignedPersonId) {
+          abertas.push(`${dia} ${unidade(sl.unitId)}${modalidade(sl) ? ` (${modalidade(sl)})` : ''}`);
+          return;
+        }
+        const item = `${dia} ${unidade(sl.unitId)}${(!unico && horario(sl)) ? ` ${horario(sl)}` : ''}`;
+        if (!porPessoa.has(sl.assignedPersonId)) porPessoa.set(sl.assignedPersonId, []);
+        porPessoa.get(sl.assignedPersonId).push(item);
+      }));
+      Array.from(porPessoa.entries())
+        .map(([id, dias]) => ({ nome: pessoa(id), dias }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        .forEach(p => linhas.push(`*${p.nome}*: ${p.dias.join(' · ')}`));
+      if (abertas.length) linhas.push('', `Vagas abertas: ${abertas.join(' · ')}`);
+      linhas.push('');
+      if (unico) linhas.push(`Todos os dias das ${unico.replace('–', ' às ')}.`);
+      linhas.push(rodape);
+      return linhas.join('\n');
+    }
+
+    lista.forEach(s => {
+      const slots = (s.slots || []).filter(Boolean);
+      const hs = horariosDe(slots);
+      const unico = hs.length === 1 ? hs[0] : null;
+      linhas.push('', `*${quando(s)}*${rotTipo(s) ? ` · ${rotTipo(s)}` : ''}${unico ? ` · ${unico}` : ''}`);
+      const porUnidade = new Map();
+      slots.forEach(sl => {
+        const det = [modalidade(sl), unico ? '' : horario(sl)].filter(Boolean).join(', ');
+        const quem = sl.assignedPersonId ? pessoa(sl.assignedPersonId) : 'vaga aberta';
+        if (!porUnidade.has(sl.unitId)) porUnidade.set(sl.unitId, []);
+        porUnidade.get(sl.unitId).push(det ? `${quem} (${det})` : quem);
+      });
+      porUnidade.forEach((quem, uid) => {
+        const juntos = quem.length > 1 ? `${quem.slice(0, -1).join(', ')} e ${quem[quem.length - 1]}` : quem[0];
+        linhas.push(`${unidade(uid)}: ${juntos}`);
+      });
+    });
+    linhas.push('', rodape);
+    return linhas.join('\n');
+  }
+
   function buildCandidates(ctx) {
     const merito = ctx.meritoById || {};
     const fair = ctx.fairnessById || {};
@@ -1059,9 +1268,13 @@
       // Ler AQUI DENTRO e não confiar no chamador é de propósito: chamador que
       // esquecesse de passar faria o rodízio decidir num universo diferente sem
       // erro nenhum — a falha silenciosa clássica desta base.
+      // A config é lida no máximo uma vez, e só se alguém precisar dela (marco
+      // zero e folga mínima moram no mesmo documento).
+      let _cfg = null;
+      const lerConfig = async () => (_cfg || (_cfg = await ScaleConfigService.get(deps)));
       let marcoZero = ctx.marcoZero;
       if (marcoZero === undefined) {
-        const cfg = await ScaleConfigService.get(deps);
+        const cfg = await lerConfig();
         if (!cfg.success) {
           // Mesma lógica do warn de `scalesDoAno` vazio, logo abaixo: a
           // consolidação segue (12 meses móveis é comportamento válido), mas
@@ -1123,8 +1336,19 @@
       // pro fim da fila por causa de um dia que está prestes a deixar de
       // existir — enviesando justamente a remontagem que existe pra corrigir o
       // viés. (26/08/2026)
+      //
+      // A distância é a folga que a gestão configurou (01/10/2026): 1 sábado de
+      // folga = ±7 dias, 2 = ±14, 3 = ±21. Lida AQUI, como o marco zero, pelo
+      // mesmo motivo: chamador que esquecesse de passar montaria a escala com
+      // a regra antiga sem erro nenhum. Continua teto MACIO no motor.
+      let viz = ctx.vizinhancaDias;
+      if (viz == null) {
+        const cfg = await lerConfig();
+        if (!cfg.success) console.warn(`[ScaleService.consolidate] não deu pra ler scale_config para a folga mínima de ${scale.date} — valendo 1 sábado de folga.`);
+        viz = vizinhancaDias(cfg.success ? cfg.data : null);
+      }
       const vizinhoById = personsOnNearbyScale(
-        scalesDoAno.filter(s => s && !excluir.has(s.date)), scale.date);
+        scalesDoAno.filter(s => s && !excluir.has(s.date)), scale.date, viz);
       const candidates = buildCandidates({
         teachers, meritoById: ctx.meritoById || {}, fairnessById, prefById,
         cotaById: ctx.cotaById || {}, jaNoLoteById: ctx.jaNoLoteById || {},
@@ -1466,5 +1690,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });

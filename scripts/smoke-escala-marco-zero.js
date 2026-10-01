@@ -154,6 +154,7 @@ async function rodarTestesDaTela() {
       tiposIrmaos: SS.tiposIrmaos,
       contarPorPessoa: SS.contarPorPessoa,
       fmtDataLonga: SS.fmtDataLonga,
+      vizinhancaDias: SS.vizinhancaDias,   // o bloco de configurações também mostra a folga mínima
       ScaleConfigService: {
         save: async (patch) => {
           saveCalls++; savedPatch = patch;

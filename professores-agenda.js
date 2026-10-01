@@ -2100,6 +2100,17 @@ async function saveSubstitution() {
   const substTeacher = AgendaState.teachersMap.get(substituteTeacherId);
   const substituteUserId = substTeacher && substTeacher.userId ? substTeacher.userId : null;
 
+  // Aula de escala (sábado/feriado): avisa ANTES de enviar se a troca deixa
+  // quem assume com escalas coladas. A regra da folga só valia na montagem, e
+  // a troca combinada entre dois professores passava por fora dela (Vagner,
+  // set/2026: 26/09 e 03/10 seguidos). O aviso mora na tela de Substituições.
+  if (typeof subsAvisoAntesDeRegistrar === 'function') {
+    const aviso = await subsAvisoAntesDeRegistrar({ cls: findClassAnywhere(classId), substitutoId: substituteTeacherId });
+    if (aviso && !confirm(`${aviso}.
+
+Registrar a troca mesmo assim?`)) return;
+  }
+
   const btn = document.getElementById('substitutionSaveBtn');
   btn.disabled = true; btn.textContent = 'Enviando…';
 

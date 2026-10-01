@@ -209,6 +209,7 @@
   <div class="card">
     <h3 id="substituicoes">🔄 Substituições — e a sua palavra final</h3>
     <p><strong>Nenhuma troca de professor vale sem você.</strong> O caminho é sempre o mesmo, em três passos:</p>
+    <p>Quando a troca é de uma aula de <strong>escala de sábado ou feriado</strong> e deixa quem assume com <strong>escalas próximas</strong> (pela folga configurada), o cartão da troca mostra um aviso laranja com as datas, e a pergunta de confirmação repete. Quem registra a troca vê o mesmo aviso antes de enviar. Você decide: confirmar assim mesmo, recusar, ou tirar a pessoa de um dos dias na Escala Inteligente.</p>
     <ol>
       <li><strong>Alguém registra</strong> — o titular ("passei minha aula pra Fulano") ou quem deu a aula ("essa aula quem deu fui eu").</li>
       <li><strong>O outro professor confirma</strong> — o que não estava do lado de quem registrou.</li>
@@ -284,7 +285,7 @@
       <li>O botão <strong>"📅 Publicar na agenda"</strong> que aparece <strong>dentro de um sábado</strong> publica <strong>só aquele</strong>.</li>
       <li>Pode clicar de novo sem medo: <strong>não duplica aula</strong> e não mexe em mês já fechado.</li>
     </ul>
-    <div class="warn">⚠️ <strong>Mexeu na escala depois de publicar? Publique de novo.</strong> Refazer, trocar pessoa ou inverter muda a <strong>escala</strong>; a <strong>agenda</strong> só acompanha quando você publica outra vez.</div>
+    <div class="warn">⚠️ <strong>Mexeu na escala depois de publicar? Publique de novo.</strong> Refazer muda a <strong>escala</strong>; a <strong>agenda</strong> só acompanha quando você publica outra vez. Trocar uma pessoa na mão e Inverter já atualizam a agenda sozinhos.</div>
   </div>
 
   <div class="card">
@@ -304,11 +305,34 @@
   </div>
 
   <div class="card">
+    <h3>✋ Trocar uma pessoa na mão</h3>
+    <p>Em cada vaga do dia tem um seletor pra trocar quem trabalha. A lista agora mostra, ao lado de cada nome, o que você precisa saber antes de escolher:</p>
+    <ul>
+      <li><strong>marcou Não posso</strong> — a pessoa respondeu que não pode nesse dia. Fica no fim da lista.</li>
+      <li><strong>trabalha também em…</strong> — já está numa escala de sábado ou feriado colada nessa, pela folga que você configurou.</li>
+      <li><strong>já está em outra vaga do dia</strong> — pra esse caso, use o <strong>⇄ Inverter</strong>.</li>
+    </ul>
+    <p>Quem aparece só com o nome está livre e vem primeiro. Se você escolher alguém com aviso, o sistema <strong>pergunta antes</strong> — dá pra colocar assim mesmo, quando já combinou com a pessoa.</p>
+    <p>Se a escala <strong>já está publicada</strong>, a agenda é atualizada na hora e <strong>quem entrou e quem saiu</strong> recebem aviso, no sino do sistema e por e-mail. Inverter duas vagas também avisa os dois do posto novo. Antes de publicar ninguém é avisado, porque o professor ainda não vê a escala.</p>
+    <div class="warn">⚠️ Quem <strong>não tem login</strong> não recebe aviso. A tela diz o nome e pede: <strong>avise por fora</strong>.</div>
+  </div>
+
+  <div class="card">
+    <h3>📋 Texto para o WhatsApp</h3>
+    <p>Nas abas <strong>Sábados</strong> e <strong>Feriados</strong>, o botão <strong>📋 Texto para o WhatsApp</strong> monta a escala do mês em texto, pronta pra colar no grupo. Escolha o mês e o formato — <strong>por dia</strong> (quem trabalha em cada data, por unidade) ou <strong>por pessoa</strong> (os dias de cada um) — e clique em <strong>Copiar</strong>.</p>
+    <ul>
+      <li>Só entra o que já está <strong>publicado</strong>. Se o mês tem data montada e <strong>ainda não publicada</strong>, a janela diz quais ficaram de fora.</li>
+      <li><strong>Vaga aberta aparece no texto</strong> — é justamente o que o grupo precisa ver.</li>
+      <li>Trocou alguém depois? Abra de novo e copie: o texto sempre sai da escala como ela está agora.</li>
+    </ul>
+  </div>
+
+  <div class="card">
     <h3>⚖️ Como o sistema decide quem entra</h3>
     <p>A ordem é <strong>rodízio primeiro, mérito só pra desempatar</strong>. Quem pegou menos sábados vem antes; entre duas pessoas empatadas, entra quem tem mais pontos.</p>
     <ul>
       <li><strong>A conta é dos últimos 12 meses</strong>, não do ano do calendário — senão todo 1º de janeiro o rodízio zeraria e quem já tinha pegado muito voltaria pro começo da fila.</li>
-      <li><strong>Ninguém pega dois sábados seguidos</strong>, salvo se não houver outra pessoa disponível. O sistema prefere repetir alguém a deixar vaga aberta.</li>
+      <li><strong>Ninguém pega dois sábados seguidos</strong>, salvo se não houver outra pessoa disponível. O sistema prefere repetir alguém a deixar vaga aberta. Dá pra pedir mais descanso: veja <strong>Sábados de folga entre uma escala e outra</strong>, logo abaixo.</li>
       <li><strong>Feriado dá descanso nos sábados vizinhos</strong>, dos dois lados — quem trabalha no feriado não emenda com o sábado antes nem com o de depois.</li>
       <li>Na aba <strong>Feriados</strong>, a conta é <strong>só de feriados</strong>. Sábado conta com sábado, feriado com feriado.</li>
     </ul>
@@ -335,6 +359,17 @@
     <h3>🗓️ De quando a contagem começa (marco zero)</h3>
     <p>Por padrão, a "justiça" de cada sábado ou feriado conta os <strong>últimos 12 meses</strong>. Se precisar que a contagem valha só a partir de uma data — depois de uma reorganização da escala, por exemplo — dá pra fixar esse início em <strong>⚙️ Configurações da escala</strong> (só Admin vê essa opção).</p>
     <p>Com o marco zero definido, uma nota <strong>"Contando a partir de…"</strong> aparece em três lugares: no painel de Equilíbrio, no histórico do ano e nos cartões da aba Por pessoa — pra ninguém estranhar um número que mudou. O botão <strong>"Voltar aos 12 meses"</strong> desfaz e volta ao padrão.</p>
+  </div>
+
+  <div class="card">
+    <h3>🛌 Sábados de folga entre uma escala e outra</h3>
+    <p>No mesmo bloco <strong>⚙️ Configurações da escala</strong> (só Admin), você escolhe quantos sábados livres a pessoa deve ter entre dois dias de escala: <strong>1</strong> (não pega dois seguidos — o padrão), <strong>2</strong> ou <strong>3</strong>. Feriado conta como dia de escala.</p>
+    <ul>
+      <li>Vale na <strong>montagem</strong>, no <strong>Ajustar</strong>, nos avisos da <strong>troca na mão</strong> e nos da <strong>troca entre professores</strong>.</li>
+      <li>É <strong>preferência</strong>, não proibição: se não houver outra pessoa habilitada, o sistema escala assim mesmo. Nunca deixa vaga aberta por causa da folga.</li>
+      <li>Mudar o número <strong>não mexe em escala já montada</strong>. Pra aplicar numa janela que já existe, use <strong>🔄 Refazer</strong>.</li>
+    </ul>
+    <div class="tip">💡 Com 16 pessoas e 4 vagas por sábado, o rodízio perfeito dá 3 sábados de folga. Feriado e "não posso" apertam essa conta — com 3, é mais comum o sistema precisar repetir alguém.</div>
   </div>
 
   <div class="card">

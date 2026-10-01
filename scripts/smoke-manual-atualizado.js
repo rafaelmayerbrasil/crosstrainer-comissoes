@@ -241,6 +241,28 @@ function exige(txt, ondeNome, assuntos) {
   ok('admin: comissão automática, mês congelado com recibo, balcão fora da comissão');
 }
 {
+  // 01/10/2026: os ajustes pedidos no grupo da gestão (Rafael Rojais, Vagner,
+  // o "não podia dia 12") — troca na mão que mostra e avisa, escala em texto
+  // pro WhatsApp e folga mínima configurável.
+  exige(admin, 'manual-admin', {
+    'a lista de troca mostra quem não pode': 'marcou Não posso',
+    'quem entrou e quem saiu são avisados': 'quem entrou e quem saiu',
+    'pessoa sem login é avisada por fora': 'avise por fora',
+    'escala em texto pro grupo': 'Texto para o WhatsApp',
+    'só entra o que está publicado': 'ainda não publicada',
+    'folga mínima configurável': 'Sábados de folga entre uma escala e outra',
+    'troca entre professores avisa a gestão': 'escalas próximas',
+  });
+  ok('admin: troca na mão que avisa, texto para o WhatsApp e folga mínima configurável');
+}
+{
+  exige(prof, 'manual-professores', {
+    'aviso quando a gestão troca o dia': 'trocar você de dia',
+    'aviso antes de registrar troca que cola escalas': 'escalas próximas',
+  });
+  ok('professor: aviso quando a gestão troca o dia e quando a troca cola duas escalas');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
