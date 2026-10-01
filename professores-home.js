@@ -20,6 +20,20 @@ function _homeHoje() {
   return new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 }
 
+/**
+ * A agenda está acabando? Recebe as aulas marcadas de 3 semanas em diante.
+ *
+ * A grade é gerada toda segunda, 8 semanas à frente — então SEMPRE deveria
+ * haver aula da grade lá na frente. Se só há aula de escala (ou nada), o
+ * gerador parou. Foi o que aconteceu de 31/08 a 01/10/2026: cinco semanas
+ * travado e ninguém viu, porque a agenda já estava cheia até 19/10.
+ * `null` = não deu pra consultar: não inventa alarme.
+ */
+function homeAgendaAcabando(aulasFuturas) {
+  if (!Array.isArray(aulasFuturas)) return false;
+  return !aulasFuturas.some(c => c && !!c.slotId);
+}
+
 async function _homeSafeCount(factory) {
   try { const snap = await factory(); return snap.size; }
   catch (e) { console.warn('[home count]', e && e.message); return null; }
@@ -92,7 +106,18 @@ async function _renderHomeAdmin() {
     if (typeof HourDeclarationService === 'object') horas = await HourDeclarationService.aValidar();
   } catch (e) { console.warn('[home horas]', e && e.message); }
 
+  // A agenda continua sendo gerada? (ver homeAgendaAcabando)
+  let agendaAcabando = false;
+  try {
+    const lim = new Date(); lim.setHours(0, 0, 0, 0); lim.setDate(lim.getDate() + 21);
+    const fut = await db.collection('classes').where('scheduledDate', '>=', lim).limit(80).get();
+    agendaAcabando = homeAgendaAcabando(fut.docs.map(d => d.data()));
+  } catch (e) { console.warn('[home agenda]', e && e.message); }
+
   const chips = [];
+  if (agendaAcabando) {
+    chips.push(`<button class="home-chip" onclick="navigateTo('agenda')"><b>!</b> ${_homeEsc('A agenda não tem aulas daqui a 3 semanas — abra a Grade de Horários e toque em "Gerar agenda agora"')}</button>`);
+  }
   if (horas.length) {
     // Abre a lista no mês mais antigo que está esperando — é o que segura o fechamento.
     const [a, m] = horas.map(h => String(h.mes)).sort()[0].split('-').map(Number);

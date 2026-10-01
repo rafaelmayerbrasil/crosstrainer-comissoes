@@ -73,36 +73,10 @@ exports.healthCheck = onRequest({ invoker: 'public' }, (req, res) => {
 // classes geradas pra Sexta UTC (= Quinta 21h BR) quando o admin queria Sexta BR.
 // Fix: toda lógica de iteração agora é em "BR midnight" representado como UTC+3h.
 
-const BR_OFFSET_HOURS = 3;
-const BR_OFFSET_MS = BR_OFFSET_HOURS * 60 * 60 * 1000;
-
-/** Retorna o instante UTC que corresponde a (year, month, day, 00:00) horário BR. */
-function brMidnightUTC(year, month, day) {
-  return new Date(Date.UTC(year, month, day, BR_OFFSET_HOURS, 0, 0));
-}
-
-/** Componentes BR de uma Date (que pode estar em qualquer fuso). */
-function brComponents(date) {
-  const shifted = new Date(date.getTime() - BR_OFFSET_MS);
-  return {
-    year:    shifted.getUTCFullYear(),
-    month:   shifted.getUTCMonth(),       // 0-11
-    day:     shifted.getUTCDate(),
-    weekday: shifted.getUTCDay(),         // 0=Dom..6=Sáb
-  };
-}
-
-/** YYYYMMDD em BR a partir de uma Date. */
-function ymdFromDateBR(d) {
-  const c = brComponents(d);
-  return `${c.year}${String(c.month + 1).padStart(2, '0')}${String(c.day).padStart(2, '0')}`;
-}
-
-/** YYYY-MM-DD em BR a partir de uma Date (formato ISO para comparação). */
-function ymdISOFromDateBR(d) {
-  const c = brComponents(d);
-  return `${c.year}-${String(c.month + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`;
-}
+// As contas de data e o laço que decide quais aulas nascem moram em
+// class-candidates.js, onde são testados rodando de verdade.
+const classCandidates = require('./class-candidates.js');
+const { BR_OFFSET_HOURS, BR_OFFSET_MS, brMidnightUTC, brComponents, ymdFromDateBR, ymdISOFromDateBR } = classCandidates;
 
 /** HH:MM em BR a partir de uma Date — usado pra saber se a aula de hoje já acabou. */
 function hhmmFromDateBR(d) {
@@ -241,7 +215,7 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
   //   fim    = hoje + weeksAhead semanas, BR 23:59:59
   const nowComponents = brComponents(new Date());
   const todayBR = brMidnightUTC(nowComponents.year, nowComponents.month, nowComponents.day);
-  const endBR = new Date(todayBR.getTime() + (weeksAhead * 7 * 24 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000) - 1);
+  const endBR = classCandidates.fimDaJanela(todayBR, weeksAhead);
 
   // 1) Lista slots ativos
   const slotsSnap = await firestore.collection('schedule_slots').where('isActive', '==', true).get();
@@ -286,71 +260,21 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
     });
   });
 
-  let vacationSkippedCount = 0;
-  let pastTodaySkippedCount = 0;
-  let escalaSkippedCount = 0;   // dia que pertence a uma escala (sábado/feriado)
-
   // Referência de "agora" em BR, pra não criar aula de hoje que já terminou.
   const agoraBR = new Date();
-  const hojeISO = ymdISOFromDateBR(agoraBR);
-  const agoraHHMM = hhmmFromDateBR(agoraBR);
 
-  // 2) Compõe todos os pares (slot, data) candidatos — iterando em dias BR
-  const candidates = [];   // [{ slotId, slot, date, classId, extras }]
-  for (const slot of slots) {
-    if (slot.weekday == null || !slot.startTime || !slot.endTime) continue;
-    let cursorMs = todayBR.getTime();
-    while (cursorMs <= endBR.getTime()) {
-      const cursor = new Date(cursorMs);
-      const c = brComponents(cursor);
-      if (c.weekday === slot.weekday) {
-        // Sprint 6a — pula se professor está de férias nesse dia
-        const ymdStr = ymdISOFromDateBR(cursor);
-        const teacherVacations = vacationDatesByTeacher.get(slot.teacherId);
-        if (teacherVacations && teacherVacations.has(ymdStr)) {
-          vacationSkippedCount++;
-          cursorMs += ONE_DAY_MS;
-          continue;
-        }
-
-        // Aula de HOJE que já terminou não nasce (decisão do Rafael, 13/08/2026).
-        // Sem isso, mover um horário às 13h criava a aula das 07:00 de hoje, que
-        // nunca aconteceu — e entrava na conta de horas do mês como se tivesse
-        // acontecido. O cron das segundas 02:00 não é afetado: às 2 da manhã
-        // nenhuma aula do dia terminou ainda.
-        if (classPropagation.hasAlreadyEndedToday(ymdStr, slot.endTime, hojeISO, agoraHHMM)) {
-          pastTodaySkippedCount++;
-          cursorMs += ONE_DAY_MS;
-          continue;
-        }
-
-        const classId = `${slot.id}_${ymdFromDateBR(cursor)}`;
-        const feriado = feriadosByDate.get(ymdStr);
-        const scale = scalesByDate.get(`${ymdStr}_${slot.unitId}`);
-
-        // Sábado, feriado e domingo especial pertencem à ESCALA: quem trabalha
-        // é quem ela escalou, e a grade normal não vale nesse dia. Antes a
-        // escala só servia de etiqueta e a grade era gerada do mesmo jeito —
-        // por isso 07/09 (feriado) tinha 78 aulas de segunda-feira comum
-        // agendadas, e cada sábado tinha 2 professores por modalidade.
-        if (escalaEhDonaDoDia(scale)) {
-          escalaSkippedCount++;
-          continue;
-        }
-
-        const extras = {
-          isHoliday: !!feriado || (scale && scale.scaleTypeId === 'feriado'),
-          holidayName: (feriado && feriado.name) || (scale && scale.scaleTypeId === 'feriado' ? scale.name : null),
-          holidayType: (feriado && feriado.type) || null,
-          specialScaleType: scale ? scale.scaleTypeId : (feriado ? 'feriado' : null),
-          specialScaleId: scale ? scale.id : null,
-        };
-
-        candidates.push({ slotId: slot.id, slot, date: cursor, classId, extras });
-      }
-      cursorMs += ONE_DAY_MS;
-    }
-  }
+  // 2) Compõe todos os pares (horário, dia) candidatos. O laço mora em
+  //    class-candidates.js — de 31/08 a 01/10/2026 ele travou aqui dentro, toda
+  //    segunda-feira, sem que nenhum teste o rodasse.
+  const composto = classCandidates.comporCandidatos({
+    slots, inicio: todayBR, semanas: weeksAhead,
+    feriadosByDate, scalesByDate, vacationDatesByTeacher,
+    hojeISO: ymdISOFromDateBR(agoraBR), agoraHHMM: hhmmFromDateBR(agoraBR),
+  });
+  const candidates = composto.candidates;   // [{ slotId, slot, date, classId, extras }]
+  const vacationSkippedCount = composto.vacationSkipped;
+  const pastTodaySkippedCount = composto.pastTodaySkipped;
+  const escalaSkippedCount = composto.escalaSkipped;   // dia que pertence a uma escala (sábado/feriado)
 
   if (candidates.length === 0) {
     return {
