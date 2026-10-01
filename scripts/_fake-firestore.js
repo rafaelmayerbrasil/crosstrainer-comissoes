@@ -40,8 +40,17 @@ module.exports = function makeFakeDb() {
         // compara com a lista — como o Firestore de verdade. Os demais
         // operadores seguem tratados como igualdade, como sempre foram aqui.
         const pega = (o, f) => String(f).split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
+        // Faixa (>=, <=, >, <): compara como o Firestore. Data guardada vira
+        // texto ISO na cópia JSON, então a data da consulta é comparada como ISO.
+        const norm = (x) => (x instanceof Date ? x.toISOString() : (x && typeof x.toDate === 'function' ? x.toDate().toISOString() : x));
+        const FAIXA = { '>=': (a, b) => a >= b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '<': (a, b) => a < b };
         filters.forEach(([f, op, v]) => {
-          rows = rows.filter(r => (op === 'in' && Array.isArray(v)) ? v.indexOf(pega(r.data(), f)) !== -1 : pega(r.data(), f) === v);
+          rows = rows.filter(r => {
+            const atual = pega(r.data(), f);
+            if (op === 'in' && Array.isArray(v)) return v.indexOf(atual) !== -1;
+            if (FAIXA[op]) return atual != null && FAIXA[op](norm(atual), norm(v));
+            return atual === v;
+          });
         });
         if (order) rows.sort((a, b) => (a.data()[order] > b.data()[order] ? 1 : a.data()[order] < b.data()[order] ? -1 : 0));
         // `docs` sempre existiu; `forEach`/`size`/`empty` acompanham o snapshot

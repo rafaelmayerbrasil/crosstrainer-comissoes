@@ -86,7 +86,19 @@ async function _renderHomeAdmin() {
     avisos = av.success ? av.data.length : null;
   } catch (e) { console.warn('[home avisos]', e && e.message); }
 
+  // Horas do mês que os professores enviaram e esperam o OK da gestão.
+  let horas = [];
+  try {
+    if (typeof HourDeclarationService === 'object') horas = await HourDeclarationService.aValidar();
+  } catch (e) { console.warn('[home horas]', e && e.message); }
+
   const chips = [];
+  if (horas.length) {
+    // Abre a lista no mês mais antigo que está esperando — é o que segura o fechamento.
+    const [a, m] = horas.map(h => String(h.mes)).sort()[0].split('-').map(Number);
+    chips.push(_homeChip(horas.length, horas.length === 1 ? 'pessoa com horas do mês a validar' : 'pessoas com horas do mês a validar',
+      `horasGestaoAbrirMes(${a},${m})`));
+  }
   if (avisos) chips.push(_homeChip(avisos, avisos === 1 ? 'aviso de professor a responder' : 'avisos de professores a responder', "navigateTo('avisos-professores')"));
   if (ferias) chips.push(_homeChip(ferias, ferias === 1 ? 'pedido de férias a aprovar' : 'pedidos de férias a aprovar', "navigateTo('ferias')"));
   // Abre a caixa de pedidos (com a visão de gestão), não a lista de aulas:
@@ -169,6 +181,24 @@ async function _renderHomeProfessor() {
       ${aulasHtml}
     </div>`;
 
+  // Horas do mês: o mês que acabou e ainda não foi conferido, ou que a gestão devolveu.
+  try {
+    if (typeof HourDeclarationService === 'object' && typeof horasMesPadrao === 'function') {
+      const p = horasMesPadrao();
+      const mes = horasMesStr(p.ano, p.mes);
+      const lembrar = HourDeclaration.lembrete(await HourDeclarationService.daPessoa(pid, mes), mes, horasHojeISO());
+      if (lembrar) {
+        const txt = lembrar === 'devolvida'
+          ? `A gestão devolveu as suas horas de ${HourDeclaration.nomeDoMes(mes)} para corrigir`
+          : `Confira as suas horas de ${HourDeclaration.nomeDoMes(mes)} e envie para a gestão`;
+        html += `<div class="home-card home-pend">
+      <div class="home-pt">🕒 Horas do mês</div>
+      <div class="home-chips"><button class="home-chip" onclick="navigateTo('minhas-horas')">${_homeEsc(txt)}</button></div>
+    </div>`;
+      }
+    }
+  } catch (e) { console.warn('[home horas]', e && e.message); }
+
   if (pendingSubs) {
     html += `<div class="home-card home-pend">
       <div class="home-pt">🔄 Substituições</div>
@@ -178,6 +208,7 @@ async function _renderHomeProfessor() {
 
   body.innerHTML = html + _homeAtalhos([
     ['📅', 'Minha Agenda', 'minha-agenda'],
+    ['🕒', 'Minhas horas', 'minhas-horas'],
     ['💳', 'Meus Pagamentos', 'meus-pagamentos'],
     ['🏖️', 'Férias', 'ferias'],
   ]);

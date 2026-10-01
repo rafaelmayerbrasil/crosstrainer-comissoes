@@ -955,6 +955,58 @@
     .info-callout p:last-child { margin-bottom: 0; }
     .info-callout strong { color: var(--text); }
 
+    /* ─── HORAS DO MÊS (professor confere, gestão valida) ─── */
+    .horas-totais {
+      display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0;
+    }
+    .horas-totais > div {
+      flex: 1 1 120px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+    }
+    .horas-totais span { display: block; font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+    .horas-totais b { font-size: 22px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 1px; color: var(--text); }
+    .horas-totais b.horas-mais { color: var(--green); }
+    .horas-totais b.horas-menos, .horas-menos { color: var(--red); }
+    .horas-lista { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    .horas-dia { border-bottom: 1px solid var(--border); }
+    .horas-dia:last-child { border-bottom: none; }
+    .horas-dia-mudou { border-left: 3px solid var(--orange); }
+    .horas-dia-cab { display: flex; gap: 12px; align-items: center; padding: 10px 14px; flex-wrap: wrap; }
+    .horas-dia-data { min-width: 88px; font-weight: 600; color: var(--text); font-size: 13px; text-transform: capitalize; }
+    .horas-dia-info { flex: 1 1 180px; font-size: 13px; color: var(--text2); }
+    .horas-dia-turnos { color: var(--text); }
+    .horas-dia-inf { margin-top: 3px; color: var(--text); }
+    .horas-min { color: var(--text3); font-size: 12px; margin-left: 4px; }
+    .horas-sub { font-size: 12px; color: var(--text2); font-weight: 400; }
+    .horas-dia-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .horas-editor {
+      background: var(--surface2); border-top: 1px dashed var(--border2);
+      padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .horas-turno { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .horas-turno label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text2); }
+    .horas-turno input[type="time"] { width: 130px; font-size: 16px; }
+    .horas-check, .horas-fora label { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text); cursor: pointer; }
+    .horas-fora { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text2); }
+    .horas-previa { font-size: 13px; color: var(--text); min-height: 18px; }
+    .horas-erro { color: var(--red); font-size: 13px; font-weight: 600; }
+    .horas-editor-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .horas-novo-dia { margin-top: 14px; font-size: 13px; color: var(--text2); }
+    .horas-novo-dia-campos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+    .horas-novo-dia-campos input { width: auto; }
+    .horas-novo-dia .horas-dia { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+    .horas-rodape { margin: 18px 0 30px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+    .horas-rodape .btn { width: auto; }
+    .horas-detalhe { background: var(--surface2); border-top: 1px dashed var(--border2); padding: 12px 14px; font-size: 13px; color: var(--text2); }
+    .horas-det-dia { padding: 6px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+    .horas-det-dia:last-of-type { border-bottom: none; }
+    .horas-det-dia ul { margin: 4px 0 0 18px; color: var(--text2); }
+    .horas-det-rodape { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border2); color: var(--text); }
+    @media (max-width: 640px) {
+      .horas-dia-acoes { width: 100%; justify-content: flex-start; }
+      .horas-rodape .btn { width: 100%; }
+    }
+
     .empty-state-small {
       text-align: center;
       padding: 30px 16px;
@@ -2412,6 +2464,8 @@
       <div class="page" id="page-minha-agenda"></div>
       <div class="page" id="page-substituicoes"></div>
       <div class="page" id="page-avisos-professores"></div>
+      <div class="page" id="page-minhas-horas"></div>
+      <div class="page" id="page-horas-do-mes"></div>
       <div class="page" id="page-fechamento"></div>
       <div class="page" id="page-pagamentos"></div>
       <div class="page" id="page-meus-pagamentos"></div>
@@ -3022,7 +3076,9 @@
   <script src="closing-payroll.js?v=20260905"></script>
   <!-- regras dos avisos do professor sobre a aula; o serviço (shared) depende dele -->
   <script src="class-avisos.js?v=20261001"></script>
-  <script src="professores-shared.js?v=20261001"></script>
+  <!-- as contas de "Minhas horas do mês": agenda em turnos, resumo e o plano de ajuste das aulas -->
+  <script src="hour-declaration.js?v=20261002"></script>
+  <script src="professores-shared.js?v=20261002"></script>
   <script src="professores-config-lock.js?v=20260813"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
@@ -3031,7 +3087,8 @@
   <script src="professores-agenda.js?v=20261001"></script>
   <script src="professores-substituicoes.js?v=20261001"></script>
   <script src="professores-avisos.js?v=20261001"></script>
-  <script src="professores-fechamento.js?v=20261001"></script>
+  <script src="professores-horas.js?v=20261002"></script>
+  <script src="professores-fechamento.js?v=20261002"></script>
   <script src="professores-pagamentos.js?v=20260905"></script>
   <script src="professores-escalas.js?v=20260811"></script>
   <script src="professores-ferias.js?v=20260812e"></script>
@@ -3048,11 +3105,11 @@
   <script src="user-model.js?v=20260811"></script>
   <script src="pessoas-model.js?v=20260930"></script>
   <script src="jornada-comercial.js?v=20260930"></script>
-  <script src="professores-ajuda.js?v=20261001"></script>
-  <script src="professores-nav.js?v=20261001"></script>
-  <script src="professores-home.js?v=20261001"></script>
+  <script src="professores-ajuda.js?v=20261002"></script>
+  <script src="professores-nav.js?v=20261002"></script>
+  <script src="professores-home.js?v=20261002"></script>
   <script src="professores-pessoas.js?v=20260930"></script>
-  <script src="professores.js?v=20261001"></script>
+  <script src="professores.js?v=20261002"></script>
 </body>
 
 </html>

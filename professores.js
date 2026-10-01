@@ -368,6 +368,15 @@ async function handleNotifClick(notifId, link) {
       navigateTo('escala-smart');
     } else if (link.type === 'avisos-professores' && typeof navigateTo === 'function') {
       navigateTo('avisos-professores');
+    } else if ((link.type === 'minhas-horas' || link.type === 'horas-do-mes') && typeof navigateTo === 'function') {
+      // O aviso das horas traz o mês: a lista da gestão abre nele, não no mês padrão.
+      if (link.type === 'horas-do-mes' && link.mes && typeof horasGestaoAbrirMes === 'function') {
+        const [a, m] = String(link.mes).split('-').map(Number);
+        if (a && m) { horasGestaoAbrirMes(a, m); }
+        else navigateTo('horas-do-mes');
+      } else {
+        navigateTo(link.type);
+      }
     }
   }
   // Fecha dropdown
@@ -575,6 +584,10 @@ function navigateTo(pageId) {
     renderSubstituicoesPage();
   } else if (pageId === 'avisos-professores' && typeof renderAvisosProfessoresPage === 'function') {
     renderAvisosProfessoresPage();
+  } else if (pageId === 'minhas-horas' && typeof renderMinhasHorasPage === 'function') {
+    renderMinhasHorasPage();
+  } else if (pageId === 'horas-do-mes' && typeof renderHorasGestaoPage === 'function') {
+    renderHorasGestaoPage();
   } else if (pageId === 'fechamento' && typeof renderFechamentoPage === 'function') {
     renderFechamentoPage();
   } else if (pageId === 'pagamentos' && typeof renderPagamentosPage === 'function') {

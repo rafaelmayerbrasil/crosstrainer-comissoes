@@ -40,6 +40,8 @@ const FechamentoState = {
   trocasErro: null,     // mensagem, quando não deu pra checar
   avisosPendentes: undefined,  // undefined = não checado · [] = nenhum · [..] = travam
   avisosErro: null,            // mensagem, quando não deu pra checar
+  horasPendencias: undefined,  // undefined = não checado · { aValidar, naoConferiram, trava }
+  horasErro: null,             // mensagem, quando não deu pra checar
   closingDoc: null,     // doc de monthly_closings (se já fechado)
   mode: 'select',       // 'select' | 'preview' | 'closed' | 'history'
   history: [],
@@ -259,6 +261,7 @@ async function loadFechamentoPreview() {
   // eram 20 aulas em agosto/2026 e a gestão só descobria ao clicar em fechar.
   await carregarTrocasAbertas();
   await carregarAvisosPendentes();
+  await carregarHorasPendentes();
   renderFechamentoUI();
 }
 
@@ -276,6 +279,25 @@ async function carregarAvisosPendentes() {
   } catch (err) {
     FechamentoState.avisosPendentes = null;
     FechamentoState.avisosErro = (err && err.message) || 'erro desconhecido';
+  }
+}
+
+/**
+ * Horas do mês: quem enviou e a gestão não validou, e (de outubro/2026 em
+ * diante) quem não conferiu. As horas enviadas só entram na folha depois de
+ * validadas — fechar antes pagaria pela agenda, sem elas. Falha fechada.
+ */
+async function carregarHorasPendentes() {
+  try {
+    const mes = FechamentoState.selectedYear + '-' + String(FechamentoState.selectedMonth).padStart(2, '0');
+    const declaracoes = await HourDeclarationService.doMes(mes);
+    const pessoas = ((FechamentoState.previewData && FechamentoState.previewData.teachers) || [])
+      .filter(t => (t.classesCount || 0) > 0).map(t => t.teacherId);
+    FechamentoState.horasPendencias = HourDeclaration.pendenciasDoFechamento({ pessoas, declaracoes, mes });
+    FechamentoState.horasErro = null;
+  } catch (err) {
+    FechamentoState.horasPendencias = null;
+    FechamentoState.horasErro = (err && err.message) || 'erro desconhecido';
   }
 }
 
@@ -408,6 +430,35 @@ function montarChecklist(data) {
           situacao: '<b>' + av.length + '</b> aula(s) com aviso do professor que ninguém respondeu',
           acao: { rotulo: 'Responder', pagina: 'avisos-professores' } }
       : { nivel: 'ok', titulo: 'Avisos dos professores', situacao: 'todos respondidos', acao: null });
+  }
+
+  // 1c. Horas do mês — o que o professor enviou e ninguém validou não está na folha.
+  const abrirHoras = 'horasGestaoAbrirMes(' + FechamentoState.selectedYear + ',' + FechamentoState.selectedMonth + ')';
+  if (FechamentoState.horasErro) {
+    itens.push({ nivel: 'bloqueia', titulo: 'Horas do mês',
+      situacao: 'Não consegui verificar (' + escapeHtml(FechamentoState.horasErro)
+        + '). Fechar é irreversível — sem essa checagem, não dá.',
+      acao: null });
+  } else if (FechamentoState.horasPendencias) {
+    const hp = FechamentoState.horasPendencias;
+    const nomeDe = id => ((data.teachers || []).find(t => t.teacherId === id) || {}).teacherName || '—';
+    if (hp.aValidar.length) {
+      itens.push({ nivel: 'bloqueia', titulo: 'Horas do mês esperando o seu OK',
+        situacao: '<b>' + hp.aValidar.length + '</b> pessoa(s) enviaram horas que ainda não foram validadas: '
+          + listaDeNomes(hp.aValidar.map(nomeDe)),
+        acao: { rotulo: 'Validar', fn: abrirHoras } });
+    }
+    if (hp.naoConferiram.length) {
+      itens.push({ nivel: 'bloqueia', titulo: 'Horas do mês não conferidas',
+        situacao: '<b>' + hp.naoConferiram.length + '</b> pessoa(s) ainda não conferiram as horas: '
+          + listaDeNomes(hp.naoConferiram.map(nomeDe))
+          + '. Ou a pessoa confere, ou você decide fechar valendo a agenda.',
+        acao: { rotulo: 'Ver as horas', fn: abrirHoras } });
+    }
+    if (!hp.trava) {
+      itens.push({ nivel: 'ok', titulo: 'Horas do mês', situacao: 'nada esperando validação',
+        acao: { rotulo: 'Ver', fn: abrirHoras } });
+    }
   }
 
   // 2. Cadastro que faz a pessoa receber errado.

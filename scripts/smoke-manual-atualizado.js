@@ -309,6 +309,27 @@ function exige(txt, ondeNome, assuntos) {
   ok('professor: aviso quando a gestão troca o dia e quando a troca cola duas escalas');
 }
 {
+  // 01/10/2026: "Minhas horas do mês" — o professor corrige o mês numa tela só
+  // e a gestão valida. Nasceu da lista de horas que o Theo mandou pelo WhatsApp.
+  exige(prof, 'manual-professores', {
+    'a tela de conferir o mês': 'id="minhas-horas"',
+    'corrigir só o dia diferente': 'Mexa só nos dias que foram diferentes',
+    'dia fora da agenda': 'Incluir este dia',
+    'só vale depois de validado': 'só passa a valer depois que a gestão validar',
+    'no lugar de um colega é troca': 'no lugar de um colega',
+  });
+  exige(admin, 'manual-admin', {
+    'a tela da gestão': 'id="horas-do-mes"',
+    'o OK geral': 'Validar todas',
+    'devolver com motivo': 'Devolver',
+    'fechar valendo a agenda': 'Fechar valendo a agenda',
+    'lançar pela pessoa': 'Lançar por ele',
+    'validar mexe nas aulas': 'Validar ajusta as próprias aulas',
+    'trava o fechamento': 'Horas enviadas e não validadas travam o fechamento',
+  });
+  ok('professor confere as horas do mês; gestão valida, devolve ou fecha valendo a agenda');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>

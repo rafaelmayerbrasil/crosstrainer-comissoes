@@ -184,6 +184,37 @@ service cloud.firestore {
                        resource.data.monthClosingId == null;
     }
 
+    // Horas do mês (01/10/2026): o professor confere o mês e envia; a gestão
+    // valida. O professor só escreve a PRÓPRIA declaração e só nos estados que
+    // são dele. Validar é da gestão — é o que ajusta as aulas e, com elas, a
+    // folha. Os campos da validação não podem ser escritos pelo professor.
+    match /hour_declarations/{id} {
+      allow read:   if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      (isProf() && resource.data.teacherId == uData().professorId)
+                    );
+      allow create: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      (isProf() &&
+                       request.resource.data.teacherId == uData().professorId &&
+                       id == request.resource.data.teacherId + '_' + request.resource.data.mes &&
+                       request.resource.data.status in ['rascunho', 'enviada'])
+                    );
+      allow update: if isAuth() && (
+                      isAdmin() || isSuperv() ||
+                      (isProf() &&
+                       resource.data.teacherId == uData().professorId &&
+                       request.resource.data.teacherId == resource.data.teacherId &&
+                       request.resource.data.mes == resource.data.mes &&
+                       resource.data.status in ['rascunho', 'enviada', 'devolvida'] &&
+                       request.resource.data.status in ['rascunho', 'enviada', 'devolvida'] &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['validadaPor', 'validadaEm', 'aplicado', 'dispensadaPor', 'dispensadaEm',
+                                  'devolvidaPor', 'devolvidaEm']))
+                    );
+      allow delete: if false;
+    }
+
     match /substitutions/{id} {
       allow read:   if isAuth() && hasProfModule();
       // Pedido nasce sempre em 'pending'. Sem isso, dava pra criar um já

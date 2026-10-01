@@ -1809,6 +1809,10 @@ const NOTIF_TYPE_META = {
   // O professor avisou algo da aula → gestão; e a resposta da gestão → professor.
   class_aviso_professor:   { icon: '📣', title: 'Aviso de professor' },
   class_aviso_respondido:  { icon: '📣', title: 'Resposta ao seu aviso' },
+  horas_enviadas:          { icon: '🕒', title: 'Horas do mês a validar' },
+  horas_validadas:         { icon: '🕒', title: 'Suas horas foram validadas' },
+  horas_devolvidas:        { icon: '🕒', title: 'Horas devolvidas para corrigir' },
+  horas_dispensadas:       { icon: '🕒', title: 'Horas fechadas pela agenda' },
 };
 
 // Rótulos vêm do módulo puro — a tela e o serviço têm que contar a mesma história.

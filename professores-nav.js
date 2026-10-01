@@ -12,10 +12,10 @@
   // admin_gestao dropado + 'professores' absorvido pelo hub 'pessoas' (D2/D11 — 11/06/2026)
   const PROF_PAGES = {
     // 'escalas' (tela legada Escalas Especiais) fora do menu em 01/07/2026 — Escala Inteligente (4 abas) assume; rota preservada p/ rollback
-    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'substituicoes', 'avisos-professores', 'fechamento', 'pagamentos', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar', 'plr-config', 'plr-avaliacao', 'plr-resultado'],
-    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'substituicoes', 'avisos-professores', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar', 'plr-avaliacao', 'plr-resultado'],
-    professor:            ['home', 'agenda-geral', 'minha-agenda', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
-    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    admin:                ['home', 'modalidades', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'minhas-horas', 'substituicoes', 'avisos-professores', 'horas-do-mes', 'fechamento', 'pagamentos', 'escala-smart', 'ferias', 'saldos-gestao', 'relatorios', 'engaj-config', 'engaj-chamada', 'engaj-placar', 'plr-config', 'plr-avaliacao', 'plr-resultado'],
+    supervisao:           ['home', 'pessoas', 'agenda', 'agenda-geral', 'minha-agenda', 'minhas-horas', 'substituicoes', 'avisos-professores', 'horas-do-mes', 'escala-smart', 'ferias', 'saldos-gestao', 'engaj-chamada', 'engaj-placar', 'plr-avaliacao', 'plr-resultado'],
+    professor:            ['home', 'agenda-geral', 'minha-agenda', 'minhas-horas', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
+    professor_estagiario: ['home', 'agenda-geral', 'minha-agenda', 'minhas-horas', 'substituicoes', 'escala-smart', 'meus-pagamentos', 'ferias', 'meu-saldo', 'engaj-placar'],
   };
 
   // section agora reflete o agrupamento por DOMÍNIO (decisão D3 do design).
@@ -37,10 +37,15 @@
     { id: 'meus-pagamentos',label: 'Meus Pagamentos',   icon: '💳', section: 'Financeiro' },
     { id: 'relatorios',     label: 'Relatórios',        icon: '📈', section: 'Financeiro' },
     { id: 'minha-agenda',   label: 'Minha Agenda',      icon: '📅', section: 'Agenda' },
+    // O professor confere as horas do mês de uma vez e envia pra gestão validar
+    // (01/10/2026). Pra gestão, só aparece se a pessoa também dá aula.
+    { id: 'minhas-horas',   label: 'Minhas horas',      icon: '🕒', section: 'Agenda' },
     { id: 'substituicoes',  label: 'Substituições',     icon: '⇄', section: 'Agenda' },
     // Só gestão. O que o professor avisa da aula ("não aconteceu", atraso, hora
     // extra) cai aqui — antes não tinha onde cair (01/10/2026).
     { id: 'avisos-professores', label: 'Avisos dos professores', icon: '📣', section: 'Agenda' },
+    // Só gestão. As horas que cada professor conferiu no mês, esperando o OK.
+    { id: 'horas-do-mes',   label: 'Horas do mês',      icon: '🕒', section: 'Agenda' },
     { id: 'engaj-config',   label: 'Config. Pontos',    icon: '⚙️', section: 'Configurações' },
     { id: 'engaj-chamada',  label: 'Confirmar Presença', icon: '✅', section: 'Engajamento' },
     { id: 'engaj-placar',   label: 'Placar',            icon: '🏆', section: 'Engajamento' },
@@ -104,7 +109,7 @@
 
     // "Minha Agenda" pra perfil de gestão só com vínculo de professor (D refinamento).
     if (isManagement(profiles) && !ctx.hasProfessorLink) {
-      allowed = allowed.filter(id => id !== 'minha-agenda');
+      allowed = allowed.filter(id => id !== 'minha-agenda' && id !== 'minhas-horas');
     }
 
     const defs = PAGE_DEFINITIONS.filter(d => allowed.includes(d.id));

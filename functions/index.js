@@ -21,7 +21,7 @@
 const admin = require('firebase-admin');
 const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const remindersUtil = require('./reminders-util.js');
 const internBank = require('./intern-hour-bank.js');
@@ -30,6 +30,7 @@ const classPropagation = require('./class-propagation.js');
 const emailConfig = require('./email-config.js');
 const escalaTroca = require('./escala-troca.js');
 const classAvisos = require('./class-avisos.js');
+const hourDeclaration = require('./hour-declaration.js');
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -647,6 +648,7 @@ const NOTIF_TYPE_TITLES = {
   vacation_requested:     'Nova solicitação de férias',
   vacation_cancelled:     'Pedido de férias cancelado',
   class_aviso_professor:  'Aviso de professor',
+  horas_enviadas:         'Horas do mês a validar',
 };
 
 /** Admins/gestão que devem receber avisos de férias. Só CF chama (lê /users). */
@@ -809,6 +811,44 @@ exports.onClassAvisoProfessor = onDocumentUpdated({
   } catch (err) {
     // Não relança: o aviso está gravado na aula e aparece na lista. Falhar aqui só perde o sino.
     logger.error('[onClassAvisoProfessor] FALHA ao avisar a gestão', classId, err);
+  }
+});
+
+/**
+ * onHourDeclarationSent — avisa a gestão que um professor enviou as horas do mês.
+ *
+ * Tem que ser aqui: o professor não lê /users, então não tem como descobrir
+ * quem é a gestão pelo navegador. Sem este aviso as horas ficariam esperando
+ * validação sem ninguém saber — o mesmo defeito dos avisos de aula, que
+ * ficaram 21 parados de 26/08 a 01/10/2026.
+ */
+exports.onHourDeclarationSent = onDocumentWritten({
+  document: 'hour_declarations/{id}',
+  region: 'us-central1',
+}, async (event) => {
+  const before = event.data.before.exists ? event.data.before.data() : null;
+  const after = event.data.after.exists ? event.data.after.data() : null;
+  if (!hourDeclaration.enviouAgora(before, after)) return;
+  const id = event.params.id;
+  try {
+    const firestore = db();
+    let nome = 'Um professor';
+    if (after.teacherId) {
+      const t = await firestore.collection('teachers').doc(after.teacherId).get();
+      if (t.exists && t.data().name) nome = t.data().name;
+    }
+    const body = hourDeclaration.avisoParaGestao(nome, after);
+    const admins = await listAdminUserIds();
+    for (const userId of admins) {
+      await createNotification({
+        recipientUserId: userId, type: 'horas_enviadas', body,
+        link: { type: 'horas-do-mes', id, mes: after.mes || null },
+      });
+    }
+    logger.info('[onHourDeclarationSent] gestão avisada', admins.length, id);
+  } catch (err) {
+    // Não relança: a declaração está gravada e aparece na lista e no fechamento. Falhar aqui só perde o sino.
+    logger.error('[onHourDeclarationSent] FALHA ao avisar a gestão', id, err);
   }
 });
 

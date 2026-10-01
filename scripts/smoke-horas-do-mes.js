@@ -268,7 +268,29 @@ const op = (p, inicio) => p.ops.find(o => o.inicio === inicio);
     'setembro: quem não conferiu não trava (a regra começa em outubro), mas a lista do Theo trava até a gestão validar');
   assert.strictEqual(H.pendenciasDoFechamento({ pessoas, declaracoes: [], mes: '2026-08' }).trava, false, 'agosto fecha como sempre fechou');
   assert.strictEqual(H.INICIO_CONFERENCIA, '2026-10');
+  // "Está tudo igual à agenda": não há o que a gestão validar — não pode virar fila de OK.
+  assert.deepStrictEqual(H.pendenciasDoFechamento({ pessoas: ['eva'], mes: '2026-10',
+    declaracoes: [{ teacherId: 'eva', mes: '2026-10', status: 'enviada', semDiferenca: true }] }),
+    { aValidar: [], naoConferiram: [], trava: false }, 'quem confirmou "tudo igual" está conferido, sem esperar OK');
   passou('fechamento: declaração enviada sempre espera o OK; "não conferiu" só cobra a partir de outubro/2026');
+}
+
+/* ── 7b. O turno novo vira uma aula avulsa, com o que ela precisa ter ── */
+{
+  const diaAg = agenda.find(x => x.dia === D(9));   // quarta: só a manhã na grade, unidade cp
+  const n = H.aulaAvulsa({ dia: D(9), nova: { inicio: '16:30', fim: '21:30', minutos: 300 }, teacherId: 'theo',
+    agendaDia: diaAg, padrao: { unitId: 'pp', modalityId: 'outra' }, declaracaoId: 'theo_2026-09' });
+  assert.deepStrictEqual({ u: n.unitId, m: n.modalityId, t: n.teacherId, o: n.originalTeacherId, i: n.startTime, f: n.endTime, d: n.durationMinutes },
+    { u: 'cp', m: 'hiit', t: 'theo', o: 'theo', i: '16:30', f: '21:30', d: 300 }, 'unidade e modalidade vêm das aulas do próprio dia');
+  assert.deepStrictEqual({ s: n.status, g: n.generatedBy, r: n.remunerada, a: n.registroAutomatico, c: n.monthClosingId, id: n.horasDeclaracaoId, h: n.isHoliday },
+    { s: 'realizada', g: 'horas-do-mes', r: true, a: false, c: null, id: 'theo_2026-09', h: false }, 'nasce realizada, paga, e marcada de onde veio');
+  assert.strictEqual(H.diaISO(n.scheduledDate), D(9), 'no dia certo');
+  assert.ok(n.scheduledDate instanceof Date, 'a data é Date (texto não entra em busca por período — o defeito das 44 aulas invisíveis de 24/08)');
+  const semDia = H.aulaAvulsa({ dia: D(13), nova: { inicio: '08:00', fim: '12:00', minutos: 240 }, teacherId: 'theo',
+    agendaDia: null, padrao: { unitId: 'pp', modalityId: 'outra' }, declaracaoId: 'x' });
+  assert.deepStrictEqual({ u: semDia.unitId, m: semDia.modalityId }, { u: 'pp', m: 'outra' }, 'dia sem aula nenhuma usa o padrão da pessoa');
+  assert.ok(Payroll.contaParaPagamento(n) && Payroll.minutosEfetivos(n) === 300, 'e a folha conta os 300 minutos dela');
+  passou('aulaAvulsa monta a aula do turno novo: unidade do dia, realizada, paga, com a origem marcada');
 }
 
 /* ── 8. A situação de cada pessoa, em palavras ─────────────────────── */

@@ -23,6 +23,8 @@ const AJUDA_MAP = {
   // procurar a troca de professor no meio de uma seção longa.
   'substituicoes':   { admin: 'substituicoes', prof: 'substituicao' },
   'avisos-professores': { admin: 'avisos-professores', prof: null },
+  'minhas-horas':    { admin: 'horas-do-mes', prof: 'minhas-horas' },
+  'horas-do-mes':    { admin: 'horas-do-mes', prof: null },
   'escala-smart':    { admin: 'escala',       prof: 'escala' },
   'escalas':         { admin: 'escala',       prof: 'escala' },
   'pessoas':         { admin: 'pessoas',      prof: null },
