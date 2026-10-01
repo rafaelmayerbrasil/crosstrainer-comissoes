@@ -18,6 +18,9 @@ Sistema para vendedoras e administradores acompanharem comissões, metas e desem
 - Motor de comissões P1-P4: percentual sobre caixa, bônus por contrato, meta da unidade, conversão de voucher
 - Sistema de créditos automáticos pra divergências pós-pagamento
 - Tratamento especial: upgrade de plano, renovação balcão, validação de mês único
+- **Comissão automática pela API da Pacto** (de outubro/2026): o mês se recalcula sozinho toda madrugada; a planilha exportada virou plano B
+- **Lista de renovações** das consultoras (`renovacoes.html`), **termômetro do mês** (`termometro.html`) e **meta sugerida** para mês sem meta
+- Regra do bônus da unidade de outubro/2026: três mínimos batidos = 100% · um não batido = 50% · dois ou mais = zera; mínimo individual pela jornada
 
 📄 Detalhamento técnico: [DOCUMENTACAO.md](DOCUMENTACAO.md) § Módulo Comissões
 

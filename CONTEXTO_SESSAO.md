@@ -3,6 +3,35 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 80 (30/09/2026, tarde e noite) — 🚀 API OFICIAL, RENOVAÇÕES, META SUGERIDA E REGRA NOVA DO BÔNUS · ✅ NO AR EM PRODUÇÃO E VALIDADO NA TELA
+
+### ▶️▶️ RETOMAR AQUI
+**Tudo publicado em produção em 30/09 (~22h–23h), com OK do Rafael ("pode publicar"), e validado por mim na tela de produção, logado como ele.** `main` = `api-pacto-oficial` (`561bbe7..` em diante). Regras, 4 Functions e os secrets por unidade no ar.
+
+**Próximos passos, em ordem:**
+1. **01/10 de manhã:** conferir a rodada das **4h** (`firebase functions:log --only buscarPactoSombra --project production`): tem que refazer o setembro do **PP** com a vendedora (o CP já está 100%) — pode levar duas noites pelo limite de 700 consultas. E a das **5h** (`--only montarListaRenovacoes`): abrir `renovacoes.html` em produção e conferir CP 21 · 12 · 11 · 3 e PP 13 · 4 · 6 · 9 (renovações · antecipação · degustações · verificar), conferência "bate".
+2. **02/10 de manhã:** o primeiro "🔄 Atualizado automaticamente pela Pacto" de outubro nas duas unidades (`periodos/{cp|pp}_2026-10.automatico`). Ao abrir outubro, a **meta sugerida** nasce (CP 63/72/82 · PP 54/62/70) e pede revisão.
+3. **Decisão pendente do Rafael — venda avulsa com recibo:** na API ela sai no nome de quem registrou o pagamento (recepção), no arquivo no da consultora do aluno; set/CP ≈ R$ 33 de comissão a menos (Erica −18, Francini −24). Corrigir = consultar o vínculo do aluno também nas avulsas. Não é o balcão sem recibo (decisão 7: não paga).
+4. **Rodrigo:** o Rafael recebeu o texto pronto do que está no ar (com o exemplo do efeito da regra nova em bloco separado). Confirmar se ele mandou e o que o Rodrigo respondeu — principalmente sobre a regra do bônus e as jornadas.
+5. **Setembro fecha pela planilha** (decisão 6). O botão com setembro já funciona no CP (prévia = 74 ativações, igual ao gravado), mas ninguém deve confirmar.
+6. Dívidas pequenas: a aba 💼 Comercial não grava no `audit_log` quando muda jornada; a lista de 29 dias na mensagem da trava é comprida (poderia agrupar em intervalo).
+
+**O que a sessão entregou (detalhe técnico: `DOCUMENTACAO.md` → "Integração com a Pacto", "Lista de renovações", "Meta sugerida", "Jornada comercial"):**
+- **Automático (API oficial):** testes do aviso do painel e da confirmação do botão; manual reescrito; staging carregado só com 23–29/09 (decisão do Rafael; agosto dispensado) e conferido contrato a contrato contra produção — CP 12/12 e PP 12 idênticos, o resto com causa. Achado: a Pacto manda **matrícula + plano numa parcela só** (4742: R$ 520 × 50 + 470); comissão igual em contrato novo.
+- **Renovações homologadas na tela do staging**, com 9 contatos simulados: consultora = vínculo do aluno (como as comissões) · KALI LÓPEZ → KALI DUTRA · robô "PACTO - MÉTODO DE GESTÃO" fora · BÁRBARA × BARBARA uma pessoa só · "Classificar como" com rótulos legíveis.
+- **Meta sugerida homologada:** aviso, trava do recibo, Revisar, Está bom. O porquê passou a mostrar a conta inteira (÷ 0,9).
+- **Regra do bônus homologada:** jul/ago/set recalculam igual ao gravado; a janela de metas, o painel da gestão e o da vendedora passaram a descrever a regra **do mês aberto** (em outubro ainda diziam ZERA/REDUZ e "30%/15%").
+- **🛑 O furo fechado antes de publicar:** dia buscado sem a vendedora (formato antigo, sem credencial ou incompleto) **trava o mês**, no botão e no automático. Em produção o setembro do CP tinha 264 linhas de contrato sem consultora e nenhum aviso.
+- **Deploy:** regras (só acréscimo; vivo == repositório == staging) → secrets `PACTO_API_KEY_CP/PP` gravados pelo Rafael → 4 Functions → junção com o `main` (estratégia "ours": a branch já continha as 14 correções do main, conferido por teste e linha a linha) → GitHub Pages conferido arquivo a arquivo → validação na tela de produção.
+- **Validação em produção:** setembro gravado intacto (CP 74, PP 56); a trava parou o botão; "Buscar de novo agora" provou a credencial do cofre (2 rodadas; a 1ª para no limite e a trava segura); prévia pela API = 74 ativações; **jornadas cadastradas** (Erica e Kali integral, Francini e Isabela 30h, de 10/2026); Renovações e termômetro abrem.
+- **Memórias novas:** [[dia-sem-vendedora-trava-o-mes]] · [[texto-da-tela-fica-na-regra-antiga]] · [[homologar-pelo-navegador-do-app]]. Atualizadas: [[api-pacto-oficial]] · [[pedidos-rodrigo-renovacoes-metas]].
+
+**📝 Arquivos desta sessão (todos no `main`):** `upload-pela-api.js` (+`functions/`) · `functions/pacto-sombra.js` (`comGateway`) · `renovacoes-lista.js` (+`functions/`) · `renovacoes.js` · `renovacoes.html` · `metas-sugeridas.js` (+`functions/`) · `index.html` (textos da janela de metas, `condicoesDaMetaHtml`, `alertasDosMinimos`, `orientacaoDaTrava`, `?v=`) · `termometro.html`/`termometro.js` (avisos) · `manual-admin.html` · `DOCUMENTACAO.md` · `CLAUDE.md` · smokes: `upload-pela-api` 9 · `comissoes-automatico` 9 · `pacto-sombra-busca` 25 · `renovacoes-lista` 20 · `renovacoes-tela` 8 · `metas-sugeridas` 11 · `meta-sugerida-tela` 4 · `janela-metas` 8 · `regra-minimos` 11 · `manual-atualizado` 21 · `termometro-tela` 13. Suíte 111 ✓ (só o `smoke-9`, antigo).
+**Dados de produção alterados nesta sessão:** `pacto_sombra_dias` de setembro do CP refeitos pela Function (com a vendedora) + `pacto_contratos`/`pacto_contratos_seq` (marca CP 7270) · `users.jornadasComerciais` das 4 vendedoras. **Nenhum período de comissão foi alterado.** No staging: dados de teste marcados `[TESTE HOMOLOGAÇÃO]` nas renovações; o período de teste `unit-cp_2026-10` foi apagado.
+
+> O passo a passo desta sessão (com os números de cada conferência) está mais abaixo, dentro da seção "sessão 78, parte 2", nos blocos "SESSÃO 80" e "DEPLOY EM PRODUÇÃO".
+
+---
 ## 🔖 ONDE PARAMOS — sessão 79 (30/09/2026, manhã) — 💳 PLANO PAGO EM DUAS FORMAS CONTAVA DUAS VENDAS · a PP NÃO bateu a Super Meta · ✅ NO AR E CONFERIDO
 
 **O Rodrigo no grupo:** painel da PP com 57 ativações e "Super Meta atingida"; termômetro com 55, faltando 2.
