@@ -284,6 +284,9 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
     motivo: '',
     linhas: JSON.stringify(m.linhas),          // Firestore não aceita array de arrays
     linhasBalcao: JSON.stringify(linhasBalcao),
+    // Com a credencial da unidade o dia traz a vendedora; sem ela, o mês das
+    // comissões NÃO é calculado com este dia (UploadPelaApi._semVendedora)
+    comGateway: !!gw,
     foraDeProposito: m.foraDeProposito,
     avisos: m.avisos,
     totais: m.totais,

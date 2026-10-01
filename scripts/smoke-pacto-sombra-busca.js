@@ -105,6 +105,7 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     const doc = (await db.collection('pacto_sombra_dias').doc('PP_2026-09-10').get()).data();
     assert.strictEqual(doc.situacao, 'buscado');
     assert.strictEqual(doc.unidade, 'PP');
+    assert.strictEqual(doc.comGateway, false, 'sem a credencial da unidade o dia fica marcado: não entra no cálculo do mês');
     assert.strictEqual(JSON.parse(doc.linhas).length, 3);
     assert.strictEqual(doc.totais.recebido, 389);
     const chamadasContrato = p.chamadas.filter(x => /consultarContratos/.test(x.url)).length;
@@ -347,6 +348,7 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     assert.strictEqual(r.maiorContrato, 7001);
     const doc = (await db.collection('pacto_sombra_dias').doc('CP_2026-09-10').get()).data();
     const linhas = JSON.parse(doc.linhas);
+    assert.strictEqual(doc.comGateway, true, 'com a credencial da unidade o dia vale para o cálculo');
     const c7001 = linhas.find(l => l[7] === '7001');
     assert.strictEqual(c7001[21], 'CONSULTORA CP', 'a linha do CP sai com a consultora do gateway');
     assert.strictEqual(c7001[4], 'CONSULTORA CP', 'e Responsável 1 = quem lançou o contrato');

@@ -33,7 +33,7 @@ async function diasDaBusca(db, { faltando } = {}) {
   for (let d = 1; d <= 11; d++) {
     const dia = '2026-10-' + String(d).padStart(2, '0');
     if (dia === faltando) continue;
-    await db.collection('pacto_sombra_dias').doc('PP_' + dia).set({ unidade: 'PP', dia, situacao: 'buscado',
+    await db.collection('pacto_sombra_dias').doc('PP_' + dia).set({ unidade: 'PP', dia, situacao: 'buscado', comGateway: true,
       linhas: JSON.stringify(porDia[dia] || []), buscadoEm: '2026-10-12T07:0' + (d % 10) + ':00Z' });
   }
 }
@@ -91,7 +91,7 @@ async function rodar(db, mes = C.MES) {
 
     // recibo emitido: CONGELA
     await db.collection('pagamentos').add({ periodId: PID, vendedor: C.V1, status: 'recibo_emitido' });
-    await db.collection('pacto_sombra_dias').doc('PP_2026-10-10').set({ unidade: 'PP', dia: '2026-10-10', situacao: 'buscado',
+    await db.collection('pacto_sombra_dias').doc('PP_2026-10-10').set({ unidade: 'PP', dia: '2026-10-10', situacao: 'buscado', comGateway: true,
       linhas: JSON.stringify([ (() => { const l = C.linhasPasso2().find(x => x[L.COL.contrato] === '9109'); l[L.COL.lancamento] = '10/10/2026'; return l; })() ]) });
     const itensAntes = JSON.stringify(db._dump()['periodos/' + PID + '/itens']);
     const r3 = await rodar(db);
@@ -118,6 +118,23 @@ async function rodar(db, mes = C.MES) {
     assert.strictEqual(dump.periodos[PID].automatico.situacao, 'travado');
     assert.ok(Object.values(dump.audit_log).some(a => /NÃO atualizado — faltam dados da Pacto em 05\/10/.test(a.details)));
     ok('dia faltando na Pacto trava: nada gravado, o painel e a auditoria dizem qual dia');
+  }
+  {
+    // Dia buscado SEM a vendedora (credencial da unidade faltou, ou o gateway caiu no meio):
+    // o mês não pode ser calculado sozinho com venda de ninguém (30/09/2026, antes do deploy)
+    for (const [mexe, situacao] of [
+      [d => ({ ...d, comGateway: false }), 'sem_vendedora'],
+      [d => ({ ...d, avisos: [{ motivo: 'consultora a completar na próxima busca (limite de consultas da noite)', contrato: '9101' }] }), 'vendedora_incompleta'],
+    ]) {
+      const db = makeFakeDb(); await C.semear(db); await diasDaBusca(db);
+      const ref = db.collection('pacto_sombra_dias').doc('PP_2026-10-03');
+      await ref.set(mexe((await ref.get()).data()));
+      const r = await rodar(db);
+      assert.strictEqual(r.situacao, 'travado', situacao);
+      assert.deepStrictEqual(r.diasProblema, [{ dia: '2026-10-03', situacao }]);
+      assert.ok(!db._dump()['periodos/' + PID + '/itens'], 'nenhum lançamento gravado: ' + situacao);
+    }
+    ok('dia sem a vendedora (sem credencial ou incompleta) trava o automático: nada gravado');
   }
   {
     // o gancho: roda no fim da busca das 4h, com os módulos gêmeos iguais

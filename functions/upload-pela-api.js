@@ -20,6 +20,26 @@ const UploadPelaApi = {
     credencial_recusada: 'credencial recusada',
     limite: 'parou no limite da Pacto',
     nao_buscado: 'não buscado',
+    sem_vendedora: 'buscado sem a vendedora',
+    vendedora_incompleta: 'vendedora incompleta',
+  },
+
+  /**
+   * O dia foi buscado SEM a credencial da unidade: as linhas de contrato vêm sem
+   * a vendedora. É o formato de antes de 30/09/2026 (não tem `comGateway` nem
+   * `linhasBalcao`) ou uma busca em que a Function ficou sem a credencial. Em
+   * produção, set/2026 no CP tinha 264 linhas assim — calcular o mês com elas
+   * punha tudo em "Sem vendedor", sem erro nenhum na tela.
+   */
+  _semVendedora(doc) {
+    if (doc.comGateway === true) return false;
+    if (doc.comGateway === false) return true;
+    return doc.linhasBalcao === undefined;      // dias gravados em 30/09 já têm `linhasBalcao`, ainda sem a marca
+  },
+
+  /** A busca não conseguiu completar a vendedora de algum contrato (limite da noite ou gateway fora). */
+  _vendedoraIncompleta(doc) {
+    return (doc.avisos || []).some(a => /^consultora a completar|^gateway: /.test(String((a && a.motivo) || '')));
   },
 
   _somar(dia, n) {
@@ -108,6 +128,9 @@ const UploadPelaApi = {
       const doc = porDia.get(d);
       if (!doc) { diasProblema.push({ dia: d, situacao: 'nao_buscado', motivo: '' }); continue; }
       if (this.VERMELHAS.includes(doc.situacao)) diasProblema.push({ dia: d, situacao: doc.situacao, motivo: doc.motivo || '' });
+      // Dia sem a vendedora também trava: o mês sairia com venda de ninguém
+      else if (this._semVendedora(doc)) diasProblema.push({ dia: d, situacao: 'sem_vendedora', motivo: '' });
+      else if (this._vendedoraIncompleta(doc)) diasProblema.push({ dia: d, situacao: 'vendedora_incompleta', motivo: '' });
       if (doc.situacao === 'vazio_conferir') vazios.push(d);
       const b = doc.buscadoEm;
       const t = b && typeof b.toDate === 'function' ? b.toDate().toISOString() : (b ? String(b) : null);

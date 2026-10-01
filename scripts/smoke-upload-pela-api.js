@@ -26,7 +26,8 @@ function linha(contrato, dia, valor, plano) {
   l[L.COL.situacao] = 'Matrícula'; l[L.COL.consultor] = 'CONSULTORA TESTE';
   return l;
 }
-const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, linhas: JSON.stringify(linhas || []), buscadoEm: '2026-09-04T07:0' + d.slice(9) + ':00Z', ...(extra || {}) });
+// `comGateway: true` = o dia foi buscado com a credencial da unidade (traz a vendedora)
+const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, comGateway: true, linhas: JSON.stringify(linhas || []), buscadoEm: '2026-09-04T07:0' + d.slice(9) + ':00Z', ...(extra || {}) });
 
 {
   assert.deepStrictEqual(U.mesesOferecidos('2026-10-05'), ['2026-10', '2026-09']);
@@ -45,6 +46,33 @@ const dia = (d, situacao, linhas, extra) => ({ dia: d, unidade: 'PP', situacao, 
   const faltando = U.montar({ docs: docs.filter(d => d.dia !== '2026-09-02').slice(0, 1), mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
   assert.deepStrictEqual(faltando.diasProblema.map(d => d.dia + ' ' + d.situacao), ['2026-09-02 nao_buscado']);
   ok('dia que falhou ou não foi buscado trava o mês');
+}
+{
+  // Dia buscado SEM a vendedora trava o mês (30/09/2026, antes do deploy): em produção o
+  // setembro do CP tinha 264 linhas de contrato, todas sem consultora, e o botão calcularia
+  // o mês inteiro como "Sem vendedor" — foi o que aconteceu no staging.
+  const semGw = (d, extra) => { const x = dia(d, 'buscado', [linha('4001', '01/09/2026', '100,00')], extra); delete x.comGateway; return x; };
+  // (a) formato antigo: gravado antes da credencial por unidade (sem `comGateway` nem `linhasBalcao`)
+  const antigo = U.montar({ docs: [semGw('2026-09-01'), dia('2026-09-02', 'buscado')], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
+  assert.strictEqual(antigo.trava, true);
+  assert.deepStrictEqual(antigo.diasProblema.map(d => d.dia + ' ' + d.situacao), ['2026-09-01 sem_vendedora']);
+  // (b) dia novo gravado sem o gateway (credencial faltando na Function): também trava
+  const semCred = U.montar({ docs: [dia('2026-09-01', 'buscado', [], { comGateway: false, linhasBalcao: '[]' }), dia('2026-09-02', 'buscado')], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
+  assert.deepStrictEqual(semCred.diasProblema.map(d => d.situacao), ['sem_vendedora']);
+  // (c) dia gravado pelo código de 30/09 (tem `linhasBalcao`, ainda sem a marca): vale
+  const transicao = U.montar({ docs: [semGw('2026-09-01', { linhasBalcao: '[]' }), dia('2026-09-02', 'buscado')], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
+  assert.strictEqual(transicao.trava, false);
+  // (d) a vendedora ficou incompleta: limite de consultas da noite, ou o gateway caiu no meio
+  for (const motivo of ['consultora a completar na próxima busca (limite de consultas da noite)',
+    'gateway: falhou — consultora não completada neste dia', 'gateway: limite — consultora do aluno não completada neste dia']) {
+    const inc = U.montar({ docs: [dia('2026-09-01', 'buscado', [], { avisos: [{ motivo, contrato: '4001' }] }), dia('2026-09-02', 'buscado')], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
+    assert.deepStrictEqual(inc.diasProblema.map(d => d.dia + ' ' + d.situacao), ['2026-09-01 vendedora_incompleta'], motivo);
+  }
+  // (e) aviso que NÃO trava: aluno sem vínculo (decide quem lançou) e balcão que não veio (não paga comissão)
+  const okAvisos = U.montar({ docs: [dia('2026-09-01', 'buscado', [], { avisos: [{ motivo: 'sem consultora conhecida para o contrato', contrato: '4002' }, { motivo: 'vendas de balcão: falhou HTTP 502' }] }), dia('2026-09-02', 'buscado')], mes: '2026-09', hoje: '2026-09-03', ApiLinhas: L });
+  assert.strictEqual(okAvisos.trava, false);
+  assert.ok(U.ROTULO.sem_vendedora && U.ROTULO.vendedora_incompleta, 'os dois têm rótulo para a tela');
+  ok('dia buscado sem a vendedora (formato antigo, sem credencial ou incompleto) trava o mês; aviso de balcão e de aluno sem vínculo não');
 }
 {
   // o mesmo contrato pago em dois dias vira UMA linha (uma ativação)
