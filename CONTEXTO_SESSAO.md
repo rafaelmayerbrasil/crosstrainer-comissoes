@@ -3,6 +3,36 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · propostas A, B e C construídas · 🟡 NO STAGING, SEM CLIQUE HUMANO · D (horas do mês) só desenhada
+
+### ▶️▶️ RETOMAR AQUI
+**Branch `ajustes-escala-horas` (a partir do `main`), commit `15f8ca7`. Hosting do STAGING publicado. NADA em produção.** Só frontend: não há regra, índice nem Function nova.
+
+**Próximos passos, em ordem:**
+1. **Homologar no staging com o Rafael logado** ([[homologar-pelo-navegador-do-app]]): trocar pessoa numa vaga (lista com "marcou Não posso", pergunta, aviso no sino), "📋 Texto para o WhatsApp" nas abas Sábados/Feriados, "Sábados de folga" em ⚙️ Configurações da escala, aviso laranja no cartão de troca em Substituições.
+2. **OK do Rafael → produção:** `git push origin main` depois de juntar o branch (é só frontend; conferir o `?v=20261001`). ⚠️ O aviso da troca é `scale_confirmed`, que em produção vira **e-mail de verdade**.
+3. **Proposta D — "Minhas horas do mês":** decisões do Rafael em 01/10: **todos conferem** (no futuro cruza com a catraca que estão instalando) · **quem não conferir até o prazo, a folha da pessoa espera** · **aprovação da gestão é opcional**: alerta de "não validado" + um OK geral. Falta escrever o desenho detalhado e mostrar antes de construir.
+4. **Setembro do Theo Rosa:** a lista dele (WhatsApp) dá ~167h15 contra 139h30 no sistema; ele recebe por hora. A grade dele está desatualizada (noite de seg/qua não existe; ter/qui entra 16:30, não 18:00). Falta a gestão confirmar a lista e 4 dias (07/09 e 19/09 na lista e fora do sistema; sábados 05/09 e 26/09 no sistema e fora da lista) — aí subo por script, com backup.
+5. **Pendências da sessão 80 que continuam valendo** (rodadas das 4h/5h da Pacto, 1º automático de outubro em 02/10, venda avulsa com recibo): ver a seção de baixo.
+
+**O que o grupo reclamou e o que achei em produção (leitura apenas):**
+- *"Quando preenchi, coloquei lá que não podia dia 12"* → **Alan Brito, 12/09**: estava no 26/09; em 31/08 uma **troca na mão** o tirou do 26 e pôs no 12, dia em que tinha marcado "Não posso". O motor nunca escala quem marcou "Não posso" (`scale-engine.js`); a troca manual punha, a lista não mostrava nada e **ninguém era avisado**. Aconteceu 3 vezes com registro (Alan 12/09, Thiago 19/09, Leonardo 12/10) e 1 sem (Leonardo 05/09, anterior ao histórico).
+- **Vagner:** escala em 07/09 (feriado), 19/09, 03/10 e 17/10 (as duas últimas, escolha manual anterior ao histórico). Em 11/09 o Thiago registrou troca ("Troquei com o Vaguinho, irei trabalhar no dia 19"), homologada em 14/09 sem a confirmação do Vagner → ele trabalhou 26/09 e está em 03/10: **sábados seguidos**, e de novo 17/10.
+- ⚠️ **Achado em aberto:** troca de AULA de escala homologada **não atualiza a vaga em `special_scales`** — a escala de 26/09 ainda mostra o Thiago, embora quem deu a aula foi o Vagner. A contagem de justiça, a "equipe do dia" e o texto do WhatsApp leem a escala, então ficam com o nome antigo. Não corrigido.
+- **Áudios do Rafael Rojais:** o sistema está mais difícil que o jeito manual ("todo fim de semana tem que trocar alguém"); quer a escala em formato de mensagem pro grupo; quer distância mínima de 2–3 semanas entre escalas.
+
+**O que foi construído (propostas validadas pelo Rafael em artifact antes):**
+- **C. Troca na mão que mostra e avisa** — `ScaleService.situacaoParaTroca` (pura); a lista de cada vaga marca "marcou Não posso / já está em outra vaga do dia / trabalha também em dd/mm" e ordena livres → com aviso → "Não posso"; escolher alguém com aviso **pergunta** (uma pergunta só); as respostas são relidas na hora da troca, e se a leitura falha a troca é cancelada; em escala **publicada e futura**, quem entrou e quem saiu recebem `scale_confirmed`; inverter avisa os dois; pessoa sem login → a tela manda avisar por fora.
+- **A. Texto para o WhatsApp** — `ScaleService.textoParaWhatsApp` (pura) + botão nas abas Sábados/Feriados; por dia ou por pessoa; só o publicado; a janela diz quais datas montadas ficaram de fora; vaga aberta aparece; "Copiar" com plano B quando o navegador nega.
+- **B. Folga mínima configurável** — `scale_config.folgaMinimaSabados` (1–3, padrão 1) → `ScaleService.vizinhancaDias` (7/14/21). A montagem lê a config sozinha (como o marco zero); o "Ajustar" passa pro `ScaleRebalance`; continua **preferência**. Aviso também na **troca entre professores**: `vizinhasDaTrocaDeAula` no cartão da gestão em Substituições, na pergunta de confirmação, e antes de o professor enviar (só com escala publicada; a troca casada não conta).
+
+**📝 Arquivos:** `scale-service.js` · `professores-escala-smart.js` · `professores-substituicoes.js` · `professores-agenda.js` · `professores.html` (`?v=20261001`) · `manual-admin.html` · `manual-professores.html` · smokes novos: `escala-folga-e-troca` 6 · `escala-texto-whatsapp` 7 · `escala-troca-avisa-tela` 14 · `escala-whatsapp-tela` 7 · `troca-avisa-escala-colada` 9 · casos novos em `escala-rebalanceio-tela`, `escala-marco-zero`, `manual-atualizado` (23). **Suíte 116 ✓** (fora o `smoke-9`, antigo).
+**Validação:** testes de tela que rodam as funções de verdade + as funções novas rodadas sobre os dados reais de produção (texto de outubro; o caso do 12/09 marca Alan/Leonardo/Thiago/Vagner como "Não posso"; o caso do Vagner devolve 19/09 e 03/10). Staging carrega sem erro de console. **Ninguém clicou.**
+**Página das propostas (artifact, privada):** https://claude.ai/artifact/KtiWYo8QF5Ue6xph4axQNk — o Rafael ainda não mandou ao grupo.
+**Memória nova:** [[troca-manual-escala-ignora-nao-posso]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 80 (30/09/2026, tarde e noite) — 🚀 API OFICIAL, RENOVAÇÕES, META SUGERIDA E REGRA NOVA DO BÔNUS · ✅ NO AR EM PRODUÇÃO E VALIDADO NA TELA
 
 ### ▶️▶️ RETOMAR AQUI
