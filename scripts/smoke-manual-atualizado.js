@@ -236,6 +236,7 @@ function exige(txt, ondeNome, assuntos) {
     'dia faltando não recalcula': 'último cálculo bom',
     'balcão não paga comissão': 'não paga comissão',
     'o botão é só para não esperar': 'esperar a madrugada',
+    'dia sem a vendedora também trava': 'buscado sem a vendedora',
   });
   ok('admin: comissão automática, mês congelado com recibo, balcão fora da comissão');
 }
