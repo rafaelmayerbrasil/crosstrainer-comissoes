@@ -3,9 +3,21 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · propostas A, B e C construídas · 🟡 NO STAGING, SEM CLIQUE HUMANO · D (horas do mês) só desenhada
+## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · 🚀 TUDO NO AR EM PRODUÇÃO · D (horas do mês) só desenhada
 
 ### ▶️▶️ RETOMAR AQUI
+**🚀 PUBLICADO EM PRODUÇÃO em 01/10/2026, com o "pode publicar" do Rafael** (`8aad3fc..c1cbfe5` no `main` + Functions `processSubstitutionAcceptance` (atualizada) e `onClassAvisoProfessor` (nova) em `us-central1`). Sem regra nem índice novo. **Conferido depois:** GitHub Pages serve arquivo por arquivo o mesmo conteúdo do `main` (`?v=20261001`), `index.html`/`commission.js`/`sw.js`/`manifest.json` intactos, a página de produção carrega sem erro de console, as duas Functions aparecem na lista, e a consulta da tela nova acha os **21 avisos pendentes** (12 de aulas de agosto, 9 de setembro — Alan 5, Eduarda 5, Vagner 4, Theo 3, Karin 3, João Vitor 1). E-mail de produção: `ativo:true, modoTeste:false` → **troca na mão em escala publicada manda e-mail de verdade**. Folga mínima não configurada → vale 1 sábado, como sempre. **Ninguém clicou logado em produção** (não havia sessão de produção no painel); a homologação foi toda no staging.
+
+**O que a gestão precisa saber / fazer:**
+1. **Responder os 21 avisos** em *Agenda → Avisos dos professores*. Enquanto houver aviso sem resposta, **agosto e setembro não fecham**. (Há também 12 trocas de professor em aberto, que já travavam.)
+2. **Escala de 26/09 fica como está** (decisão do Rafael: "até porque 26/09 já passou") — na escala continua o Thiago, embora o Vagner tenha dado a aula; o rodízio conta esse sábado pro Thiago.
+3. Avisar o grupo do que entrou (texto pronto entregue ao Rafael na conversa).
+4. **Setembro do Theo** e a **grade dele**: continuam esperando a gestão confirmar a lista.
+5. **Proposta D** (horas do mês): desenho pronto, com as decisões do Rafael e o atalho "Ver as horas"; falta construir.
+6. Pendências da sessão 80 (rodadas da Pacto, 1º automático de outubro, venda avulsa) seguem abaixo.
+
+---
+*Abaixo, o registro da sessão como foi acontecendo (escrito antes da publicação — onde diz "staging" ou "falta OK", leia como histórico).*
 **Branch `ajustes-escala-horas` (a partir do `main`), até `b03bf8a` + docs. STAGING publicado (hosting + Functions `processSubstitutionAcceptance` e `onClassAvisoProfessor`). NADA em produção.** Não há regra nem índice novo; há **uma Function alterada** (`processSubstitutionAcceptance` + `functions/escala-troca.js`) e **uma nova** (`onClassAvisoProfessor` + `functions/class-avisos.js`). **Tudo homologado no staging comigo clicando, como gestão e como professor. Espera só o OK do Rafael para produção.**
 
 **🚨 Último achado da sessão, corrigido — `b03bf8a` (e JÁ ESTAVA EM PRODUÇÃO):** trocar uma pessoa ou inverter duas vagas numa escala publicada republica a agenda, e **republicar apagava e recriava TODAS as aulas da escala**. Visto no staging ao inverter duas vagas de Hiit: sumiram os 35 min aceitos de outra aula, a falta registrada em outra, o status "substituída" de uma troca confirmada, e a troca pendente ficou apontando pra aula inexistente. Agora `publishToAgenda` compara cada vaga com a aula que existe (`aulaServeNaVaga`: mesma pessoa, unidade, horário e dia; aula substituída cujo titular original é a pessoa da vaga também serve) e **só refaz a da vaga que mudou**; a aula mantida recebe só o que vem da escala (feriado, tipo, modalidade). Mês fechado segue intocável; despublicar segue removendo tudo. Reteste no staging: inverter refez 2 aulas e manteve as outras 2 com o que tinham. Smoke `republicar-preserva-aulas` (7). A trava do rebalanceio ("aula realizada → não republica") ficou mais cautelosa que o necessário e foi mantida de propósito. **Reconsolidar e Refazer continuam sendo para dia que ainda não aconteceu** (sorteiam de novo; Refazer despublica).
