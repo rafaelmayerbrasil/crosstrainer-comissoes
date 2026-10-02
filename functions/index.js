@@ -327,38 +327,12 @@ async function generateClassesCore({ weeksAhead = 8, dryRun = false, source = 'c
   const commits = [];
 
   for (const c of toCreate) {
-    const data = {
-      slotId: c.slotId,
-      templateId: c.slot.templateId || null,
-      unitId: c.slot.unitId,
-      teacherId: c.slot.teacherId,
-      originalTeacherId: c.slot.teacherId,
-      modalityId: c.slot.modalityId,
+    const data = Object.assign(classCandidates.dadosDaAula(c, source), {
       scheduledDate: admin.firestore.Timestamp.fromDate(c.date),
-      startTime: c.slot.startTime,
-      endTime: c.slot.endTime,
-      durationMinutes: c.slot.durationMinutes || 0,
-
-      status: 'prevista',
-      isHoliday: c.extras.isHoliday || false,
-      holidayName: c.extras.holidayName || null,
-      holidayType: c.extras.holidayType || null,
-      specialScaleType: c.extras.specialScaleType || null,
-      specialScaleId: c.extras.specialScaleId || null,
-
-      cancellationReason: null,
-      cancellationNote: null,
-      adjustedBy: null,
-      adjustedAt: null,
-      adjustmentNote: null,
-
-      monthClosingId: null,
-
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      generatedBy: source,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    });
     batch.set(firestore.collection('classes').doc(c.classId), data);
     inBatch++;
     if (inBatch >= BATCH_LIMIT) {

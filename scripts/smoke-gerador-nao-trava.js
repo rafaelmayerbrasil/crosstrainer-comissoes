@@ -125,6 +125,30 @@ const base = { de: [2026, 10, 5], semanas: 8, hojeISO: '2026-10-05', agoraHHMM: 
   passou('a Function usa o laço testado, escrito de um jeito que não tem como esquecer de avançar o dia');
 }
 
+/* ── 6b. O documento da aula: um formato só, da Function e do script ── */
+{
+  const C = require('../functions/class-candidates.js');
+  const fs = require('fs');
+  const d = C.dadosDaAula({ slotId: 'dHGe', slot: Object.assign({ templateId: 'tpl', durationMinutes: 60 }, TER), date: new Date(), classId: 'x',
+    extras: { isHoliday: false, holidayName: null, holidayType: null, specialScaleType: null, specialScaleId: null } }, 'cf-scheduled');
+  assert.deepStrictEqual(d, {
+    slotId: 'dHGe', templateId: 'tpl', unitId: 'cp', teacherId: 'thaynara', originalTeacherId: 'thaynara', modalityId: 'hiit',
+    startTime: '13:30', endTime: '14:30', durationMinutes: 60, status: 'prevista',
+    isHoliday: false, holidayName: null, holidayType: null, specialScaleType: null, specialScaleId: null,
+    cancellationReason: null, cancellationNote: null, adjustedBy: null, adjustedAt: null, adjustmentNote: null,
+    monthClosingId: null, generatedBy: 'cf-scheduled',
+  }, 'os mesmos campos que a Function sempre gravou — nasce PREVISTA, e quem confirma é a rotina das 3h');
+  const fn = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+  assert.ok(/classCandidates\.dadosDaAula\(c, source\)/.test(fn), 'a Function monta a aula por aqui');
+  const script = fs.readFileSync(path.join(__dirname, 'repor-aulas-nao-geradas.js'), 'utf8');
+  assert.ok(/C\.dadosDaAula\(/.test(script) && /C\.comporCandidatos\(/.test(script), 'e o script de reposição usa o MESMO laço e o MESMO formato');
+  // janela com fim explícito (o script repõe de uma data passada até hoje)
+  const r = C.comporCandidatos({ slots: [TER], inicio: C.brMidnightUTC(2026, 8, 1), fim: C.brMidnightUTC(2026, 9, 1), hojeISO: null, agoraHHMM: null });
+  assert.deepStrictEqual(r.candidates.map(c => c.classId), ['dHGe_20260901', 'dHGe_20260908', 'dHGe_20260915', 'dHGe_20260922', 'dHGe_20260929'],
+    'as cinco terças de setembro que a Thaynara deu e o sistema não tinha');
+  passou('o documento da aula é montado num lugar só; a janela aceita data final explícita');
+}
+
 /* ── 7. Se o gerador parar de novo, a gestão fica sabendo ──────────── */
 {
   // Cinco semanas travado e ninguém viu, porque a agenda já estava cheia até

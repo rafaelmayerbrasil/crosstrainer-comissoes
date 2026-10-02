@@ -73,7 +73,8 @@ function fimDaJanela(inicio, semanas) {
 function comporCandidatos(p) {
   const slots = p.slots || [];
   const inicioMs = p.inicio.getTime();
-  const fimMs = fimDaJanela(p.inicio, p.semanas).getTime();
+  // `fim` só é usado pelo script que repõe aulas atrasadas; a Function passa `semanas`.
+  const fimMs = (p.fim ? p.fim : fimDaJanela(p.inicio, p.semanas)).getTime();
   const feriadosByDate = p.feriadosByDate || new Map();
   const scalesByDate = p.scalesByDate || new Map();
   const vacationDatesByTeacher = p.vacationDatesByTeacher || new Map();
@@ -123,4 +124,39 @@ function comporCandidatos(p) {
   return { candidates, vacationSkipped, pastTodaySkipped, escalaSkipped };
 }
 
-module.exports = { brMidnightUTC, brComponents, ymdFromDateBR, ymdISOFromDateBR, fimDaJanela, comporCandidatos, ONE_DAY_MS, BR_OFFSET_HOURS, BR_OFFSET_MS };
+/**
+ * O documento da aula que nasce de um horário da grade — tudo, menos a data e
+ * os carimbos de hora, que dependem de quem grava. Um lugar só: a Function e o
+ * script de reposição não podem criar aulas de formatos diferentes.
+ */
+function dadosDaAula(c, source) {
+  return {
+    slotId: c.slotId,
+    templateId: c.slot.templateId || null,
+    unitId: c.slot.unitId,
+    teacherId: c.slot.teacherId,
+    originalTeacherId: c.slot.teacherId,
+    modalityId: c.slot.modalityId,
+    startTime: c.slot.startTime,
+    endTime: c.slot.endTime,
+    durationMinutes: c.slot.durationMinutes || 0,
+
+    status: 'prevista',
+    isHoliday: c.extras.isHoliday || false,
+    holidayName: c.extras.holidayName || null,
+    holidayType: c.extras.holidayType || null,
+    specialScaleType: c.extras.specialScaleType || null,
+    specialScaleId: c.extras.specialScaleId || null,
+
+    cancellationReason: null,
+    cancellationNote: null,
+    adjustedBy: null,
+    adjustedAt: null,
+    adjustmentNote: null,
+
+    monthClosingId: null,
+    generatedBy: source,
+  };
+}
+
+module.exports = { dadosDaAula, brMidnightUTC, brComponents, ymdFromDateBR, ymdISOFromDateBR, fimDaJanela, comporCandidatos, ONE_DAY_MS, BR_OFFSET_HOURS, BR_OFFSET_MS };
