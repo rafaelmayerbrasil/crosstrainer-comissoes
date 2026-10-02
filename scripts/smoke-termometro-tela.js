@@ -175,8 +175,9 @@ const doc = {
   };
   const barraVend = barraDe({ role: 'vendedor' });
   assert.ok(/termometro\.html/.test(barraVend), 'barra do celular da vendedora tem o termômetro');
-  assert.strictEqual((barraVend.match(/mobile-nav-item/g) || []).length, 5, 'cinco botões na barra');
-  ok('barra do celular da vendedora: termômetro como 5º botão');
+  // 02/10/2026: Renovações entrou depois do termômetro (smoke-renovacoes-tela, caso 11)
+  assert.strictEqual((barraVend.match(/mobile-nav-item/g) || []).length, 6, 'seis botões na barra');
+  ok('barra do celular da vendedora: termômetro e renovações na barra');
 }
 
 /* 13. outubro/2026 em diante: a regra dos mínimos (quantos faltam, não qual) */

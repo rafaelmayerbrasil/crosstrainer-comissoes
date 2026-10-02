@@ -1390,13 +1390,15 @@
         justify-content: center;
         gap: 3px;
         cursor: pointer;
-        padding: 8px 4px;
+        /* 6 botões na barra da vendedora desde 02/10/2026 (Renovações): sem folga
+           lateral nem espaço entre letras para caber num celular de 320px */
+        padding: 8px 1px;
         border-radius: 8px;
         transition: background .15s;
         font-size: 9px;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: .3px;
+        letter-spacing: 0;
         color: var(--text3)
       }
       .mobile-nav-item:active {
@@ -3546,6 +3548,9 @@
           </div>
           <div class="mobile-nav-item" id="mnav-termometro" onclick="location.href='termometro.html'">
             <span class="mn-icon">🌡️</span>Termômetro
+          </div>
+          <div class="mobile-nav-item" id="mnav-renovacoes" onclick="location.href='renovacoes.html'">
+            <span class="mn-icon">🔁</span>Renovações
           </div>
           <div class="mobile-nav-item" id="mnav-rules" onclick="openRulesModal()">
             <span class="mn-icon">📖</span>Regras

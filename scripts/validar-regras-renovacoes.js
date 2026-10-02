@@ -65,15 +65,30 @@ async function usuarioComPerfil(perfil, semPerfil) {
   console.log(`=== Regras da lista de renovações (${PROJECT}, REST autenticado) ===\n`);
   const LISTA = 'CP_zzfix-2026-10', A1 = 'CP_zzfix1', A2 = 'CP_zzfix2', A3 = 'PP_zzfix3';
   const SUP = 'zzfix-supervisao', VCP = 'zzfix-vendedora-cp', VPP = 'zzfix-vendedora-pp';
+  // Cadastro antigo, como o da Erica e da Francini em produção (02/10/2026): só `role`, sem
+  // `profiles`, e as unidades com o id de produção (`cp`/`pp`, sem o "unit-").
+  const VANT = 'zzfix-vendedora-antiga';
   await db.collection('renovacoes_lista').doc(LISTA).set({ _fixture: true, unidade: 'CP', mes: '2026-10' });
   try {
     await db.collection('users').doc(SUP).set({ _fixture: true, name: 'ZZ FIXTURE SUPERVISAO', profiles: ['supervisao'], status: 'ativo' });
     await db.collection('users').doc(VCP).set({ _fixture: true, name: 'ZZ FIXTURE CP', role: 'vendedor', profiles: ['vendedor'], allowedUnits: ['unit-cp'], unitId: 'unit-cp', status: 'ativo' });
     await db.collection('users').doc(VPP).set({ _fixture: true, name: 'ZZ FIXTURE PP', role: 'vendedor', profiles: ['vendedor'], allowedUnits: ['unit-pp'], unitId: 'unit-pp', status: 'ativo' });
+    await db.collection('users').doc(VANT).set({ _fixture: true, name: 'ZZ FIXTURE ANTIGA', role: 'vendedor', allowedUnits: ['cp', 'pp'], unitId: 'cp', status: 'ativo' });
     const uidAdmin = await usuarioComPerfil('admin');
     const uidProf = await usuarioComPerfil('professor', ['admin', 'supervisao']);
     if (!uidAdmin || !uidProf) throw new Error('faltou usuário de teste');
-    const [tkAdmin, tkProf, tkSup, tkCP, tkPP] = await Promise.all([uidAdmin, uidProf, SUP, VCP, VPP].map(tokenDe));
+    const [tkAdmin, tkProf, tkSup, tkCP, tkPP, tkAnt] = await Promise.all([uidAdmin, uidProf, SUP, VCP, VPP, VANT].map(tokenDe));
+
+    expect('vendedora de cadastro antigo (só role, unidade "cp") lê a lista do CP', await ler(tkAnt, `renovacoes_lista/${LISTA}`), 'OK');
+    // A tela busca o acompanhamento em LISTA (where unidade == X), não documento a documento
+    const consultar = (tk, unidade) => fetch(`${BASE}:runQuery`, {
+      method: 'POST', headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'renovacoes_acompanhamento' }],
+        where: { fieldFilter: { field: { fieldPath: 'unidade' }, op: 'EQUAL', value: { stringValue: unidade } } } } }),
+    }).then(status);
+    expect('vendedora de cadastro antigo consulta o acompanhamento do CP (como a tela)', await consultar(tkAnt, 'CP'), 'OK');
+    expect('vendedora do CP consulta o acompanhamento do CP (como a tela)', await consultar(tkCP, 'CP'), 'OK');
+    expect('vendedora do PP NÃO consulta o acompanhamento do CP', await consultar(tkPP, 'CP'), 'NEGADO');
 
     expect('admin lê a lista', await ler(tkAdmin, `renovacoes_lista/${LISTA}`), 'OK');
     expect('supervisão lê a lista', await ler(tkSup, `renovacoes_lista/${LISTA}`), 'OK');
@@ -104,7 +119,7 @@ async function usuarioComPerfil(perfil, semPerfil) {
   } finally {
     await db.collection('renovacoes_lista').doc(LISTA).delete();
     for (const a of [A1, A2, A3]) await db.collection('renovacoes_acompanhamento').doc(a).delete();
-    for (const uid of [SUP, VCP, VPP]) {
+    for (const uid of [SUP, VCP, VPP, VANT]) {
       await db.collection('users').doc(uid).delete();
       await admin.auth().deleteUser(uid).catch(() => {});
     }

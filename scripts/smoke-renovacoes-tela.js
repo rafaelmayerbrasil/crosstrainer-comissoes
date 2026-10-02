@@ -223,4 +223,25 @@ const H = '2026-10-05';
   ok('"Plano fechado" só aparece no Sim e "Motivo" só no Não; troca na hora; campo escondido não é gravado');
 }
 
+/* 11. a vendedora chega na lista pelo celular (Rodrigo, 02/10/2026): no celular a barra lateral
+       some e só existe a barra de baixo — e ela não tinha Renovações, então só a gestão (no
+       computador) achava a lista. A barra é montada de verdade, não procurada no texto. */
+{
+  const idx = fs.readFileSync(path.join(raiz, 'index.html'), 'utf8');
+  const fonteMob = idx.match(/function buildMobileNav\(\) \{[\s\S]*?\n\s*function mobileNavTo\(/);
+  assert.ok(fonteMob, 'não achei buildMobileNav no index.html');
+  const barraDe = perfil => {
+    const nav = { innerHTML: '' };
+    const sb = { document: { getElementById: id => (id === 'mobileNav' ? nav : null) }, userProfile: perfil };
+    vm.createContext(sb);
+    vm.runInContext(fonteMob[0].replace(/function mobileNavTo\($/, '') + '\nbuildMobileNav();', sb);
+    return nav.innerHTML;
+  };
+  const vend = barraDe({ role: 'vendedor' });
+  assert.ok(/location\.href='renovacoes\.html'/.test(vend), 'barra do celular da vendedora leva à lista de renovações');
+  assert.ok(/Renova/.test(lido(vend)), 'com o nome na tela');
+  assert.ok(vend.indexOf('renovacoes.html') > vend.indexOf('termometro.html'), 'depois do termômetro');
+  ok('barra do celular da vendedora tem Renovações (no celular a barra lateral não aparece)');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);
