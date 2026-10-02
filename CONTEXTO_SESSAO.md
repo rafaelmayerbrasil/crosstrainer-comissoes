@@ -6,6 +6,33 @@
 ## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · 🚀 TUDO NO AR EM PRODUÇÃO, INCLUSIVE A D (horas do mês)
 
 ### ▶️▶️ RETOMAR AQUI
+**🧭 COMO A SESSÃO 81 TERMINOU (01/10/2026, noite) — TUDO NO AR EM PRODUÇÃO, NADA PENDENTE DE PUBLICAR.** `main` = `origin/main`, árvore limpa. **A próxima sessão é de AJUSTES NA COMISSÃO** (o Rafael vai abrir sessão nova; ainda não disse quais ajustes — perguntar antes de mexer, e lembrar que `index.html` e `commission.js` só com autorização explícita).
+
+**Entrou em produção nesta sessão (três publicações no mesmo dia):**
+1. **Ajustes da escala e avisos dos professores** (`8aad3fc..c1cbfe5`): troca manual mostra "Não posso" e avisa quem entrou/saiu · texto para o WhatsApp · folga mínima configurável · "Por que estou neste dia?" · a escala acompanha a troca confirmada · professor avisa atraso pelo horário · tela **Avisos dos professores** com trava no fechamento · republicar só refaz a vaga que mudou.
+2. **Minhas horas do mês** (`cd44b9a..57fdcde` + regras `hour_declarations` + Function `onHourDeclarationSent`): o professor corrige o mês numa tela e envia; a gestão valida, devolve, fecha valendo a agenda ou lança por alguém; validar ajusta as próprias aulas; horas enviadas travam o fechamento, e de out/2026 quem não conferiu também.
+3. **Gerador de aulas** (`b5ec3ad..169736d` + 3 Functions): estava travado desde 31/08; consertado, e **2.018 aulas repostas** (10 atrasadas da Thaynara + agenda de 20/10 a 26/11).
+
+**Decisões do Rafael nesta sessão (valem daqui pra frente):**
+- **Agosto não entra "pra valer" no sistema; o fechamento começa por SETEMBRO.** O pagamento de agosto foi feito por fora. Não propor fechar agosto, nem repor aula de agosto (as 2 da Thaynara de 25 e 27/08 ficaram de fora de propósito).
+- **A escala de 26/09 fica como está** (o Thiago na escala, embora o Vagner tenha dado a aula).
+- **Horas do mês:** todos conferem · quem não conferir espera (trava) · basta o OK geral da gestão · quem fecha precisa do atalho "Ver as horas".
+
+**Os textos já foram enviados ao grupo pelo Rafael:** o dos professores (Minhas horas), o da gestão (Horas do mês) e o do ajuste das 13:30 + o que falta para fechar setembro.
+
+**🔴 O que ficou com a gestão (para fechar SETEMBRO no sistema):**
+1. Responder os **9 avisos de professores** de setembro (Eduarda 5, Karin 2, Theo 1, João 1) — *Agenda → Avisos dos professores*.
+2. Resolver as **5 trocas em aberto** de setembro (Bruno→Theo) — *Substituições*.
+3. Validar as horas que os professores enviarem e **lançar o setembro do Theo** — *Agenda → Horas do mês*.
+4. Conferir a prévia e fechar. (Nenhum mês jamais foi fechado: 0 fechamentos, 0 recibos, 0 movimentos de banco de horas.)
+
+**🔴 O que ficou comigo, para conferir numa próxima sessão:**
+- **Segunda 05/10 às 2h:** a rodada automática do gerador tem que ter rodado — a agenda da grade deve passar a ir até **30/11** (hoje vai até 26/11). Se não foi, olhar o registro da Function `generateClassesForUpcomingWeeks`.
+- **Madrugada de 02/10 (3h):** as 10 aulas repostas da Thaynara devem ter virado "realizada".
+- **Ninguém clicou logado em produção** em nada do que entrou hoje; a homologação foi toda no staging (como gestão e como professora).
+- Da sessão 80, ainda abertos: rodadas das 4h/5h da Pacto, o 1º cálculo automático de outubro (02/10) e a decisão da venda avulsa com recibo.
+
+---
 **🚀 GERADOR DE AULAS CONSERTADO E AGENDA REPOSTA EM PRODUÇÃO (01/10/2026, noite, com o "pode publicar e criar as aulas" do Rafael):** `b5ec3ad..169736d` no `main` + Functions `generateClassesForUpcomingWeeks`, `generateClassesManual` e `moveSlotClasses`. Depois, `scripts/repor-aulas-nao-geradas.js --project production --apply` criou **2.018 aulas** pelo mesmo laço e formato da Function: **10 atrasadas** (Thaynara, ter/qui 13:30, de 01/09 a 01/10 — **agosto ficou de fora por decisão do Rafael: "agosto ainda não entrou pra valer; começa em setembro"**) e **2.008 futuras** (20/10 a 26/11). Marca `reposicao='gerador-travado-2026-10-01'`; lista em `backups/`. **Conferido:** agenda da grade vai até 26/11, 0 horário ativo sem aula, a Thaynara vê as 13:30, GitHub Pages igual ao `main`. As 10 atrasadas nasceram "previstas" e viram "realizada" na rotina das 3h de 02/10. A rodada automática de segunda 05/10 às 2h volta a funcionar sozinha — **conferir que rodou** (a agenda deve passar a ir até 30/11).
 
 *(O que segue é o registro do achado.)*
