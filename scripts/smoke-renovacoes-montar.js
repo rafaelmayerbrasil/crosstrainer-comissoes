@@ -126,7 +126,18 @@ const NUCLEO = {
       assert.ok(/secrets: \[PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP\]/.test(trecho), f + ' sem as credenciais das unidades');
     });
     assert.ok(/criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_CP\.value\(\) \}\)/.test(idx), 'a busca usa o gateway do CP');
-    assert.ok(/exports\.montarListaRenovacoes\s*=\s*onSchedule\(\{[\s\S]*?schedule:\s*'0 5 \* \* \*'[\s\S]*?timeZone:\s*'America\/Sao_Paulo'/.test(bloco));
+    assert.ok(/exports\.montarListaRenovacoes\s*=\s*onSchedule\(\{[\s\S]*?schedule:\s*HORARIO_LISTA_RENOVACOES[\s\S]*?timeZone:\s*'America\/Sao_Paulo'/.test(bloco));
+    assert.ok(/exports\.buscarPactoSombra\s*=\s*onSchedule\(\{\s*schedule:\s*HORARIO_BUSCA_PACTO,/.test(idx));
+    // 02/10/2026: staging e produção usam as mesmas credenciais da Pacto — não podem rodar na mesma hora
+    // (42 de 91 contratos do CP voltaram vazios na lista das 5h). O trecho é EXECUTADO com cada projeto.
+    const trecho = idx.slice(idx.indexOf('const EH_STAGING'), idx.indexOf('// Todo dia às 4h'));
+    const horarios = projeto => new Function('process', trecho + '; return [HORARIO_BUSCA_PACTO, HORARIO_LISTA_RENOVACOES];')({ env: projeto ? { GCLOUD_PROJECT: projeto } : {} });
+    assert.deepStrictEqual(horarios('crosstrainer-comissoes'), ['0 4 * * *', '0 5 * * *'], 'produção: 4h e 5h, como sempre');
+    assert.deepStrictEqual(horarios('crosstrainer-comissoes-staging'), ['0 1 * * *', '0 2 * * *'], 'staging: 1h e 2h');
+    assert.deepStrictEqual(horarios(null), ['0 4 * * *', '0 5 * * *'], 'sem o nome do projeto, vale o horário de produção');
+    const hora = c => Number(c.split(' ')[1]);
+    horarios('crosstrainer-comissoes-staging').forEach(s => horarios('crosstrainer-comissoes').forEach(p =>
+      assert.ok(Math.abs(hora(s) - hora(p)) >= 2, 'staging e produção com pelo menos 2 horas de distância')));
     assert.ok(/exports\.montarListaRenovacoesManual\s*=\s*onCall\(/.test(bloco));
     assert.ok(/callerProfiles\.includes\('admin'\)/.test(bloco.slice(bloco.indexOf('exports.montarListaRenovacoesManual'))), 'botão só do admin');
     assert.ok(/renovacoesMontar\.montarTudo\(/.test(bloco));

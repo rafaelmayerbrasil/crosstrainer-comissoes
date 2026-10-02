@@ -2194,11 +2194,22 @@ async function rodarSombra(dias, unidades, opcoes = {}) {
   return r;
 }
 
-// Todo dia às 4h: relê o mês inteiro até ontem (e o anterior, até o dia 10).
+// HORÁRIO DAS ROTINAS DA PACTO — o STAGING NÃO roda junto com a produção (02/10/2026).
+// Os dois ambientes usam as MESMAS credenciais da Pacto. Rodando na mesma hora,
+// as duas rotinas batiam no gateway ao mesmo tempo e a Pacto devolvia contrato
+// VAZIO e sem erro: na lista das 5h de 02/10, 42 dos 91 contratos do Campeche
+// voltaram vazios na primeira passada. Produção: 4h (busca) e 5h (lista).
+// Staging: 1h e 2h — três horas antes, com folga para a rotina terminar.
+// Sem o nome do projeto no ambiente, vale o horário de produção.
+const EH_STAGING = /staging/.test(process.env.GCLOUD_PROJECT || '');
+const HORARIO_BUSCA_PACTO = EH_STAGING ? '0 1 * * *' : '0 4 * * *';
+const HORARIO_LISTA_RENOVACOES = EH_STAGING ? '0 2 * * *' : '0 5 * * *';
+
+// Todo dia às 4h (staging: 1h): relê o mês inteiro até ontem (e o anterior, até o dia 10).
 // A Pacto lança cobrança recorrente dias depois com a data antiga — relendo só
 // 3 dias, o CP perdeu R$ 4.284,00 em set/2026. O dia corrente nunca entra.
 exports.buscarPactoSombra = onSchedule({
-  schedule: '0 4 * * *',
+  schedule: HORARIO_BUSCA_PACTO,
   timeZone: 'America/Sao_Paulo',
   secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
   timeoutSeconds: 1800,   // 21 dias × 2 unidades levaram 2min48s com o caderninho cheio; pior caso 40 dias
@@ -2288,7 +2299,7 @@ async function rodarRenovacoes(unidades) {
 }
 
 exports.montarListaRenovacoes = onSchedule({
-  schedule: '0 5 * * *',
+  schedule: HORARIO_LISTA_RENOVACOES,   // produção 5h (depois da busca das 4h); staging 2h
   timeZone: 'America/Sao_Paulo',
   secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
   timeoutSeconds: 1800,   // ~300 consultas ao gateway por rodada (contrato + vínculo), 1,25 s cada ≈ 7 min; dia 25+ são dois meses
