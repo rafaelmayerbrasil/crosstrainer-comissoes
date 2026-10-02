@@ -3,6 +3,40 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 82 (01/10/2026, noite) — 🔁 LISTA DE RENOVAÇÕES: as 4 falhas que o Rodrigo apontou · ✅ CORRIGIDO E NO AR EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+**🚀 PUBLICADO EM PRODUÇÃO em 01/10/2026 às ~23h, com o "pode publicar" do Rafael (ele deixou a sessão trabalhando sozinha, em /loop):** `9f29d31..e8d3b7b` no `main` (GitHub Pages conferido arquivo por arquivo; `index.html`, `commission.js`, `sw.js`, `manifest.json` intactos) + 4 Functions (`montarListaRenovacoes`, `montarListaRenovacoesManual`, `buscarPactoSombra`, `buscarPactoSombraManual`). Sem regra nem índice novo. **A lista de outubro de produção foi refeita às 23h** por `scripts/montar-renovacoes-agora.js --project production --apply` (o mesmo código do botão; não havia admin logado em produção para clicar): **CP 24 · 12 · 10 · 0** (91/91 contratos conferidos na Pacto) e **PP 14 · 9 · 7 · 0** (53/53) — os números do Rodrigo; a diferença nos vouchers é movimento do dia (um voucher do CP saiu da Pacto, entrou um novo na PP). Nenhuma ex-vendedora, nenhuma linha "Sem consultora", acompanhamentos da equipe intactos.
+
+**O que entrou (os 5 itens do plano aprovado):**
+1. **Plano original da importação** pela observação do contrato (`lerContrato` → `planoOriginal`; texto livre, só quando o plano é IMPORTAÇÃO e sem nada que pareça documento); o histórico do TecnoFit vira reserva.
+2. **Contrato e vínculo relidos a cada montagem** pelo gateway da unidade (`lerDaPacto` em `functions/renovacoes-montar.js`), ~300 consultas, 5–8 min. Última leitura boa em **`renovacoes_leituras`** (coleção nova, só a Function lê/grava); contrato que volta vazio é perguntado de novo no fim; limite/credencial não derrubam a lista; `renovacoes_lista.leitura` diz o que não foi conferido (aviso amarelo, só gestão). **A lista não escreve no caderninho das comissões.**
+3. **Consultora = vínculo de hoje**; vazio ou sócio → "Sem consultora" com aviso; ex-vendedora não herda (histórico só para quem vendeu nos últimos 120 dias, e só quando o vínculo não pôde ser lido); dois vínculos de consultora viram nota.
+4. **Renovado:** dia da renovação e etiqueta "antes do mês"; painel separa antes × dentro do mês; a meta sugerida **menciona** no porquê quantos já chegaram renovados (a conta dos 65% não mudou — decisão do Rodrigo).
+5. **Comissões:** o vínculo dos contratos novos do mês e das degustações grátis é relido a cada 3 dias até o mês fechar (`precisaRelerVinculo`, `relerVinculoDasDegustacoes` em `pacto-sombra.js`; só de out/2026; nunca toma as últimas 150 consultas da noite; falha não deixa o dia incompleto).
+
+**Homologação:** staging com a Pacto real, eu clicando logado como admin — "Atualizar agora" nas duas unidades (CP 24·12·10·0 em 6 min; PP 14·9·7·0 em 4 min), importações como "IMPORTAÇÃO → plano", o contrato do atestado na antecipação com 13/11, renovados com data e "antes do mês", painel "3 · 1", conferência "91 de 91", editor abre e fecha, celular sem rolagem lateral, console sem erro. Item 5 conferido por teste e por **ensaio a seco com a Pacto real e os dados de produção** (busca de 01/10: PP releu 3 vínculos, 2 tinham mudado). ⚠️ O item 5 não pôde ser clicado no staging: o dia corrente nunca é buscado, então outubro só existe a partir de 02/10. Suíte **125 ✓** (só o `smoke-9`, antigo).
+
+**🐛 Achados durante a construção:** (a) num ensaio, a Pacto devolveu **35 de 91 contratos do CP vazios e sem erro**; minutos depois os mesmos responderam → segunda tentativa no fim da rodada (`e8d3b7b`). (b) No portal de produção há **13 consultoras atribuídas à mão pelo Rodrigo na PP; em 10 a Pacto diz o contrário** (Kali ↔ Isabela) — o portal respeita a atribuição; está no texto para ele. (c) `7256` (CP) estava na lista das 5h e sumiu da Pacto durante o dia.
+
+**🔴 Para conferir (ficou agendado nesta sessão, em /loop):** a rodada das **4h** de 02/10 (busca + releitura do vínculo + 1º automático de outubro + meta sugerida, que deve nascer com mínimo de renovações **CP 16 · PP 10** e o porquê "3 já tinham renovado") e a das **5h** (lista pelo código novo, na Function).
+**🔴 Esperam o Rodrigo (texto pronto em `relatorios pacto/texto-para-o-rodrigo-renovacoes-2026-10-02.md`, fora do git por ter nome de aluno):** TOI Kids entra? · "Horário Especial" = Econômico (8 alunos)? · mensal em recorrência renova sozinho (10 contratos)? · a base dos 65% tira quem já renovou antes do mês? · as 10 atribuições da PP diferentes da Pacto.
+
+*(O que segue é o diagnóstico, escrito antes da construção.)* O Rodrigo conferiu a lista de outubro contra a Pacto e mandou 4 falhas + 3 decisões dele. Conferi os 79 contratos da lista um a um (gateway da Pacto com a credencial da unidade) contra o que estava gravado em `renovacoes_lista/{CP|PP}_2026-10` de produção. **As 4 procedem; as regras estão certas, o que falhava era a origem e a idade do dado.** Antes: CP 21 · 12 · 11 · 3 e PP 13 · 4 · 6 · 9.
+
+1. **Plano original das importações:** está no campo `observacao` do contrato, na rota `GET apigw/contratos/{n}` que já usamos (`lerContrato` descarta o campo). Hoje buscamos no histórico do TecnoFit por nome e vigência: falhou em 12 (3 CP, 9 PP) e errou 1 (PP 4147). Nos outros 38 os dois batem.
+2. **Vencimento nunca relido:** `completarContratos` usa o caderninho `pacto_contratos` se o contrato já existe. PP 3812 (atestado lançado em 28/09): lista 14/10, Pacto 13/11. A própria Previsão da Pacto já o devolve na antecipação.
+3. **Consultora — 25 linhas diferentes do vínculo de hoje** (11 CP, 14 PP): 9 com ex-vendedora (Thay Silva 5, Naielly 4), 4 com outra consultora (o vínculo mudou depois de lido), 12 "Sem consultora" tendo vínculo. Causas: o vínculo só é lido pela busca diária das comissões, e uma vez só. Um aluno tem dois vínculos (CP 7269).
+4. **Renovado antes do mês:** 3 da PP (24/08, 28/08, 30/09) aparecem como "Sim" em outubro e entram na base dos 65% da meta sugerida, mas a venda contou em agosto/setembro. O contrato traz a data (`dataRenovarRealizada`).
+
+**Outros achados:** o total da Previsão muda durante o dia (CP 88 às 5h, 89 quando o Rodrigo olhou, 91 à tarde) — não é falha · os períodos de outubro ainda não existiam em 01/10, então a meta sugerida nasce com a base errada (CP renovações 14, certo 16; PP 9, certo 10 — ou 8 tirando os 3 já renovados) · ⚠️ **o mesmo "lido uma vez" do item 3 vale para a comissão automática** (CP 7269 e 7196 lidos como Rodrigo, hoje Erica/Francini) — não medido; conferir contra o export no fechamento de outubro.
+
+**📝 Arquivos (todos no `main`):** `functions/pacto-gateway-cliente.js` · `functions/renovacoes-montar.js` · `renovacoes-lista.js` (+`functions/`) · `renovacoes.js` · `renovacoes.html` (`?v=20261004`) · `functions/pacto-sombra.js` · `functions/index.js` · `metas-sugeridas.js` e `comissoes-mes.js` (+`functions/`; **sem** trocar o `?v=` no `index.html`, que é protegido — o cache do GitHub Pages é de 10 min) · `manual-admin.html` · `scripts/montar-renovacoes-agora.js` (novo) · `DOCUMENTACAO.md` (fora do git) · smokes: `pacto-gateway-cliente` 8 · `renovacoes-lista` 23 · `renovacoes-montar` 13 · `renovacoes-tela` 9 · `metas-sugeridas` 12 · `pacto-sombra-busca` 28 · `manual-atualizado` 29.
+**Dados de produção alterados:** `renovacoes_lista/{CP,PP}_2026-10` (refeitas) e `renovacoes_leituras` (144 documentos novos). Nada em `periodos`, `pacto_contratos` ou acompanhamentos.
+Memória: [[renovacoes-lista-dados-velhos]]. Pendências das sessões 80 e 81 seguem valendo (abaixo).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 81 (01/10/2026) — 🗓️ RECLAMAÇÕES DO GRUPO SOBRE A ESCALA E AS HORAS · 🚀 TUDO NO AR EM PRODUÇÃO, INCLUSIVE A D (horas do mês)
 
 ### ▶️▶️ RETOMAR AQUI
