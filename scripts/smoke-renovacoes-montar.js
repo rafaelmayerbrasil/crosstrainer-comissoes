@@ -153,6 +153,7 @@ const NUCLEO = {
     codigo: '', consultor: null, lancou: null, plano, valor: 100, tipo: 'RE', situacao: 'AT', lancamento: vigenciaDe, vigenciaDe, vigenciaAte,
     cliente: { codigo: pessoa, nome: 'X' }, planoOriginal: '', recorrencia: false, renovadoEm: '', contratoNovo: null }, extra || {}) });
   const V = (...cos) => ({ situacao: 'ok', dados: { matricula: '1', consultor: cos[0] || null, consultores: cos } });
+  const SEM_ESPERA = async () => {};
   function gwContratos(contratos, alunos) {
     const g = { pedidos: [], alunos: [],
       async contrato(nm) { g.pedidos.push(String(nm)); const r = contratos[nm]; return typeof r === 'function' ? r() : (r || { situacao: 'ok', dados: null }); },
@@ -185,7 +186,7 @@ const NUCLEO = {
     const caderninhoAntes = JSON.stringify((await db.collection('pacto_contratos').doc('CP_301').get()).data());
     const gw = gwContratos(GW_HOJE, ALUNOS);
     const nucleo7 = nucleoFalso({});
-    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo7, clienteContratos: gw, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T1' });
+    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo7, clienteContratos: gw, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T1', dormir: SEM_ESPERA });
     const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
     const de = c => Object.values(d.blocos).flat().find(l => l.codigoContrato === c);
     assert.strictEqual(r.situacao, 'ok');
@@ -202,7 +203,7 @@ const NUCLEO = {
     assert.strictEqual(d.conferencia.bate, true);
     assert.deepStrictEqual(gw.pedidos.sort(), ['301', '302', '303', '304', '305'], 'cada contrato perguntado uma vez');
     assert.deepStrictEqual(gw.alunos.sort(), ['p31', 'p32', 'p35'], 'recorrente e permuta saem da lista: não se pergunta pelo aluno');
-    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 5, daReserva: 0, semLeitura: 0, motivo: '', consultasGateway: 11 });
+    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 5, daReserva: 0, semLeitura: 0, motivo: '', consultasGateway: 11, segundaTentativa: { tentados: 0, vieram: 0 } });
     assert.strictEqual(nucleo7.consultas, 0, 'com o gateway respondendo, o núcleo não é consultado');
     assert.strictEqual(JSON.stringify((await db.collection('pacto_contratos').doc('CP_301').get()).data()), caderninhoAntes,
       'a releitura da lista NÃO mexe no caderninho das comissões');
@@ -214,18 +215,19 @@ const NUCLEO = {
     /* 8. a Pacto fora do ar no dia seguinte: vale a última leitura boa, e a lista diz */
     const fora = gwContratos({ 301: { situacao: 'falhou', motivo: 'HTTP 503' }, 302: { situacao: 'falhou', motivo: 'HTTP 503' }, 303: { situacao: 'falhou', motivo: 'HTTP 503' },
       304: { situacao: 'falhou', motivo: 'HTTP 503' }, 305: { situacao: 'falhou', motivo: 'HTTP 503' } }, {});
-    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: fora, unidade: 'CP', mes: '2026-10', hoje: '2026-10-02', agora: () => 'T2' });
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: fora, unidade: 'CP', mes: '2026-10', hoje: '2026-10-02', agora: () => 'T2', dormir: SEM_ESPERA });
     const d2 = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
     assert.strictEqual(d2.situacao, 'ok');
     assert.deepStrictEqual(d2.blocos.renovacoes.map(l => l.codigoContrato), ['302'], 'não volta para o Verificar');
     assert.deepStrictEqual(d2.blocos.antecipacao.map(l => l.codigoContrato), ['305', '301']);
     assert.strictEqual(Object.values(d2.blocos).flat().find(l => l.codigoContrato === '301').consultora, 'KALI DUTRA');
-    assert.deepStrictEqual(d2.leitura, { total: 5, relidos: 0, daReserva: 5, semLeitura: 0, motivo: 'a Pacto não devolveu parte dos contratos', consultasGateway: 5 });
+    assert.deepStrictEqual(d2.leitura, { total: 5, relidos: 0, daReserva: 5, semLeitura: 0, motivo: 'a Pacto não devolveu parte dos contratos', consultasGateway: 10,
+      segundaTentativa: { tentados: 5, vieram: 0 } }, 'cada contrato foi perguntado duas vezes');
     ok('gateway fora do ar: a lista sai igual à de ontem pela última leitura boa e registra que nada foi relido');
 
     /* 9. o contrato veio, o vínculo não: fica o vínculo da última leitura */
     const meio = gwContratos(GW_HOJE, { p31: { situacao: 'falhou', motivo: 'HTTP 504' }, p32: V('ISABELA'), p35: V('ERICA') });
-    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: meio, unidade: 'CP', mes: '2026-10', hoje: '2026-10-03', agora: () => 'T3' });
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: meio, unidade: 'CP', mes: '2026-10', hoje: '2026-10-03', agora: () => 'T3', dormir: SEM_ESPERA });
     const d3 = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
     const de3 = c => Object.values(d3.blocos).flat().find(l => l.codigoContrato === c);
     assert.strictEqual(de3('301').consultora, 'KALI DUTRA', 'vínculo de 01/10, que foi a última vez que veio');
@@ -246,10 +248,11 @@ const NUCLEO = {
       34: { situacao: 'ok', dados: [BRUTO(304, 'IMPORTAÇÃO', '13/07/2026', '13/10/2026')] },
       35: { situacao: 'ok', dados: [BRUTO(305, 'SEMESTRAL, TREINO LIVRE', '10/05/2026', '10/11/2026')] },
     });
-    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo10, clienteContratos: comLimite, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T' });
+    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo10, clienteContratos: comLimite, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T', dormir: SEM_ESPERA });
     const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
     assert.strictEqual(r.situacao, 'ok', 'limite no gateway não derruba a lista');
-    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 1, daReserva: 0, semLeitura: 4, motivo: 'limite', consultasGateway: 4 });
+    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 1, daReserva: 0, semLeitura: 4, motivo: 'limite', consultasGateway: 4, segundaTentativa: { tentados: 0, vieram: 0 } },
+      'depois do limite não há segunda tentativa');
     assert.deepStrictEqual(d.blocos.verificar.map(l => l.codigoContrato).sort(), ['302', '304'], 'sem a observação, as importações voltam a pedir conferência');
     assert.strictEqual(d.conferencia.bate, true);
     assert.strictEqual(nucleo10.consultas, 3, '302 estava no caderninho; 303, 304 e 305 foram ao núcleo');
@@ -261,7 +264,7 @@ const NUCLEO = {
     // como a Pacto devolve de verdade: o Pedro (13/11) vem na consulta de novembro, não na de outubro
     const prev2 = { '2026-10-01': OK(PREV['2026-10-01'].dados.contratos.filter(x => x.codigoContrato !== '301')),
       '2026-11-01': OK([K('305', '35', 'NUNO NOVEMBRO'), K('301', '31', 'PEDRO ATESTADO')]), '2026-12-01': OK([]) };
-    const res = await M.montarTudo({ db: db2, clientesGw: { CP: gwFalso(prev2) }, clienteNucleo: nucleoFalso({}), clientesContratos: { CP: gw }, unidades: ['CP'], hoje: '2026-10-26', agora: () => 'T' });
+    const res = await M.montarTudo({ db: db2, clientesGw: { CP: gwFalso(prev2) }, clienteNucleo: nucleoFalso({}), clientesContratos: { CP: gw }, unidades: ['CP'], hoje: '2026-10-26', agora: () => 'T', dormir: SEM_ESPERA });
     assert.deepStrictEqual(res.map(x => x.id + ' ' + x.situacao), ['CP_2026-10 ok', 'CP_2026-11 ok']);
     assert.strictEqual(gw.pedidos.filter(x => x === '305').length, 1, 'o 305 está na antecipação de outubro e no mês de novembro');
     assert.strictEqual(gw.pedidos.filter(x => x === '301').length, 1);
@@ -277,6 +280,29 @@ const NUCLEO = {
     assert.ok(/clientesContratos\s*=\s*\{\s*CP: pactoGateway\.criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_CP\.value\(\) \}\),\s*PP: pactoGateway\.criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_PP\.value\(\) \}\)/.test(bloco));
     assert.ok(/montarTudo\(\{[^}]*clientesContratos/.test(bloco), 'montarTudo recebe os clientes de contrato');
     ok('Functions: a montagem recebe o gateway de contratos das duas unidades');
+  }
+
+  {
+    /* 13. a Pacto devolve o contrato VAZIO na primeira passada (ensaio de 01/10: 35 de 91 no Campeche) e responde na segunda */
+    const db = await bancoDesatualizado();
+    const vezes = {};
+    const instavel = cod => () => { vezes[cod] = (vezes[cod] || 0) + 1; return vezes[cod] === 1 ? { situacao: 'ok', dados: null } : GW_HOJE[cod]; };
+    const gw = gwContratos({ 301: instavel(301), 302: instavel(302), 303: GW_HOJE[303], 304: GW_HOJE[304], 305: () => ({ situacao: 'falhou', motivo: 'HTTP 502' }) }, ALUNOS);
+    const pausas = [];
+    const nucleo13 = nucleoFalso({ 35: { situacao: 'ok', dados: [BRUTO(305, 'SEMESTRAL, TREINO LIVRE', '10/05/2026', '10/11/2026')] } });
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo13, clienteContratos: gw, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01',
+      agora: () => 'T', dormir: async ms => { pausas.push(ms); } });
+    const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    const de = c => Object.values(d.blocos).flat().find(l => l.codigoContrato === c);
+    assert.deepStrictEqual(pausas, [5000], 'uma pausa antes da segunda passada');
+    assert.strictEqual(de('302').planoOriginal, 'ANUAL, ACESSO ILIMITADO', 'veio na segunda tentativa: não cai no Verificar');
+    assert.strictEqual(de('301').vencimento, '2026-11-13');
+    assert.deepStrictEqual(d.blocos.verificar, []);
+    assert.deepStrictEqual(d.leitura.segundaTentativa, { tentados: 3, vieram: 2 });
+    assert.deepStrictEqual([d.leitura.relidos, d.leitura.daReserva, d.leitura.semLeitura], [4, 0, 1], 'o 305 não veio nas duas: caminho antigo');
+    assert.strictEqual(de('305').plano, 'SEMESTRAL, TREINO LIVRE', 'e mesmo assim está na lista, pelo núcleo');
+    assert.deepStrictEqual(gw.pedidos.filter(x => x === '301' || x === '302').length, 4);
+    ok('contrato que volta vazio é perguntado de novo no fim, depois de uma pausa; só quem falha duas vezes vai para a reserva');
   }
 
   console.log('\n✅ smoke-renovacoes-montar: ' + n);
