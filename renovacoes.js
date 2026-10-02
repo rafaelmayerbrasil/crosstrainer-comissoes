@@ -175,6 +175,25 @@
     return vals.map(v => `<option value="${esc(v)}"${v === (atual || '') ? ' selected' : ''}>${esc(v ? ((rotulos && rotulos[v]) || v) : '—')}</option>`).join('');
   }
 
+  // "Plano fechado" só aparece no Sim e "Motivo" só no Não (pedido do Rafael, 02/10/2026):
+  // com os dois sempre na tela, a consultora não sabia qual preencher.
+  /** O campo marcado com `data-so="sim|nao"` aparece nesta situação? */
+  function campoAparece(so, situacao) {
+    return (situacao || 'pendente') === so;
+  }
+
+  /** Mostra/esconde os campos conforme a situação escolhida no formulário aberto. */
+  function aplicarSituacao(form) {
+    const situacao = form.elements.renovou ? form.elements.renovou.value : 'pendente';
+    form.querySelectorAll('[data-so]').forEach(el => { el.hidden = !campoAparece(el.dataset.so, situacao); });
+  }
+
+  /** O que vai para o banco: campo escondido não é gravado (trocar de Sim para Não não deixa o plano para trás). */
+  function soDaSituacao(dados) {
+    const s = dados.renovou || 'pendente';
+    return { ...dados, planoFechado: campoAparece('sim', s) ? (dados.planoFechado || '') : '', motivo: campoAparece('nao', s) ? (dados.motivo || '') : '' };
+  }
+
   /** Formulário da linha. `lista` dá os planos recentes e as consultoras conhecidas. */
   function formHtml(l, acomp, bloco, lista, perfil, hoje) {
     const a = acomp || {};
@@ -195,8 +214,8 @@
       <label>Data do 1º contato <input type="date" name="dataContato" max="${esc(hoje)}" value="${esc(a.dataContato || '')}"></label>
       ${semanas}
       <label>${deg ? 'Converteu?' : 'Renovou?'} <select name="renovou">${status}</select></label>
-      <label>Plano fechado <select name="planoFechado">${opcoes(lista && lista.planosRecentes, a.planoFechado)}</select></label>
-      <label>Motivo (se não ${deg ? 'converteu' : 'renovou'}) <select name="motivo">${opcoes(RL.MOTIVOS_NAO_RENOVOU, a.motivo)}</select></label>
+      <label data-so="sim"${campoAparece('sim', a.renovou) ? '' : ' hidden'}>Plano fechado <select name="planoFechado">${opcoes(lista && lista.planosRecentes, a.planoFechado)}</select></label>
+      <label data-so="nao"${campoAparece('nao', a.renovou) ? '' : ' hidden'}>Motivo de não ter ${deg ? 'convertido' : 'renovado'} <select name="motivo">${opcoes(RL.MOTIVOS_NAO_RENOVOU, a.motivo)}</select></label>
       <label>Observações <textarea name="observacoes" rows="3">${esc(a.observacoes || '')}</textarea></label>
       ${gestao}
       <div class="erro" data-erros hidden></div>
@@ -204,7 +223,7 @@
     </form>`;
   }
 
-  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, leituraHtml, renovadoHtml, hojeSP };
+  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, leituraHtml, renovadoHtml, campoAparece, aplicarSituacao, soDaSituacao, hojeSP };
 
   // ─── A página ───
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;
@@ -280,18 +299,19 @@
     $('fundo').hidden = false;
     const form = $('fundo').querySelector('form');
     form.querySelector('[data-cancelar]').onclick = fecharEditor;
+    form.elements.renovou.onchange = () => aplicarSituacao(form);
     $('fundo').onclick = e => { if (e.target === $('fundo')) fecharEditor(); };
     form.onsubmit = async e => {
       e.preventDefault();
       const v = nome => { const el = form.elements[nome]; return el ? String(el.value || '').trim() : undefined; };
-      const dados = {
+      const dados = soDaSituacao({
         planoAlvo: v('planoAlvo') || '',
         dataContato: v('dataContato') || '',
         renovou: v('renovou') || 'pendente',
         planoFechado: v('planoFechado') || '',
         motivo: v('motivo') || '',
         observacoes: v('observacoes') || '',
-      };
+      });
       if (bloco === 'degustacoes') dados.semanas = [0, 1, 2, 3].map(i => v('semana' + i) || '');
       if (estado.perfil === 'gestao') {
         dados.consultoraAtribuida = v('consultoraAtribuida') || '';

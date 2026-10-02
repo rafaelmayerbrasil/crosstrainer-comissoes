@@ -189,4 +189,38 @@ const H = '2026-10-05';
   ok('renovado com a data e a marca "antes do mês"; painel separa antes × dentro do mês; aviso do que a Pacto não devolveu (só gestão)');
 }
 
+/* 10. "Plano fechado" só no Sim, "Motivo" só no Não (pedido do Rafael, 02/10/2026) */
+{
+  const campo = (html, so) => { const m = html.match(new RegExp('<label data-so="' + so + '"( hidden)?>')); assert.ok(m, 'campo data-so=' + so + ' sumiu'); return !m[1]; };
+  const f = (acomp, bloco) => T.formHtml(LISTA.blocos[bloco || 'renovacoes'][0], acomp, bloco || 'renovacoes', LISTA, 'equipe', H);
+  assert.deepStrictEqual([campo(f(null), 'sim'), campo(f(null), 'nao')], [false, false], 'Pendente: nenhum dos dois');
+  assert.deepStrictEqual([campo(f({ renovou: 'negociacao' }), 'sim'), campo(f({ renovou: 'negociacao' }), 'nao')], [false, false], 'Em negociação: nenhum dos dois');
+  assert.deepStrictEqual([campo(f({ renovou: 'sim' }), 'sim'), campo(f({ renovou: 'sim' }), 'nao')], [true, false], 'Sim: só o plano fechado');
+  assert.deepStrictEqual([campo(f({ renovou: 'nao' }), 'sim'), campo(f({ renovou: 'nao' }), 'nao')], [false, true], 'Não: só o motivo');
+  assert.deepStrictEqual([campo(f({ renovou: 'sim' }, 'degustacoes'), 'sim'), campo(f({ renovou: 'nao' }, 'degustacoes'), 'nao')], [true, true], 'vale para a degustação');
+  assert.ok(/data-so="sim"[^>]*>Plano fechado/.test(f(null)) && /data-so="nao"[^>]*>Motivo de não ter renovado/.test(f(null)));
+  assert.ok(/Motivo de não ter convertido/.test(f(null, 'degustacoes')));
+
+  // trocar a situação no formulário aberto mostra e esconde na hora (a mesma função que o onchange chama)
+  const falsoForm = situacao => {
+    const campos = [{ dataset: { so: 'sim' }, hidden: false }, { dataset: { so: 'nao' }, hidden: false }];
+    return { elements: { renovou: { value: situacao } }, querySelectorAll: () => campos, campos };
+  };
+  const visiveis = s => { const fm = falsoForm(s); T.aplicarSituacao(fm); return fm.campos.filter(c => !c.hidden).map(c => c.dataset.so); };
+  assert.deepStrictEqual(visiveis('pendente'), []); assert.deepStrictEqual(visiveis('negociacao'), []);
+  assert.deepStrictEqual(visiveis('sim'), ['sim']); assert.deepStrictEqual(visiveis('nao'), ['nao']);
+  const js = fs.readFileSync(path.join(raiz, 'renovacoes.js'), 'utf8');
+  assert.ok(/form\.elements\.renovou\.onchange = \(\) => aplicarSituacao\(form\)/.test(js), 'a troca da situação está ligada ao formulário');
+
+  // campo escondido não é gravado: mudar de Sim para Não não deixa o plano para trás (nem o contrário)
+  const d = { planoAlvo: 'A', dataContato: '2026-10-01', observacoes: 'x', planoFechado: 'ANUAL', motivo: 'Outro' };
+  const sd = x => JSON.parse(JSON.stringify(T.soDaSituacao(x)));   // o objeto nasce no sandbox
+  assert.deepStrictEqual(sd({ ...d, renovou: 'nao' }), { ...d, renovou: 'nao', planoFechado: '' });
+  assert.deepStrictEqual(sd({ ...d, renovou: 'sim' }), { ...d, renovou: 'sim', motivo: '' });
+  assert.deepStrictEqual(sd({ ...d, renovou: 'pendente' }), { ...d, renovou: 'pendente', planoFechado: '', motivo: '' });
+  assert.ok(/const dados = soDaSituacao\(\{/.test(js), 'o que é gravado passa pelo filtro');
+  assert.deepStrictEqual([...RL.validar(T.soDaSituacao({ ...d, renovou: 'sim', planoFechado: '' }), H)], ['Informe o plano fechado.'], 'as travas continuam valendo');
+  ok('"Plano fechado" só aparece no Sim e "Motivo" só no Não; troca na hora; campo escondido não é gravado');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);
