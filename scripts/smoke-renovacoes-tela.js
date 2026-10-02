@@ -157,4 +157,36 @@ const H = '2026-10-05';
   ok('"Classificar como": rótulos legíveis, valores gravados iguais');
 }
 
+/* 9. 01/10/2026: a renovação com data, "antes do mês", o aviso do vínculo e o que não foi conferido na Pacto */
+{
+  const L2 = { ...LISTA, leitura: { total: 10, relidos: 10, daReserva: 0, semLeitura: 0, motivo: '', consultasGateway: 22 },
+    blocos: { ...LISTA.blocos, renovacoes: [
+      linha({ codigoContrato: '701', nome: 'RENOVOU EM AGOSTO', renovouSistema: true, renovadoEm: '2026-08-28', renovouAntesDoMes: true, notas: ['Renovou em 28/08/2026, antes de o mês da lista começar'] }),
+      linha({ codigoContrato: '702', nome: 'RENOVOU EM OUTUBRO', renovouSistema: true, renovadoEm: '2026-10-01', renovouAntesDoMes: false, n: 2 }),
+      linha({ codigoContrato: '703', nome: 'SEM DATA', renovouSistema: true, n: 3 }),
+      linha({ codigoContrato: '704', nome: 'DO SOCIO', consultora: null, consultoraOrigem: null, n: 4,
+        notas: ['Na Pacto o aluno está vinculado a RODRIGO ROJAIS, que não é consultora da lista: a gestão atribui'] }),
+    ] } };
+  const linhas = T.blocoHtml(T.BLOCOS[0], L2.blocos.renovacoes, {}, { hoje: H }).split('<tr data-contrato').slice(1);
+  assert.strictEqual(linhas.length, 4);
+  assert.ok(lido(linhas[0]).includes('pela Pacto em 28/08/2026') && lido(linhas[0]).includes('antes do mês'), lido(linhas[0]));
+  assert.ok(lido(linhas[1]).includes('pela Pacto em 01/10/2026') && !lido(linhas[1]).includes('antes do mês'));
+  assert.ok(/pela Pacto\s*(?!em)/.test(lido(linhas[2])) && !lido(linhas[2]).includes('pela Pacto em'), 'sem data, só "pela Pacto"');
+  assert.ok(lido(linhas[3]).includes('Sem consultora') && lido(linhas[3]).includes('vinculado a RODRIGO ROJAIS'), 'a gestão vê por que está sem consultora');
+
+  const g = lido(T.painelHtml(L2, {}, 'CP', 'gestao', H));
+  assert.ok(g.includes('Dos renovados: antes de o mês começar · dentro do mês 1 · 2'), g.slice(0, 400));
+  assert.ok(g.includes('Contratos conferidos na Pacto nesta atualização') && g.includes('10 de 10'));
+  assert.ok(!g.includes('não puderam ser conferidos'), 'tudo relido: sem aviso');
+  const parcial = { ...L2, leitura: { total: 10, relidos: 6, daReserva: 4, semLeitura: 0, motivo: 'limite', consultasGateway: 14 } };
+  const gp = lido(T.painelHtml(parcial, {}, 'CP', 'gestao', H));
+  assert.ok(gp.includes('4 de 10 contrato(s) não puderam ser conferidos na Pacto nesta atualização (a Pacto recusou por excesso de consultas)'), gp.slice(0, 400));
+  assert.ok(gp.includes('valem o plano, o vencimento e a consultora da última leitura'));
+  const ep = lido(T.painelHtml(parcial, {}, 'CP', 'equipe', H));
+  assert.ok(!ep.includes('não puderam ser conferidos'), 'o aviso da leitura é da gestão');
+  assert.ok(ep.includes('Dos renovados: antes de o mês começar · dentro do mês 1 · 2'), 'a consultora vê a divisão dos renovados');
+  assert.strictEqual(T.leituraHtml(LISTA), '', 'lista antiga, sem o campo: nada quebra');
+  ok('renovado com a data e a marca "antes do mês"; painel separa antes × dentro do mês; aviso do que a Pacto não devolveu (só gestão)');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);

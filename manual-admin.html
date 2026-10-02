@@ -693,14 +693,28 @@
     </ul>
     <p><strong>Ficam de fora</strong> (o resumo aparece recolhido, só para a gestão): recorrente, personal externo,
     crédito de aulas, avulso/pacote/diária, permuta/cortesia/colaborador, teste e agregadores. Contrato que veio do
-    TecnoFit como <strong>"IMPORTAÇÃO"</strong> é classificado pelo <strong>plano original</strong>, lido do histórico
-    de vendas — aparece como <em>IMPORTAÇÃO → plano</em>. Quando o histórico não tem, vai para o "Verificar manualmente".</p>
+    TecnoFit como <strong>"IMPORTAÇÃO"</strong> é classificado pelo <strong>plano original</strong>, que a Pacto guarda
+    na <strong>observação do contrato</strong> — aparece como <em>IMPORTAÇÃO → plano</em>. Se a observação estiver
+    vazia, o sistema procura no histórico de vendas; sem um nem outro, vai para o "Verificar manualmente".</p>
+    <p><strong>Tudo é conferido de novo na Pacto a cada atualização</strong> (desde 02/10/2026): o plano, o
+    <strong>vencimento</strong> (já com atestado ou trancamento) e a <strong>consultora vinculada ao aluno</strong>.
+    Trocou o vínculo ou lançou um atestado na Pacto hoje → a lista mostra na próxima atualização (5h ou "Atualizar
+    agora"). Por isso a atualização leva de 5 a 8 minutos. Se a Pacto não responder por algum contrato, a lista usa
+    a última leitura boa dele e a gestão vê um aviso amarelo dizendo quantos ficaram sem conferência.</p>
+    <p><strong>Consultora da linha:</strong> é a do <strong>vínculo do aluno na Pacto</strong>. Quando o vínculo está
+    vazio ou é de um sócio, a linha fica <strong>"Sem consultora"</strong> com o aviso de quem está vinculado, para a
+    gestão atribuir — o sistema não entrega o aluno a quem vendeu lá atrás e já saiu da equipe. Aluno com dois
+    vínculos de consultora aparece com o aviso "Dois vínculos".</p>
+    <p><strong>Quem já renovou:</strong> a linha mostra <em>"pela Pacto em dd/mm"</em> — o dia em que o contrato novo
+    foi lançado — e a etiqueta <strong>"antes do mês"</strong> quando a renovação foi fechada antes de o mês da lista
+    começar. No painel, os renovados aparecem separados: <em>antes de o mês começar · dentro do mês</em>. A taxa de
+    renovação continua sendo renovados ÷ total do bloco.</p>
     <p><strong>A consultora</strong> clica no aluno e preenche plano alvo, data do 1º contato, se renovou, plano fechado,
     motivo (lista fixa) e observações. O sistema não deixa gravar sem o que cada situação exige (Sim pede o plano
     fechado; Não pede o motivo; "Outro" pede observação). O que ela preenche <strong>fica guardado por contrato</strong>:
     quem estava na antecipação de outubro aparece em novembro com tudo o que já foi feito.</p>
-    <p><strong>A gestão</strong>, além disso, atribui a consultora (o Campeche não tem consultora na Pacto) e
-    classifica o que está em "Verificar manualmente" — vale a partir da próxima atualização. O botão
+    <p><strong>A gestão</strong>, além disso, atribui a consultora de quem está "Sem consultora" (a atribuição feita
+    aqui vale sobre o vínculo da Pacto) e classifica o que está em "Verificar manualmente" — vale a partir da próxima atualização. O botão
     <strong>Atualizar agora</strong> (só admin) refaz a lista na hora.</p>
     <p>⚠️ <strong>A conferência com a Pacto precisa "bater"</strong>: blocos + excluídos = total da Previsão. Se
     aparecer "não bate", algum contrato sumiu no caminho — avise.</p>

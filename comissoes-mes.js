@@ -625,13 +625,18 @@ const ComissoesMes = {
         // Renovações que vencem no mês = Bloco 1 da lista de renovações, se já existir
         const sigla = Adapter.siglaDaUnidade(unitId, ['CP', 'PP']);
         let renovacaoBase = null;
+        let renovadosAntes = 0;     // já renovados antes de o mês começar: só entra no porquê
         try {
           const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
-          if (l.exists && l.data().situacao === 'ok') renovacaoBase = (l.data().blocos.renovacoes || []).length;
+          if (l.exists && l.data().situacao === 'ok') {
+            const bloco1 = l.data().blocos.renovacoes || [];
+            renovacaoBase = bloco1.length;
+            renovadosAntes = bloco1.filter(x => x && x.renovouAntesDoMes).length;
+          }
         } catch (e) { log.warn('lista de renovações indisponível:', e.message); }
         // % acima da média dos vouchers: configuração da unidade (decisão do Rafael, 30/09)
         const cfgUnidade = { ...Engine.defaultConfig, ...(await ops.configDaUnidade(unitId)) };
-        const r = Metas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase, pctVoucherAcima: cfgUnidade.pctVoucherAcimaDaMedia });
+        const r = Metas.sugerir({ mes, serie, metasAnteriores: metas, renovacaoBase, renovadosAntes, pctVoucherAcima: cfgUnidade.pctVoucherAcimaDaMedia });
         if (!r.confiavel) return { proposto: false, motivo: 'sem_historico' };
         await db.collection(PERIODOS).doc(periodId).set({
           metasMensais: r.campos,

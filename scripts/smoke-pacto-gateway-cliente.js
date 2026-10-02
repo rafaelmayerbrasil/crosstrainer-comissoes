@@ -7,7 +7,7 @@
 
 const assert = require('assert');
 const path = require('path');
-const { criarClienteGateway } = require(path.join(__dirname, '..', 'functions', 'pacto-gateway-cliente.js'));
+const { criarClienteGateway, lerContrato } = require(path.join(__dirname, '..', 'functions', 'pacto-gateway-cliente.js'));
 
 let n = 0;
 const ok = m => console.log('✓ ' + (++n) + '. ' + m);
@@ -47,6 +47,7 @@ const bruto = {
       codigo: '4638', consultor: 'CONSULTORA UM', lancou: 'CONSULTORA UM',
       plano: 'MÊS DEGUSTAÇÃO LIVRE.', valor: 0, tipo: 'MA', situacao: 'IN', lancamento: '25/08/2026',
       vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026', cliente: { codigo: '77', nome: 'CLIENTE FICTICIO' },
+      planoOriginal: '', recorrencia: false, renovadoEm: '', contratoNovo: null,
     });
     assert.ok(!/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(JSON.stringify(r)), 'CPF vazou');
     assert.ok(p.chamadas[0].url.startsWith('https://apigw.pactosolucoes.com.br/contratos/4638'));
@@ -107,9 +108,35 @@ const bruto = {
       [/clientes\/013331\/dados-plano$/, { body: { content: { vinculos: [] } } }],
     ]);
     const c = criarClienteGateway({ fetch: p.fetch, credencial: CRED, pausaMs: 0 });
-    assert.deepStrictEqual(await c.consultorDoAluno('77'), { situacao: 'ok', dados: { matricula: '013330', consultor: 'CONSULTORA DO ALUNO' } });
-    assert.deepStrictEqual(await c.consultorDoAluno('78'), { situacao: 'ok', dados: { matricula: '013331', consultor: null } });
+    assert.deepStrictEqual(await c.consultorDoAluno('77'), { situacao: 'ok', dados: { matricula: '013330', consultor: 'CONSULTORA DO ALUNO', consultores: ['CONSULTORA DO ALUNO'] } });
+    assert.deepStrictEqual(await c.consultorDoAluno('78'), { situacao: 'ok', dados: { matricula: '013331', consultor: null, consultores: [] } });
     ok('consultora do aluno: dados-clientes → matrícula → vínculo CO do dados-plano; sem vínculo = null');
+  }
+  {
+    // 01/10/2026: há aluno com DOIS vínculos de consultor — a lista de renovações mostra os dois
+    const p = pacto([
+      [/dados-clientes\/79$/, { body: { content: { matricula: '013332' } } }],
+      [/clientes\/013332\/dados-plano$/, { body: { content: { vinculos: [
+        { tipoVinculo: 'CO', colaborador: 'CONSULTORA UM' }, { tipoVinculo: 'PR', colaborador: 'PROFESSOR X' }, { tipoVinculo: 'CO', colaborador: 'CONSULTORA DOIS' }] } } }],
+    ]);
+    const c = criarClienteGateway({ fetch: p.fetch, credencial: CRED, pausaMs: 0 });
+    assert.deepStrictEqual((await c.consultorDoAluno('79')).dados, { matricula: '013332', consultor: 'CONSULTORA UM', consultores: ['CONSULTORA UM', 'CONSULTORA DOIS'] });
+    ok('dois vínculos de consultor: `consultor` segue o primeiro (comissões), `consultores` traz todos');
+  }
+  {
+    // 01/10/2026 (Rodrigo): o plano de antes da migração está na observação do contrato IMPORTAÇÃO
+    const imp = lerContrato({ codigo: 4457, descricaoPlano: 'IMPORTAÇÃO', observacao: '  ANUAL,   ACESSO ILIMITADO \n', regimeRecorrencia: false,
+      dataRenovarRealizada: Date.UTC(2026, 7, 28, 16, 8), contratoResponsavelRenovacaoMatricula: 4652 });
+    assert.strictEqual(imp.planoOriginal, 'ANUAL, ACESSO ILIMITADO', 'espaços arrumados');
+    assert.strictEqual(imp.renovadoEm, '28/08/2026', 'dia em São Paulo em que o contrato novo foi lançado');
+    assert.strictEqual(imp.contratoNovo, '4652');
+    assert.strictEqual(lerContrato({ codigo: 1, descricaoPlano: 'ANUAL, ACESSO ILIMITADO', observacao: 'aluno pediu desconto' }).planoOriginal, '',
+      'a observação é texto livre: só vale quando o plano é IMPORTAÇÃO');
+    assert.strictEqual(lerContrato({ codigo: 2, descricaoPlano: 'IMPORTAÇÃO', observacao: 'CPF 111.222.333-44' }).planoOriginal, '', 'nada que pareça documento');
+    assert.strictEqual(lerContrato({ codigo: 3, descricaoPlano: 'IMPORTAÇÃO', observacao: 'X'.repeat(300) }).planoOriginal.length, 120);
+    assert.strictEqual(lerContrato({ codigo: 4, descricaoPlano: 'HIIT | MENSAL', regimeRecorrencia: true, contratoResponsavelRenovacaoMatricula: 0 }).recorrencia, true);
+    assert.strictEqual(lerContrato({ codigo: 4, descricaoPlano: 'HIIT | MENSAL', contratoResponsavelRenovacaoMatricula: 0 }).contratoNovo, null);
+    ok('contrato: plano original pela observação (só em IMPORTAÇÃO, sem documento), recorrência e a renovação já lançada');
   }
   {
     // consulta que não responde: desiste no tempo limite (a Pacto segura e devolve 504)

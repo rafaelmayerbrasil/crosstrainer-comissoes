@@ -2157,6 +2157,7 @@ async function rodarSombra(dias, unidades, opcoes = {}) {
     dias: dias.length, chamadas: cliente.chamadas, parouPor: r.parouPor || null,
     gateway: { CP: clientesGw.CP.chamadas, PP: clientesGw.PP.chamadas },
     varredura: r.varredura || null,
+    vinculosDasDegustacoes: r.vinculos || null,
     situacoes: r.resultados.map(x => x.unidade + ' ' + x.dia + ' ' + x.situacao),
   });
   // Termômetro do mês (só totais, lido pela gestão). Falhar aqui não pode
@@ -2270,12 +2271,18 @@ async function rodarRenovacoes(unidades) {
     PP: pactoRenovacaoCliente.criarClienteRenovacao({ fetch, credencial: PACTO_API_KEY_PP.value() }),
   };
   const clienteNucleo = pactoCliente.criarCliente({ fetch, credencial: PACTO_API_KEY.value() });
+  // 01/10/2026: contrato e vínculo do aluno relidos a cada montagem, pelo gateway da unidade
+  const clientesContratos = {
+    CP: pactoGateway.criarClienteGateway({ fetch, credencial: PACTO_API_KEY_CP.value() }),
+    PP: pactoGateway.criarClienteGateway({ fetch, credencial: PACTO_API_KEY_PP.value() }),
+  };
   const resultados = await renovacoesMontar.montarTudo({
-    db: db(), clientesGw, clienteNucleo, unidades, hoje: hojeSaoPaulo(),
+    db: db(), clientesGw, clienteNucleo, clientesContratos, unidades, hoje: hojeSaoPaulo(),
     agora: () => admin.firestore.FieldValue.serverTimestamp(),
   });
   logger.info('lista de renovacoes', {
-    resultados: resultados.map(r => r.id + ' ' + r.situacao + (r.consultas != null ? ' (' + r.consultas + ' consultas)' : '')),
+    resultados: resultados.map(r => r.id + ' ' + r.situacao + (r.consultas != null ? ' (' + r.consultas + ' consultas)' : '')
+      + (r.leitura ? ' relidos ' + r.leitura.relidos + '/' + r.leitura.total + (r.leitura.motivo ? ' — ' + r.leitura.motivo : '') : '')),
   });
   return resultados;
 }
@@ -2284,7 +2291,7 @@ exports.montarListaRenovacoes = onSchedule({
   schedule: '0 5 * * *',
   timeZone: 'America/Sao_Paulo',
   secrets: [PACTO_API_KEY, PACTO_API_KEY_CP, PACTO_API_KEY_PP],
-  timeoutSeconds: 1800,   // 1ª montagem: ~150 clientes por unidade × 2 s de pausa no núcleo
+  timeoutSeconds: 1800,   // ~300 consultas ao gateway por rodada (contrato + vínculo), 1,25 s cada ≈ 7 min; dia 25+ são dois meses
   memory: '512MiB',
 }, async () => {
   await rodarRenovacoes(['CP', 'PP']);

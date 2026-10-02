@@ -49,6 +49,8 @@
   /** Motivo gravado pela Function → frase para a gestão. A Pacto devolve páginas HTML de erro. */
   function motivoLegivel(m) {
     const s = String(m || '');
+    if (s === 'limite') return 'a Pacto recusou por excesso de consultas';
+    if (s === 'credencial_recusada') return 'a Pacto recusou a credencial';
     const h = s.match(/HTTP (\d{3})/);
     if (h && h[1] === '429') return 'a Pacto recusou por excesso de consultas';
     if (h && (h[1] === '401' || h[1] === '403')) return `a Pacto recusou a credencial (erro ${h[1]})`;
@@ -58,6 +60,22 @@
 
   function alertasHtml(als) {
     return als.map(a => `<div class="alerta ${a.nivel}">${a.nivel === 'vermelho' ? '🔴' : '🟠'} ${esc(a.texto)}</div>`).join('');
+  }
+
+  /** Renovação que a Pacto já registra: o dia, e a marca de quem chegou ao mês já renovado. */
+  function renovadoHtml(l) {
+    if (!l.renovouSistema) return '';
+    return `<div class="muted pequeno">pela Pacto${l.renovadoEm ? ' em ' + dataBR(l.renovadoEm) : ''}</div>`
+      + (l.renovouAntesDoMes ? '<span class="etiqueta">antes do mês</span>' : '');
+  }
+
+  /** Aviso da gestão: contratos que a Pacto não devolveu nesta atualização (valem os dados da última leitura). */
+  function leituraHtml(lista) {
+    const lt = lista && lista.leitura;
+    if (!lt || !lt.total || lt.relidos >= lt.total) return '';
+    const faltam = lt.total - lt.relidos;
+    return `<div class="aviso">${esc(faltam)} de ${esc(lt.total)} contrato(s) não puderam ser conferidos na Pacto nesta atualização`
+      + `${lt.motivo ? ' (' + esc(motivoLegivel(lt.motivo)) + ')' : ''}. Para eles valem o plano, o vencimento e a consultora da última leitura.</div>`;
   }
 
   function linhaHtml(l, acomp, bloco, hoje) {
@@ -72,7 +90,7 @@
       <td>${plano}${l.economico ? ' <span class="etiqueta">Sem desconto de renovação</span>' : ''}${bloco === 'verificar' ? `<div class="erro pequeno">${esc(l.motivoVerificar)}</div>` : ''}</td>
       <td>${dataBR(l.inicio)}</td>
       <td>${dataBR(l.vencimento)}</td>
-      <td><span class="status ${esc(s)}">${esc(RL.STATUS[s])}</span>${l.renovouSistema ? '<div class="muted pequeno">pela Pacto</div>' : ''}</td>
+      <td><span class="status ${esc(s)}">${esc(RL.STATUS[s])}</span>${renovadoHtml(l)}</td>
       <td>${alertasHtml(RL.alertas(l, acomp, bloco, hoje))}${(l.notas || []).map(t => `<div class="muted pequeno">${esc(t)}</div>`).join('')}</td>
     </tr>`;
   }
@@ -101,6 +119,7 @@
 
   function conferenciaHtml(lista) {
     const c = lista.conferencia || {};
+    const lt = lista.leitura;
     const excl = Object.entries(lista.excluidos || {}).sort((a, b) => b[1] - a[1])
       .map(([m, q]) => `<span>${esc(RL.rotuloExclusao(m))}</span><span>${esc(q)}</span>`).join('');
     return `<details class="card"><summary><b>Conferência com a Pacto</b> — ${c.bate
@@ -110,6 +129,7 @@
         <span>Total na Previsão da Pacto (mês + 1 a 15 do seguinte)</span><span>${esc(c.totalPacto)}</span>
         <span>Na lista (blocos 1 a 4)</span><span>${esc(c.naLista)}</span>
         <span>Excluídos</span><span>${esc(c.excluidos)}</span>
+        ${lt && lt.total ? `<span>Contratos conferidos na Pacto nesta atualização (plano, vencimento e consultora de hoje)</span><span>${esc(lt.relidos)} de ${esc(lt.total)}</span>` : ''}
       </div>
       <h3>Excluídos por motivo</h3><div class="kv">${excl || '<span class="muted">nenhum</span><span></span>'}</div>
     </details>`;
@@ -128,6 +148,7 @@
     return `<section class="card">
       <h2>${esc(NOMES[unidade])}</h2>
       ${lista.ultimaFalha ? `<div class="aviso">A última atualização falhou: ${esc(motivoLegivel(lista.ultimaFalha.motivo) || lista.ultimaFalha.situacao)}. Mostrando a lista anterior; a próxima tentativa é às 5h.</div>` : ''}
+      ${perfil === 'gestao' ? leituraHtml(lista) : ''}
       <div class="numeros">
         <div><div class="num">${esc(p.totalARenovar)}</div><div class="muted">Total a renovar no mês</div></div>
         <div><div class="num">${esc(b.antecipacao.total)}</div><div class="muted">Antecipação</div></div>
@@ -138,6 +159,8 @@
       <div class="kv">
         <span>Renovados · não renovados · em negociação · pendentes</span>
         <span>${esc(b.renovacoes.sim)} · ${esc(b.renovacoes.nao)} · ${esc(b.renovacoes.negociacao)} · ${esc(b.renovacoes.pendente)}</span>
+        <span>Dos renovados: antes de o mês começar · dentro do mês</span>
+        <span>${esc(p.renovadosAntes)} · ${esc(p.renovadosNoMes)}</span>
         <span>Alertas</span><span>🔴 ${esc(p.alertas.vermelho)} · 🟠 ${esc(p.alertas.laranja)}</span>
       </div>
       <h3>Por consultora (renovados de total)</h3><div class="kv">${consultoras}</div>
@@ -181,7 +204,7 @@
     </form>`;
   }
 
-  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, hojeSP };
+  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, leituraHtml, renovadoHtml, hojeSP };
 
   // ─── A página ───
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;

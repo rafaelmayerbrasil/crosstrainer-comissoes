@@ -105,6 +105,21 @@ const METAS = {
   ok('menos de 3 meses completos não propõe; trava de renovação nunca maior que a base');
 }
 
+/* 6b. quem já chegou ao mês renovado (01/10/2026): entra no PORQUÊ, não muda a conta */
+{
+  const sem = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 14, formula: 'media6' });
+  const com = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 14, renovadosAntes: 3, formula: 'media6' });
+  assert.deepStrictEqual(com.campos, sem.campos, 'a meta e os mínimos são os mesmos — tirar da base é decisão do Rodrigo');
+  assert.strictEqual(com.campos.minRenov, 10, '65% de 14, para cima');
+  assert.strictEqual(com.porque.minRenov, '65% das 14 renovações que vencem no mês (lista de renovações) — 3 dela(s) já tinha(m) renovado antes de o mês começar; restam 11 para negociar');
+  assert.strictEqual(com.base.renovadosAntes, 3);
+  assert.strictEqual(sem.porque.minRenov, '65% das 14 renovações que vencem no mês (lista de renovações)');
+  assert.ok(!('renovadosAntes' in sem.base), 'sem ninguém renovado antes, a base fica como era');
+  const semLista = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: null, renovadosAntes: 3, formula: 'media6' });
+  assert.ok(!/já tinha/.test(semLista.porque.minRenov), 'sem lista, não há o que dizer');
+  ok('renovados antes do mês: aparecem no porquê do mínimo de renovações; a conta não muda');
+}
+
 /* 7. ativação fracionária e mês corrente */
 {
   const serie = { ...SERIE, '2026-04': S(47.3, 22, 15, 9) };

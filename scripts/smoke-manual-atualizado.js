@@ -330,6 +330,21 @@ function exige(txt, ondeNome, assuntos) {
   ok('professor confere as horas do mês; gestão valida, devolve ou fecha valendo a agenda');
 }
 {
+  // 01/10/2026: a lista de renovações passou a conferir tudo na Pacto a cada
+  // atualização (os 4 pontos que o Rodrigo levantou comparando com a Pacto).
+  exige(admin, 'manual-admin', {
+    'o card da lista': 'id="renovacoes"',
+    'plano original pela observação': 'observação do contrato',
+    'relido a cada atualização': 'Tudo é conferido de novo na Pacto a cada atualização',
+    'vencimento com atestado': 'já com atestado ou trancamento',
+    'consultora = vínculo': 'vínculo do aluno na Pacto',
+    'sem ex-vendedora': 'já saiu da equipe',
+    'quem já renovou': 'antes do mês',
+    'aviso do que não foi conferido': 'aviso amarelo',
+  });
+  ok('lista de renovações: conferida na Pacto a cada atualização, consultora pelo vínculo, renovado antes do mês');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>

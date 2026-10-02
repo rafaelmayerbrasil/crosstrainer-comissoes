@@ -10,11 +10,20 @@
 // histórico de `periodos` → renovacoes-lista.js → `renovacoes_lista/{UN}_{mês}`.
 //
 // Regras que os testes guardam:
-//  • grava SÓ em renovacoes_lista e no caderninho — o que a consultora preenche
-//    mora em renovacoes_acompanhamento e esta Function só LÊ de lá;
+//  • grava SÓ em renovacoes_lista, renovacoes_leituras e no caderninho — o que a
+//    consultora preenche mora em renovacoes_acompanhamento e esta Function só LÊ de lá;
 //  • falha nunca apaga a lista boa (guarda `ultimaFalha`);
 //  • resposta vazia com "sucesso" quando antes havia contratos é falha;
 //  • credencial recusada ou limite param a unidade na hora.
+//
+// 01/10/2026 — O CONTRATO E O VÍNCULO SÃO RELIDOS A CADA MONTAGEM. O Rodrigo
+// conferiu outubro contra a Pacto: o caderninho guardava o contrato para sempre
+// (vencimento de 14/10 que a Pacto já tinha mudado para 13/11) e o vínculo do
+// aluno era o da primeira leitura, ou nem tinha sido lido (25 linhas com a
+// consultora errada). Agora cada contrato da Previsão é perguntado ao gateway da
+// unidade (`clienteContratos`), e o aluno de cada linha que fica na lista também.
+// A última leitura boa fica em `renovacoes_leituras` — é a reserva da noite em
+// que a Pacto falhar; o caderninho das comissões não é tocado por esta leitura.
 
 const RL = require('./renovacoes-lista.js');
 const L = require('./pacto-api-linhas.js');
@@ -23,6 +32,7 @@ const { PACTO_UNIDADES, COL_CONTRATOS, COL_CONSULTORAS } = require('./pacto-somb
 
 const COL_LISTA = 'renovacoes_lista';
 const COL_ACOMP = 'renovacoes_acompanhamento';
+const COL_LEITURAS = 'renovacoes_leituras';
 const PARA_TUDO = ['credencial_recusada', 'limite'];
 
 /** 'CP' → id da unidade neste ambiente (`cp` em produção, `unit-cp` no staging) */
@@ -87,6 +97,92 @@ async function completarContratos({ db, clienteNucleo, unidade, brutos }) {
   return { mapa, consultas };
 }
 
+/** O contrato fica na lista (e por isso vale perguntar pela consultora do aluno)? */
+function ficaNaLista(nomePlano, planoOriginal) {
+  let cls = RL.classificarPlano(nomePlano);
+  if (cls.tipo === 'importacao' && planoOriginal) cls = RL.classificarPlano(planoOriginal);
+  return cls.tipo !== 'excluir';
+}
+
+/**
+ * Cada contrato da Previsão, lido AGORA no gateway da unidade: plano, vencimento
+ * já com atestado/trancamento, plano original da importação, renovação lançada e
+ * o vínculo de consultora do aluno.
+ *
+ * Reserva, nesta ordem, para o contrato que a Pacto não devolver hoje: a última
+ * leitura boa (`renovacoes_leituras`) e, quem nunca foi lido, o caminho antigo
+ * (caderninho → núcleo), que fica com quem chama. Credencial recusada ou limite
+ * param as consultas ao gateway, mas NÃO derrubam a lista: o resto sai da reserva
+ * e a lista diz quantos contratos ficaram sem releitura.
+ *
+ * `memo` (opcional): do dia 25 em diante a lista do mês seguinte repete os
+ * contratos da antecipação — não se pergunta duas vezes na mesma rodada.
+ * @returns {{mapa, semLeitura: Array, relidos, daReserva, parouPor, consultas}}
+ */
+async function lerDaPacto({ db, gw, unidade, brutos, hoje, memo }) {
+  const mapa = {};
+  const semLeitura = [];
+  const visto = new Set();
+  let relidos = 0, daReserva = 0, consultas = 0, parouPor = null;
+  for (const b of brutos) {
+    const codigo = String(b.codigoContrato);
+    if (visto.has(codigo)) continue;
+    visto.add(codigo);
+    if (memo && memo.has(codigo)) { mapa[codigo] = memo.get(codigo); relidos++; continue; }
+    const ref = db.collection(COL_LEITURAS).doc(unidade + '_' + codigo);
+    const antes = await ref.get();
+    const reserva = antes.exists ? antes.data() : null;
+
+    let lido = null;
+    if (!parouPor) {
+      const r = await gw.contrato(codigo);
+      consultas++;
+      if (PARA_TUDO.includes(r.situacao)) parouPor = r.situacao;
+      else if (r.situacao === 'ok' && r.dados) {
+        const d = r.dados;
+        lido = {
+          codigo, unidade, nomePlano: d.plano || '', vigenciaDe: d.vigenciaDe || '', vigenciaAte: d.vigenciaAte || '',
+          planoOriginal: d.planoOriginal || '', recorrencia: !!d.recorrencia,
+          renovadoEm: d.renovadoEm || '', contratoNovo: d.contratoNovo || null,
+          consultor: d.consultor || null, lancou: d.lancou || null,
+          alunoConsultado: false, consultorAluno: null, consultoresAluno: [], vinculoLidoEm: null, lidoEm: hoje,
+        };
+        const pessoa = d.cliente && d.cliente.codigo;
+        if (pessoa && ficaNaLista(lido.nomePlano, lido.planoOriginal)) {
+          const a = parouPor ? null : await gw.consultorDoAluno(pessoa);
+          if (a) consultas += 2;
+          if (a && PARA_TUDO.includes(a.situacao)) parouPor = a.situacao;
+          if (a && a.situacao === 'ok') {
+            const cos = (a.dados.consultores || (a.dados.consultor ? [a.dados.consultor] : [])).slice();
+            Object.assign(lido, { alunoConsultado: true, consultorAluno: cos[0] || null, consultoresAluno: cos, vinculoLidoEm: hoje });
+          } else if (reserva && reserva.alunoConsultado) {
+            // o vínculo não veio hoje: vale o da última leitura boa
+            Object.assign(lido, { alunoConsultado: true, consultorAluno: reserva.consultorAluno || null,
+              consultoresAluno: reserva.consultoresAluno || [], vinculoLidoEm: reserva.vinculoLidoEm || null });
+          } else {
+            // nunca lido por aqui: o que a busca das comissões já souber do aluno
+            const cad = await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).get();
+            if (cad.exists && cad.data().alunoConsultado) {
+              const v = cad.data().consultorAluno || null;
+              Object.assign(lido, { alunoConsultado: true, consultorAluno: v, consultoresAluno: v ? [v] : [] });
+            }
+          }
+        }
+      }
+    }
+    if (lido) {
+      await ref.set(lido);
+      mapa[codigo] = lido; relidos++;
+      if (memo) memo.set(codigo, lido);
+    } else if (reserva) {
+      mapa[codigo] = reserva; daReserva++;
+    } else {
+      semLeitura.push(b);
+    }
+  }
+  return { mapa, semLeitura, relidos, daReserva, parouPor, consultas };
+}
+
 /** Falha NÃO apaga a lista boa: ela fica e ganha `ultimaFalha`. */
 async function gravarFalha(db, id, base, situacao, motivo, quando) {
   const ref = db.collection(COL_LISTA).doc(id);
@@ -98,7 +194,11 @@ async function gravarFalha(db, id, base, situacao, motivo, quando) {
   await ref.set({ ...base, situacao, motivo: motivo || '', atualizadoEm: quando });
 }
 
-async function montarUnidadeMes({ db, clienteGw, clienteNucleo, unidade, mes, hoje, agora }) {
+/**
+ * `clienteContratos` (opcional): o gateway da unidade para o contrato e o vínculo
+ * (pacto-gateway-cliente.js). Sem ele vale só o caminho antigo, do caderninho.
+ */
+async function montarUnidadeMes({ db, clienteGw, clienteNucleo, clienteContratos, unidade, mes, hoje, agora, memo }) {
   const quando = agora ? agora() : new Date().toISOString();
   const id = unidade + '_' + mes;
   const base = { unidade, mes };
@@ -118,8 +218,19 @@ async function montarUnidadeMes({ db, clienteGw, clienteNucleo, unidade, mes, ho
     return { id, situacao: 'vazio_suspeito' };
   }
 
-  const c = await completarContratos({ db, clienteNucleo, unidade, brutos });
+  // 1º o gateway (dado de hoje); o que ele não devolver e nunca tiver sido lido vai pelo caminho antigo
+  let leitura = null;
+  let paraOCaderninho = brutos;
+  if (clienteContratos) {
+    const p = await lerDaPacto({ db, gw: clienteContratos, unidade, brutos, hoje, memo });
+    paraOCaderninho = p.semLeitura;
+    const total = new Set(brutos.map(b => String(b.codigoContrato))).size;
+    leitura = { total, relidos: p.relidos, daReserva: p.daReserva, semLeitura: p.semLeitura.length,
+      motivo: p.parouPor || (p.relidos < total ? 'a Pacto não devolveu parte dos contratos' : ''), consultasGateway: p.consultas, mapa: p.mapa };
+  }
+  const c = await completarContratos({ db, clienteNucleo, unidade, brutos: paraOCaderninho });
   if (c.parouPor) { await gravarFalha(db, id, base, c.parouPor, 'ao completar os contratos no núcleo', quando); return { id, situacao: c.parouPor }; }
+  if (leitura) { Object.assign(c.mapa, leitura.mapa); delete leitura.mapa; }
 
   const unitId = await unidadeDoBanco(db, unidade);
   const historico = await carregarHistorico(db, unitId);
@@ -142,17 +253,22 @@ async function montarUnidadeMes({ db, clienteGw, clienteNucleo, unidade, mes, ho
   const lista = RL.montar({ mes, hoje, previsao: { mes: r1.dados, antecipacao: r2.dados }, contratos: c.mapa, historico, gestao, desdeAnterior });
   // `set` sem merge: a lista do dia substitui a anterior inteira (e some a ultimaFalha)
   await db.collection(COL_LISTA).doc(id).set({
-    ...base, ...lista, metas, unitId, situacao: 'ok', motivo: '', hoje, contratosConsultados: c.consultas, atualizadoEm: quando,
+    ...base, ...lista, metas, unitId, situacao: 'ok', motivo: '', hoje, contratosConsultados: c.consultas, leitura, atualizadoEm: quando,
   });
-  return { id, situacao: 'ok', consultas: c.consultas };
+  return { id, situacao: 'ok', consultas: c.consultas, leitura };
 }
 
-/** As duas unidades, nos meses que a lista mantém (o corrente; do dia 25, também o seguinte). */
-async function montarTudo({ db, clientesGw, clienteNucleo, unidades = ['CP', 'PP'], hoje, agora }) {
+/**
+ * As duas unidades, nos meses que a lista mantém (o corrente; do dia 25, também o seguinte).
+ * `clientesContratos` ({CP, PP}, opcional): o gateway de cada unidade para reler contrato e vínculo.
+ */
+async function montarTudo({ db, clientesGw, clienteNucleo, clientesContratos, unidades = ['CP', 'PP'], hoje, agora }) {
   const resultados = [];
   for (const unidade of unidades) {
+    const memo = new Map();
     for (const mes of RL.mesesParaManter(hoje)) {
-      const r = await montarUnidadeMes({ db, clienteGw: clientesGw[unidade], clienteNucleo, unidade, mes, hoje, agora });
+      const r = await montarUnidadeMes({ db, clienteGw: clientesGw[unidade], clienteNucleo,
+        clienteContratos: clientesContratos && clientesContratos[unidade], unidade, mes, hoje, agora, memo });
       resultados.push(r);
       if (PARA_TUDO.includes(r.situacao)) break;     // esta unidade para; a outra segue
     }
@@ -160,4 +276,4 @@ async function montarTudo({ db, clientesGw, clienteNucleo, unidades = ['CP', 'PP
   return resultados;
 }
 
-module.exports = { COL_LISTA, COL_ACOMP, montarUnidadeMes, montarTudo, carregarHistorico, completarContratos, unidadeDoBanco };
+module.exports = { COL_LISTA, COL_ACOMP, COL_LEITURAS, montarUnidadeMes, montarTudo, carregarHistorico, completarContratos, lerDaPacto, ficaNaLista, unidadeDoBanco };

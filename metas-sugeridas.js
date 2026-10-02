@@ -119,14 +119,19 @@ const MetasSugeridas = {
    */
   // `pctVoucherAcima`: % sobre a média dos vouchers (configuração da unidade,
   // `pctVoucherAcimaDaMedia`; decisão do Rafael 30/09 — a gestão decide). Padrão 10.
-  sugerir({ mes, serie, metasAnteriores, renovacaoBase, formula, pctVoucherAcima }) {
+  // `renovadosAntes`: das renovações que vencem no mês, quantas a Pacto já registra como
+  // renovadas ANTES de o mês começar (01/10/2026). Não muda a conta — só entra no porquê,
+  // para a gestão revisar sabendo; tirar ou não da base é decisão do Rodrigo.
+  sugerir({ mes, serie, metasAnteriores, renovacaoBase, renovadosAntes, formula, pctVoucherAcima }) {
     const f = formula || this.FORMULA_PADRAO;
     const completos = this._completosAntes(serie, mes);
     const janela = completos.slice(-6);
     const inicioJanela = janela[0] || mes;
     const parciaisIgnorados = Object.keys(serie || {})
       .filter(m => m < mes && m >= inicioJanela && serie[m] && serie[m].completo === false).sort();
+    const jaRenovados = renovacaoBase != null && renovadosAntes > 0 ? Math.min(renovadosAntes, renovacaoBase) : 0;
     const base = { meses: janela, parciaisIgnorados, formula: f, renovacaoBase: renovacaoBase == null ? null : renovacaoBase };
+    if (jaRenovados) base.renovadosAntes = jaRenovados;
 
     if (completos.length < this.MIN_MESES) {
       return { campos: null, confiavel: false, base,
@@ -149,7 +154,8 @@ const MetasSugeridas = {
 
     if (renovacaoBase != null) {
       campos.minRenov = Math.min(Math.ceil(renovacaoBase * this.PCT_RENOV), renovacaoBase);
-      porque.minRenov = `65% das ${renovacaoBase} renovações que vencem no mês (lista de renovações)`;
+      porque.minRenov = `65% das ${renovacaoBase} renovações que vencem no mês (lista de renovações)`
+        + (jaRenovados ? ` — ${jaRenovados} dela(s) já tinha(m) renovado antes de o mês começar; restam ${renovacaoBase - jaRenovados} para negociar` : '');
     } else {
       const med = this._media6(serie, mes, 'renovacoes');
       const fr = this._fator(serie, metasAnteriores, mes, 'minRenov', 'renovacoes');

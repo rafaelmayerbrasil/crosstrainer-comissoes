@@ -46,6 +46,39 @@ function anoSaoPaulo() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric' }).format(new Date());
 }
 
+function hojeSaoPaulo() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
+// ─── Reler o vínculo do aluno (01/10/2026) ───
+// A consultora que paga a comissão é a VINCULADA AO ALUNO, e ela era lida uma vez
+// só. A gestão troca vínculo depois do lançamento (CP 7269 e 7196: lidos como
+// "Rodrigo" em 30/09, no dia seguinte já eram Erica e Francini) — e o arquivo
+// exportado no fechamento mostraria o vínculo NOVO. Então o vínculo dos contratos
+// que pagam comissão no mês é relido de tempos em tempos, até o mês fechar.
+const INICIO_RELEITURA = '2026-10';     // o 1º mês calculado pela API; antes, vale a planilha
+const DIAS_RELER_VINCULO = 3;           // relê quem foi lido há 3 dias ou mais
+const JANELA_CONTRATO_NOVO = 45;        // contrato que começa até 45 dias antes do pagamento (ou depois dele)
+const RESERVA_RELEITURA = 150;          // consultas da noite que a releitura nunca toma do resto da busca
+
+/** 'DD/MM/AAAA' → 'AAAA-MM-DD' ('' se não for data) */
+function isoDeBR(br) {
+  const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
+/**
+ * O vínculo deste contrato precisa ser relido? Só o de contrato NOVO em relação ao
+ * dia do pagamento — parcela de contrato antigo não paga comissão (uma vez por contrato).
+ */
+function precisaRelerVinculo(c, dia, hoje) {
+  if (!c || !c.pessoa || !c.alunoConsultado) return false;
+  if (String(dia).slice(0, 7) < INICIO_RELEITURA) return false;
+  const inicio = isoDeBR(c.vigenciaDe);
+  if (!inicio || inicio < somarDias(dia, -JANELA_CONTRATO_NOVO)) return false;
+  return !c.vinculoDia || c.vinculoDia <= somarDias(hoje, -DIAS_RELER_VINCULO);
+}
+
 /** Grava no caderninho sem apagar consultora/quem lançou que já estejam lá */
 async function gravarContrato(db, unidade, codigo, c) {
   await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(L.soPreenchidos(c), { merge: true });
@@ -124,10 +157,11 @@ async function gravarFalha(db, unidade, dia, situacao, motivo, quando) {
  * consultora (o Campeche só tem por ali) e traz o balcão do relatório de vendas.
  * @returns {{situacao, consultas, maiorContrato}}
  */
-async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento }) {
+async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento, hoje }) {
   const chave = PACTO_UNIDADES[unidade];
   if (!chave) throw new Error('buscarDia: unidade desconhecida ' + unidade);
   const quando = agora ? agora() : new Date().toISOString();
+  const hojeSP = hoje || hojeSaoPaulo();
 
   const r = await cliente.resumoDoDia(chave, dia);
   if (r.situacao !== 'ok') {
@@ -213,7 +247,20 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
   if (gw) {
     for (const [codigo, c0] of contratos) {
       let c = c0;
-      if (c.gw && c.alunoConsultado) continue;
+      if (c.gw && c.alunoConsultado) {
+        // Já lido: relê o vínculo do contrato novo de tempos em tempos (01/10/2026).
+        // Falhar aqui NUNCA deixa o dia incompleto: fica o vínculo que já havia.
+        if (!precisaRelerVinculo(c, dia, hojeSP)) continue;
+        if (orcamento && (orcamento.semReleitura || orcamento.restante <= RESERVA_RELEITURA)) continue;
+        const a = await gw.consultorDoAluno(c.pessoa);
+        if (orcamento) orcamento.restante -= 2;
+        if (PARA_TUDO.includes(a.situacao)) { if (orcamento) orcamento.semReleitura = true; continue; }
+        if (a.situacao !== 'ok') continue;
+        c = { ...c, consultorAluno: a.dados.consultor || null, vinculoDia: hojeSP };
+        await gravarContrato(db, unidade, codigo, c);
+        contratos.set(codigo, c);
+        continue;
+      }
       if (orcamento && orcamento.restante <= 0) {
         avisosGw.push({ motivo: 'consultora a completar na próxima busca (limite de consultas da noite)', contrato: codigo });
         continue;
@@ -242,7 +289,7 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
           contratos.set(codigo, c);
           break;
         }
-        if (a.situacao === 'ok') c = { ...c, alunoConsultado: true, consultorAluno: a.dados.consultor || null };
+        if (a.situacao === 'ok') c = { ...c, alunoConsultado: true, consultorAluno: a.dados.consultor || null, vinculoDia: hojeSP };
       }
       await gravarContrato(db, unidade, codigo, c);
       contratos.set(codigo, c);
@@ -305,9 +352,65 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
  * do `PactoAdapter.degustacoesGratis`) → `pacto_degustacoes`.
  * A marca fica no MAIOR NÚMERO QUE EXISTE: o número ainda livre pode nascer amanhã.
  */
-async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora, orcamento }) {
+/**
+ * Contrato de valor zero lido do gateway → registro em `pacto_degustacoes`, se for
+ * degustação grátis (a regra é do `PactoAdapter.degustacoesGratis`). A vendedora é
+ * a do caderninho `c` — a vinculada ao aluno. @returns {boolean} gravou?
+ */
+async function gravarDegustacaoSeFor({ db, unidade, dados, c, quando }) {
   const PA = require('./pacto-adapter.js');
+  if (!dados || dados.valor !== 0) return false;
+  const linha = L.linhaDeDegustacao({ ...dados, consultor: L.consultoraDoContrato(c) || null }, unidade);
+  const lista = Object.values(PA.degustacoesGratis(L.comCabecalho([linha]))).flat();
+  if (!lista.length) return false;                   // valor zero que não é degustação (plano de crédito)
+  const [dd, mm, aa] = dados.lancamento.split('/');
+  await db.collection(COL_DEGUSTACOES).doc(unidade + '_' + dados.codigo).set({
+    unidade, contrato: String(dados.codigo), mes: aa + '-' + mm, dia: aa + '-' + mm + '-' + dd,
+    degustacao: lista[0], atualizadoEm: quando,
+  });
+  return true;
+}
+
+/**
+ * Relê o vínculo do aluno das degustações grátis dos meses em cálculo (01/10/2026):
+ * o registro nasce na varredura com a vendedora daquele dia, e o voucher também
+ * paga comissão. Vínculo que mudou → o registro é refeito pela mesma regra.
+ * Falha não muda nada: fica o registro como estava.
+ */
+async function relerVinculoDasDegustacoes({ db, gw, unidade, meses, hoje, agora, orcamento }) {
   const quando = agora ? agora() : new Date().toISOString();
+  const hojeSP = hoje || hojeSaoPaulo();
+  let relidas = 0, mudaram = 0;
+  const docs = (await db.collection(COL_DEGUSTACOES).where('unidade', '==', unidade).get()).docs.map(d => d.data());
+  for (const x of docs) {
+    if (!x || !meses.includes(x.mes) || x.mes < INICIO_RELEITURA) continue;
+    const snap = await db.collection(COL_CONTRATOS).doc(unidade + '_' + x.contrato).get();
+    const c = snap.exists ? snap.data() : null;
+    if (!c || !c.pessoa || !c.alunoConsultado) continue;
+    if (c.vinculoDia && c.vinculoDia > somarDias(hojeSP, -DIAS_RELER_VINCULO)) continue;
+    if (orcamento && (orcamento.semReleitura || orcamento.restante <= RESERVA_RELEITURA)) break;
+    const a = await gw.consultorDoAluno(c.pessoa);
+    if (orcamento) orcamento.restante -= 2;
+    if (PARA_TUDO.includes(a.situacao)) { if (orcamento) orcamento.semReleitura = true; break; }
+    if (a.situacao !== 'ok') continue;
+    relidas++;
+    const novo = a.dados.consultor || null;
+    const mudou = novo !== (c.consultorAluno || null);
+    const c2 = { ...c, consultorAluno: novo, vinculoDia: hojeSP };
+    await gravarContrato(db, unidade, String(x.contrato), c2);
+    if (!mudou) continue;
+    const r = await gw.contrato(x.contrato);
+    if (orcamento) orcamento.restante--;
+    if (PARA_TUDO.includes(r.situacao)) { if (orcamento) orcamento.semReleitura = true; break; }
+    if (r.situacao !== 'ok' || !r.dados) continue;
+    if (await gravarDegustacaoSeFor({ db, unidade, dados: r.dados, c: c2, quando })) mudaram++;
+  }
+  return { relidas, mudaram };
+}
+
+async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora, orcamento, hoje }) {
+  const quando = agora ? agora() : new Date().toISOString();
+  const hojeSP = hoje || hojeSaoPaulo();
   const ref = db.collection(COL_SEQ).doc(unidade);
   const s = await ref.get();
   let ultimo = s.exists ? s.data().ultimo : null;
@@ -326,19 +429,10 @@ async function varrerContratosNovos({ db, gw, unidade, ate, desde, agora, orcame
     if (c.pessoa) {
       const a = await gw.consultorDoAluno(c.pessoa);
       if (orcamento) orcamento.restante -= 2;
-      if (a.situacao === 'ok') { c.alunoConsultado = true; c.consultorAluno = a.dados.consultor || null; }
+      if (a.situacao === 'ok') { c.alunoConsultado = true; c.consultorAluno = a.dados.consultor || null; c.vinculoDia = hojeSP; }
     }
     await gravarContrato(db, unidade, String(n), c);
-    if (r.dados.valor !== 0) continue;
-    const linha = L.linhaDeDegustacao({ ...r.dados, consultor: L.consultoraDoContrato(c) || null }, unidade);
-    const lista = Object.values(PA.degustacoesGratis(L.comCabecalho([linha]))).flat();
-    if (!lista.length) continue;                     // valor zero que não é degustação (plano de crédito)
-    degustacoes++;
-    const [dd, mm, aa] = r.dados.lancamento.split('/');
-    await db.collection(COL_DEGUSTACOES).doc(unidade + '_' + n).set({
-      unidade, contrato: String(n), mes: aa + '-' + mm, dia: aa + '-' + mm + '-' + dd,
-      degustacao: lista[0], atualizadoEm: quando,
-    });
+    if (await gravarDegustacaoSeFor({ db, unidade, dados: r.dados, c, quando })) degustacoes++;
   }
   if (ultimo != null) await ref.set({ ultimo, atualizadoEm: quando }, { merge: true });
   return { achados, degustacoes, ultimo, parouPor };
@@ -419,14 +513,14 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
  * Com `clientesGw` ({CP, PP}), cada unidade usa o seu gateway e, no fim, varre os
  * números de contrato até o maior pago + FOLGA_VARREDURA (a degustação grátis).
  */
-async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, agora, varrerDesde, anoCorrente, limiteGw }) {
+async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, agora, varrerDesde, anoCorrente, limiteGw, hoje }) {
   const resultados = [];
   const maior = {};
   const orcamento = { restante: limiteGw != null ? limiteGw : LIMITE_GW_POR_BUSCA };
   for (const dia of dias) {
     for (const unidade of unidades) {
       const gw = clientesGw && clientesGw[unidade];
-      const r = await buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento });
+      const r = await buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, orcamento, hoje });
       resultados.push({ unidade, dia, situacao: r.situacao });
       if (r.maiorContrato) maior[unidade] = Math.max(maior[unidade] || 0, r.maiorContrato);
       if (PARA_TUDO.includes(r.situacao)) return { resultados, parouPor: r.situacao };
@@ -437,9 +531,23 @@ async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, 
     const gw = clientesGw && clientesGw[unidade];
     if (!gw || !maior[unidade]) continue;
     const desde = varrerDesde && varrerDesde[unidade] != null ? varrerDesde[unidade] : undefined;
-    varredura[unidade] = await varrerContratosNovos({ db, gw, unidade, ate: maior[unidade] + FOLGA_VARREDURA, desde, agora, orcamento });
+    varredura[unidade] = await varrerContratosNovos({ db, gw, unidade, ate: maior[unidade] + FOLGA_VARREDURA, desde, agora, orcamento, hoje });
   }
-  return { resultados, varredura, consultasGwRestantes: orcamento.restante };
+  // Por último, com o que sobrou das consultas da noite: o vínculo das degustações grátis
+  const vinculos = {};
+  const meses = [...new Set(dias.map(d => d.slice(0, 7)))];
+  for (const unidade of unidades) {
+    const gw = clientesGw && clientesGw[unidade];
+    if (!gw) continue;
+    try {
+      vinculos[unidade] = await relerVinculoDasDegustacoes({ db, gw, unidade, meses, hoje, agora, orcamento });
+    } catch (e) {
+      vinculos[unidade] = { erro: String(e && e.message || e) };   // nunca derruba a busca, que já gravou os dias
+    }
+  }
+  return { resultados, varredura, vinculos, consultasGwRestantes: orcamento.restante };
 }
 
-module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, LIMITE_GW_POR_BUSCA, diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };
+module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, LIMITE_GW_POR_BUSCA,
+  INICIO_RELEITURA, DIAS_RELER_VINCULO, JANELA_CONTRATO_NOVO, RESERVA_RELEITURA, precisaRelerVinculo, relerVinculoDasDegustacoes,
+  diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };

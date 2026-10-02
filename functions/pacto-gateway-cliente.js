@@ -28,10 +28,24 @@ function diaSP(ms) {
   return d + '/' + m + '/' + a;
 }
 
+/**
+ * O plano de ANTES da migração do TecnoFit mora na observação do contrato
+ * (01/10/2026, achado do Rodrigo: 50 de 50 importações conferidas). A observação
+ * é texto livre — só sai daqui quando o plano é IMPORTAÇÃO, curta e sem nada que
+ * pareça documento.
+ */
+function planoOriginalDaObservacao(plano, observacao) {
+  if (!/IMPORTA[CÇ][AÃ]O/i.test(String(plano || ''))) return '';
+  const t = String(observacao || '').replace(/\s+/g, ' ').trim();
+  if (!t || /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/.test(t)) return '';
+  return t.slice(0, 120);
+}
+
 /** Contrato do gateway → só os campos que o sistema usa. `null` se o número não existe. */
 function lerContrato(c) {
   if (!c || c.codigo == null) return null;
   const p = c.pessoaDTO || {};
+  const novo = c.contratoResponsavelRenovacaoMatricula;
   return {
     codigo: String(c.codigo),
     consultor: c.nomeConsultorReponsavel || null,
@@ -44,6 +58,11 @@ function lerContrato(c) {
     vigenciaDe: diaSP(c.vigenciaDe),
     vigenciaAte: diaSP(c.vigenciaAteAjustada || c.vigenciaAte),
     cliente: { codigo: p.codigo == null ? '' : String(p.codigo), nome: p.nome || '' },
+    // Para a lista de renovações (01/10/2026)
+    planoOriginal: planoOriginalDaObservacao(c.descricaoPlano, c.observacao),
+    recorrencia: !!c.regimeRecorrencia,
+    renovadoEm: diaSP(c.dataRenovarRealizada),          // dia em que o contrato NOVO foi lançado
+    contratoNovo: novo ? String(novo) : null,
   };
 }
 
@@ -108,12 +127,14 @@ function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dor
       const a = await comRepeticao('/clientes/dados-clientes/' + encodeURIComponent(String(codPessoa)));
       if (a.situacao !== 'ok') return a;
       const mat = a.dados && a.dados.content && a.dados.content.matricula;
-      if (!mat) return { situacao: 'ok', dados: { matricula: null, consultor: null } };
+      if (!mat) return { situacao: 'ok', dados: { matricula: null, consultor: null, consultores: [] } };
       const b = await comRepeticao('/clientes/' + encodeURIComponent(String(mat)) + '/dados-plano');
       if (b.situacao !== 'ok') return b;
       const vinculos = (b.dados && b.dados.content && b.dados.content.vinculos) || [];
-      const co = vinculos.find(v => v && v.tipoVinculo === 'CO');
-      return { situacao: 'ok', dados: { matricula: String(mat), consultor: (co && co.colaborador) || null } };
+      // `consultores`: há aluno com DOIS vínculos de consultor (CP 7269, 01/10/2026).
+      // `consultor` segue sendo o primeiro — é ele que as comissões usam.
+      const cos = vinculos.filter(v => v && v.tipoVinculo === 'CO' && v.colaborador).map(v => String(v.colaborador));
+      return { situacao: 'ok', dados: { matricula: String(mat), consultor: cos[0] || null, consultores: cos } };
     },
 
     /** Vendas recebidas num dia ('AAAA-MM-DD'). A rota não aceita ano: vale o ano corrente. */
@@ -138,4 +159,4 @@ function criarClienteGateway({ fetch, credencial, base = GW, pausaMs = 1250, dor
   };
 }
 
-module.exports = { criarClienteGateway, lerContrato, diaSP, GW };
+module.exports = { criarClienteGateway, lerContrato, planoOriginalDaObservacao, diaSP, GW };

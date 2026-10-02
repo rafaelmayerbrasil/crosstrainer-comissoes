@@ -147,5 +147,137 @@ const NUCLEO = {
     ok('completar pelo núcleo não apaga a consultora do gateway no caderninho');
   }
 
+  /* 7–10. 01/10/2026: contrato e vínculo relidos na Pacto a cada montagem (os 4 pontos do Rodrigo) */
+  // Gateway FALSO da unidade: contrato(n) e consultorDoAluno(pessoa), como o pacto-gateway-cliente.js devolve
+  const G = (plano, vigenciaDe, vigenciaAte, pessoa, extra) => ({ situacao: 'ok', dados: Object.assign({
+    codigo: '', consultor: null, lancou: null, plano, valor: 100, tipo: 'RE', situacao: 'AT', lancamento: vigenciaDe, vigenciaDe, vigenciaAte,
+    cliente: { codigo: pessoa, nome: 'X' }, planoOriginal: '', recorrencia: false, renovadoEm: '', contratoNovo: null }, extra || {}) });
+  const V = (...cos) => ({ situacao: 'ok', dados: { matricula: '1', consultor: cos[0] || null, consultores: cos } });
+  function gwContratos(contratos, alunos) {
+    const g = { pedidos: [], alunos: [],
+      async contrato(nm) { g.pedidos.push(String(nm)); const r = contratos[nm]; return typeof r === 'function' ? r() : (r || { situacao: 'ok', dados: null }); },
+      async consultorDoAluno(p) { g.alunos.push(String(p)); const r = alunos[p]; return typeof r === 'function' ? r() : (r || V()); } };
+    return g;
+  }
+  const PREV = {
+    '2026-10-01': OK([K('301', '31', 'PEDRO ATESTADO'), K('302', '32', 'CYNTIA IMPORTADA'), K('303', '33', 'RITA RECORRENTE'), K('304', '34', 'PAULA PERMUTA')]),
+    '2026-11-01': OK([K('305', '35', 'NUNO NOVEMBRO')]),
+  };
+  const GW_HOJE = {
+    301: G('ANUAL, ACESSO ILIMITADO', '15/10/2025', '13/11/2026', 'p31'),                                  // atestado: a Pacto já diz 13/11
+    302: G('IMPORTAÇÃO', '05/09/2025', '05/10/2026', 'p32', { planoOriginal: 'ANUAL, ACESSO ILIMITADO', renovadoEm: '28/08/2026', contratoNovo: '999' }),
+    303: G('ACESSO LIVRE | RECORRENTE | FLEX', '15/09/2026', '15/10/2026', 'p33'),
+    304: G('IMPORTAÇÃO', '13/07/2026', '13/10/2026', 'p34', { planoOriginal: 'PERMUTA DIVULGAÇÃO' }),
+    305: G('SEMESTRAL, TREINO LIVRE', '10/05/2026', '10/11/2026', 'p35'),
+  };
+  const ALUNOS = { p31: V('KALI LÓPEZ'), p32: V('RODRIGO ROJAIS'), p35: V('ERICA', 'FRANCINI') };
+  async function bancoDesatualizado() {
+    const db = makeFakeDb();
+    await db.collection('units').doc('unit-cp').set({ config: {} });
+    // o caderninho como estava em produção: vencimento velho e vínculo lido uma vez (Rodrigo)
+    await db.collection('pacto_contratos').doc('CP_301').set({ codigo: '301', unidade: 'CP', nomePlano: 'ANUAL, ACESSO ILIMITADO',
+      vigenciaDe: '15/10/2025', vigenciaAte: '14/10/2026', gw: true, alunoConsultado: true, consultorAluno: 'RODRIGO ROJAIS' });
+    await db.collection('pacto_contratos').doc('CP_302').set({ codigo: '302', unidade: 'CP', nomePlano: 'IMPORTAÇÃO', vigenciaDe: '05/09/2025', vigenciaAte: '05/10/2026' });
+    return db;
+  }
+  {
+    const db = await bancoDesatualizado();
+    const caderninhoAntes = JSON.stringify((await db.collection('pacto_contratos').doc('CP_301').get()).data());
+    const gw = gwContratos(GW_HOJE, ALUNOS);
+    const nucleo7 = nucleoFalso({});
+    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo7, clienteContratos: gw, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T1' });
+    const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    const de = c => Object.values(d.blocos).flat().find(l => l.codigoContrato === c);
+    assert.strictEqual(r.situacao, 'ok');
+    assert.deepStrictEqual(d.blocos.renovacoes.map(l => l.codigoContrato), ['302'], 'a importação saiu do Verificar pelo plano da observação');
+    assert.strictEqual(de('302').planoOriginal, 'ANUAL, ACESSO ILIMITADO');
+    assert.deepStrictEqual(d.blocos.antecipacao.map(l => l.codigoContrato), ['305', '301'], 'o vencimento relido (13/11) leva o Pedro para a antecipação');
+    assert.strictEqual(de('301').vencimento, '2026-11-13');
+    assert.strictEqual(de('301').consultora, 'KALI DUTRA', 'vínculo de hoje, não o "Rodrigo" guardado');
+    assert.strictEqual(de('302').consultora, null, 'vínculo do sócio: Sem consultora');
+    assert.strictEqual(de('302').renovadoEm, '2026-08-28'); assert.strictEqual(de('302').renovouAntesDoMes, true);
+    assert.ok(de('305').notas.some(t => /Dois vínculos/.test(t)));
+    assert.deepStrictEqual(d.blocos.verificar, []);
+    assert.deepStrictEqual(d.excluidos, { recorrente: 1, permuta: 1 });
+    assert.strictEqual(d.conferencia.bate, true);
+    assert.deepStrictEqual(gw.pedidos.sort(), ['301', '302', '303', '304', '305'], 'cada contrato perguntado uma vez');
+    assert.deepStrictEqual(gw.alunos.sort(), ['p31', 'p32', 'p35'], 'recorrente e permuta saem da lista: não se pergunta pelo aluno');
+    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 5, daReserva: 0, semLeitura: 0, motivo: '', consultasGateway: 11 });
+    assert.strictEqual(nucleo7.consultas, 0, 'com o gateway respondendo, o núcleo não é consultado');
+    assert.strictEqual(JSON.stringify((await db.collection('pacto_contratos').doc('CP_301').get()).data()), caderninhoAntes,
+      'a releitura da lista NÃO mexe no caderninho das comissões');
+    const lt = (await db.collection('renovacoes_leituras').doc('CP_301').get()).data();
+    assert.strictEqual(lt.vigenciaAte, '13/11/2026'); assert.strictEqual(lt.consultorAluno, 'KALI LÓPEZ'); assert.strictEqual(lt.lidoEm, '2026-10-01');
+    assert.ok(!/cpf|cliente/i.test(Object.keys(lt).join(' ')), 'a leitura guardada não leva nada do aluno');
+    ok('gateway: vencimento, plano original e vínculo de HOJE; recorrente/permuta sem consulta ao aluno; caderninho das comissões intocado');
+
+    /* 8. a Pacto fora do ar no dia seguinte: vale a última leitura boa, e a lista diz */
+    const fora = gwContratos({ 301: { situacao: 'falhou', motivo: 'HTTP 503' }, 302: { situacao: 'falhou', motivo: 'HTTP 503' }, 303: { situacao: 'falhou', motivo: 'HTTP 503' },
+      304: { situacao: 'falhou', motivo: 'HTTP 503' }, 305: { situacao: 'falhou', motivo: 'HTTP 503' } }, {});
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: fora, unidade: 'CP', mes: '2026-10', hoje: '2026-10-02', agora: () => 'T2' });
+    const d2 = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    assert.strictEqual(d2.situacao, 'ok');
+    assert.deepStrictEqual(d2.blocos.renovacoes.map(l => l.codigoContrato), ['302'], 'não volta para o Verificar');
+    assert.deepStrictEqual(d2.blocos.antecipacao.map(l => l.codigoContrato), ['305', '301']);
+    assert.strictEqual(Object.values(d2.blocos).flat().find(l => l.codigoContrato === '301').consultora, 'KALI DUTRA');
+    assert.deepStrictEqual(d2.leitura, { total: 5, relidos: 0, daReserva: 5, semLeitura: 0, motivo: 'a Pacto não devolveu parte dos contratos', consultasGateway: 5 });
+    ok('gateway fora do ar: a lista sai igual à de ontem pela última leitura boa e registra que nada foi relido');
+
+    /* 9. o contrato veio, o vínculo não: fica o vínculo da última leitura */
+    const meio = gwContratos(GW_HOJE, { p31: { situacao: 'falhou', motivo: 'HTTP 504' }, p32: V('ISABELA'), p35: V('ERICA') });
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleoFalso({}), clienteContratos: meio, unidade: 'CP', mes: '2026-10', hoje: '2026-10-03', agora: () => 'T3' });
+    const d3 = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    const de3 = c => Object.values(d3.blocos).flat().find(l => l.codigoContrato === c);
+    assert.strictEqual(de3('301').consultora, 'KALI DUTRA', 'vínculo de 01/10, que foi a última vez que veio');
+    assert.strictEqual(de3('302').consultora, 'ISABELA', 'o Rodrigo passou o aluno para a Isabela: aparece na montagem seguinte');
+    assert.strictEqual((await db.collection('renovacoes_leituras').doc('CP_301').get()).data().vinculoLidoEm, '2026-10-01');
+    ok('vínculo que não veio hoje fica com o da última leitura; vínculo que mudou na Pacto aparece na montagem seguinte');
+  }
+  {
+    /* 10. limite no meio: para de perguntar ao gateway, mas a lista sai (reserva → caderninho → núcleo) */
+    const db = await bancoDesatualizado();
+    let k = 0;
+    const comLimite = gwContratos({
+      301: () => (++k, GW_HOJE[301]), 302: () => ({ situacao: 'limite', motivo: 'HTTP 429' }),
+      303: () => { throw new Error('não era para perguntar depois do limite'); }, 304: () => { throw new Error('idem'); }, 305: () => { throw new Error('idem'); },
+    }, ALUNOS);
+    const nucleo10 = nucleoFalso({
+      33: { situacao: 'ok', dados: [BRUTO(303, 'ACESSO LIVRE | RECORRENTE | FLEX', '15/09/2026', '15/10/2026')] },
+      34: { situacao: 'ok', dados: [BRUTO(304, 'IMPORTAÇÃO', '13/07/2026', '13/10/2026')] },
+      35: { situacao: 'ok', dados: [BRUTO(305, 'SEMESTRAL, TREINO LIVRE', '10/05/2026', '10/11/2026')] },
+    });
+    const r = await M.montarUnidadeMes({ db, clienteGw: gwFalso(PREV), clienteNucleo: nucleo10, clienteContratos: comLimite, unidade: 'CP', mes: '2026-10', hoje: '2026-10-01', agora: () => 'T' });
+    const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    assert.strictEqual(r.situacao, 'ok', 'limite no gateway não derruba a lista');
+    assert.deepStrictEqual(d.leitura, { total: 5, relidos: 1, daReserva: 0, semLeitura: 4, motivo: 'limite', consultasGateway: 4 });
+    assert.deepStrictEqual(d.blocos.verificar.map(l => l.codigoContrato).sort(), ['302', '304'], 'sem a observação, as importações voltam a pedir conferência');
+    assert.strictEqual(d.conferencia.bate, true);
+    assert.strictEqual(nucleo10.consultas, 3, '302 estava no caderninho; 303, 304 e 305 foram ao núcleo');
+    ok('limite da Pacto no meio da releitura: para de perguntar, a lista sai pelo caminho antigo e registra o motivo');
+
+    /* 11. do dia 25 em diante são duas listas: o contrato que aparece nas duas é perguntado uma vez */
+    const db2 = await bancoDesatualizado();
+    const gw = gwContratos(GW_HOJE, ALUNOS);
+    // como a Pacto devolve de verdade: o Pedro (13/11) vem na consulta de novembro, não na de outubro
+    const prev2 = { '2026-10-01': OK(PREV['2026-10-01'].dados.contratos.filter(x => x.codigoContrato !== '301')),
+      '2026-11-01': OK([K('305', '35', 'NUNO NOVEMBRO'), K('301', '31', 'PEDRO ATESTADO')]), '2026-12-01': OK([]) };
+    const res = await M.montarTudo({ db: db2, clientesGw: { CP: gwFalso(prev2) }, clienteNucleo: nucleoFalso({}), clientesContratos: { CP: gw }, unidades: ['CP'], hoje: '2026-10-26', agora: () => 'T' });
+    assert.deepStrictEqual(res.map(x => x.id + ' ' + x.situacao), ['CP_2026-10 ok', 'CP_2026-11 ok']);
+    assert.strictEqual(gw.pedidos.filter(x => x === '305').length, 1, 'o 305 está na antecipação de outubro e no mês de novembro');
+    assert.strictEqual(gw.pedidos.filter(x => x === '301').length, 1);
+    assert.strictEqual(gw.alunos.filter(x => x === 'p35').length, 1, 'o aluno também');
+    const nov = (await db2.collection('renovacoes_lista').doc('CP_2026-11').get()).data();
+    assert.deepStrictEqual(nov.blocos.renovacoes.map(l => l.codigoContrato), ['305', '301'], 'em novembro o Pedro (13/11) é renovação do mês');
+    ok('montarTudo: uma pergunta por contrato na rodada, mesmo com as duas listas do fim do mês');
+  }
+  {
+    /* 12. as Functions passam o gateway de contratos de cada unidade */
+    const idx = fs.readFileSync(path.join(__dirname, '..', 'functions', 'index.js'), 'utf8');
+    const bloco = idx.slice(idx.indexOf('async function rodarRenovacoes'), idx.indexOf('exports.montarListaRenovacoes ='));
+    assert.ok(/clientesContratos\s*=\s*\{\s*CP: pactoGateway\.criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_CP\.value\(\) \}\),\s*PP: pactoGateway\.criarClienteGateway\(\{ fetch, credencial: PACTO_API_KEY_PP\.value\(\) \}\)/.test(bloco));
+    assert.ok(/montarTudo\(\{[^}]*clientesContratos/.test(bloco), 'montarTudo recebe os clientes de contrato');
+    ok('Functions: a montagem recebe o gateway de contratos das duas unidades');
+  }
+
   console.log('\n✅ smoke-renovacoes-montar: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

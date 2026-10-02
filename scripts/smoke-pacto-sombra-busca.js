@@ -495,5 +495,117 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('consultora do aluno pelo gateway (vínculo), quem lançou quando não há; limite de consultas avisa e completa depois');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/25');
+  {
+    // 01/10/2026 — o vínculo do aluno é RELIDO de tempos em tempos nos contratos novos do mês
+    // (CP 7269 e 7196: lidos como "Rodrigo" em 30/09; no dia seguinte já eram de consultoras)
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '01/10/2026', vinculoDia: '2026-10-05' }, '2026-10-05', '2026-10-08'), true);
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '01/10/2026', vinculoDia: '2026-10-06' }, '2026-10-05', '2026-10-08'), false, 'lido há menos de 3 dias');
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '01/10/2026' }, '2026-10-05', '2026-10-08'), true, 'leitura de antes desta mudança: sem data');
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '10/01/2026' }, '2026-10-05', '2026-10-08'), false, 'parcela de contrato antigo não paga comissão');
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '20/11/2026' }, '2026-10-05', '2026-10-08'), true, 'renovação que começa depois: é do mês');
+    assert.strictEqual(S.precisaRelerVinculo({ pessoa: '501', alunoConsultado: true, vigenciaDe: '10/09/2026' }, '2026-09-10', '2026-10-08'), false, 'setembro fecha pela planilha');
+    assert.strictEqual(S.precisaRelerVinculo({ alunoConsultado: true, vigenciaDe: '01/10/2026' }, '2026-10-05', '2026-10-08'), false, 'sem o código da pessoa não há como');
+
+    const pag = (codigo, alunoCod, contrato, valor) => ({ ...pagamento(codigo, alunoCod, contrato, valor), data: '05/10/2026 08:00:00' });
+    let vinculo = 'CONSULTORA NOVA';
+    let dadosPlano = () => ({ body: { content: { vinculos: [{ tipoVinculo: 'CO', colaborador: vinculo }] } } });
+    const rotas = [
+      [/resumoPeriodo/, { body: resumoCom([pag(1, 501, 7301, 239), pag(2, 502, 7302, 100)]) }],
+      [/dados-clientes\/501$/, { body: { content: { matricula: '000501', cpf: '999.888.777-66' } } }],
+      [/clientes\/000501\/dados-plano$/, () => dadosPlano()],
+      [/vendas/, { body: { status: 'sucesso', produtos: [] } }],
+    ];
+    async function banco() {
+      const db = makeFakeDb();
+      const base = { unidade: 'CP', situacaoContrato: 'Matrícula', nomePlano: 'HIIT/MAROMBINHA | ANUAL | LOCAL', codigoPlano: 1, numeroMeses: 12,
+        consultor: 'CONSULTORA CP', lancou: 'CONSULTORA CP', gw: true, alunoConsultado: true };
+      await db.collection('pacto_contratos').doc('CP_7301').set({ ...base, codigo: '7301', vigenciaDe: '01/10/2026', vigenciaAte: '30/09/2027',
+        pessoa: '501', consultorAluno: 'RODRIGO ROJAIS', vinculoDia: '2026-10-02' });
+      await db.collection('pacto_contratos').doc('CP_7302').set({ ...base, codigo: '7302', vigenciaDe: '10/01/2026', vigenciaAte: '09/01/2027',
+        pessoa: '502', consultorAluno: 'CONSULTORA ANTIGA', vinculoDia: '2026-10-02' });
+      return db;
+    }
+    const linhaDe = async (db, contrato) => JSON.parse((await db.collection('pacto_sombra_dias').doc('CP_2026-10-05').get()).data().linhas).find(l => l[7] === contrato);
+    const db = await banco();
+    const p = pactoFalsa(rotas);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    const orc = { restante: 700 };
+    const r = await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-10-05', hoje: '2026-10-08', agora: () => 'AGORA', anoCorrente: '2026', orcamento: orc });
+    assert.strictEqual(r.situacao, 'buscado');
+    assert.strictEqual((await linhaDe(db, '7301'))[21], 'CONSULTORA NOVA', 'a linha do dia sai com o vínculo de hoje');
+    assert.strictEqual((await linhaDe(db, '7302'))[21], 'CONSULTORA ANTIGA', 'contrato antigo: não relê');
+    const cad = (await db.collection('pacto_contratos').doc('CP_7301').get()).data();
+    assert.deepStrictEqual([cad.consultorAluno, cad.vinculoDia, cad.consultor, cad.nomePlano], ['CONSULTORA NOVA', '2026-10-08', 'CONSULTORA CP', 'HIIT/MAROMBINHA | ANUAL | LOCAL'], 'só o vínculo muda');
+    assert.strictEqual(p.chamadas.filter(x => /dados-clientes\/502/.test(x.url)).length, 0);
+    assert.strictEqual(orc.restante, 698, 'duas consultas');
+    const antes = p.chamadas.length;
+    await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-10-06', hoje: '2026-10-08', agora: () => 'AGORA', anoCorrente: '2026', orcamento: orc });
+    assert.strictEqual(p.chamadas.slice(antes).filter(x => /dados-/.test(x.url)).length, 0, 'já relido hoje: o dia seguinte da mesma rodada não pergunta de novo');
+    // o vínculo some na Pacto → a linha fica sem consultora (vazio também é resposta)
+    dadosPlano = () => ({ body: { content: { vinculos: [] } } });
+    await S.buscarDia({ db, cliente: c, gw, unidade: 'CP', dia: '2026-10-05', hoje: '2026-10-12', agora: () => 'AGORA', anoCorrente: '2026', orcamento: orc });
+    assert.strictEqual((await linhaDe(db, '7301'))[21], '');
+    assert.strictEqual((await db.collection('pacto_contratos').doc('CP_7301').get()).data().consultorAluno, null);
+    ok('vínculo relido a cada 3 dias no contrato novo do mês: a linha e o caderninho acompanham; contrato antigo e setembro não');
+
+    // Falhar a releitura NUNCA deixa o dia incompleto nem apaga o vínculo; sem folga de consultas, não relê
+    for (const [nome, resp, orcamento, esperado] of [
+      ['Pacto fora do ar', { status: 503, body: 'fora' }, { restante: 700 }, 700 - 2],
+      ['limite da Pacto', { status: 429, body: {} }, { restante: 700 }, 700 - 2],
+      ['sem folga de consultas', dadosPlano(), { restante: S.RESERVA_RELEITURA }, S.RESERVA_RELEITURA],
+    ]) {
+      const db3 = await banco();
+      const p3 = pactoFalsa([rotas[0], rotas[1], [/dados-plano$/, resp], rotas[3]]);
+      const r3 = await S.buscarDia({ db: db3, cliente: criarCliente({ fetch: p3.fetch, credencial: CRED, ...semPausa }),
+        gw: criarClienteGateway({ fetch: p3.fetch, credencial: GW_CRED, pausaMs: 0 }), unidade: 'CP', dia: '2026-10-05', hoje: '2026-10-08',
+        agora: () => 'AGORA', anoCorrente: '2026', orcamento });
+      const doc3 = (await db3.collection('pacto_sombra_dias').doc('CP_2026-10-05').get()).data();
+      assert.strictEqual(r3.situacao, 'buscado', nome);
+      assert.ok(!doc3.avisos.some(a => /consultora|gateway/.test(a.motivo)), nome + ': a releitura que falha não vira aviso do dia — ' + JSON.stringify(doc3.avisos));
+      assert.strictEqual(JSON.parse(doc3.linhas).find(l => l[7] === '7301')[21], 'RODRIGO ROJAIS', nome + ': fica o vínculo que já havia');
+      assert.strictEqual(orcamento.restante, esperado, nome);
+      if (nome === 'limite da Pacto') assert.strictEqual(orcamento.semReleitura, true, 'depois do limite, a rodada não tenta reler mais ninguém');
+    }
+    ok('releitura que falha (Pacto fora, limite, sem folga de consultas) não muda o dia: fica o vínculo anterior, sem aviso');
+  }
+  {
+    // A degustação grátis nasce na varredura com a vendedora do dia; o vínculo relido refaz o registro
+    const db = makeFakeDb();
+    let vinculos = [];
+    const p = pactoFalsa([
+      [/contratos\/7196$/, gwContrato(7196, { descricaoPlano: 'PLANO VOUCHER DEGUSTAÇÃO', valor: 0, dataLancamento: Date.UTC(2026, 9, 1, 15),
+        nomeConsultorReponsavel: 'RODRIGO ROJAIS', responsavelLancamento: 'CONSULTORA QUE LANCOU', pessoaDTO: { codigo: 601, nome: 'CLIENTE FICTICIO 601' } })],
+      [/contratos\/\d+$/, { body: { content: {} } }],
+      [/dados-clientes\/601$/, { body: { content: { matricula: '000601' } } }],
+      [/clientes\/000601\/dados-plano$/, () => ({ body: { content: { vinculos } } })],
+    ]);
+    const gw = criarClienteGateway({ fetch: p.fetch, credencial: GW_CRED, pausaMs: 0 });
+    vinculos = [{ tipoVinculo: 'CO', colaborador: 'RODRIGO ROJAIS' }];
+    await S.varrerContratosNovos({ db, gw, unidade: 'CP', desde: 7196, ate: 7197, agora: () => 'AGORA', hoje: '2026-10-01' });
+    const deg0 = (await db.collection('pacto_degustacoes').doc('CP_7196').get()).data();
+    assert.strictEqual(deg0.mes, '2026-10');
+    assert.strictEqual((await db.collection('pacto_contratos').doc('CP_7196').get()).data().vinculoDia, '2026-10-01', 'a varredura marca o dia da leitura');
+    // dia 02: cedo demais; dia 05: relê — e o vínculo agora é da consultora
+    vinculos = [{ tipoVinculo: 'CO', colaborador: 'CONSULTORA DO ALUNO' }];
+    const cedo = await S.relerVinculoDasDegustacoes({ db, gw, unidade: 'CP', meses: ['2026-10'], hoje: '2026-10-02', agora: () => 'D2', orcamento: { restante: 700 } });
+    assert.deepStrictEqual(cedo, { relidas: 0, mudaram: 0 });
+    const r = await S.relerVinculoDasDegustacoes({ db, gw, unidade: 'CP', meses: ['2026-09', '2026-10'], hoje: '2026-10-05', agora: () => 'D5', orcamento: { restante: 700 } });
+    assert.deepStrictEqual(r, { relidas: 1, mudaram: 1 });
+    const deg1 = (await db.collection('pacto_degustacoes').doc('CP_7196').get()).data();
+    assert.notStrictEqual(deg1.degustacao.vendedor, deg0.degustacao.vendedor, 'a vendedora do registro acompanha o vínculo');
+    assert.strictEqual(deg1.degustacao.vendedor, 'CONSULTORA DO ALUNO');
+    assert.deepStrictEqual([deg1.mes, deg1.dia, deg1.contrato, deg1.degustacao.codigo], ['2026-10', '2026-10-01', '7196', 'C7196'], 'o resto do registro é o mesmo');
+    // vínculo igual: não refaz nada; fora dos meses pedidos: nem pergunta
+    const igual = await S.relerVinculoDasDegustacoes({ db, gw, unidade: 'CP', meses: ['2026-10'], hoje: '2026-10-09', agora: () => 'D9', orcamento: { restante: 700 } });
+    assert.deepStrictEqual(igual, { relidas: 1, mudaram: 0 });
+    assert.strictEqual((await db.collection('pacto_degustacoes').doc('CP_7196').get()).data().atualizadoEm, 'D5');
+    const antes = p.chamadas.length;
+    await S.relerVinculoDasDegustacoes({ db, gw, unidade: 'CP', meses: ['2026-11'], hoje: '2026-11-20', agora: () => 'N', orcamento: { restante: 700 } });
+    await S.relerVinculoDasDegustacoes({ db, gw, unidade: 'CP', meses: ['2026-10'], hoje: '2026-10-20', agora: () => 'N', orcamento: { restante: S.RESERVA_RELEITURA } });
+    assert.strictEqual(p.chamadas.length, antes, 'outro mês ou sem folga de consultas: nenhuma chamada');
+    ok('degustação grátis: o vínculo relido refaz o registro com a vendedora de hoje; igual ou fora do mês, nada muda');
+  }
+
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/28');
 })().catch(e => { console.error(e); process.exit(1); });

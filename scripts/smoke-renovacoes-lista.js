@@ -169,7 +169,8 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   const edu = LISTA.blocos.renovacoes.find(l => l.codigoContrato === '105');
   assert.strictEqual(edu.plano, 'IMPORTAÇÃO');
   assert.strictEqual(edu.planoOriginal, 'SEMESTRAL, TREINO LIVRE');
-  assert.strictEqual(edu.consultora, 'BARBARA'); assert.strictEqual(edu.consultoraOrigem, 'historico');
+  assert.strictEqual(edu.consultora, null, 'quem vendeu em abr/2025 e não vende há mais de 120 dias saiu da equipe: não herda o aluno');
+  assert.strictEqual(edu.consultoraOrigem, null);
   const ana = LISTA.blocos.renovacoes.find(l => l.codigoContrato === '101');
   assert.strictEqual(ana.consultora, 'KALI'); assert.strictEqual(ana.consultoraOrigem, 'pacto');
   assert.strictEqual(ana.renovouSistema, true);
@@ -181,7 +182,7 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   assert.strictEqual(ju.motivoVerificar, 'Vencimento fora do período (20/11/2026)');
   assert.strictEqual(ju.desde, '2026-09-30', 'guarda desde quando está no verificar');
   assert.strictEqual(fabi.desde, '2026-10-05');
-  ok('importação pelo plano original, consultora (gestão › Pacto › histórico), renovado pela Pacto, motivo do verificar');
+  ok('importação pelo plano original, consultora (gestão › Pacto; ex-vendedora não herda), renovado pela Pacto, motivo do verificar');
 }
 {
   const guga = LISTA.blocos.renovacoes.find(l => l.codigoContrato === '107');
@@ -191,7 +192,7 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   assert.strictEqual(LISTA.blocos.renovacoes.find(l => l.codigoContrato === '109').economico, true);
   assert.strictEqual(LISTA.blocos.degustacoes.find(l => l.codigoContrato === '301').origem, 'historico');
   assert.deepStrictEqual(LISTA.planosRecentes, ['ANUAL, ACESSO ILIMITADO']);
-  assert.deepStrictEqual(LISTA.consultoras, ['BARBARA', 'ERICA', 'FRANCINI', 'KALI']);
+  assert.deepStrictEqual(LISTA.consultoras, ['ERICA', 'FRANCINI', 'KALI']);
   assert.ok(!JSON.stringify(LISTA).includes('undefined') && !/"_cls"/.test(JSON.stringify(LISTA)), 'nada de undefined nem campo interno');
   ok('CPF fora, Econômico marcado, degustação do histórico marcada, planos e consultoras para as listas suspensas');
 }
@@ -306,14 +307,14 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
 {
   const acomps = { 105: { renovou: 'sim' }, 109: { renovou: 'nao' }, 107: { renovou: 'negociacao' }, 104: { renovou: 'sim', consultoraAtribuida: 'ERICA' } };
   const p = RL.painel(LISTA, acomps, '2026-10-05');
-  assert.deepStrictEqual(p.porBloco.renovacoes, { total: 4, sim: 2, nao: 1, negociacao: 1, pendente: 0 }, '101 conta como Sim pela Pacto');
-  assert.deepStrictEqual(p.porBloco.antecipacao, { total: 1, sim: 0, nao: 0, negociacao: 0, pendente: 1 });
-  assert.deepStrictEqual(p.porBloco.degustacoes, { total: 2, sim: 1, nao: 0, negociacao: 0, pendente: 1 });
+  assert.deepStrictEqual(p.porBloco.renovacoes, { total: 4, sim: 2, nao: 1, negociacao: 1, pendente: 0, simAntes: 0 }, '101 conta como Sim pela Pacto');
+  assert.deepStrictEqual(p.porBloco.antecipacao, { total: 1, sim: 0, nao: 0, negociacao: 0, pendente: 1, simAntes: 0 });
+  assert.deepStrictEqual(p.porBloco.degustacoes, { total: 2, sim: 1, nao: 0, negociacao: 0, pendente: 1, simAntes: 0 });
   assert.strictEqual(p.totalARenovar, 4);
   assert.strictEqual(p.taxaRenovacao, 50);
   assert.strictEqual(p.conversaoDegustacao, 50);
   assert.deepStrictEqual(p.porConsultora.ERICA, { total: 2, renovados: 1 });
-  assert.deepStrictEqual(p.porConsultora['Sem consultora'], { total: 3, renovados: 0 }, '109, 107 e 201');
+  assert.deepStrictEqual(p.porConsultora['Sem consultora'], { total: 4, renovados: 1 }, '105 (Sim), 109, 107 e 201');
   assert.deepStrictEqual(p.alertas, { vermelho: 0, laranja: 1 }, 'só o 202, parado no verificar desde 30/09');
   ok('painel: por bloco, taxa de renovação (Sim ÷ Bloco 1), conversão, por consultora, total de alertas');
 }
@@ -343,6 +344,96 @@ const cods = b => LISTA.blocos[b].map(l => l.codigoContrato);
   assert.strictEqual(L3.blocos.degustacoes[0].planoOriginal, 'MÊS DEGUSTAÇÃO LIVRE');
   assert.strictEqual(L3.blocos.renovacoes.length, 0);
   ok('importação: plano original pelo contrato com a mesma vigência; a degustação importada cai no Bloco 3');
+}
+
+/* 18–21. Os quatro pontos que o Rodrigo conferiu contra a Pacto em 01/10/2026 */
+const PREV1 = lista => ({ mes: { contratos: lista, renovados: [] }, antecipacao: { contratos: [], renovados: [] } });
+{
+  // 18. o plano de antes da migração vem da OBSERVAÇÃO do contrato; o histórico é reserva
+  const contratos = {
+    501: Object.assign(C('IMPORTAÇÃO', '01/10/2025', '05/10/2026'), { planoOriginal: 'ANUAL, ACESSO ILIMITADO' }),     // histórico diz SEMESTRAL
+    502: Object.assign(C('IMPORTAÇÃO', '13/07/2026', '13/10/2026'), { planoOriginal: 'PERMUTA DIVULGAÇÃO' }),
+    503: Object.assign(C('IMPORTAÇÃO', '26/09/2026', '25/10/2026'), { planoOriginal: 'PERSONAL AVULSO' }),
+    504: Object.assign(C('IMPORTAÇÃO', '21/10/2025', '21/10/2026'), { planoOriginal: 'ANUAL, TREINO HIIT/MAROMBINHA ACESSO LIVRE' }),  // sem histórico nenhum
+    505: C('IMPORTAÇÃO', '21/10/2025', '22/10/2026'),                                                                // sem observação e sem histórico
+    506: Object.assign(C('IMPORTAÇÃO', '10/09/2026', '10/10/2026'), { planoOriginal: 'MÊS DEGUSTAÇÃO LIVRE' }),
+  };
+  const L = RL.montar({ mes: '2026-10', hoje: '2026-10-01', historico: HIST, contratos,
+    previsao: PREV1([K('501', '15', 'EDU IMPORTADO'), K('502', '52', 'PERMUTA P'), K('503', '53', 'PERSONAL P'), K('504', '54', 'SEM HISTORICO'), K('505', '55', 'SEM NADA'), K('506', '56', 'DEGUSTA IMPORTADA')]) });
+  const de = c => Object.values(L.blocos).flat().find(l => l.codigoContrato === c);
+  assert.strictEqual(de('501').planoOriginal, 'ANUAL, ACESSO ILIMITADO', 'a observação da Pacto vence o histórico por nome');
+  assert.deepStrictEqual(L.blocos.renovacoes.map(l => l.codigoContrato), ['501', '504'], 'o 504 saiu do Verificar sem precisar de histórico');
+  assert.deepStrictEqual(L.excluidos, { permuta: 1, avulso: 1 }, 'importação de permuta e de avulso sai da lista');
+  assert.deepStrictEqual(L.blocos.verificar.map(l => l.codigoContrato), ['505']);
+  assert.strictEqual(de('505').motivoVerificar, 'Importação sem plano original identificado');
+  assert.deepStrictEqual(L.blocos.degustacoes.map(l => l.codigoContrato), ['506', '301'], 'a importada e a do histórico (KIKA)');
+  assert.strictEqual(L.conferencia.bate, true);
+  ok('importação: o plano original vem da observação do contrato; permuta e avulso saem; sem observação nem histórico, Verificar');
+}
+{
+  // 19. consultora = o vínculo de HOJE; sem vínculo de consultora, a gestão atribui — nunca a ex-vendedora
+  const H = HIST.concat([
+    { cliente: 'ALUNO DA THAY', item: 'ANUAL, ACESSO ILIMITADO (15/10/2025 - 15/10/2026)', data: '15/10/2025', vendedor: 'THAY SILVA', codigo: 'C601', isContract: true },
+    { cliente: 'ALUNO DA KALI', item: 'ANUAL, ACESSO ILIMITADO (16/10/2025 - 16/10/2026)', data: '16/10/2025', vendedor: 'KALI', codigo: 'C602', isContract: true },
+  ]);
+  const base = C('ANUAL, ACESSO ILIMITADO', '15/10/2025', '15/10/2026');
+  const contratos = {
+    601: Object.assign({}, base, { alunoConsultado: true, consultorAluno: 'RODRIGO ROJAIS', consultoresAluno: ['RODRIGO ROJAIS'] }),
+    602: Object.assign({}, base, { alunoConsultado: true, consultorAluno: null, consultoresAluno: [] }),
+    603: Object.assign({}, base),                                              // vínculo não lido, quem vendeu saiu
+    604: Object.assign({}, base),                                              // vínculo não lido, quem vendeu segue na equipe
+    605: Object.assign({}, base, { alunoConsultado: true, consultorAluno: 'ERICA', consultoresAluno: ['ERICA', 'FRANCINI'] }),
+    606: Object.assign({}, base, { alunoConsultado: true, consultorAluno: 'RODRIGO ROJAIS', consultoresAluno: ['RODRIGO ROJAIS', 'KALI LÓPEZ'] }),
+    607: Object.assign({}, base, { alunoConsultado: true, consultorAluno: 'RODRIGO ROJAIS', consultoresAluno: ['RODRIGO ROJAIS'] }),
+  };
+  const prev = PREV1([K('601', '61', 'ALUNO DA THAY'), K('602', '62', 'ALUNO DA KALI'), K('603', '63', 'ALUNO DA THAY'), K('604', '64', 'ALUNO DA KALI'),
+    K('605', '65', 'DOIS VINCULOS'), K('606', '66', 'SOCIO E CONSULTORA'), K('607', '67', 'ATRIBUIDO')]);
+  // 601 e 603 são o mesmo nome, alunos diferentes (codigoCliente) — ficam as duas linhas
+  const L = RL.montar({ mes: '2026-10', hoje: '2026-10-01', historico: H, contratos, previsao: prev, gestao: { 607: { consultoraAtribuida: 'ISABELA' } } });
+  const de = c => L.blocos.renovacoes.find(l => l.codigoContrato === c);
+  assert.strictEqual(de('601').consultora, null, 'vínculo do sócio: não cai em quem vendeu no TecnoFit');
+  assert.ok(de('601').notas.some(t => /vinculado a RODRIGO ROJAIS.*gestão atribui/.test(t)), JSON.stringify(de('601').notas));
+  assert.strictEqual(de('602').consultora, null, 'vínculo vazio, mesmo com a vendedora ainda na equipe');
+  assert.ok(de('602').notas.some(t => /sem consultora vinculada/i.test(t)));
+  assert.strictEqual(de('603').consultora, null, 'vínculo não lido e quem vendeu saiu: Sem consultora');
+  assert.strictEqual(de('604').consultora, 'KALI', 'vínculo não lido e quem vendeu segue vendendo: reserva');
+  assert.strictEqual(de('604').consultoraOrigem, 'historico');
+  assert.strictEqual(de('605').consultora, 'ERICA');
+  assert.ok(de('605').notas.some(t => t === 'Dois vínculos de consultora na Pacto: ERICA e FRANCINI'), JSON.stringify(de('605').notas));
+  assert.strictEqual(de('606').consultora, 'KALI DUTRA', 'o sócio vem primeiro, mas há uma consultora entre os vínculos');
+  assert.strictEqual(de('606').consultoraOrigem, 'pacto');
+  assert.strictEqual(de('607').consultora, 'ISABELA'); assert.strictEqual(de('607').notas.length, 0, 'atribuído pela gestão: sem cobrança');
+  assert.ok(!L.consultoras.includes('THAY SILVA'), 'ex-vendedora nem aparece na lista de consultoras');
+  assert.ok(!/"_/.test(JSON.stringify(L)), 'nenhum campo interno gravado');
+  assert.ok(RL.ativasNoHistorico(H, '2026-10-01').has('KALI') && !RL.ativasNoHistorico(H, '2026-10-01').has('THAY SILVA'));
+  ok('consultora: vínculo de hoje; sócio ou vazio = Sem consultora com aviso; ex-vendedora não herda; dois vínculos avisados');
+}
+{
+  // 20. quem já renovou: o dia vem do contrato; antes do mês é outra coisa que dentro do mês
+  const base = C('ANUAL, ACESSO ILIMITADO', '15/10/2025', '15/10/2026', 'KALI');
+  const contratos = {
+    701: Object.assign({}, base, { renovadoEm: '28/08/2026', contratoNovo: '4652' }),
+    702: Object.assign({}, base, { renovadoEm: '01/10/2026', contratoNovo: '4752' }),
+    703: Object.assign({}, base, { renovadoEm: '25/10/2026', contratoNovo: '4408' }),   // data no futuro: sobra da migração
+    704: Object.assign({}, base),                                                       // só a Previsão diz que renovou
+    705: Object.assign({}, base),
+  };
+  const prev = PREV1([K('701', '71', 'A'), K('702', '72', 'B'), K('703', '73', 'C'), K('704', '74', 'D'), K('705', '75', 'E')]);
+  prev.mes.renovados = ['704'];
+  const L = RL.montar({ mes: '2026-10', hoje: '2026-10-02', historico: [], contratos, previsao: prev });
+  const de = c => L.blocos.renovacoes.find(l => l.codigoContrato === c);
+  assert.deepStrictEqual([de('701').renovouSistema, de('701').renovadoEm, de('701').renovouAntesDoMes], [true, '2026-08-28', true], 'vale mesmo sem estar nos "renovados" da Previsão');
+  assert.ok(de('701').notas.includes('Renovou em 28/08/2026, antes de o mês da lista começar'), JSON.stringify(de('701').notas));
+  assert.deepStrictEqual([de('702').renovouSistema, de('702').renovadoEm, de('702').renovouAntesDoMes], [true, '2026-10-01', false]);
+  assert.ok(de('702').notas.includes('Renovou em 01/10/2026'));
+  assert.deepStrictEqual([de('703').renovouSistema, de('703').renovadoEm], [false, null], 'renovação "no futuro" não vale');
+  assert.deepStrictEqual([de('704').renovouSistema, de('704').renovadoEm, de('704').renovouAntesDoMes], [true, null, false]);
+  assert.ok(de('704').notas.includes('A Pacto já registra a renovação'), 'sem data, a frase de sempre');
+  const p = RL.painel(L, { 705: { renovou: 'sim' } }, '2026-10-02');
+  assert.deepStrictEqual(p.porBloco.renovacoes, { total: 5, sim: 4, nao: 0, negociacao: 0, pendente: 1, simAntes: 1 });
+  assert.deepStrictEqual([p.totalARenovar, p.renovadosAntes, p.renovadosNoMes, p.aNegociar], [5, 1, 3, 4]);
+  assert.strictEqual(p.taxaRenovacao, 80, 'a taxa segue sendo Sim ÷ Bloco 1 (documento do Rodrigo, seção 7)');
+  ok('renovado: dia da renovação pelo contrato; "antes do mês" separado no painel; data futura da migração ignorada');
 }
 
 /* 16. a cópia de functions/ é idêntica à da raiz */

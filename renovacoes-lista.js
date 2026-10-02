@@ -210,8 +210,24 @@ const RenovacoesLista = {
     return h ? this.limparNomePlano(h.item) : null;
   },
 
-  consultoraDoHistorico(nome, historico, naoConsultoras) {
-    const h = this._doCliente(nome, historico).find(x => x.isContract && !this.ehNaoConsultora(x.vendedor, naoConsultoras));
+  // Quem vendeu alguma coisa nos últimos N dias ainda está na equipe. Sem isto a
+  // lista entregava o aluno a quem já saiu (out/2026: 9 linhas com Thay Silva e Naielly).
+  DIAS_CONSULTORA_ATIVA: 120,
+
+  /** Set com o nome (sem acento) de quem tem venda no histórico nos últimos N dias. */
+  ativasNoHistorico(historico, hoje, dias) {
+    const desde = this.somarDias(hoje, -(dias == null ? this.DIAS_CONSULTORA_ATIVA : dias));
+    const set = new Set();
+    (historico || []).forEach(h => {
+      if (h && h.vendedor && this.iso(h.data) >= desde) set.add(this.norm(h.vendedor));
+    });
+    return set;
+  },
+
+  /** `ativas` (opcional, de `ativasNoHistorico`): só devolve quem ainda está na equipe. */
+  consultoraDoHistorico(nome, historico, naoConsultoras, ativas) {
+    const h = this._doCliente(nome, historico).find(x => x.isContract && !this.ehNaoConsultora(x.vendedor, naoConsultoras)
+      && (!ativas || ativas.has(this.norm(x.vendedor))));
     return h ? String(h.vendedor).trim() : null;
   },
 
@@ -257,7 +273,8 @@ const RenovacoesLista = {
    * @param {string} a.hoje         'AAAA-MM-DD' em São Paulo
    * @param {object} a.previsao     { mes: {contratos, renovados}, antecipacao: {contratos, renovados} }
    *                                contratos: [{codigoContrato, codigoCliente, matriculaCliente, nomeCliente}]
-   * @param {object} a.contratos    número do contrato → {nomePlano, vigenciaDe, vigenciaAte, consultor}
+   * @param {object} a.contratos    número do contrato → {nomePlano, vigenciaDe, vigenciaAte, consultor,
+   *                                alunoConsultado, consultorAluno, consultoresAluno, planoOriginal, renovadoEm, contratoNovo}
    * @param {Array}  a.historico    itens processados de `periodos`
    * @param {object} [a.gestao]     número do contrato → {blocoGestao, consultoraAtribuida}
    * @param {object} [a.desdeAnterior] número do contrato → dia em que entrou na lista
@@ -306,14 +323,28 @@ const RenovacoesLista = {
         consultora: null,
         consultoraOrigem: null,
         renovouSistema: renovados.has(codigoContrato),
+        renovadoEm: null,
+        renovouAntesDoMes: false,
         notas: [],
         desde: desde[codigoContrato] || hoje,
         origem: 'pacto',
         n: null,
       };
+      // Renovação já lançada: o contrato diz o dia em que o contrato NOVO nasceu.
+      // Data no futuro é sobra da migração (PP 4407: "renovado" em 25/10) — não vale.
+      const renovadoEm = c ? this.iso(c.renovadoEm) : '';
+      if (renovadoEm && renovadoEm <= hoje) {
+        linha.renovouSistema = true;
+        linha.renovadoEm = renovadoEm;
+        linha.renovouAntesDoMes = renovadoEm < per.mes.de;
+      }
       let cls = c ? this.classificarPlano(linha.plano) : { tipo: 'verificar', motivo: 'A Pacto não devolveu os dados deste contrato' };
       if (cls.tipo === 'importacao') {
-        const orig = this.planoOriginal(linha.nome, historico, { vencimento: linha.vencimento, inicio: linha.inicio });
+        // O plano de antes da migração: primeiro o que a Pacto guarda na observação do
+        // contrato (01/10/2026 — o histórico do TecnoFit por nome falhou em 12 de 50 e
+        // errou 1); o histórico fica de reserva.
+        const daPacto = c && c.planoOriginal ? String(c.planoOriginal).trim() : '';
+        const orig = daPacto || this.planoOriginal(linha.nome, historico, { vencimento: linha.vencimento, inicio: linha.inicio });
         if (orig) {
           linha.planoOriginal = orig;
           cls = this.classificarPlano(orig);
@@ -333,6 +364,9 @@ const RenovacoesLista = {
       // quando o aluno já foi consultado no gateway, vale o vínculo (vazio também é resposta);
       // senão, a do contrato. Espelha PactoApiLinhas.consultoraDoContrato.
       linha._consultorPacto = !c ? null : (c.alunoConsultado ? (c.consultorAluno || null) : (c.consultor || null));
+      linha._alunoConsultado = !!(c && c.alunoConsultado);
+      linha._vinculos = (c && c.alunoConsultado && Array.isArray(c.consultoresAluno) && c.consultoresAluno.length)
+        ? c.consultoresAluno.slice() : (linha._consultorPacto ? [linha._consultorPacto] : []);
       linhas.push(linha);
     });
 
@@ -363,21 +397,39 @@ const RenovacoesLista = {
         grafia.set(this.norm(h.vendedor), String(h.vendedor).trim());
       }
     });
+    const ativas = this.ativasNoHistorico(historico, hoje);
     ficam.forEach(l => {
       const g = ges[l.codigoContrato] || {};
+      // Consultoras entre os vínculos do aluno na Pacto (pode haver mais de uma), na grafia do cadastro
+      const validas = [];
+      l._vinculos.forEach(v => {
+        if (this.ehNaoConsultora(v, naoConsultoras)) return;
+        const canon = this.nomeCanonico(v);
+        const nome = grafia.get(canon) || canon;
+        if (!validas.some(x => this.norm(x) === this.norm(nome))) validas.push(nome);
+      });
       if (g.consultoraAtribuida) { l.consultora = g.consultoraAtribuida; l.consultoraOrigem = 'gestao'; }
-      else if (l._consultorPacto && !this.ehNaoConsultora(l._consultorPacto, naoConsultoras)) {
-        const nome = this.nomeCanonico(l._consultorPacto);
-        l.consultora = grafia.get(nome) || nome; l.consultoraOrigem = 'pacto';
+      else if (validas.length) { l.consultora = validas[0]; l.consultoraOrigem = 'pacto'; }
+      else if (l._alunoConsultado) {
+        // O vínculo foi lido e não é de consultora (vazio ou sócio): fica "Sem consultora"
+        // para a gestão atribuir — nunca o nome de quem vendeu lá atrás (01/10/2026).
+        const v = l._vinculos[0];
+        l.notas.push(v ? `Na Pacto o aluno está vinculado a ${String(v).trim()}, que não é consultora da lista: a gestão atribui`
+          : 'Aluno sem consultora vinculada na Pacto: a gestão atribui');
       }
       else {
-        const h = this.consultoraDoHistorico(l.nome, historico, naoConsultoras);
+        // Vínculo não lido (a Pacto não respondeu): quem vendeu, se ainda está na equipe
+        const h = this.consultoraDoHistorico(l.nome, historico, naoConsultoras, ativas);
         if (h) { l.consultora = h; l.consultoraOrigem = 'historico'; }
       }
-      if (l.renovouSistema) l.notas.push('A Pacto já registra a renovação');
+      if (validas.length > 1) l.notas.push(`Dois vínculos de consultora na Pacto: ${validas.join(' e ')}`);
+      if (l.renovouSistema) {
+        l.notas.push(!l.renovadoEm ? 'A Pacto já registra a renovação'
+          : `Renovou em ${dataBR(l.renovadoEm)}` + (l.renovouAntesDoMes ? ', antes de o mês da lista começar' : ''));
+      }
 
       const cls = l._cls;
-      delete l._cls; delete l._consultorPacto;
+      delete l._cls; delete l._consultorPacto; delete l._alunoConsultado; delete l._vinculos;
       if (cls.tipo === 'verificar') { l.motivoVerificar = cls.motivo; blocos.verificar.push(l); return; }
       if (cls.tipo === 'degustacao') {
         if (noPeriodo(l.vencimento, per.mes.de, per.antecipacao.ate)) { blocos.degustacoes.push(l); return; }
@@ -399,7 +451,7 @@ const RenovacoesLista = {
         plano: d.plano, planoOriginal: null, economico: false, inicio: d.inicio, vencimento: d.vencimento,
         consultora: g.consultoraAtribuida || d.consultora,
         consultoraOrigem: g.consultoraAtribuida ? 'gestao' : (d.consultora ? 'historico' : null),
-        renovouSistema: false, notas: ['Degustação vendida que não veio na Previsão da Pacto'],
+        renovouSistema: false, renovadoEm: null, renovouAntesDoMes: false, notas: ['Degustação vendida que não veio na Previsão da Pacto'],
         desde: desde[d.codigoContrato] || hoje, origem: 'historico', n: null,
       });
     });
@@ -503,8 +555,15 @@ const RenovacoesLista = {
     const DA_EQUIPE = ['renovacoes', 'antecipacao', 'degustacoes'];
     const porBloco = {};
     DA_EQUIPE.forEach(b => {
-      const c = { total: 0, sim: 0, nao: 0, negociacao: 0, pendente: 0 };
-      (blocos[b] || []).forEach(l => { c.total++; c[this.statusEfetivo(l, ac[l.codigoContrato])]++; });
+      // `simAntes`: dos "Sim", os que a Pacto registra como renovados ANTES de o mês
+      // da lista começar (a venda é de outro mês — 01/10/2026, ponto 4 do Rodrigo)
+      const c = { total: 0, sim: 0, nao: 0, negociacao: 0, pendente: 0, simAntes: 0 };
+      (blocos[b] || []).forEach(l => {
+        c.total++;
+        const s = this.statusEfetivo(l, ac[l.codigoContrato]);
+        c[s]++;
+        if (s === 'sim' && l.renovouAntesDoMes) c.simAntes++;
+      });
       porBloco[b] = c;
     });
     const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null);
@@ -523,6 +582,10 @@ const RenovacoesLista = {
     return {
       porBloco,
       totalARenovar: porBloco.renovacoes.total,
+      // Do Bloco 1: quem já chegou ao mês renovado, quem renovou dentro dele e o que sobra para negociar
+      renovadosAntes: porBloco.renovacoes.simAntes,
+      renovadosNoMes: porBloco.renovacoes.sim - porBloco.renovacoes.simAntes,
+      aNegociar: porBloco.renovacoes.total - porBloco.renovacoes.simAntes,
       taxaRenovacao: pct(porBloco.renovacoes.sim, porBloco.renovacoes.total),
       conversaoDegustacao: pct(porBloco.degustacoes.sim, porBloco.degustacoes.total),
       porConsultora,
