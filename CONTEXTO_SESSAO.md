@@ -3,6 +3,17 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 83 (02/10/2026) — 📱 AS VENDEDORAS NÃO ACHAVAM AS RENOVAÇÕES · ✅ CORRIGIDO E NO AR EM PRODUÇÃO (`ada4579`)
+
+**O Rodrigo:** "as renovações não estão aparecendo para as vendedoras, só para a gestão". **A lista estava lá, o que faltava era o caminho no celular:** em tela ≤ 768 px o `index.html` esconde a barra lateral de vez (e o botão ☰), e a **barra de baixo da vendedora** tinha Resumo · Comissões · Ativações · Termômetro · Regras — **sem Renovações**. No computador o atalho existia (desde 29/09), por isso só a gestão chegava.
+**Conferido antes de mexer:** cadastros das vendedoras em produção (`role: 'vendedor'`, unidades `cp`/`pp`; Erica e Francini **sem `profiles`**, só `role`) · regras vivas de produção **iguais** ao `firestore.rules` · o validador das regras ganhou o cadastro antigo e a **consulta em lista** que a tela faz → **27/27 no staging**.
+**Correção:** 6º botão **🔁 Renovações** na barra da vendedora (depois do Termômetro) e a barra mais justa (`padding 8px 1px`, `letter-spacing 0`) — cabe em 320 px, medido no navegador. Teste novo: `smoke-renovacoes-tela.js` caso 11 (monta a barra de verdade); `smoke-termometro-tela.js` passou a esperar 6 botões. Suíte **125 ✓** (só o `smoke-9`, antigo). Staging publicado; produção com o "pode publicar" do Rafael (sem homologação clicando como vendedora — não há login de vendedora no staging), conferido no GitHub Pages. O HTML é network-first no `sw.js`, então não precisa de `?v=`.
+⚠️ **A gestão no celular continua só com Dashboard + Ajuda** (de propósito, desde sempre); a lista de renovações da gestão é no computador.
+**Pendência (1) da sessão 82 resolvida:** os commits locais já estavam no `origin/main`; o push de hoje saiu sem a janela de conta.
+Memória: [[vendedora-usa-a-barra-de-baixo]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 82 (01/10/2026, noite) — 🔁 LISTA DE RENOVAÇÕES: as 4 falhas que o Rodrigo apontou · ✅ CORRIGIDO E NO AR EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
