@@ -244,4 +244,35 @@ const H = '2026-10-05';
   ok('barra do celular da vendedora tem Renovações (no celular a barra lateral não aparece)');
 }
 
+/* 12. respostas do Rodrigo de 04/10/2026: o bloco dos recorrentes que não renovaram sozinhos */
+{
+  const def = T.BLOCOS.find(b => b.id === 'recorrentes');
+  assert.ok(def && !def.soGestao, 'a consultora vê o bloco: é ela quem vai atrás do aluno');
+  assert.deepStrictEqual([...T.BLOCOS.map(b => b.id)], ['renovacoes', 'antecipacao', 'degustacoes', 'recorrentes', 'verificar']);
+  const rec = linha({ codigoContrato: '811', nome: 'NICO RECORRENTE', plano: 'ACESSO LIVRE | RECORRENTE | FLEX | 3X | PADRÃO', vencimento: '2026-10-03', consultora: 'ERICA', n: 1,
+    notas: ['Plano recorrente: venceu em 03/10/2026 e a Pacto não registra a renovação automática'] });
+  const L3 = { ...LISTA, blocos: { ...LISTA.blocos, recorrentes: [rec] } };
+  const ids = (lista, perfil) => [...T.blocosVisiveis(lista, perfil)].map(b => b.id);
+  assert.deepStrictEqual(ids(L3, 'equipe'), ['renovacoes', 'antecipacao', 'degustacoes', 'recorrentes']);
+  assert.deepStrictEqual(ids(L3, 'gestao'), ['renovacoes', 'antecipacao', 'degustacoes', 'recorrentes', 'verificar']);
+  assert.deepStrictEqual(ids(LISTA, 'equipe'), ['renovacoes', 'antecipacao', 'degustacoes'], 'sem ninguém apontado (ou lista antiga, sem o bloco), ele não aparece');
+  assert.deepStrictEqual(ids({ ...L3, blocos: { ...L3.blocos, recorrentes: [] } }, 'gestao'), ['renovacoes', 'antecipacao', 'degustacoes', 'verificar']);
+  const b = lido(T.blocoHtml(def, L3.blocos.recorrentes, {}, { hoje: H }));
+  assert.ok(b.includes('Recorrentes que não renovaram sozinhos (1)'), b.slice(0, 120));
+  assert.ok(b.includes('Não entram no total a renovar'), 'a explicação do bloco aparece');
+  assert.ok(b.includes('NICO RECORRENTE') && b.includes('a Pacto não registra a renovação automática') && b.includes('ERICA'));
+  const f = T.formHtml(rec, null, 'recorrentes', L3, 'equipe', H);
+  assert.ok(f.includes('Renovou?') && f.includes('name="planoAlvo"') && f.includes('name="dataContato"'), 'o mesmo formulário das renovações');
+  const p = lido(T.painelHtml(L3, {}, 'CP', 'equipe', H));
+  assert.ok(p.includes('Recorrentes que não renovaram sozinhos: em aberto · resolvidos 1 · 0'), p.slice(0, 600));
+  assert.ok(p.includes('3 Total a renovar no mês'), 'o total a renovar continua sendo o Bloco 1: ' + p.slice(0, 200));
+  assert.ok(!lido(T.painelHtml(LISTA, {}, 'CP', 'equipe', H)).includes('Recorrentes que não renovaram'), 'sem apontados, o painel não fala deles');
+  const js = fs.readFileSync(path.join(raiz, 'renovacoes.js'), 'utf8');
+  assert.ok(js.includes('blocosVisiveis(l, estado.perfil).forEach('), 'a página desenha os blocos por blocosVisiveis');
+  // a etiqueta do Econômico vale para o "Horário Especial" (a lista já vem com economico: true)
+  const esp = lido(T.blocoHtml(T.BLOCOS[0], [linha({ plano: 'IMPORTAÇÃO', planoOriginal: 'ANUAL, HORÁRIO ESPECIAL , 9 -16H', economico: true })], {}, { hoje: H }));
+  assert.ok(esp.includes('Sem desconto de renovação'));
+  ok('bloco "Recorrentes que não renovaram sozinhos": só aparece com alguém apontado, a consultora vê e preenche; painel resume');
+}
+
 console.log('\n✅ smoke-renovacoes-tela: ' + n);

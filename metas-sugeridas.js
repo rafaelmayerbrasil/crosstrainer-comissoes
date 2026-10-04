@@ -120,8 +120,8 @@ const MetasSugeridas = {
   // `pctVoucherAcima`: % sobre a média dos vouchers (configuração da unidade,
   // `pctVoucherAcimaDaMedia`; decisão do Rafael 30/09 — a gestão decide). Padrão 10.
   // `renovadosAntes`: das renovações que vencem no mês, quantas a Pacto já registra como
-  // renovadas ANTES de o mês começar (01/10/2026). Não muda a conta — só entra no porquê,
-  // para a gestão revisar sabendo; tirar ou não da base é decisão do Rodrigo.
+  // renovadas ANTES de o mês começar. Saem da base dos 65% (resposta do Rodrigo, 04/10/2026:
+  // "no dia 01 do mês as renovações antecipadas devem ser retiradas para o cálculo da meta").
   sugerir({ mes, serie, metasAnteriores, renovacaoBase, renovadosAntes, formula, pctVoucherAcima }) {
     const f = formula || this.FORMULA_PADRAO;
     const completos = this._completosAntes(serie, mes);
@@ -153,9 +153,13 @@ const MetasSugeridas = {
     porque.minNovos = `35% da meta (${meta}), arredondado para cima — o Rodrigo usa de 35% a 40%`;
 
     if (renovacaoBase != null) {
-      campos.minRenov = Math.min(Math.ceil(renovacaoBase * this.PCT_RENOV), renovacaoBase);
-      porque.minRenov = `65% das ${renovacaoBase} renovações que vencem no mês (lista de renovações)`
-        + (jaRenovados ? ` — ${jaRenovados} dela(s) já tinha(m) renovado antes de o mês começar; restam ${renovacaoBase - jaRenovados} para negociar` : '');
+      // Quem já chegou ao mês renovado sai da base (Rodrigo, 04/10/2026): a venda contou em outro mês
+      const aNegociar = renovacaoBase - jaRenovados;
+      // o -1e-9 evita 13,000…02 virar 14; o max evita o "-0" quando não sobra ninguém
+      campos.minRenov = Math.max(0, Math.min(Math.ceil(aNegociar * this.PCT_RENOV - 1e-9), aNegociar));
+      porque.minRenov = jaRenovados
+        ? `65% das ${aNegociar} renovações a negociar: das ${renovacaoBase} que vencem no mês (lista de renovações), ${jaRenovados} já tinha(m) renovado antes de o mês começar e sai(em) da conta`
+        : `65% das ${renovacaoBase} renovações que vencem no mês (lista de renovações)`;
     } else {
       const med = this._media6(serie, mes, 'renovacoes');
       const fr = this._fator(serie, metasAnteriores, mes, 'minRenov', 'renovacoes');

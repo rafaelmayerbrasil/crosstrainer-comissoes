@@ -20,8 +20,18 @@
     { id: 'renovacoes', titulo: 'Renovações do mês', situacao: 'Renovou?', soGestao: false },
     { id: 'antecipacao', titulo: 'Antecipação de renovação (até dia 15)', situacao: 'Renovou?', soGestao: false },
     { id: 'degustacoes', titulo: 'Vouchers — Mês Degustação', situacao: 'Converteu?', soGestao: false },
+    // Rodrigo, 04/10/2026: o recorrente renova sozinho, mas o portal confere 1 dia depois do
+    // vencimento e aponta quem não renovou. Só aparece quando há alguém apontado.
+    { id: 'recorrentes', titulo: 'Recorrentes que não renovaram sozinhos', situacao: 'Renovou?', soGestao: false, soComLinhas: true,
+      nota: 'Planos recorrentes que venceram e a Pacto não registra a renovação automática. Não entram no total a renovar nem na taxa de renovação.' },
     { id: 'verificar', titulo: 'Verificar manualmente (só a gestão vê)', situacao: 'Situação', soGestao: true },
   ];
+
+  /** Os blocos que este perfil vê nesta lista (lista antiga, sem o bloco novo, não quebra). */
+  function blocosVisiveis(lista, perfil) {
+    const blocos = (lista && lista.blocos) || {};
+    return BLOCOS.filter(b => (!b.soGestao || perfil === 'gestao') && (!b.soComLinhas || (blocos[b.id] || []).length > 0));
+  }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const dataBR = iso => (iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '—');
@@ -104,7 +114,7 @@
       ? `<div class="tabela"><table><thead><tr><th>Nº</th><th>Consultora</th><th>Aluno</th><th>Contrato atual</th><th>Início</th><th>Vencimento</th><th>${esc(def.situacao)}</th><th>Avisos</th></tr></thead>
          <tbody>${ls.map(l => linhaHtml(l, ac[l.codigoContrato], def.id, o.hoje)).join('')}</tbody></table></div>`
       : '<p class="muted">Nenhum contrato neste bloco.</p>';
-    return `<section class="card"><h2>${esc(def.titulo)} <span class="muted">(${ls.length})</span></h2>${corpo}</section>`;
+    return `<section class="card"><h2>${esc(def.titulo)} <span class="muted">(${ls.length})</span></h2>${def.nota ? `<p class="muted pequeno">${esc(def.nota)}</p>` : ''}${corpo}</section>`;
   }
 
   function metasHtml(m) {
@@ -127,7 +137,7 @@
       : `<span class="erro-txt">não bate: ${esc(c.diferenca)} registro(s) sem destino</span>`}</summary>
       <div class="kv">
         <span>Total na Previsão da Pacto (mês + 1 a 15 do seguinte)</span><span>${esc(c.totalPacto)}</span>
-        <span>Na lista (blocos 1 a 4)</span><span>${esc(c.naLista)}</span>
+        <span>Na lista (todos os blocos)</span><span>${esc(c.naLista)}</span>
         <span>Excluídos</span><span>${esc(c.excluidos)}</span>
         ${lt && lt.total ? `<span>Contratos conferidos na Pacto nesta atualização (plano, vencimento e consultora de hoje)</span><span>${esc(lt.relidos)} de ${esc(lt.total)}</span>` : ''}
       </div>
@@ -161,6 +171,7 @@
         <span>${esc(b.renovacoes.sim)} · ${esc(b.renovacoes.nao)} · ${esc(b.renovacoes.negociacao)} · ${esc(b.renovacoes.pendente)}</span>
         <span>Dos renovados: antes de o mês começar · dentro do mês</span>
         <span>${esc(p.renovadosAntes)} · ${esc(p.renovadosNoMes)}</span>
+        ${b.recorrentes.total ? `<span>Recorrentes que não renovaram sozinhos: em aberto · resolvidos</span><span>${esc(p.recorrentesEmAberto)} · ${esc(b.recorrentes.sim)}</span>` : ''}
         <span>Alertas</span><span>🔴 ${esc(p.alertas.vermelho)} · 🟠 ${esc(p.alertas.laranja)}</span>
       </div>
       <h3>Por consultora (renovados de total)</h3><div class="kv">${consultoras}</div>
@@ -223,7 +234,7 @@
     </form>`;
   }
 
-  window.RenovacoesTela = { BLOCOS, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, leituraHtml, renovadoHtml, campoAparece, aplicarSituacao, soDaSituacao, hojeSP };
+  window.RenovacoesTela = { BLOCOS, blocosVisiveis, NOMES, motivoLegivel, perfilDe, unidadesDe, linhaHtml, blocoHtml, painelHtml, formHtml, metasHtml, leituraHtml, renovadoHtml, campoAparece, aplicarSituacao, soDaSituacao, hojeSP };
 
   // ─── A página ───
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;
@@ -255,8 +266,7 @@
     const opc = { hoje, soMinhas: $('soMinhas').checked, meuNome: estado.meuNome };
     let html = painelHtml(l, estado.acomps, estado.unidade, estado.perfil, hoje);
     if (l && l.situacao === 'ok') {
-      BLOCOS.filter(b => !b.soGestao || estado.perfil === 'gestao')
-        .forEach(b => { html += blocoHtml(b, l.blocos[b.id], estado.acomps, opc); });
+      blocosVisiveis(l, estado.perfil).forEach(b => { html += blocoHtml(b, l.blocos[b.id], estado.acomps, opc); });
     }
     $('conteudo').innerHTML = html;
     $('atualizadoEm').textContent = l ? quando(l.atualizadoEm) : '';

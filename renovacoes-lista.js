@@ -93,7 +93,28 @@ const RenovacoesLista = {
       if (e.termos.some(t => this.temTermo(n, t))) return { tipo: 'excluir', motivo: e.motivo };
     }
     if (this.temTermo(n, 'DEGUSTACAO')) return { tipo: 'degustacao' };
-    return { tipo: 'renovacao', economico: this.temTermo(n, 'ECONOMICO') };
+    // "Horário Especial" é o nome que o Econômico tinha no TecnoFit (Rodrigo, 04/10/2026)
+    return { tipo: 'renovacao', economico: this.temTermo(n, 'ECONOMICO') || this.temTermo(n, 'HORARIO ESPECIAL') };
+  },
+
+  /**
+   * Mensal que a Pacto cobra em regime de recorrência renova sozinho, como o plano com
+   * "RECORRENTE" no nome (Rodrigo, 04/10/2026). A marca da Pacto sozinha não serve: toda
+   * degustação a tem, e o anual parcelado no cartão continua precisando de renovação.
+   */
+  ehMensalEmRecorrencia(nomePlano, recorrencia) {
+    return !!recorrencia && this.temTermo(this.norm(nomePlano), 'MENSAL');
+  },
+
+  /**
+   * "Renova sozinho, mas vale a conferência": recorrente que a Pacto, consultada 1 dia ou
+   * mais DEPOIS do vencimento, ainda mostra sem renovação. (Em out/2026 os que renovaram
+   * tinham o contrato novo lançado no próprio dia do vencimento.) `lidoEm` é o dia da
+   * leitura no gateway: sem ela (contrato vindo do caderninho) ou com leitura anterior ao
+   * dia seguinte do vencimento, não há como afirmar que não renovou.
+   */
+  naoRenovouSozinho({ vencimento, renovado, lidoEm }) {
+    return !!vencimento && !renovado && !!lidoEm && this.diasEntre(vencimento, lidoEm) >= 1;
   },
 
   // ─── Datas ('AAAA-MM-DD' em todo o módulo) ───
@@ -135,10 +156,22 @@ const RenovacoesLista = {
     };
   },
 
-  /** O mês corrente; do dia 25 em diante, também o seguinte ("gerada no fim do mês M"). */
+  mesAnterior(mes) {
+    const [a, m] = mes.split('-').map(Number);
+    return new Date(Date.UTC(a, m - 2, 1)).toISOString().slice(0, 7);
+  },
+
+  /**
+   * O mês corrente; do dia 25 em diante, também o seguinte ("gerada no fim do mês M");
+   * nos dias 1 e 2, também o que acabou — o recorrente que vence no último dia só pode
+   * ser conferido no dia seguinte. O corrente vem primeiro: se a Pacto cortar as
+   * consultas no meio, é ele que não pode faltar.
+   */
   mesesParaManter(hoje) {
     const mes = hoje.slice(0, 7);
-    return Number(hoje.slice(8, 10)) >= 25 ? [mes, this.proximoMes(mes)] : [mes];
+    const dia = Number(hoje.slice(8, 10));
+    if (dia <= 2) return [mes, this.mesAnterior(mes)];
+    return dia >= 25 ? [mes, this.proximoMes(mes)] : [mes];
   },
 
   /** 11 dígitos com dígitos verificadores de CPF. CPF nunca é gravado nem mostrado. */
@@ -274,17 +307,21 @@ const RenovacoesLista = {
    * @param {object} a.previsao     { mes: {contratos, renovados}, antecipacao: {contratos, renovados} }
    *                                contratos: [{codigoContrato, codigoCliente, matriculaCliente, nomeCliente}]
    * @param {object} a.contratos    número do contrato → {nomePlano, vigenciaDe, vigenciaAte, consultor,
-   *                                alunoConsultado, consultorAluno, consultoresAluno, planoOriginal, renovadoEm, contratoNovo}
+   *                                alunoConsultado, consultorAluno, consultoresAluno, planoOriginal, renovadoEm, contratoNovo,
+   *                                recorrencia, lidoEm}
    * @param {Array}  a.historico    itens processados de `periodos`
    * @param {object} [a.gestao]     número do contrato → {blocoGestao, consultoraAtribuida}
    * @param {object} [a.desdeAnterior] número do contrato → dia em que entrou na lista
    * @param {Array}  [a.naoConsultoras]
+   * @param {Array}  [a.apontadosAntes] contratos que a lista anterior do mês já tinha no bloco
+   *                                `recorrentes`: seguem na lista depois de renovar, como Sim
    */
-  montar({ mes, hoje, previsao, contratos, historico, gestao, desdeAnterior, naoConsultoras }) {
+  montar({ mes, hoje, previsao, contratos, historico, gestao, desdeAnterior, naoConsultoras, apontadosAntes }) {
     const per = this.periodos(mes);
     const cad = contratos || {};
     const ges = gestao || {};
     const desde = desdeAnterior || {};
+    const apontados = new Set((apontadosAntes || []).map(String));
     const excluidos = {};
     const conta = m => { excluidos[m] = (excluidos[m] || 0) + 1; };
     const pm = (previsao && previsao.mes) || {};
@@ -354,8 +391,18 @@ const RenovacoesLista = {
       if (cls.tipo === 'verificar' && g.blocoGestao) {
         cls = g.blocoGestao === 'excluir' ? { tipo: 'excluir', motivo: 'gestao' } : { tipo: g.blocoGestao };
       }
+      if (cls.tipo === 'renovacao' && this.ehMensalEmRecorrencia(linha.planoOriginal || linha.plano, c && c.recorrencia)) {
+        cls = { tipo: 'excluir', motivo: 'recorrente' };
+      }
       if ((cls.tipo === 'renovacao' || cls.tipo === 'degustacao') && !linha.vencimento) {
         cls = { tipo: 'verificar', motivo: 'Contrato sem data de vencimento na Pacto' };
+      }
+      // Recorrente renova sozinho — mas, se venceu e a Pacto não registra a renovação, é
+      // apontado (bloco próprio). Quem já foi apontado segue na lista depois de renovar.
+      if (cls.tipo === 'excluir' && cls.motivo === 'recorrente'
+        && (this.naoRenovouSozinho({ vencimento: linha.vencimento, renovado: linha.renovouSistema, lidoEm: this.iso(c && c.lidoEm) })
+          || (apontados.has(codigoContrato) && linha.vencimento && linha.vencimento < hoje))) {
+        cls = { tipo: 'recorrente' };
       }
       if (cls.tipo === 'excluir') { conta(cls.motivo); return; }
       linha.economico = !!cls.economico;
@@ -387,7 +434,7 @@ const RenovacoesLista = {
     });
 
     // 4. consultora, notas e bloco
-    const blocos = { renovacoes: [], antecipacao: [], degustacoes: [], verificar: [] };
+    const blocos = { renovacoes: [], antecipacao: [], degustacoes: [], recorrentes: [], verificar: [] };
     const noPeriodo = (v, de, ate) => v && v >= de && v <= ate;
     // Grafia do cadastro (a das comissões), pelo nome sem acento: a Pacto escreve
     // BARBARA e o cadastro BÁRBARA — sem isto o painel mostrava duas pessoas.
@@ -431,6 +478,11 @@ const RenovacoesLista = {
       const cls = l._cls;
       delete l._cls; delete l._consultorPacto; delete l._alunoConsultado; delete l._vinculos;
       if (cls.tipo === 'verificar') { l.motivoVerificar = cls.motivo; blocos.verificar.push(l); return; }
+      if (cls.tipo === 'recorrente') {
+        if (!l.renovouSistema) l.notas.push(`Plano recorrente: venceu em ${dataBR(l.vencimento)} e a Pacto não registra a renovação automática`);
+        blocos.recorrentes.push(l);
+        return;
+      }
       if (cls.tipo === 'degustacao') {
         if (noPeriodo(l.vencimento, per.mes.de, per.antecipacao.ate)) { blocos.degustacoes.push(l); return; }
       } else if (noPeriodo(l.vencimento, per.mes.de, per.mes.ate)) { blocos.renovacoes.push(l); return; }
@@ -463,6 +515,7 @@ const RenovacoesLista = {
     blocos.renovacoes.forEach(l => { l.n = ++k; });
     blocos.antecipacao.forEach(l => { l.n = ++k; });
     blocos.degustacoes.forEach((l, i) => { l.n = i + 1; });
+    blocos.recorrentes.forEach((l, i) => { l.n = i + 1; });
 
     const totalExcluidos = Object.values(excluidos).reduce((s, v) => s + v, 0);
     // Uma vez por pessoa (sem acento), na primeira grafia que aparecer
@@ -554,7 +607,9 @@ const RenovacoesLista = {
     const blocos = (lista && lista.blocos) || {};
     const DA_EQUIPE = ['renovacoes', 'antecipacao', 'degustacoes'];
     const porBloco = {};
-    DA_EQUIPE.forEach(b => {
+    // `recorrentes` (os que não renovaram sozinhos) tem a contagem, mas fica fora do total
+    // a renovar, da taxa e do placar por consultora: não é renovação negociada.
+    DA_EQUIPE.concat('recorrentes').forEach(b => {
       // `simAntes`: dos "Sim", os que a Pacto registra como renovados ANTES de o mês
       // da lista começar (a venda é de outro mês — 01/10/2026, ponto 4 do Rodrigo)
       const c = { total: 0, sim: 0, nao: 0, negociacao: 0, pendente: 0, simAntes: 0 };
@@ -586,6 +641,7 @@ const RenovacoesLista = {
       renovadosAntes: porBloco.renovacoes.simAntes,
       renovadosNoMes: porBloco.renovacoes.sim - porBloco.renovacoes.simAntes,
       aNegociar: porBloco.renovacoes.total - porBloco.renovacoes.simAntes,
+      recorrentesEmAberto: porBloco.recorrentes.total - porBloco.recorrentes.sim,
       taxaRenovacao: pct(porBloco.renovacoes.sim, porBloco.renovacoes.total),
       conversaoDegustacao: pct(porBloco.degustacoes.sim, porBloco.degustacoes.total),
       porConsultora,

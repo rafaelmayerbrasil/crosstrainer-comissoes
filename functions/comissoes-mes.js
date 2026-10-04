@@ -625,7 +625,7 @@ const ComissoesMes = {
         // Renovações que vencem no mês = Bloco 1 da lista de renovações, se já existir
         const sigla = Adapter.siglaDaUnidade(unitId, ['CP', 'PP']);
         let renovacaoBase = null;
-        let renovadosAntes = 0;     // já renovados antes de o mês começar: só entra no porquê
+        let renovadosAntes = 0;     // já renovados antes de o mês começar: saem da base dos 65% (Rodrigo, 04/10/2026)
         try {
           const l = await db.collection('renovacoes_lista').doc(sigla + '_' + mes).get();
           if (l.exists && l.data().situacao === 'ok') {

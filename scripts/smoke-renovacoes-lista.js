@@ -436,6 +436,119 @@ const PREV1 = lista => ({ mes: { contratos: lista, renovados: [] }, antecipacao:
   ok('renovado: dia da renovação pelo contrato; "antes do mês" separado no painel; data futura da migração ignorada');
 }
 
+/* 21–23. As respostas do Rodrigo de 04/10/2026 */
+{
+  // 21. "Horário Especial" do TecnoFit é o Econômico: leva a etiqueta "Sem desconto de renovação"
+  assert.deepStrictEqual(RL.classificarPlano('ANUAL, HORÁRIO ESPECIAL (06H, 09H-12H, 13:30-16H/20H-21:30H) ATÉ 3X/SEMANA'), { tipo: 'renovacao', economico: true });
+  assert.deepStrictEqual(RL.classificarPlano('ANUAL, HORÁRIO ESPECIAL , 9 -16H, 20 - 21:30 ILIMITADO'), { tipo: 'renovacao', economico: true });
+  assert.deepStrictEqual(RL.classificarPlano('ANUAL, HORÁRIO LIVRE'), { tipo: 'renovacao', economico: false }, 'só "horário" não basta');
+  assert.deepStrictEqual(RL.classificarPlano('ANUAL, PROMOÇÃO ESPECIAL'), { tipo: 'renovacao', economico: false }, 'só "especial" não basta');
+  const contratos = { 901: Object.assign(C('IMPORTAÇÃO', '10/10/2025', '10/10/2026', 'KALI'), { planoOriginal: 'ANUAL, HORÁRIO ESPECIAL , 9 -16H, 20 - 21:30 ILIMITADO' }) };
+  const L = RL.montar({ mes: '2026-10', hoje: '2026-10-05', historico: [], contratos, previsao: PREV1([K('901', '91', 'IMPORTADO ESPECIAL')]) });
+  assert.strictEqual(L.blocos.renovacoes[0].economico, true, 'a importação herda a etiqueta do plano original');
+  ok('Horário Especial = Econômico: ganha a etiqueta, inclusive pelo plano original da importação');
+}
+{
+  // 22. Mensal que a Pacto cobra em recorrência renova sozinho: sai da lista como o "RECORRENTE".
+  // A marca de recorrência sozinha não serve: toda degustação a tem, e o anual no cartão também pode ter.
+  const rec = (plano, de, ate, extra) => Object.assign(C(plano, de, ate, 'ERICA'), { recorrencia: true }, extra || {});
+  const contratos = {
+    801: rec('HIIT/MAROMBINHA | MENSAL | ILIMITADO | PADRÃO.', '20/09/2026', '20/10/2026'),
+    802: C('HIIT/MAROMBINHA | MENSAL | ILIMITADO | PADRÃO.', '20/09/2026', '21/10/2026', 'ERICA'),      // mensal SEM recorrência
+    803: rec('ACESSO LIVRE | ANUAL | FLEX | ILIMITADO | PADRÃO.', '22/10/2025', '22/10/2026'),          // anual no cartão
+    804: rec('PLANO VOUCHER DEGUSTAÇÃO', '23/09/2026', '23/10/2026'),
+    805: rec('IMPORTAÇÃO', '24/09/2026', '24/10/2026', { planoOriginal: 'MENSAL, TREINO LIVRE' }),
+    806: C('TOI KIDS MENSAL', '25/09/2026', '25/10/2026', 'KALI'),
+    807: rec('ACESSO LIVRE | MENSAL | FLEX | ILIMITADO | PADRÃO.', '02/10/2026', '02/11/2026'),        // antecipação
+  };
+  const prev = PREV1([K('801', '81', 'A'), K('802', '82', 'B'), K('803', '83', 'C'), K('804', '84', 'D'), K('805', '85', 'E'), K('806', '86', 'F')]);
+  prev.antecipacao.contratos = [K('807', '87', 'G')];
+  const L = RL.montar({ mes: '2026-10', hoje: '2026-10-05', historico: [], contratos, previsao: prev });
+  assert.deepStrictEqual(L.blocos.renovacoes.map(l => l.codigoContrato), ['802', '803', '806'], 'mensal sem recorrência, anual em recorrência e TOI Kids ficam');
+  assert.deepStrictEqual(L.blocos.antecipacao, [], 'mensal em recorrência também sai da antecipação');
+  assert.deepStrictEqual(L.blocos.degustacoes.map(l => l.codigoContrato), ['804'], 'degustação em recorrência continua degustação');
+  assert.deepStrictEqual(L.excluidos, { recorrente: 3 });
+  assert.deepStrictEqual(L.blocos.recorrentes, [], 'ninguém venceu ainda: nada a apontar');
+  assert.strictEqual(L.conferencia.bate, true);
+  assert.strictEqual(RL.ehMensalEmRecorrencia('ACESSO LIVRE | MENSAL | FLEX', true), true);
+  assert.strictEqual(RL.ehMensalEmRecorrencia('ACESSO LIVRE | MENSAL | FLEX', false), false);
+  assert.strictEqual(RL.ehMensalEmRecorrencia('ACESSO LIVRE | SEMESTRAL | FLEX', true), false);
+  ok('mensal em recorrência sai como recorrente; anual no cartão, degustação, mensal comum e TOI Kids ficam');
+}
+{
+  // 23. "Renova sozinho, mas vale a conferência": recorrente vencido há 1 dia ou mais sem
+  // contrato novo na Pacto é apontado num bloco próprio — fora do Bloco 1, que é o número oficial.
+  const R = 'ACESSO LIVRE | RECORRENTE | FLEX | 3X | PADRÃO';
+  // `lidoEm`: o dia em que o gateway da Pacto respondeu por este contrato (renovacoes_leituras)
+  const rec = (plano, ate, extra) => Object.assign(C(plano, '01/09/2026', ate), { recorrencia: true, lidoEm: '2026-10-05',
+    alunoConsultado: true, consultorAluno: 'ERICA', consultoresAluno: ['ERICA'] }, extra || {});
+  const contratos = {
+    811: rec(R, '04/10/2026'),                                                            // venceu ontem, nada na Pacto
+    812: rec(R, '05/10/2026'),                                                            // vence hoje: ainda não é hora
+    813: rec(R, '02/10/2026', { renovadoEm: '02/10/2026', contratoNovo: '9001' }),          // renovou sozinho
+    814: rec('HIIT/MAROMBINHA | MENSAL | ILIMITADO | PADRÃO.', '02/10/2026'),               // mensal em recorrência, não renovou
+    815: rec(R, '03/10/2026'),                                                            // só a Previsão diz que renovou
+    816: rec('PERSONAL EXTERNO RECORRENTE', '01/10/2026'),                                // não é aluno de plano
+    817: rec(R, '01/10/2026', { renovadoEm: '03/10/2026', contratoNovo: '9002' }),          // já estava apontado e renovou depois
+    818: rec(R, '20/09/2026'),                                                            // vencido há mais de 7 dias
+    819: C('ANUAL, ACESSO ILIMITADO', '10/10/2025', '10/10/2026', 'KALI'),
+  };
+  const prev = PREV1(['811', '812', '813', '814', '815', '816', '817', '818', '819'].map((c, i) => K(c, String(800 + i), 'ALUNO ' + c)));
+  prev.mes.renovados = ['815'];
+  const arg = { mes: '2026-10', hoje: '2026-10-05', historico: [], contratos, previsao: prev };
+  const L = RL.montar(Object.assign({ apontadosAntes: ['817'] }, arg));
+  const rc = L.blocos.recorrentes;
+  assert.deepStrictEqual(rc.map(l => l.codigoContrato), ['818', '817', '814', '811'], 'por vencimento');
+  assert.deepStrictEqual(rc.map(l => l.n), [1, 2, 3, 4], 'numeração própria');
+  assert.deepStrictEqual(L.blocos.renovacoes.map(l => l.codigoContrato), ['819'], 'o Bloco 1 (número oficial) não muda');
+  assert.deepStrictEqual(L.excluidos, { recorrente: 3, personal_externo: 1 }, '812 (vence hoje), 813 e 815 (renovaram) seguem excluídos');
+  assert.deepStrictEqual(L.conferencia, { totalPacto: 9, naLista: 5, excluidos: 4, bate: true, diferenca: 0 });
+  const de = c => rc.find(l => l.codigoContrato === c);
+  assert.strictEqual(de('811').consultora, 'ERICA', 'a consultora é a do vínculo do aluno');
+  assert.ok(de('811').notas.includes('Plano recorrente: venceu em 04/10/2026 e a Pacto não registra a renovação automática'), JSON.stringify(de('811').notas));
+  assert.strictEqual(de('811').renovouSistema, false);
+  assert.deepStrictEqual([de('817').renovouSistema, de('817').renovadoEm], [true, '2026-10-03'], 'quem foi apontado e renovou depois continua na lista, como Sim');
+  assert.ok(de('817').notas.includes('Renovou em 03/10/2026'), JSON.stringify(de('817').notas));
+  // sem a memória da lista anterior, quem renovou não aparece
+  assert.deepStrictEqual(RL.montar(arg).blocos.recorrentes.map(l => l.codigoContrato), ['818', '814', '811']);
+  // Só se afirma "não renovou" com uma leitura da Pacto feita DEPOIS do vencimento:
+  // leitura do próprio dia (a Pacto fora do ar hoje → vale a de ontem) ainda não prova nada…
+  const lidoNoDia = Object.assign({}, contratos, { 811: rec(R, '04/10/2026', { lidoEm: '2026-10-04' }) });
+  assert.ok(!RL.montar(Object.assign({}, arg, { contratos: lidoNoDia })).blocos.recorrentes.some(l => l.codigoContrato === '811'), 'lido no dia do vencimento: ainda não');
+  // …e contrato que veio do caminho antigo (caderninho/núcleo) não traz a renovação: não é apontado
+  const semLeitura = Object.assign({}, contratos, { 811: Object.assign(rec(R, '04/10/2026'), { lidoEm: undefined }) });
+  const LS = RL.montar(Object.assign({}, arg, { contratos: semLeitura }));
+  assert.ok(!LS.blocos.recorrentes.some(l => l.codigoContrato === '811'), 'sem leitura do gateway não se afirma nada');
+  assert.strictEqual(LS.excluidos.recorrente, 5, 'segue como recorrente excluído (812, 813, 815, 817 e agora o 811)');
+  assert.strictEqual(RL.naoRenovouSozinho({ vencimento: '2026-10-04', renovado: false, lidoEm: '2026-10-05' }), true);
+  assert.strictEqual(RL.naoRenovouSozinho({ vencimento: '2026-10-05', renovado: false, lidoEm: '2026-10-05' }), false);
+  assert.strictEqual(RL.naoRenovouSozinho({ vencimento: '2026-10-01', renovado: true, lidoEm: '2026-10-05' }), false);
+  assert.strictEqual(RL.naoRenovouSozinho({ vencimento: '', renovado: false, lidoEm: '2026-10-05' }), false, 'sem vencimento não há o que conferir');
+  assert.strictEqual(RL.naoRenovouSozinho({ vencimento: '2026-10-01', renovado: false, lidoEm: '' }), false);
+
+  const p = RL.painel(L, { 814: { renovou: 'negociacao', dataContato: '2026-10-03' } }, '2026-10-05');
+  assert.deepStrictEqual(p.porBloco.recorrentes, { total: 4, sim: 1, nao: 0, negociacao: 1, pendente: 2, simAntes: 0 });
+  assert.strictEqual(p.recorrentesEmAberto, 3);
+  assert.strictEqual(p.totalARenovar, 1, 'os recorrentes apontados não entram no total a renovar');
+  assert.strictEqual(p.taxaRenovacao, 0, 'nem na taxa de renovação');
+  assert.deepStrictEqual(p.porConsultora, { KALI: { total: 1, renovados: 0 } }, 'nem no placar por consultora');
+  assert.ok(RL.alertas(de('818'), null, 'recorrentes', '2026-10-05').some(a => a.codigo === 'vencido' && a.nivel === 'vermelho'), 'vencido há mais de 7 dias: alerta vermelho');
+  assert.ok(!/"_/.test(JSON.stringify(L)), 'nenhum campo interno gravado');
+  // lista gravada antes desta mudança (sem o bloco): o painel não quebra
+  const antiga = JSON.parse(JSON.stringify(L)); delete antiga.blocos.recorrentes;
+  assert.deepStrictEqual(RL.painel(antiga, {}, '2026-10-05').porBloco.recorrentes, { total: 0, sim: 0, nao: 0, negociacao: 0, pendente: 0, simAntes: 0 });
+  ok('recorrente que não renovou sozinho: apontado 1 dia depois do vencimento, em bloco próprio, fora do número oficial');
+}
+{
+  // 24. o último dia do mês só pode ser conferido no dia 1 — a lista do mês que acabou é refeita nos dias 1 e 2
+  assert.deepStrictEqual(RL.mesesParaManter('2026-11-01'), ['2026-11', '2026-10'], 'o mês corrente primeiro: se a Pacto cortar as consultas, é ele que não pode faltar');
+  assert.deepStrictEqual(RL.mesesParaManter('2026-11-02'), ['2026-11', '2026-10']);
+  assert.deepStrictEqual(RL.mesesParaManter('2026-11-03'), ['2026-11']);
+  assert.deepStrictEqual(RL.mesesParaManter('2027-01-01'), ['2027-01', '2026-12'], 'virada de ano');
+  assert.strictEqual(RL.mesAnterior('2026-03'), '2026-02');
+  ok('nos dias 1 e 2 a lista do mês anterior é refeita (confere quem venceu no último dia)');
+}
+
 /* 16. a cópia de functions/ é idêntica à da raiz */
 {
   assert.strictEqual(fs.readFileSync(path.join(raiz, 'functions', 'renovacoes-lista.js'), 'utf8'),

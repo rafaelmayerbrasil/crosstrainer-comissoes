@@ -105,19 +105,24 @@ const METAS = {
   ok('menos de 3 meses completos não propõe; trava de renovação nunca maior que a base');
 }
 
-/* 6b. quem já chegou ao mês renovado (01/10/2026): entra no PORQUÊ, não muda a conta */
+/* 6b. quem já chegou ao mês renovado SAI da base dos 65% (resposta do Rodrigo, 04/10/2026:
+       "no dia 01 do mês as renovações antecipadas devem ser retiradas para o cálculo da meta") */
 {
   const sem = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 14, formula: 'media6' });
   const com = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 14, renovadosAntes: 3, formula: 'media6' });
-  assert.deepStrictEqual(com.campos, sem.campos, 'a meta e os mínimos são os mesmos — tirar da base é decisão do Rodrigo');
-  assert.strictEqual(com.campos.minRenov, 10, '65% de 14, para cima');
-  assert.strictEqual(com.porque.minRenov, '65% das 14 renovações que vencem no mês (lista de renovações) — 3 dela(s) já tinha(m) renovado antes de o mês começar; restam 11 para negociar');
+  assert.strictEqual(sem.campos.minRenov, 10, '65% de 14, para cima');
+  assert.strictEqual(com.campos.minRenov, 8, '65% de 11 (14 − 3 já renovados), para cima');
+  assert.deepStrictEqual({ ...com.campos, minRenov: 10 }, sem.campos, 'só o mínimo de renovações muda');
+  assert.strictEqual(com.porque.minRenov, '65% das 11 renovações a negociar: das 14 que vencem no mês (lista de renovações), 3 já tinha(m) renovado antes de o mês começar e sai(em) da conta');
   assert.strictEqual(com.base.renovadosAntes, 3);
+  assert.strictEqual(com.base.renovacaoBase, 14, 'a base guardada continua sendo o Bloco 1 inteiro');
+  const todos = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: 3, renovadosAntes: 5, formula: 'media6' });
+  assert.strictEqual(todos.campos.minRenov, 0, 'todo mundo já renovado: nada a exigir (e nunca negativo)');
   assert.strictEqual(sem.porque.minRenov, '65% das 14 renovações que vencem no mês (lista de renovações)');
   assert.ok(!('renovadosAntes' in sem.base), 'sem ninguém renovado antes, a base fica como era');
   const semLista = MS.sugerir({ mes: '2026-10', serie: SERIE, metasAnteriores: METAS, renovacaoBase: null, renovadosAntes: 3, formula: 'media6' });
   assert.ok(!/já tinha/.test(semLista.porque.minRenov), 'sem lista, não há o que dizer');
-  ok('renovados antes do mês: aparecem no porquê do mínimo de renovações; a conta não muda');
+  ok('renovados antes do mês saem da base dos 65% do mínimo de renovações, e o porquê mostra a conta');
 }
 
 /* 7. ativação fracionária e mês corrente */

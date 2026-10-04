@@ -316,5 +316,54 @@ const NUCLEO = {
     ok('contrato que volta vazio é perguntado de novo no fim, depois de uma pausa; só quem falha duas vezes vai para a reserva');
   }
 
+  {
+    /* 14. respostas do Rodrigo de 04/10/2026: recorrente renova sozinho, mas o portal confere 1 dia depois do vencimento */
+    const db = makeFakeDb();
+    await db.collection('units').doc('unit-cp').set({ config: {} });
+    const R = 'ACESSO LIVRE | RECORRENTE | FLEX';
+    const prev = { '2026-10-01': OK([K('401', '41', 'NICO NAO RENOVOU'), K('402', '42', 'RUI RENOVOU'), K('403', '43', 'MARA MENSAL'), K('404', '44', 'ANA ANUAL')]), '2026-11-01': OK([]) };
+    const hoje5 = {
+      401: G(R, '03/09/2026', '03/10/2026', 'p41', { recorrencia: true }),
+      402: G(R, '03/09/2026', '03/10/2026', 'p42', { recorrencia: true, renovadoEm: '03/10/2026', contratoNovo: '777' }),
+      403: G('HIIT/MAROMBINHA | MENSAL | ILIMITADO | PADRÃO.', '20/09/2026', '20/10/2026', 'p43', { recorrencia: true }),
+      404: G('ANUAL, ACESSO ILIMITADO', '20/10/2025', '20/10/2026', 'p44'),
+    };
+    const alunos = { p41: V('ERICA'), p42: V('FRANCINI'), p43: V('FRANCINI'), p44: V('KALI LÓPEZ') };
+    const gw = gwContratos(hoje5, alunos);
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(prev), clienteNucleo: nucleoFalso({}), clienteContratos: gw, unidade: 'CP', mes: '2026-10', hoje: '2026-10-05', agora: () => 'T5', dormir: SEM_ESPERA });
+    const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    assert.deepStrictEqual(d.blocos.recorrentes.map(l => l.codigoContrato), ['401'], 'venceu em 03/10 e a Pacto, lida em 05/10, não registra a renovação');
+    assert.strictEqual(d.blocos.recorrentes[0].consultora, 'ERICA', 'o vínculo do aluno apontado é lido');
+    assert.deepStrictEqual(d.blocos.renovacoes.map(l => l.codigoContrato), ['404'], 'o mensal em recorrência saiu do Bloco 1');
+    assert.deepStrictEqual(d.excluidos, { recorrente: 2 }, 'quem renovou sozinho e o mensal em recorrência que ainda não venceu');
+    assert.strictEqual(d.conferencia.bate, true);
+    assert.deepStrictEqual(gw.alunos.sort(), ['p41', 'p44'], 'recorrente que renovou ou ainda não venceu: não se pergunta pelo aluno');
+    assert.strictEqual(M.ficaNaLista('HIIT | MENSAL | 3X', '', { recorrencia: true, vigenciaAte: '20/10/2026', hoje: '2026-10-05' }), false);
+    assert.strictEqual(M.ficaNaLista('HIIT | MENSAL | 3X', '', { recorrencia: false, vigenciaAte: '20/10/2026', hoje: '2026-10-05' }), true);
+    assert.strictEqual(M.ficaNaLista(R, '', { recorrencia: true, vigenciaAte: '03/10/2026', hoje: '2026-10-05' }), true, 'vencido sem renovação: fica (apontado)');
+    assert.strictEqual(M.ficaNaLista(R, '', { recorrencia: true, vigenciaAte: '03/10/2026', renovadoEm: '03/10/2026', hoje: '2026-10-05' }), false);
+    assert.strictEqual(M.ficaNaLista(R, '', { recorrencia: true, vigenciaAte: '03/10/2026', renovadoEm: '05/10/2026', hoje: '2026-10-06', apontado: true }), true, 'já apontado: continua');
+    assert.strictEqual(M.ficaNaLista(R, ''), false, 'chamada antiga (sem os dados do contrato) segue excluindo o recorrente');
+
+    // no dia seguinte o aluno renovou: continua na lista, como renovado, com a consultora
+    const hoje6 = Object.assign({}, hoje5, { 401: G(R, '03/09/2026', '03/10/2026', 'p41', { recorrencia: true, renovadoEm: '05/10/2026', contratoNovo: '778' }) });
+    const gw6 = gwContratos(hoje6, alunos);
+    await M.montarUnidadeMes({ db, clienteGw: gwFalso(prev), clienteNucleo: nucleoFalso({}), clienteContratos: gw6, unidade: 'CP', mes: '2026-10', hoje: '2026-10-06', agora: () => 'T6', dormir: SEM_ESPERA });
+    const d6 = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    assert.deepStrictEqual(d6.blocos.recorrentes.map(l => [l.codigoContrato, l.renovouSistema, l.renovadoEm, l.consultora]), [['401', true, '2026-10-05', 'ERICA']],
+      'quem foi apontado não some ao renovar: fica como Sim');
+    assert.strictEqual(d6.conferencia.bate, true);
+
+    // dias 1 e 2: a lista do mês que acabou é refeita, depois da do mês corrente
+    const db1 = makeFakeDb();
+    await db1.collection('units').doc('unit-cp').set({ config: {} });
+    const prevNov = { '2026-10-01': prev['2026-10-01'], '2026-11-01': OK([]), '2026-12-01': OK([]) };
+    const res = await M.montarTudo({ db: db1, clientesGw: { CP: gwFalso(prevNov) }, clienteNucleo: nucleoFalso({}), clientesContratos: { CP: gwContratos(hoje5, alunos) }, unidades: ['CP'], hoje: '2026-11-01', agora: () => 'T', dormir: SEM_ESPERA });
+    assert.deepStrictEqual(res.map(x => x.id + ' ' + x.situacao), ['CP_2026-11 ok', 'CP_2026-10 ok']);
+    const out = (await db1.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
+    assert.deepStrictEqual(out.blocos.recorrentes.map(l => l.codigoContrato), ['403', '401'].sort(), 'no dia 1, o mensal em recorrência que venceu em outubro sem renovar também é apontado');
+    ok('recorrente: apontado 1 dia depois do vencimento com a consultora do aluno; fica como Sim ao renovar; dias 1 e 2 refazem o mês anterior');
+  }
+
   console.log('\n✅ smoke-renovacoes-montar: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

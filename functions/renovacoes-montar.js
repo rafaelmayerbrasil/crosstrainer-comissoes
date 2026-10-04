@@ -97,10 +97,23 @@ async function completarContratos({ db, clienteNucleo, unidade, brutos }) {
   return { mapa, consultas };
 }
 
-/** O contrato fica na lista (e por isso vale perguntar pela consultora do aluno)? */
-function ficaNaLista(nomePlano, planoOriginal) {
-  let cls = RL.classificarPlano(nomePlano);
-  if (cls.tipo === 'importacao' && planoOriginal) cls = RL.classificarPlano(planoOriginal);
+/**
+ * O contrato fica na lista (e por isso vale perguntar pela consultora do aluno)?
+ * `c` (opcional): { recorrencia, vigenciaAte, renovadoEm, hoje, apontado } do contrato lido
+ * agora — o recorrente só fica se venceu sem renovar (ou se já estava apontado na lista).
+ */
+function ficaNaLista(nomePlano, planoOriginal, c) {
+  const x = c || {};
+  let nome = nomePlano;
+  let cls = RL.classificarPlano(nome);
+  if (cls.tipo === 'importacao' && planoOriginal) { nome = planoOriginal; cls = RL.classificarPlano(nome); }
+  if (cls.tipo === 'renovacao' && RL.ehMensalEmRecorrencia(nome, x.recorrencia)) cls = { tipo: 'excluir', motivo: 'recorrente' };
+  if (cls.tipo === 'excluir' && cls.motivo === 'recorrente') {
+    const vencimento = RL.iso(x.vigenciaAte);
+    const renovadoEm = RL.iso(x.renovadoEm);
+    const renovado = !!renovadoEm && !!x.hoje && renovadoEm <= x.hoje;
+    return !!x.apontado || RL.naoRenovouSozinho({ vencimento, renovado, lidoEm: x.hoje });
+  }
   return cls.tipo !== 'excluir';
 }
 
@@ -118,6 +131,9 @@ function ficaNaLista(nomePlano, planoOriginal) {
  * `memo` (opcional): do dia 25 em diante a lista do mês seguinte repete os
  * contratos da antecipação — não se pergunta duas vezes na mesma rodada.
  *
+ * `apontados` (opcional): contratos recorrentes que a lista anterior já apontava como
+ * "não renovou sozinho" — seguem na lista, então o vínculo do aluno continua sendo lido.
+ *
  * SEGUNDA TENTATIVA: o gateway às vezes devolve o contrato VAZIO e sem erro por
  * alguns minutos (ensaio de 01/10/2026 no Campeche: 35 de 91 vazios; minutos
  * depois, os mesmos 20 conferidos responderam). A Previsão diz que o contrato
@@ -125,7 +141,7 @@ function ficaNaLista(nomePlano, planoOriginal) {
  * novo no fim, depois de uma pausa.
  * @returns {{mapa, semLeitura: Array, relidos, daReserva, parouPor, consultas, segundaTentativa}}
  */
-async function lerDaPacto({ db, gw, unidade, brutos, hoje, memo, pausaRepescagemMs = 5000, dormir }) {
+async function lerDaPacto({ db, gw, unidade, brutos, hoje, memo, pausaRepescagemMs = 5000, dormir, apontados }) {
   const esperar = dormir || (ms => new Promise(r => setTimeout(r, ms)));
   const mapa = {};
   const semLeitura = [];
@@ -148,7 +164,8 @@ async function lerDaPacto({ db, gw, unidade, brutos, hoje, memo, pausaRepescagem
       alunoConsultado: false, consultorAluno: null, consultoresAluno: [], vinculoLidoEm: null, lidoEm: hoje,
     };
     const pessoa = d.cliente && d.cliente.codigo;
-    if (!pessoa || !ficaNaLista(lido.nomePlano, lido.planoOriginal)) return lido;
+    if (!pessoa || !ficaNaLista(lido.nomePlano, lido.planoOriginal, { recorrencia: lido.recorrencia, vigenciaAte: lido.vigenciaAte,
+      renovadoEm: lido.renovadoEm, hoje, apontado: !!(apontados && apontados.has(String(codigo))) })) return lido;
     const a = await gw.consultorDoAluno(pessoa);
     consultas += 2;
     if (PARA_TUDO.includes(a.situacao)) parouPor = a.situacao;
@@ -229,6 +246,8 @@ async function montarUnidadeMes({ db, clienteGw, clienteNucleo, clienteContratos
   const anteriorSnap = await db.collection(COL_LISTA).doc(id).get();
   const anterior = anteriorSnap.exists ? anteriorSnap.data() : null;
   const brutos = [...r1.dados.contratos, ...r2.dados.contratos];
+  // recorrentes que a lista anterior já apontava: seguem na lista mesmo depois de renovar
+  const apontadosAntes = ((anterior && anterior.blocos && anterior.blocos.recorrentes) || []).map(l => String(l.codigoContrato));
   const antesHavia = !!(anterior && anterior.conferencia && anterior.conferencia.totalPacto > 0);
   if (!brutos.length && antesHavia) {
     await gravarFalha(db, id, base, 'vazio_suspeito', 'a Pacto respondeu sem nenhum contrato, e antes havia', quando);
@@ -239,7 +258,7 @@ async function montarUnidadeMes({ db, clienteGw, clienteNucleo, clienteContratos
   let leitura = null;
   let paraOCaderninho = brutos;
   if (clienteContratos) {
-    const p = await lerDaPacto({ db, gw: clienteContratos, unidade, brutos, hoje, memo, dormir });
+    const p = await lerDaPacto({ db, gw: clienteContratos, unidade, brutos, hoje, memo, dormir, apontados: new Set(apontadosAntes) });
     paraOCaderninho = p.semLeitura;
     const total = new Set(brutos.map(b => String(b.codigoContrato))).size;
     leitura = { total, relidos: p.relidos, daReserva: p.daReserva, semLeitura: p.semLeitura.length,
@@ -268,7 +287,7 @@ async function montarUnidadeMes({ db, clienteGw, clienteNucleo, clienteContratos
     metas = m && Object.keys(m).length ? m : null;
   }
 
-  const lista = RL.montar({ mes, hoje, previsao: { mes: r1.dados, antecipacao: r2.dados }, contratos: c.mapa, historico, gestao, desdeAnterior });
+  const lista = RL.montar({ mes, hoje, previsao: { mes: r1.dados, antecipacao: r2.dados }, contratos: c.mapa, historico, gestao, desdeAnterior, apontadosAntes });
   // `set` sem merge: a lista do dia substitui a anterior inteira (e some a ultimaFalha)
   await db.collection(COL_LISTA).doc(id).set({
     ...base, ...lista, metas, unitId, situacao: 'ok', motivo: '', hoje, contratosConsultados: c.consultas, leitura, atualizadoEm: quando,

@@ -345,6 +345,19 @@ function exige(txt, ondeNome, assuntos) {
   ok('lista de renovações: conferida na Pacto a cada atualização, consultora pelo vínculo, renovado antes do mês');
 }
 {
+  // 04/10/2026: as respostas do Rodrigo — Horário Especial = Econômico, mensal em recorrência
+  // renova sozinho (com conferência 1 dia depois) e quem já renovou sai da base dos 65%.
+  exige(admin, 'manual-admin', {
+    'horário especial': 'Horário Especial',
+    'mensal em recorrência': 'Mensal que a Pacto cobra em recorrência',
+    'o bloco dos que não renovaram': 'Recorrentes que não renovaram sozinhos',
+    'um dia depois do vencimento': 'um dia depois do vencimento',
+    'fora do número oficial': 'não entram no total a renovar',
+    'base dos 65%': 'já chegou ao mês renovado sai da conta',
+  });
+  ok('renovações: Horário Especial, mensal em recorrência, bloco dos recorrentes que não renovaram e base dos 65%');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
