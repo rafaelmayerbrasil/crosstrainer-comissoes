@@ -3,6 +3,31 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 84 (04/10/2026) — 📨 AS RESPOSTAS DO RODRIGO SOBRE A LISTA DE RENOVAÇÕES · 🧪 CONSTRUÍDO E NO STAGING · NADA EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+**Branch `renovacoes-respostas-rodrigo` (a partir do `main`, commit `3cb4f92`). Staging publicado (hosting + as 4 Functions da Pacto). NADA em produção — espera o Rafael homologar e dar o OK.**
+
+**O Rodrigo respondeu 4 das 5 perguntas da sessão 82** (a das 10 atribuições da PP que contrariam a Pacto ficou sem resposta; o portal segue respeitando o que ele atribuiu):
+1. **TOI Kids mensal entra** → já entrava, nada mudou.
+2. **Horário Especial = Econômico** → leva a etiqueta "Sem desconto de renovação" (5 no CP, 2 na PP).
+3. **Mensal em recorrência renova sozinho, "mas vale a conferência automática do portal se de fato foi renovado 1d após o vencimento; caso não, apontar no portal"** → o mensal que a Pacto marca como recorrência sai da lista como o "Recorrente"; e todo recorrente que a Pacto, lida 1 dia ou mais depois do vencimento, mostra sem contrato novo aparece no bloco novo **"Recorrentes que não renovaram sozinhos"** (com a consultora do aluno, mesmo formulário; fora do total a renovar, da taxa e do placar; só aparece quando há alguém; quem foi apontado continua lá, como Sim, depois de renovar). Nos dias 1 e 2 a lista do mês que acabou é refeita (quem vence no último dia só pode ser conferido no dia seguinte).
+4. **Quem renovou antes do dia 1 sai da base dos 65%** → a meta sugerida passa a descontar. A segunda metade da resposta ("consideradas as renovações até o dia 15 do mês subsequente") foi lida, por decisão do Rafael, como **leitura A**: a renovação antecipada conta no mês em que é feita, como já funciona — nada a mudar.
+
+**Conferido em produção antes de construir (só leitura):** os 4 recorrentes do CP que venceram em 01 e 02/10 têm contrato novo lançado no próprio dia do vencimento → a conferência "1 dia depois" funciona com o dado real · um mensal em recorrência do CP venceu em 02/10 e em 04/10 seguia sem renovação → é o primeiro apontado · a marca de recorrência sozinha não serve (todas as degustações a têm), por isso a regra é "Mensal no nome + recorrência" · a lista de 04/10 de produção saiu com `segundaTentativa.tentados = 0` nas duas unidades → **pendência (4) da sessão 82 resolvida**: a causa era mesmo o staging no mesmo horário.
+
+**Staging, com a Pacto real (`scripts/montar-renovacoes-agora.js --project staging`):** **CP 16 · 11 · 10 · 1 apontado · 0** (era 24 · 13 · 10 · 0; excluídos como recorrente 31 → 40; 5 com a etiqueta; conferência bate, 96/96 conferidos) e **PP 13 · 9 · 7 · 0 apontados · 0** (era 14 · 9 · 7 · 0; recorrentes 13 → 16; 2 com a etiqueta; TOI Kids continua; 55/55 conferidos) — exatamente o previsto. O apontado do CP é o mensal em recorrência que venceu em 02/10, com a consultora do vínculo. A tela foi **desenhada pelas mesmas funções da página com a lista real do staging** (painel, blocos por perfil, bloco novo, etiqueta) — **ninguém clicou**: a página do staging pede login e eu não digito senha. Com as regras novas, o mínimo de renovações sugerido daria CP 11 e PP 7.
+
+**⚠️ A meta de outubro já foi revisada pelo Rodrigo** (`metaSugerida.revisadaPor` = e-mail dele) com os mínimos antigos: **CP 16, PP 10**. A mudança só vale para as sugestões de novembro em diante. Pelas respostas dele, outubro seria **CP 11** (65% de 16) e **PP 7** (65% de 13 − 3). Mudar outubro é na janela "Configurar Metas do Mês", decisão da gestão — o Rafael não entendeu a pergunta ("não lembro onde ele revisou"); **explicar de novo**.
+
+**🚨 Achado: renovação automática de plano recorrente está contando como venda da consultora.** O robô da Pacto (`lancou = RECORRENCIA`) lança um contrato NOVO a cada mês; na comissão automática ele entra como "Renovação", com ativação, P1/P2, no nome da consultora do vínculo. Medido: **set/2026 CP 11** (Erica 8, Francini 2, Rodrigo 1; R$ 280,00 de P1+P2) · **set/2026 PP 8** (Kali 2, Isabela 1, Rodrigo 5; R$ 89,43) · **out/2026 até dia 3: CP 2** (R$ 55,45). `RECORRENCIA` como quem lançou só aparece em renovação, nunca em novo/retorno. Em outubro vencem ~40 recorrentes no CP e ~14 na PP. **O Rafael respondeu "não" — não deve contar.** Nada construído: falta decidir **desde que mês** (só outubro, ou setembro também — o CP de setembro cairia de 74 para 63 ativações, de Gold para Super, pela minha conta, não recalculado pelo motor) e se confirma com o Rodrigo. Caminho provável sem tocar em `commission.js`: quem monta as linhas marca Origem "Renovação automática", que o motor já exclui. Memória: [[renovacao-automatica-conta-como-venda]].
+
+**🔴 Falta:** (1) o Rafael homologar no staging (`renovacoes.html`; precisa logar — a tela não foi clicada, só desenhada pelas mesmas funções com a lista real) · (2) OK para produção: `main` + Functions `montarListaRenovacoes`, `montarListaRenovacoesManual`, `buscarPactoSombra`, `buscarPactoSombraManual`; sem regra nova; `renovacoes.html` em `?v=20261006`; o `index.html` não muda (carrega `metas-sugeridas.js` com o `?v=` antigo; o cache do GitHub Pages é de 10 min) · (3) a decisão do achado acima · (4) meta de outubro: fica ou ajusta · (5) segunda 05/10: conferir que o gerador de aulas rodou às 2h (agenda até 30/11).
+
+**📝 Arquivos:** `renovacoes-lista.js` (+`functions/`) · `functions/renovacoes-montar.js` · `renovacoes.js` · `renovacoes.html` · `metas-sugeridas.js` (+`functions/`) · `comissoes-mes.js` (+`functions/`, só comentário) · `manual-admin.html` · `DOCUMENTACAO.md` (fora do git) · smokes: `renovacoes-lista` 27 · `renovacoes-montar` 14 · `renovacoes-tela` 12 · `metas-sugeridas` 12 · `manual-atualizado` (+1 caso). **Suíte 125 ✓** (só o `smoke-9`, antigo).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 83 (02/10/2026) — 📱 AS VENDEDORAS NÃO ACHAVAM AS RENOVAÇÕES · ✅ CORRIGIDO E NO AR EM PRODUÇÃO (`ada4579`)
 
 **O Rodrigo:** "as renovações não estão aparecendo para as vendedoras, só para a gestão". **A lista estava lá, o que faltava era o caminho no celular:** em tela ≤ 768 px o `index.html` esconde a barra lateral de vez (e o botão ☰), e a **barra de baixo da vendedora** tinha Resumo · Comissões · Ativações · Termômetro · Regras — **sem Renovações**. No computador o atalho existia (desde 29/09), por isso só a gestão chegava.
