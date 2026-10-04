@@ -354,6 +354,8 @@ function exige(txt, ondeNome, assuntos) {
     'um dia depois do vencimento': 'um dia depois do vencimento',
     'fora do número oficial': 'não entram no total a renovar',
     'base dos 65%': 'já chegou ao mês renovado sai da conta',
+    'renovação automática fora da comissão': 'Renovação automática do plano recorrente não é venda',
+    'o sinal é quem lançou': 'quem lançou o contrato',
   });
   ok('renovações: Horário Especial, mensal em recorrência, bloco dos recorrentes que não renovaram e base dos 65%');
 }

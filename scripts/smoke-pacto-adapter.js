@@ -15,6 +15,7 @@
 // (ver docs/superpowers/specs/2026-08-19-tradutor-pacto-comissoes-design.md).
 
 const assert = require('assert');
+const fs = require('fs');
 const path = require('path');
 const PA = require(path.join(__dirname, '..', 'pacto-adapter.js'));
 const CE = require(path.join(__dirname, '..', 'commission.js'));
@@ -744,6 +745,51 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   assert.strictEqual(ativ[0]['Valor Quitado/Recibo'], 259);
   assert.strictEqual(r3.vendas.reduce((s, x) => s + x['Valor Quitado/Recibo'], 0), 359, 'nenhum centavo some do caixa');
   ok('o mesmo plano pago em duas formas é UMA venda (uma ativação, um P2, valor somado)');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Renovação automática do plano recorrente NÃO é venda (Rafael, 04/10/2026)
+// ════════════════════════════════════════════════════════════════════
+// O robô da Pacto lança um contrato NOVO a cada mês para o plano recorrente
+// (Responsável 1 = RECORRENCIA, situação Renovação). Como o número do contrato
+// muda todo mês, "cada contrato paga uma vez" não segura: em set/2026 foram 19
+// (CP 11, PP 8) contando como Renovação da consultora do aluno, com ativação.
+// O sinal é quem LANÇOU (Responsável 1) — não a forma de cobrança (Responsável 2),
+// que foi o erro de agosto (caso 4, acima).
+{
+  const REC = { nome: 'RITA RECORRENTE', contrato: '7277', duracao: '1', inicio: '03/09/2026', termino: '02/10/2026',
+    produto: 'HIIT/MAROMBINHA | RECORRENTE | 3X | PADRÃO.', plano: 'HIIT/MAROMBINHA | RECORRENTE | 3X | PADRÃO.',
+    situacao: 'Renovação', valor: '309,00', lancamento: '03/09/2026', consultor: 'ERICA FAUSTINO' };
+  const set = linhas => PA.traduzir([CABECALHO, ...linhas], { mes: '2026-09' });
+
+  const robo = set([linha({ ...REC, resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })]);
+  assert.strictEqual(robo.vendas.length, 0, 'contrato lançado pelo robô não vira venda');
+  assert.strictEqual(robo.descartadas.length, 1);
+  assert.ok(/renovação automática/i.test(robo.descartadas[0].motivo) && robo.descartadas[0].automatica === true, JSON.stringify(robo.descartadas[0]));
+  assert.strictEqual(robo.descartadas[0].contrato, '7277');
+  assert.strictEqual(set([linha({ ...REC, resp1: 'Recorrência', resp2: 'RECORRENCIA' })]).vendas.length, 0, 'com acento e minúsculas também');
+
+  // renovação fechada por gente, paga no cartão recorrente: continua sendo venda dela
+  const gente = set([linha({ ...REC, resp1: 'ERICA FAUSTINO', resp2: 'RECORRENCIA' })]);
+  assert.strictEqual(gente.vendas.length, 1);
+  assert.strictEqual(gente.vendas[0]['Tipo de Venda'], 'Renovação');
+  assert.strictEqual(classifica(gente.vendas[0]).isActivation, true);
+  assert.strictEqual(gente.descartadas.length, 0);
+
+  // robô em contrato que NÃO é renovação: não se afirma nada, a venda segue (robô não matricula ninguém)
+  assert.strictEqual(set([linha({ ...REC, situacao: 'Matrícula', resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })]).vendas.length, 1);
+  assert.strictEqual(set([linha({ ...REC, situacao: 'Rematrícula', resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })]).vendas.length, 1);
+
+  // produto avulso lançado pelo robô (sem contrato) não é o caso
+  assert.strictEqual(set([linha({ nome: 'RITA RECORRENTE', lancamento: '03/09/2026', contrato: '0', produto: 'ÁGUA', valor: '5,00', resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })]).vendas.length, 1);
+
+  // agosto foi pago por fora, com a regra antiga: reenviar agosto não muda nada
+  const ago = PA.traduzir([CABECALHO, linha({ ...REC, lancamento: '03/08/2026', inicio: '03/08/2026', termino: '02/09/2026', resp1: 'RECORRENCIA', resp2: 'RECORRENCIA' })], { mes: '2026-08' });
+  assert.strictEqual(ago.vendas.length, 1, 'a regra vale de setembro/2026 em diante');
+  assert.strictEqual(PA.INICIO_RENOVACAO_AUTOMATICA, '2026-09');
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'functions', 'pacto-adapter.js'), 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'pacto-adapter.js'), 'utf8'),
+    'functions/pacto-adapter.js divergiu da raiz');
+  ok('renovação automática (contrato lançado pelo robô RECORRENCIA) fica fora da comissão de set/2026 em diante; renovação de gente no cartão recorrente segue pagando');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

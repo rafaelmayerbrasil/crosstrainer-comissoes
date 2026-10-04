@@ -406,6 +406,32 @@ const PactoAdapter = {
    */
   ehCobrancaRecorrente(l) { return this.campo(l, 'resp2').toUpperCase() === 'RECORRENCIA'; },
 
+  // De quando vale a regra abaixo. Agosto foi pago por fora, pelas regras antigas:
+  // reenviar agosto não pode mudar nada.
+  INICIO_RENOVACAO_AUTOMATICA: '2026-09',
+
+  /**
+   * Renovação AUTOMÁTICA do plano recorrente: o contrato novo que o robô da Pacto
+   * lança todo mês, sem ninguém vender. Não é venda (decisão do Rafael, 04/10/2026;
+   * o documento do Rodrigo chama de "renovação automática, sem negociação").
+   *
+   * O sinal é quem LANÇOU o contrato — `Responsável 1` = RECORRENCIA — numa
+   * linha de contrato em situação de Renovação. NÃO é o `Responsável 2` (a forma
+   * de cobrança), que foi o erro de agosto descrito acima.
+   *
+   * Medido em produção (04/10/2026): set/2026 teve 19 contratos assim (CP 11,
+   * PP 8), todos de plano RECORRENTE, entrando como Renovação da consultora do
+   * aluno — ativação, P1 e P2. Como o número do contrato muda a cada mês,
+   * `codigosPagos` não segura. Quem lançou = RECORRENCIA só aparece em renovação,
+   * nunca em matrícula ou rematrícula; se um dia aparecer, a venda segue (não se
+   * afirma o que não foi medido).
+   */
+  ehRenovacaoAutomatica(l) {
+    if (!this.ehLinhaDeContrato(l)) return false;
+    const lancou = this.campo(l, 'resp1').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+    return lancou === 'RECORRENCIA' && this.tipoDeVenda(this.campo(l, 'situacao')) === 'Renovação';
+  },
+
   unidadeDe(l) {
     const m = this.campo(l, 'empresa').match(/\((CP|PP)\)/i);
     return m ? m[1].toUpperCase() : '';
@@ -603,6 +629,13 @@ const PactoAdapter = {
       if (this.ehMigrado(l, mes)) {
         migrados.push({ ...resumo, motivo: 'contrato migrado do TecnoFit — começou em ' + resumo.inicio + ', não é venda deste mês' });
         if (!o.pagarMigrados) return;
+      }
+      // Contrato novo lançado pelo robô da recorrência: ninguém vendeu. Sai dito,
+      // junto do que ficou de fora, para a gestão conferir.
+      if (mes >= this.INICIO_RENOVACAO_AUTOMATICA && this.ehRenovacaoAutomatica(l)) {
+        descartadas.push({ ...resumo, contrato: this.campo(l, 'contrato'), automatica: true,
+          motivo: 'renovação automática do plano recorrente (contrato lançado pelo robô da Pacto) — não é venda' });
+        return;
       }
       // Cada contrato paga UMA VEZ SÓ, no primeiro recebimento. Vale só para
       // linha de contrato: avulso paga sempre, porque o código dele é a
