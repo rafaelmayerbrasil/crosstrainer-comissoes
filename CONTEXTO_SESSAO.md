@@ -6,7 +6,13 @@
 ## 🔖 ONDE PARAMOS — sessão 84 (04/10/2026) — 📨 AS RESPOSTAS DO RODRIGO SOBRE A LISTA DE RENOVAÇÕES · 🧪 CONSTRUÍDO E NO STAGING · NADA EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
-**Branch `renovacoes-respostas-rodrigo` (a partir do `main`, commits `3cb4f92` e `3c94566`). Staging publicado (hosting + as 4 Functions da Pacto), homologado na tela. NADA em produção — espera o OK do Rafael.**
+**🚀 PUBLICADO EM PRODUÇÃO em 04/10/2026 (~19h40), com o "pode publicar e atualizar por script" do Rafael:** `97ea286..8548ec5` no `main` (GitHub Pages conferido: os 11 arquivos iguais ao `main`; `index.html`, `commission.js`, `sw.js`, `manifest.json` intactos) + Functions `montarListaRenovacoes`, `montarListaRenovacoesManual`, `buscarPactoSombra`, `buscarPactoSombraManual`. Sem regra nem índice novo.
+**Setembro atualizado em produção** por `scripts/tirar-renovacao-automatica.js --apply` (rodado antes no staging, de verdade, e de novo para ver que repetir é inofensivo): 19 lançamentos tirados (CP 11, PP 8), cópia em `backups/renovacao-automatica-production-{cp,pp}_2026-09-*.json`, mês recalculado pela conta de sempre, `codigosPagos` regravado, histórico e `audit_log`. **Resultado, igual ao ensaio ao centavo: CP 77 → 66 ativações (Gold) · Erica R$ 2.407,98 · Francini R$ 984,01 — PP 59 → 51 (Meta) · Kali R$ 1.733,28 · Isabela R$ 256,40.** O script para sozinho se o mês tiver pagamento, divisão, ou se a regra e a API discordarem.
+**Lista de renovações de outubro em produção refeita** pelas regras novas (`montar-renovacoes-agora.js --project production --apply`): **CP 16 · 11 · 10 · 1 apontado · 0** (5 com a etiqueta; recorrentes excluídos 40; 96/96 conferidos; o apontado é o mensal em recorrência que venceu em 02/10, com consultora) e **PP 13 · 9 · 7 · 0 · 0** (2 com a etiqueta; recorrentes 16; 55/55) — igual ao staging; conferência bate nas duas.
+**🔴 Conferir em 05/10 de manhã:** (a) a rodada das 4h tirou os 2 contratos do robô do CP de outubro (7249, 7277; `periodos/cp_2026-10.automatico.removidos`) · (b) a lista das 5h manteve os números · (c) o gerador de aulas rodou às 2h (agenda até 30/11). **Esperam o Rodrigo** (texto em `relatorios pacto/texto-para-o-rodrigo-2026-10-04.md`): confirmar a renovação automática fora da comissão e se a meta de outubro muda de 16/10 para 11/7. ⚠️ Ninguém clicou logado em produção; o envio de arquivo pela tela não foi clicado com a regra nova.
+
+*(O que segue é o registro de como foi construído e homologado — onde diz "staging" ou "falta OK", leia como histórico.)*
+**Branch `renovacoes-respostas-rodrigo` (a partir do `main`, commits `3cb4f92` e `3c94566`). Staging publicado (hosting + as 4 Functions da Pacto), homologado na tela.**
 
 **O Rodrigo respondeu 4 das 5 perguntas da sessão 82** (a das 10 atribuições da PP que contrariam a Pacto ficou sem resposta; o portal segue respeitando o que ele atribuiu):
 1. **TOI Kids mensal entra** → já entrava, nada mudou.
