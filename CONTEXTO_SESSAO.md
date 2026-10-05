@@ -3,11 +3,37 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · 🧪 DUAS CORREÇÕES NO STAGING · NADA EM PRODUÇÃO · ⏸️ 4 DECISÕES COM O RAFAEL
+## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · ✅ SETEMBRO, META DA PP E CONSULTORAS AJUSTADOS EM PRODUÇÃO · 🧪 CÓDIGO NO STAGING · 🔴 FALTA O "PODE PUBLICAR"
 
 > A sessão 85 (endereço novo `sistema.crosstainer.com.br` e roteiro da modernização) está registrada na branch `endereco-sistema`, que ainda não entrou no `main`. Esta branch saiu do `main`.
 
 ### ▶️▶️ RETOMAR AQUI
+**Branch `renovacoes-mensal-e-casos-setembro` (a partir do `main`, até o commit dos scripts e do manual). Staging: as 4 Functions da Pacto publicadas com tudo. Suíte 126 ✓ (só o `smoke-9`, antigo). 🔴 O CÓDIGO AINDA NÃO ESTÁ EM PRODUÇÃO — falta o "pode publicar" do Rafael (`main` + as 4 Functions). Os DADOS de produção que ele autorizou já foram ajustados (abaixo).**
+
+**As quatro decisões do Rafael (05/10, depois de eu refazer as perguntas em linguagem simples — a primeira versão ele não entendeu):** (1) renovação de plano recorrente lançada à mão **não conta** · (2) **pode atualizar** setembro · (3) **pode apagar** as consultoras atribuídas à mão na PP · (4) **pode mudar** o mínimo de renovações da PP de outubro para 8.
+
+**🧱 Regra nova construída: "a mensalidade seguinte do mesmo plano recorrente não é venda, seja quem for que lançou" (set/2026 em diante).**
+- **O que decide é o contrato ANTERIOR do aluno**, que a linha do export não traz. A Pacto informa: `GET apigw/contratos/{n}` → `contratoBaseadoRenovacao`. `lerContrato` passou a devolver `anterior`, o caderninho `pacto_contratos` guarda, e a busca das 4h pergunta **uma vez** por renovação de plano recorrente lida antes (`precisaDoAnterior`; campo ausente = sem resposta, `null` = não veio de renovação).
+- **Regra pura no tradutor** (`pacto-adapter.js` + gêmeo): `chavePlanoRecorrente` (RECORRENTE como palavra; pontuação e acento não fazem outro plano), `ehContinuacaoDe(novo, anterior)` = mesmo plano recorrente, o anterior começou antes e **não há intervalo** (começa até o dia seguinte ao fim do anterior), `contratosRecorrentesDoMes`. `traduzir()` tira o **contrato inteiro** (plano e taxa) apontado em `opts.mensalidadesSeguintes` (`'CP_7222'`), em `descartadas` com `seguinte: true` e motivo.
+- **A leitura do caderninho** é `ComissoesMes.mensalidadesSeguintes({db, Adapter, linhas, mes})` (estática; `comissoes-mes.js` + gêmeo): candidatos = o contrato `anterior` + os outros contratos do mesmo aluno (`pessoa`, mesma unidade). `preparar()` usa — então **tela, botão e automático da madrugada passam pela mesma conta**; sem acesso ao caderninho (quem sobe não é admin) o mês sai **com aviso**. O **termômetro** (`atualizarTermometro` → `calcularMes`) usa a mesma lista.
+- **Continua sendo venda** (de propósito, com teste): vir de OUTRO plano (voucher, anual, mensal, outro recorrente) · voltar depois de um intervalo (o recorrente não renovou sozinho e a consultora foi atrás — é o bloco "Recorrentes que não renovaram sozinhos") · contrato fora do caderninho ou sem prova. ⚠️ Borda conhecida: renovação lançada à mão DEPOIS do vencimento mas com início retroativo colado no fim do anterior também sai (para a regra é continuação).
+- `commission.js`, `index.html`, `sw.js`, `manifest.json`: **intocados**. O `index.html` carrega `pacto-adapter.js` e `comissoes-mes.js` com `?v=20261001` (cache de 10 min no GitHub Pages).
+- Teste novo `scripts/smoke-mensalidade-seguinte.js` (9 casos: regra pura, tradutor, caderninho, `preparar`, automático de outubro de ponta a ponta, termômetro, busca guardando o anterior, gêmeos). Ajustados: `comissao-uma-vez`, `comissoes-mes-paridade` (coleção só lida não é diferença de banco), `pacto-api-linhas`, `pacto-gateway-cliente`, `manual-atualizado`.
+
+**✅ FEITO EM PRODUÇÃO (dados, com o OK do Rafael; cópias em `backups/`):**
+1. **Setembro** — `completar-contrato-anterior.js --mes 2026-09 --apply` (9 contratos ganharam `anterior` no caderninho) e `tirar-renovacao-automatica.js --mes 2026-09 --arquivo "…300926.xls" --apply`, rodados antes no staging de verdade (e repetidos: inofensivo). Saíram **6 contratos**: CP 7148 (robô da Pacto), 7222 e 7261 (à mão) · PP 4671 (2ª matrícula), 4708 e 4734 (à mão). **Resultado, igual ao ensaio: CP 66 → 63 ativações (Gold → Super), renovações 19 → 16 (mínimo 19, ×0,7) · Erica R$ 2.407,98 → 1.998,28 · Francini R$ 984,01 → 800,30 — PP 51 → 48 (perde a Meta) · Kali R$ 1.733,28 → 1.446,21 · Isabela R$ 256,40 → 228,68.** Nenhum pagamento registrado em setembro. ⚠️ A tabela que mostrei ao Rafael dizia Erica 2.004,06 e Kali 1.451,69: ela contava as duas conversões de voucher (CP 7186, PP 4726) como venda nova, o que NÃO foi feito em setembro (R$ 5,78 e R$ 5,48 a menos; avisado na conversa). De outubro em diante o motor já trata conversão como venda nova.
+2. **PP de outubro** — `ajustar-minimo-renovacoes.js --periodo pp_2026-10 --min-renov 8 --apply`: só o mínimo de renovações mudou (10 → 8), período recalculado, audit_log.
+3. **Consultoras da PP** — `limpar-consultora-atribuida.js --unidade PP --mes 2026-10 --apply`: 11 atribuições à mão que contrariavam a Pacto desfeitas (só o campo; o resto do acompanhamento ficou). A lista mostra a consultora da Pacto na próxima montagem (5h, ou ao publicar).
+
+**🔴 FALTA (precisa do "pode publicar" do Rafael):**
+- `git push origin main` com esta branch + `firebase deploy --only functions:montarListaRenovacoes,functions:montarListaRenovacoesManual,functions:buscarPactoSombra,functions:buscarPactoSombraManual --project production` (sem regra nem índice novo).
+- Depois: `node scripts/montar-renovacoes-agora.js --project production --apply` (lista de outubro com os mensais: esperado CP 24 · 13 · 10, PP 14 · 9 · 8, e as consultoras da PP pela Pacto).
+- Enquanto não publicar: a lista de produção segue sem os mensais, e o automático de outubro contaria uma renovação de recorrente lançada à mão (até 04/10 não há nenhuma: os 4 contratos recorrentes de outubro do CP são 2 matrículas e 2 do robô).
+- Texto para o Rodrigo pronto em `relatorios pacto/texto-para-o-rodrigo-2026-10-05.md` (fora do git) — mandar depois de publicar.
+- Ficou sem decisão (não perguntei de novo): CP 7215, matrícula em 10/09 e troca de plano em 18/09 contando duas ativações — está no texto para o Rodrigo.
+- A hospedagem do staging continua com a branch `endereco-sistema` (não republiquei desta branch para não desfazer aquilo); o que mudou aqui fora das Functions (`pacto-adapter.js`, `comissoes-mes.js`, `pacto-termometro.js`, `pacto-api-linhas.js`, `renovacoes-lista.js`, `manual-admin.html`) não foi clicado em tela nenhuma.
+
+*(O que segue é o registro da primeira metade da sessão, antes das decisões — onde diz "espera o OK" ou "pergunta", leia como histórico.)*
 **Branch `renovacoes-mensal-e-casos-setembro` (a partir do `main`; commits `168ddae`, `db259c7` e o do manual). Staging: as 4 Functions da Pacto publicadas e a lista de outubro refeita com a Pacto real. Hospedagem do staging NÃO republicada (ela está com a branch `endereco-sistema`; publicar desta branch desfaria aquilo). Nada em produção. Suíte 125 ✓ (só o `smoke-9`, antigo).**
 
 **O Rodrigo respondeu ao texto de 04/10** (colado pelo Rafael em 05/10): "quase tudo certo, mas um ponto está errado". O Rafael: "pode ajustar tudo que ele passou e que você entendeu; se tiver dúvida, me pergunte".
