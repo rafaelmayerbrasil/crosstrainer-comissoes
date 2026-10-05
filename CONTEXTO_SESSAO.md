@@ -3,6 +3,51 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · 🧪 DUAS CORREÇÕES NO STAGING · NADA EM PRODUÇÃO · ⏸️ 4 DECISÕES COM O RAFAEL
+
+> A sessão 85 (endereço novo `sistema.crosstainer.com.br` e roteiro da modernização) está registrada na branch `endereco-sistema`, que ainda não entrou no `main`. Esta branch saiu do `main`.
+
+### ▶️▶️ RETOMAR AQUI
+**Branch `renovacoes-mensal-e-casos-setembro` (a partir do `main`; commits `168ddae`, `db259c7` e o do manual). Staging: as 4 Functions da Pacto publicadas e a lista de outubro refeita com a Pacto real. Hospedagem do staging NÃO republicada (ela está com a branch `endereco-sistema`; publicar desta branch desfaria aquilo). Nada em produção. Suíte 125 ✓ (só o `smoke-9`, antigo).**
+
+**O Rodrigo respondeu ao texto de 04/10** (colado pelo Rafael em 05/10): "quase tudo certo, mas um ponto está errado". O Rafael: "pode ajustar tudo que ele passou e que você entendeu; se tiver dúvida, me pergunte".
+
+**1. ✅ O MENSAL VOLTA PARA A LISTA (corrigido, no staging).** O Mensal **não renova sozinho**, mesmo cobrado no cartão em recorrência: na Pacto a opção "Renovável automaticamente" é do cadastro do plano e só está ligada nos Recorrente. A regra de 04/10 (`ehMensalEmRecorrencia`) saiu de `renovacoes-lista.js` (+ gêmeo) e de `functions/renovacoes-montar.js`. **Nenhum campo do contrato na API serve de sinal** (medido em ~40 contratos: `regimeRecorrencia` e `permiteRenovacaoAutomatica` vêm `true` em anual, mensal e degustação) — quem renova sozinho é só o plano com RECORRENTE no nome. **Staging com a Pacto real: CP 24 · 13 · 10 (0 apontados, 96/96 conferidos) e PP 14 · 9 · 8 (56/56; o 8º voucher foi lançado hoje)** — os números do Rodrigo. O aluno que estava "apontado" no CP (mensal vencido em 02/10) voltou ao Bloco 1; o bloco "Recorrentes que não renovaram sozinhos" continua existindo para o plano Recorrente.
+
+**2. ✅ META DE OUTUBRO: a conta do sistema dá os números do Rodrigo sem mexer na fórmula.** Com o Mensal na lista: **CP 24 → mínimo 16** (já é o que está gravado) e **PP 14 − 3 já renovados = 11 → mínimo 8** (gravado: **10**, revisado por ele em 02/10 antes do desconto dos já renovados). 🔴 Mudar a PP de 10 para 8 é dado de produção (`periodos/pp_2026-10.metasMensais.minRenov`): espera o OK (pergunta 4).
+
+**3. ✅ RENOVAÇÃO AUTOMÁTICA: o Rodrigo CONFIRMOU a regra** — e achou uma que passou: **CP 7148** (plano recorrente, renovação lançada por **"PACTO - MÉTODO DE GESTÃO"**, o usuário de sistema da Pacto, não pelo robô `RECORRENCIA`). `PactoAdapter.ehRenovacaoAutomatica` passou a usar `ehRoboDaPacto` (RECORRENCIA ou `PACTO - …`); `ADMINISTRADOR`/`SISTEMA` ficam de fora da regra (nunca medidos lançando renovação). No export real de setembro a regra pega **20 = os 19 de antes + o 7148**; agosto segue em 0. `tirar-renovacao-automatica.js` e `simular-sem-renovacao-automatica.js` usam a mesma função. **Ensaio em produção, sem gravar:** CP **66 → 65 ativações (Gold → Super)** e renovações **19 → 18 (abaixo do mínimo de 19, prêmio ×0,7)** → **Erica R$ 2.407,98 → 2.056,00 (−351,98) · Francini R$ 984,01 → 797,06 (−186,96)**. PP não muda. 🔴 Aplicar em produção espera o OK (pergunta 1).
+
+**4. ⏸️ OS OUTROS CASOS DE SETEMBRO — conferidos na Pacto contrato a contrato (`GET apigw/contratos/{n}` traz `contratoBaseadoRenovacao`, o contrato anterior). Todos procedem, mas a regra que os pega alcança gente que o Rodrigo não citou:**
+
+| Caso (os nomes estão em `relatorios pacto/casos-setembro-2026-10-05.md`, fora do git) | O que a Pacto mostra | Mesmo padrão, não citado |
+|---|---|---|
+| **CP 7186** — conversão de voucher contada como renovação | contrato anterior 7128 = PLANO VOUCHER DEGUSTAÇÃO | **PP 4726**: anterior = MÊS DEGUSTAÇÃO LIVRE |
+| **PP 4734** — renovação de recorrente lançada à mão pela Isabela em 25/09, início 26/09 | anterior 4607, o MESMO plano recorrente | **CP 7222** (Erica, lançado 11 dias antes, R$ 269 em vez de 309) e **CP 7261** (Erica; o anterior 7260 é rematrícula do próprio mês) |
+| **PP 4668 + 4708** — personal externo recorrente, novo + renovação no mês | 4668 lançado em 21/08 e pago em 02/09; 4708 é a mensalidade seguinte, lançada à mão pela Kali | — |
+| **PP 4669 + 4671** — duas matrículas no mês | 24/07–23/08 e 23/08–22/09, as duas pagas em 02/09 (`dataAlteracaoManual` 02/09) | — |
+
+**Setembro pelo motor em cada leitura (só leitura, `scratchpad/simular-cenarios.js` da sessão):**
+- **A. só o robô (item 3):** CP 65 Super, renov 18/19 → Erica −351,98 · Francini −186,96. PP igual (51, Meta).
+- **B. só os nomes que o Rodrigo citou:** CP igual a A (o 7186 como novo: +R$ 5,78 para a Erica; renov 17). **PP 49, perde a Meta** → Kali R$ 1.733,28 → 1.477,66 (−255,62) · Isabela R$ 256,40 → 228,68 (−27,73).
+- **B2. B + o 4669/4671 contando uma vez:** PP 48 → Kali −287,07.
+- **C. a mesma regra para todos (também 7222, 7261 e o PP 4726):** CP 63 Super, renov 15 → Erica −403,92 · Francini −183,72; PP 48 → Kali −281,59 · Isabela −27,73.
+
+**A regra que eu recomendo (não construída):** *"a mensalidade seguinte do mesmo plano recorrente não é venda, seja quem for que lançou"* — contrato de plano recorrente cujo anterior (pela Pacto, ou pela vigência que encosta) é o mesmo plano recorrente do mesmo aluno. Pega o robô, o PP 4734, o PP 4708, o PP 4671, o CP 7222 e o CP 7261, e fecha a porta de lançar à mão um dia antes do robô. Pede: `lerContrato` passar a guardar o contrato anterior, o caderninho guardar, e o tradutor receber a lista (o export por arquivo não traz o contrato anterior). **Conversão de voucher em setembro:** recomendo não mexer (R$ 5,78; de outubro em diante o motor já trata como venda nova).
+
+**5. 🔎 Consultoras da PP (11 alunos com consultora diferente da carteira da Pacto).** O Rodrigo: "se foi você que distribuiu no portal, tudo bem". **Foi com o login dele:** 12 das 13 atribuições à mão da lista de outubro da PP foram gravadas por `rodrigo_rojais@…` em 30/09 e 01/10 (a outra, pela Isabela em 02/10) — **antes** de a lista passar a ler o vínculo na Pacto (01/10 à noite). Hoje 11 contrariam a Pacto (5 "Kali" × Isabela na Pacto; 6 "Isabela" × Kali na Pacto). 🔴 Limpar as 11 para o portal seguir a Pacto é dado de produção: pergunta 3.
+
+**6. Do lado da Pacto (nada a fazer no portal):** uma aluna do CP com cadastro duplicado (renovou em 03/10 no cadastro errado) · estornar o contrato "VINI TESTE" da PP (**o portal já ignora**: nome com TESTE é registro de teste para o tradutor — conferido) · "HIIT Anual Local 3x Fam Dupla" da PP com renovação automática ligada · Econômico Mensal do CP com duração de 12 meses.
+
+**✅ Conferências que ficaram para 05/10 (sessão 84), feitas em produção, só leitura:** a rodada das 4h tirou os **2 contratos do robô** do CP de outubro (`automatico.removidos = 2`) · a lista das 5h manteve os números (CP 16 · 11 · 10 · 1; PP 13 · 9 · 7 · 0), 0 na segunda tentativa · o gerador de aulas rodou às 2h (**agenda até 30/11**).
+
+**🔴 Perguntas para o Rafael (entregues na conversa):** (1) aplicar o item 3 em setembro de produção (CP perde o Gold)? · (2) a regra "mensalidade seguinte do mesmo recorrente não é venda" vale para todos, só para os citados, ou nenhum? e as duas matrículas do mesmo aluno contam uma vez? · (3) limpar as 11 atribuições da PP? · (4) PP de outubro: mínimo de renovações de 10 para 8, por script?
+**Depois do OK:** `main` + as 4 Functions da Pacto em produção · `tirar-renovacao-automatica.js --project production --mes 2026-09 --arquivo "relatorios pacto/faturamento-recebido_01 a 300926.xls" --apply` · `montar-renovacoes-agora.js --project production --apply` (lista de outubro com os mensais) · a meta da PP.
+
+**📝 Arquivos:** `renovacoes-lista.js` (+`functions/`) · `functions/renovacoes-montar.js` · `pacto-adapter.js` (+`functions/`) · `manual-admin.html` · `scripts/tirar-renovacao-automatica.js` · `scripts/simular-sem-renovacao-automatica.js` · smokes `renovacoes-lista` 27 · `renovacoes-montar` 14 · `pacto-adapter` 45 · `manual-atualizado` 30. `commission.js`, `index.html`, `sw.js`, `manifest.json`: intocados. Memórias: [[mensal-nao-renova-sozinho]] · [[renovacao-automatica-conta-como-venda]] · [[heredoc-come-a-barra]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 84 (04/10/2026) — 📨 AS RESPOSTAS DO RODRIGO SOBRE A LISTA DE RENOVAÇÕES · 🧪 CONSTRUÍDO E NO STAGING · NADA EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
