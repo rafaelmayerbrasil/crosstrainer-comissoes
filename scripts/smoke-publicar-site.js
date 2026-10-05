@@ -54,4 +54,14 @@ const ok = m => console.log('✓ ' + (++n).toString().padStart(2) + '. ' + m);
   ok(`os ${reais.length} arquivos do repositório passam; backup, rascunho, credencial ou falta de página barram`);
 }
 
+// 4. Documento interno e regra do banco não são página do site
+{
+  // Achado em 04/10/2026 no staging: `*.md` só pegava a raiz, e a hospedagem servia
+  // docs/ inteiro (especificações, planos) e os arquivos de regras.
+  const ignorados = require('../firebase.json').hosting.ignore;
+  ['docs/**', '**/*.md', 'firestore.rules', 'firestore.indexes.json', 'storage.rules', 'scripts/**', 'functions/**', 'backups/**', 'scratchpad/**']
+    .forEach(p => assert.ok(ignorados.includes(p), `firebase.json precisa ignorar ${p} na hospedagem`));
+  ok('a hospedagem ignora documentos internos, regras, scripts, functions e backups');
+}
+
 console.log(`\n${n} verificações ✓`);
