@@ -356,6 +356,8 @@ function exige(txt, ondeNome, assuntos) {
     'base dos 65%': 'já chegou ao mês renovado sai da conta',
     'renovação automática fora da comissão': 'Renovação automática do plano recorrente não é venda',
     'o sinal é quem lançou': 'quem lançou o contrato',
+    'mensalidade seguinte lançada à mão (05/10/2026)': 'mensalidade seguinte do mesmo plano recorrente também não é venda',
+    'o que continua sendo venda': 'voltou depois de um intervalo',
   });
   ok('renovações: Horário Especial, o mensal fica na lista, bloco dos recorrentes que não renovaram e base dos 65%');
 }
