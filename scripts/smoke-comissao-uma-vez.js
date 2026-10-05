@@ -216,7 +216,7 @@ const ComissoesMes = require(path.join(__dirname, '..', 'comissoes-mes.js'));
 
 {
   const iCarrega = modulo.indexOf('ops.carregarCodigosPagosAnteriores(unitId');
-  const iTraduz = modulo.indexOf('Adapter.traduzir(json, { codigosPagos })');
+  const iTraduz = modulo.indexOf('Adapter.traduzir(json, { codigosPagos, mensalidadesSeguintes })');
   assert.ok(iCarrega > 0, 'a gravação do mês precisa carregar os códigos já pagos');
   assert.ok(iTraduz > iCarrega, 'e passar para o tradutor DEPOIS de carregar');
   assert.ok(modulo.includes('await ops.gravarCodigosPagos(periodId, itens)'),

@@ -33,6 +33,43 @@ const ComissoesMes = {
     return [...s].sort();
   },
 
+  /**
+   * Quais contratos de plano recorrente do mês são a MENSALIDADE SEGUINTE do mesmo plano
+   * (não são venda — Rafael, 05/10/2026; a regra é `Adapter.ehContinuacaoDe`).
+   *
+   * Lê o caderninho `pacto_contratos`, que a busca da Pacto mantém: o contrato de que
+   * este veio (`anterior`, o que a Pacto chama de "baseado em") e os outros contratos do
+   * mesmo aluno (`pessoa`). Sem caderninho (mês que a API não buscou) não se afirma nada:
+   * a venda segue. Estática de propósito — o termômetro e os scripts usam a mesma.
+   * @returns {Promise<string[]>} ids no formato do caderninho: 'CP_7222'
+   */
+  async mensalidadesSeguintes({ db, Adapter, linhas, mes }) {
+    const COL = 'pacto_contratos';
+    const saida = [];
+    if (!Adapter || !mes || mes < Adapter.INICIO_RENOVACAO_AUTOMATICA) return saida;
+    for (const doMes of Adapter.contratosRecorrentesDoMes(linhas, mes)) {
+      const id = doMes.unidade + '_' + doMes.codigo;
+      const snap = await db.collection(COL).doc(id).get();
+      if (!snap.exists) continue;
+      const c = snap.data() || {};
+      // As datas e o plano do caderninho valem mais que os da linha (a linha do arquivo
+      // pode trazer o produto no lugar do plano); a linha completa o que faltar
+      const novo = { codigo: doMes.codigo, nomePlano: c.nomePlano || doMes.nomePlano,
+        vigenciaDe: c.vigenciaDe || doMes.vigenciaDe, vigenciaAte: c.vigenciaAte || doMes.vigenciaAte };
+      const candidatos = [];
+      if (c.anterior) {
+        const a = await db.collection(COL).doc(doMes.unidade + '_' + c.anterior).get();
+        if (a.exists) candidatos.push(a.data());
+      }
+      if (c.pessoa) {
+        const q = await db.collection(COL).where('pessoa', '==', c.pessoa).get();
+        q.forEach(d => { const x = d.data(); if (x && x.unidade === doMes.unidade) candidatos.push(x); });
+      }
+      if (candidatos.some(a => Adapter.ehContinuacaoDe(novo, a))) saida.push(id);
+    }
+    return saida;
+  },
+
   generateStableId(item) {
     const key = [
       (item.vendedor || '').toString().trim().toUpperCase(),
@@ -283,7 +320,17 @@ const ComissoesMes = {
           // é o arquivo — sem isso um re-upload barraria as próprias linhas.
           const mesArquivo = Adapter.traduzir(json, {}).mes;
           const codigosPagos = await ops.carregarCodigosPagosAnteriores(unitId, mesArquivo);
-          pacto = Adapter.traduzir(json, { codigosPagos });
+          // Mensalidade seguinte do mesmo plano recorrente não é venda (05/10/2026). Se o
+          // caderninho não puder ser lido, o mês NÃO é calculado calado com a regra de
+          // menos: o aviso vai para o resumo e a gestão sobe de novo.
+          let mensalidadesSeguintes = [], falhaSeguintes = null;
+          try {
+            mensalidadesSeguintes = await M.mensalidadesSeguintes({ db, Adapter, linhas: json, mes: mesArquivo });
+          } catch (e) { falhaSeguintes = e; }
+          pacto = Adapter.traduzir(json, { codigosPagos, mensalidadesSeguintes });
+          if (falhaSeguintes) {
+            pacto.avisos = [...(pacto.avisos || []), { motivo: 'não consegui conferir as mensalidades seguintes de plano recorrente (' + falhaSeguintes.message + ') — renovação de recorrente lançada à mão pode ter entrado como venda; suba de novo antes de pagar', cliente: '' }];
+          }
           // O id da unidade (`unit-cp`, `cp`) não é a sigla do arquivo (`(CP)`)
           const sigla = Adapter.siglaDaUnidade(unitId, Object.keys(pacto.porUnidade).filter(k => k));
 

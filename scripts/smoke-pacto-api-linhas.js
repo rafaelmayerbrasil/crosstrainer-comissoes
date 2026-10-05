@@ -320,7 +320,7 @@ const G4638 = { codigo: '4638', consultor: 'CONSULTORA TESTE UM', lancou: 'CONSU
   const c = L.contratoDoGateway(G4638, 'PP');
   assert.deepStrictEqual(c, { codigo: '4638', unidade: 'PP', situacaoContrato: 'Matrícula', nomePlano: 'MÊS DEGUSTAÇÃO LIVRE.',
     codigoPlano: null, vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026', numeroMeses: null,
-    consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', pessoa: '77', gw: true });
+    consultor: 'CONSULTORA TESTE UM', lancou: 'CONSULTORA TESTE UM', pessoa: '77', gw: true, anterior: null });
   assert.ok(!JSON.stringify(c).includes('CLIENTE'), 'o caderninho não guarda o aluno');
   assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: null, lancou: null }), { a: 1 });
   assert.deepStrictEqual(L.soPreenchidos({ a: 1, consultor: 'X', lancou: null }), { a: 1, consultor: 'X' });

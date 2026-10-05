@@ -63,6 +63,9 @@ function lerContrato(c) {
     recorrencia: !!c.regimeRecorrencia,
     renovadoEm: diaSP(c.dataRenovarRealizada),          // dia em que o contrato NOVO foi lançado
     contratoNovo: novo ? String(novo) : null,
+    // De que contrato este veio (05/10/2026): a renovação de plano recorrente que continua
+    // o MESMO plano não é venda, seja quem for que lançou — ver PactoAdapter.ehContinuacaoDe
+    anterior: c.contratoBaseadoRenovacao ? String(c.contratoBaseadoRenovacao) : null,
   };
 }
 

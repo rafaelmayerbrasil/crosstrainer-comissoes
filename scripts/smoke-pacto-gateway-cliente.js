@@ -47,7 +47,7 @@ const bruto = {
       codigo: '4638', consultor: 'CONSULTORA UM', lancou: 'CONSULTORA UM',
       plano: 'MÊS DEGUSTAÇÃO LIVRE.', valor: 0, tipo: 'MA', situacao: 'IN', lancamento: '25/08/2026',
       vigenciaDe: '25/08/2026', vigenciaAte: '24/09/2026', cliente: { codigo: '77', nome: 'CLIENTE FICTICIO' },
-      planoOriginal: '', recorrencia: false, renovadoEm: '', contratoNovo: null,
+      planoOriginal: '', recorrencia: false, renovadoEm: '', contratoNovo: null, anterior: null,
     });
     assert.ok(!/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(JSON.stringify(r)), 'CPF vazou');
     assert.ok(p.chamadas[0].url.startsWith('https://apigw.pactosolucoes.com.br/contratos/4638'));

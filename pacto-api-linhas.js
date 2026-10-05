@@ -294,6 +294,9 @@ const PactoApiLinhas = {
       // consultora vinculada ao aluno, que é a que o export mostra
       pessoa: g.cliente && g.cliente.codigo ? String(g.cliente.codigo) : null,
       gw: true,                        // o contrato já foi perguntado ao gateway
+      // o contrato de que este veio (renovação), pela Pacto; null = não é renovação.
+      // Campo ausente no caderninho = lido antes de 05/10/2026, ainda sem esta resposta.
+      anterior: g.anterior || null,
     };
   },
 

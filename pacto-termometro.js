@@ -50,8 +50,9 @@ const PactoTermometro = {
    * @param {Array}  [a.codigosPagos] contratos comissionados em meses ANTERIORES ('C7001'…)
    * @param {Object} [a.config]      config já somada (unidade + meta do mês), sem o padrão
    * @param {boolean}[a.metaDoMes]   a gestão configurou a meta deste mês?
+   * @param {Array}  [a.mensalidadesSeguintes] contratos ('CP_7222') que continuam o mesmo plano recorrente — não são venda
    */
-  calcularMes({ docs, mes, unidade, hoje, codigosPagos, config, metaDoMes, anteriores, Adapter, Engine, ApiLinhas }) {
+  calcularMes({ docs, mes, unidade, hoje, codigosPagos, config, metaDoMes, anteriores, mensalidadesSeguintes, Adapter, Engine, ApiLinhas }) {
     if (!Adapter || !Engine || !ApiLinhas) throw new Error('calcularMes: Adapter, Engine e ApiLinhas são obrigatórios');
 
     const doMes = (docs || []).filter(d => String(d.dia || '').slice(0, 7) === mes)
@@ -61,7 +62,7 @@ const PactoTermometro = {
 
     const recebido = this._r2(linhas.reduce((s, l) => s + Adapter.valorBR(Adapter.campo(l, 'valor')), 0));
 
-    const t = Adapter.traduzir(ApiLinhas.consolidarPorContrato(linhas), { mes, codigosPagos: codigosPagos || [] });
+    const t = Adapter.traduzir(ApiLinhas.consolidarPorContrato(linhas), { mes, codigosPagos: codigosPagos || [], mensalidadesSeguintes: mensalidadesSeguintes || [] });
     const vendas = (t.porUnidade && t.porUnidade[unidade]) || [];
     // O mês vai na configuração: a regra do bônus mudou em out/2026 (commission.js)
     const cfg = Object.assign({}, Engine.defaultConfig, config || {}, { mes });

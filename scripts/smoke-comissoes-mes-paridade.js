@@ -53,6 +53,10 @@ async function rodarNovo() {
   return fotos;
 }
 
+// O módulo novo LÊ o caderninho de contratos (mensalidade seguinte do plano recorrente, 05/10/2026) e o
+// banco falso cria a coleção vazia só de ser lida: coleção vazia não é diferença de banco.
+const semColecaoVazia = banco => Object.fromEntries(Object.entries(banco).filter(([, docs]) => Object.keys(docs || {}).length));
+
 /** Primeira diferença entre dois bancos, com o caminho (para o erro dizer ONDE) */
 function diferenca(a, b, onde = '') {
   if (JSON.stringify(a) === JSON.stringify(b)) return null;
@@ -71,7 +75,7 @@ function diferenca(a, b, onde = '') {
   const novo = await rodarNovo();
   const pid = C.UNIT + '_' + C.MES;
   ['1ª carga do mês', 'recarga (venda a menos, a mais, valor mudado)', 'recálculo depois de trocar a vendedora'].forEach((passo, i) => {
-    const d = diferenca(velho[i], novo[i]);
+    const d = diferenca(semColecaoVazia(velho[i]), semColecaoVazia(novo[i]));
     assert.strictEqual(d, null, `passo ${i + 1} (${passo}) divergiu em ${d}`);
     const p = novo[i].periodos[pid];
     ok(`${passo}: banco idêntico (${Object.keys(novo[i]['periodos/' + pid + '/itens'] || {}).length} lançamentos, ` +
@@ -90,7 +94,7 @@ function diferenca(a, b, onde = '') {
   // a TELA de hoje (as cascas do index.html chamando o módulo) deixa o mesmo banco
   const tela = await antigo.rodar({ versao: 'atual' });
   ['1ª carga', 'recarga', 'recálculo'].forEach((passo, i) => {
-    const d = diferenca(velho[i], tela[i]);
+    const d = diferenca(semColecaoVazia(velho[i]), semColecaoVazia(tela[i]));
     assert.strictEqual(d, null, `tela atual, passo ${i + 1} (${passo}) divergiu em ${d}`);
   });
   ok('as funções da tela de hoje (cascas chamando o módulo) deixam o banco idêntico ao código antigo nos 3 passos');

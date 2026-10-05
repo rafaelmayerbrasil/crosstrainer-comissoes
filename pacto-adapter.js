@@ -448,6 +448,67 @@ const PactoAdapter = {
     return n === 'RECORRENCIA' || /^PACTO\b/.test(n);
   },
 
+  // ─── Mensalidade seguinte do mesmo plano recorrente (Rafael, 05/10/2026) ───
+  //
+  // O plano recorrente se renova sozinho todo mês. Quando a consultora LANÇA À MÃO o
+  // contrato do mês seguinte do MESMO plano (em set/2026: um dia antes de o robô lançar,
+  // PP 4734), isso continua não sendo venda — "seja quem for que lançou". Vale também
+  // para a segunda matrícula do mesmo plano encostada na primeira (PP 4669 + 4671, dois
+  // meses retroativos lançados no mesmo dia): o aluno é novo uma vez só.
+  //
+  // O que DECIDE é o contrato anterior do aluno, que a linha do export não traz: quem
+  // chama lê o caderninho (`pacto_contratos`: o contrato de que este veio, pela Pacto, e
+  // os outros contratos do mesmo aluno) e entrega a lista pronta em
+  // `opts.mensalidadesSeguintes` (`ComissoesMes.mensalidadesSeguintes`). Aqui ficam só as
+  // duas perguntas puras. Continua sendo venda:
+  //  • vir de OUTRO plano (voucher, anual, crédito, outro recorrente) — houve negociação;
+  //  • voltar depois de um intervalo (o recorrente não renovou sozinho e a consultora foi
+  //    atrás — é o bloco "Recorrentes que não renovaram sozinhos" da lista de renovações).
+
+  /** Chave do plano recorrente (só letras e números); '' se o plano não é recorrente. */
+  chavePlanoRecorrente(plano) {
+    const n = String(plano || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+    if (!/(^|[^A-Z0-9])RECORRENTE([^A-Z0-9]|$)/.test(n)) return '';
+    return n.replace(/[^A-Z0-9]/g, '');
+  },
+
+  /**
+   * `novo` é a continuação de `anterior`? Os dois no formato do caderninho:
+   * `{codigo, nomePlano, vigenciaDe, vigenciaAte}` (datas 'dd/mm/aaaa').
+   * Mesmo plano recorrente, o anterior começou antes e não há intervalo entre o fim de
+   * um e o começo do outro (começar no dia seguinte, no mesmo dia ou antes do fim).
+   */
+  ehContinuacaoDe(novo, anterior) {
+    if (!novo || !anterior || String(novo.codigo) === String(anterior.codigo)) return false;
+    const chave = this.chavePlanoRecorrente(novo.nomePlano);
+    if (!chave || chave !== this.chavePlanoRecorrente(anterior.nomePlano)) return false;
+    const iso = br => { const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; };
+    const de = iso(novo.vigenciaDe), antDe = iso(anterior.vigenciaDe), antAte = iso(anterior.vigenciaAte);
+    if (!de || !antDe || !antAte || antDe >= de) return false;
+    const diaSeguinte = new Date(Date.parse(antAte + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
+    return de <= diaSeguinte;
+  },
+
+  /**
+   * Os contratos de plano recorrente com linha no mês, um por contrato:
+   * `[{unidade, codigo, nomePlano, vigenciaDe, vigenciaAte}]` — é por eles que quem
+   * chama pergunta ao caderninho.
+   */
+  contratosRecorrentesDoMes(linhas, mes) {
+    const vistos = new Set();
+    const saida = [];
+    (this.normalizarColunas(linhas) || []).forEach(l => {
+      if (!l || !this.ehLinhaDeContrato(l) || this.mesDe(this.campo(l, 'lancamento')) !== mes) return;
+      const nomePlano = [this.campo(l, 'plano'), this.campo(l, 'produto')].find(p => this.chavePlanoRecorrente(p));
+      if (!nomePlano) return;
+      const unidade = this.unidadeDe(l), codigo = this.campo(l, 'contrato');
+      if (!unidade || vistos.has(unidade + '_' + codigo)) return;
+      vistos.add(unidade + '_' + codigo);
+      saida.push({ unidade, codigo, nomePlano, vigenciaDe: this.campo(l, 'inicio'), vigenciaAte: this.campo(l, 'termino') });
+    });
+    return saida;
+  },
+
   unidadeDe(l) {
     const m = this.campo(l, 'empresa').match(/\((CP|PP)\)/i);
     return m ? m[1].toUpperCase() : '';
@@ -594,9 +655,11 @@ const PactoAdapter = {
   // ─── Tradução ───
   /**
    * @param {Array<Array>} linhas  linhas cruas do export (célula por posição), cabeçalho incluído
-   * @param {Object} opts  { mes: 'AAAA-MM', pagarMigrados: false, codigosPagos: [] }
+   * @param {Object} opts  { mes: 'AAAA-MM', pagarMigrados: false, codigosPagos: [], mensalidadesSeguintes: [] }
    *   `codigosPagos` são os códigos já comissionados em períodos ANTERIORES
    *   (array ou Set). Cada contrato paga uma vez só — ver o balde `jaPagos`.
+   *   `mensalidadesSeguintes`: contratos ('CP_7222') que continuam o mesmo plano
+   *   recorrente do aluno — não são venda (set/2026 em diante).
    * @returns {{vendas, marcadas, descartadas, migrados, jaPagos, avisos, porUnidade, mes, meses, relatorio}}
    */
   traduzir(linhas, opts) {
@@ -620,6 +683,9 @@ const PactoAdapter = {
     // parcelado reaparece todo mês — e sem esta lista pagaria de novo a cada
     // parcela, sem erro nenhum na tela.
     const jaComissionados = this.contratosDe(o.codigosPagos);
+    // 'CP_7222', 'PP_4734'…: contratos que são a mensalidade seguinte do mesmo plano
+    // recorrente (quem chama conferiu no caderninho — ver `ehContinuacaoDe`)
+    const seguintes = new Set([...(o.mensalidadesSeguintes || [])].map(String));
 
     const descartadas = [], migrados = [], jaPagos = [], testes = [], uteis = [];
     doMes.forEach(l => {
@@ -651,6 +717,14 @@ const PactoAdapter = {
       if (mes >= this.INICIO_RENOVACAO_AUTOMATICA && this.ehRenovacaoAutomatica(l)) {
         descartadas.push({ ...resumo, contrato: this.campo(l, 'contrato'), automatica: true,
           motivo: 'renovação automática do plano recorrente (contrato lançado pelo robô da Pacto) — não é venda' });
+        return;
+      }
+      // A mesma coisa lançada à mão: a mensalidade seguinte do mesmo plano recorrente.
+      // Sai o contrato inteiro (a taxa que anda junto também), como na renovação do robô.
+      if (mes >= this.INICIO_RENOVACAO_AUTOMATICA && this.ehLinhaDeContrato(l)
+        && seguintes.has(resumo.unidade + '_' + this.campo(l, 'contrato'))) {
+        descartadas.push({ ...resumo, contrato: this.campo(l, 'contrato'), seguinte: true,
+          motivo: 'mensalidade seguinte do mesmo plano recorrente (lançada à mão) — não é venda' });
         return;
       }
       // Cada contrato paga UMA VEZ SÓ, no primeiro recebimento. Vale só para

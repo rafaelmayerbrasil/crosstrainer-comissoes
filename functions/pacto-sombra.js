@@ -79,6 +79,21 @@ function precisaRelerVinculo(c, dia, hoje) {
   return !c.vinculoDia || c.vinculoDia <= somarDias(hoje, -DIAS_RELER_VINCULO);
 }
 
+// De quando vale a regra "mensalidade seguinte do mesmo plano recorrente não é venda"
+const INICIO_ANTERIOR = '2026-09';
+
+/**
+ * Este contrato já foi lido no gateway, mas antes de o caderninho guardar de que contrato
+ * ele veio (`anterior` ausente; `null` já é resposta)? Só interessa a renovação de plano
+ * recorrente paga de set/2026 em diante.
+ */
+function precisaDoAnterior(c, dia) {
+  if (!c || !c.gw || c.anterior !== undefined) return false;
+  if (String(dia).slice(0, 7) < INICIO_ANTERIOR) return false;
+  if (!/renov/i.test(String(c.situacaoContrato || ''))) return false;
+  return /(^|[^A-Z0-9])RECORRENTE([^A-Z0-9]|$)/.test(String(c.nomePlano || '').toUpperCase());
+}
+
 /** Grava no caderninho sem apagar consultora/quem lançou que já estejam lá */
 async function gravarContrato(db, unidade, codigo, c) {
   await db.collection(COL_CONTRATOS).doc(unidade + '_' + codigo).set(L.soPreenchidos(c), { merge: true });
@@ -247,6 +262,19 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
   if (gw) {
     for (const [codigo, c0] of contratos) {
       let c = c0;
+      // De que contrato esta renovação veio (05/10/2026). Contrato lido ANTES de o
+      // caderninho guardar isso é perguntado mais uma vez — só renovação de plano
+      // recorrente, que é onde a resposta decide ("mensalidade seguinte não é venda").
+      // Falhar aqui não deixa o dia incompleto: fica sem a resposta até a próxima busca.
+      if (precisaDoAnterior(c, dia) && !(orcamento && orcamento.restante <= RESERVA_RELEITURA)) {
+        const r = await gw.contrato(codigo);
+        if (orcamento) orcamento.restante--;
+        if (r.situacao === 'ok' && r.dados) {
+          c = { ...c, anterior: r.dados.anterior || null };
+          await gravarContrato(db, unidade, codigo, c);
+          contratos.set(codigo, c);
+        }
+      }
       if (c.gw && c.alunoConsultado) {
         // Já lido: relê o vínculo do contrato novo de tempos em tempos (01/10/2026).
         // Falhar aqui NUNCA deixa o dia incompleto: fica o vínculo que já havia.
@@ -278,6 +306,7 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
           c.consultor = c.consultor || r.dados.consultor || null;
           c.lancou = c.lancou || r.dados.lancou || null;
           c.pessoa = r.dados.cliente && r.dados.cliente.codigo ? r.dados.cliente.codigo : null;
+          c.anterior = r.dados.anterior || null;
         }
       }
       if (!c.alunoConsultado && c.pessoa) {
@@ -450,6 +479,7 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
   const PA = require('./pacto-adapter.js');
   const CE = require('./commission.js');
   const T = require('./pacto-termometro.js');
+  const CM = require('./comissoes-mes.js');
   const quando = agora ? agora() : new Date().toISOString();
   const units = (await db.collection('units').get()).docs;
   const feitos = [];
@@ -489,8 +519,16 @@ async function atualizarTermometro({ db, unidades = ['CP', 'PP'], meses, hoje, a
         const ant = await db.collection('periodos').doc(unitId + '_' + mesAnt).collection('itens').where('type', '==', 'processed').get();
         anteriores = ant.docs.map(d => d.data()).filter(x => x.isDegustacao);
       }
+      // Mensalidade seguinte do mesmo plano recorrente não é venda (05/10/2026) — a mesma
+      // leitura do caderninho que o cálculo das comissões faz. Se falhar, o termômetro sai
+      // sem ela (pode contar a mais), mas sai.
+      let mensalidadesSeguintes = [];
+      try {
+        const linhasDoMes = docs.filter(d => String(d.dia || '').slice(0, 7) === mes).flatMap(d => (d.linhas ? JSON.parse(d.linhas) : []));
+        mensalidadesSeguintes = await CM.mensalidadesSeguintes({ db, Adapter: PA, linhas: linhasDoMes, mes });
+      } catch (e) { /* fica sem */ }
       const r = T.calcularMes({
-        docs, mes, unidade, hoje, codigosPagos,
+        docs, mes, unidade, hoje, codigosPagos, mensalidadesSeguintes,
         config: { ...unitConfig, ...(metasMensais || {}), ativacoesAdiadas }, metaDoMes, anteriores,
         Adapter: PA, Engine: CE, ApiLinhas: L,
       });
@@ -549,5 +587,5 @@ async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, 
 }
 
 module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, LIMITE_GW_POR_BUSCA,
-  INICIO_RELEITURA, DIAS_RELER_VINCULO, JANELA_CONTRATO_NOVO, RESERVA_RELEITURA, precisaRelerVinculo, relerVinculoDasDegustacoes,
+  INICIO_RELEITURA, DIAS_RELER_VINCULO, JANELA_CONTRATO_NOVO, RESERVA_RELEITURA, precisaRelerVinculo, precisaDoAnterior, relerVinculoDasDegustacoes,
   diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };
