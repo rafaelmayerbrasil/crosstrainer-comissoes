@@ -33,7 +33,7 @@
 | Ponto | Como está | Por que atrapalha o que você quer |
 |---|---|---|
 | **Empresa** | Não existe. Nenhuma das ~55 gavetas do banco diz de que empresa é o dado. | Sem isso não há "outra academia" dentro do mesmo banco. |
-| **Filiais** | Existem (CP e PP), mas as siglas aparecem escritas em cerca de 40 pontos do código. | Uma terceira unidade, ou outra academia, exige mexer em código. |
+| **Filiais** | Existem (CP e PP), mas as siglas e os nomes das unidades aparecem escritos em cerca de 70 pontos do código, em 25 arquivos. | Uma terceira unidade, ou outra academia, exige mexer em código. |
 | **Regras da casa** | Nomes de pessoas e casos da CrossTainer estão dentro das regras (quem não recebe, o consultor padrão da importação, apelidos de vendedora). | Para outra academia, viram erro. Têm que ser configuração. |
 | **Pessoa** | Três registros: o login, a ficha de professor e a vendedora — esta reconhecida pelo **nome** que vem da Pacto. | Já deu problema (a mesma vendedora com dois nomes). CRM e financeiro precisam de uma ficha única. |
 | **Aluno / cliente** | Não existe como cadastro nosso; vem da Pacto a cada busca. | CRM, financeiro e a saída da Pacto dependem dele. |
@@ -175,7 +175,7 @@ Os pedidos do dia a dia do Rodrigo continuam entrando no meio; cada etapa é peq
 ## Anexo técnico (para quem for construir)
 
 - **Auth/regras:** `firestore.rules` (599 linhas) decide por `users/{uid}.profiles[]`/`role`/`moduleAccess`; não há `empresaId`; `podeUnidade(sigla)` é o único recorte por unidade.
-- **Unidades fixas:** `unit-cp`/`unit-pp` em 11 pontos; `'CP'`/`'PP'` em ~32 (telas e Functions). Ids de período `cp_2026-09`.
+- **Unidades fixas:** 69 linhas em 25 arquivos de tela e de Functions citam `unit-cp`/`unit-pp`, `'cp'`/`'pp'`/`'CP'`/`'PP'` ou "Campeche"/"Príncipe" (contagem por ripgrep em 04/10, sem `scripts/` nem cópias de worktree). Ids de período `cp_2026-09`.
 - **Nomes na regra:** `pacto-adapter.js`, `renovacoes-lista.js`, `metas-sugeridas.js`, `commission.js` (+ gêmeos em `functions/`).
 - **Acesso ao banco:** `db.collection(` — `index.html` 142, `professores-shared.js` 123, `comissoes-mes.js` 29, demais telas ~75.
 - **Functions:** 23 exportadas em `functions/index.js` (2.332 linhas), 5 `onSchedule`; módulos puros duplicados raiz ↔ `functions/` com teste de igualdade.
