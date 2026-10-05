@@ -3,11 +3,14 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · ✅ SETEMBRO, META DA PP E CONSULTORAS AJUSTADOS EM PRODUÇÃO · 🧪 CÓDIGO NO STAGING · 🔴 FALTA O "PODE PUBLICAR"
+## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · ✅ TUDO NO AR EM PRODUÇÃO (`1272261..58b355a` + 4 Functions) · setembro, meta da PP e consultoras ajustados
 
 > A sessão 85 (endereço novo `sistema.crosstainer.com.br` e roteiro da modernização) está registrada na branch `endereco-sistema`, que ainda não entrou no `main`. Esta branch saiu do `main`.
 
 ### ▶️▶️ RETOMAR AQUI
+**🚀 PUBLICADO EM PRODUÇÃO em 05/10/2026 (~14h20), com o "pode publicar" do Rafael:** `1272261..58b355a` no `main` (GitHub Pages conferido arquivo por arquivo: 10 de 10 iguais ao `main`; `index.html`, `commission.js`, `sw.js` e `manifest.json` intactos) + Functions `montarListaRenovacoes`, `montarListaRenovacoesManual`, `buscarPactoSombra`, `buscarPactoSombraManual`. Sem regra nem índice novo. **Lista de outubro refeita em produção** (`montar-renovacoes-agora.js --project production --apply`, 14h29–14h32): **CP 24 · 13 · 10** (9 mensais no Bloco 1 e 2 na antecipação; 0 apontados; 96/96 conferidos; mínimo de 65% = 16) e **PP 14 · 9 · 8** (56/56; 3 já renovados antes → mínimo 8) — os números do Rodrigo e os do staging. Consultoras da PP: 29 pela Pacto e 2 atribuídas à mão que coincidem com ela. 0 na segunda tentativa. **🔴 Conferir em 06/10 de manhã:** (a) a rodada das 4h (primeira com a regra nova publicada): `periodos/{cp,pp}_2026-10.automatico` "atualizado", e os contratos de renovação de recorrente de outubro ganhando `anterior` no caderninho · (b) a lista das 5h mantendo CP 24 · 13 e PP 14 · 9 · (c) o termômetro igual à comissão. **Com o Rafael:** mandar o texto ao Rodrigo (entregue na conversa; cópia em `relatorios pacto/texto-para-o-rodrigo-2026-10-05.md`). ⚠️ Ninguém clicou logado em produção nem no staging; a validação foi por dados e testes.
+
+*(O que segue é o registro de antes da publicação — onde diz "falta o pode publicar" ou "ainda não está em produção", leia como histórico.)*
 **Branch `renovacoes-mensal-e-casos-setembro` (a partir do `main`, até o commit dos scripts e do manual). Staging: as 4 Functions da Pacto publicadas com tudo. Suíte 126 ✓ (só o `smoke-9`, antigo). 🔴 O CÓDIGO AINDA NÃO ESTÁ EM PRODUÇÃO — falta o "pode publicar" do Rafael (`main` + as 4 Functions). Os DADOS de produção que ele autorizou já foram ajustados (abaixo).**
 
 **As quatro decisões do Rafael (05/10, depois de eu refazer as perguntas em linguagem simples — a primeira versão ele não entendeu):** (1) renovação de plano recorrente lançada à mão **não conta** · (2) **pode atualizar** setembro · (3) **pode apagar** as consultoras atribuídas à mão na PP · (4) **pode mudar** o mínimo de renovações da PP de outubro para 8.
