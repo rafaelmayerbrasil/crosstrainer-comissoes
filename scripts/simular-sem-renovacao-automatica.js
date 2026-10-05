@@ -5,7 +5,7 @@
 //
 //   node scripts/simular-sem-renovacao-automatica.js [--meses 2026-09,2026-10] [--project production]
 //
-// O robô da Pacto (`lancou = RECORRENCIA` no caderninho `pacto_contratos`) lança um
+// O robô da Pacto (`lancou` = RECORRENCIA ou PACTO - MÉTODO DE GESTÃO no caderninho `pacto_contratos`) lança um
 // contrato NOVO a cada mês para o plano recorrente, e ele entra na comissão como
 // "Renovação" da consultora do aluno. Decisão do Rafael (04/10/2026): não conta.
 // Este script recalcula o mês com o motor (a mesma conta do recálculo da tela) com
@@ -15,6 +15,7 @@
 const path = require('path');
 const admin = require(path.join(__dirname, '..', 'functions', 'node_modules', 'firebase-admin'));
 const CE = require(path.join(__dirname, '..', 'commission.js'));
+const PA = require(path.join(__dirname, '..', 'pacto-adapter.js'));
 
 const arg = k => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
 const MESES = (arg('--meses') || '2026-09,2026-10').split(',');
@@ -48,7 +49,7 @@ const faixa = (ativ, cfg) => (ativ >= cfg.metaGold ? 'Gold' : ativ >= cfg.superM
         const m = String(x.codigo || '').match(/^C(\d+)/);
         if (!m || !x.isContract || x.category !== 'renovacao') continue;
         const cad = (await db.collection('pacto_contratos').doc(sigla + '_' + m[1]).get()).data() || {};
-        if (String(cad.lancou || '').trim().toUpperCase() === 'RECORRENCIA') robos.add(m[1]);
+        if (PA.ehRoboDaPacto(cad.lancou)) robos.add(m[1]);
       }
       const ehRobo = x => { const m = String(x.codigo || '').match(/^C(\d+)/); return !!m && robos.has(m[1]); };
       const cfg = CE.configDoMes({ unitConfig, metasMensais: p.metasMensais, mes, minimosPorPessoa: p.minimosPorPessoa });

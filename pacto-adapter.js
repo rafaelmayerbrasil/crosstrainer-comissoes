@@ -415,9 +415,9 @@ const PactoAdapter = {
    * lança todo mês, sem ninguém vender. Não é venda (decisão do Rafael, 04/10/2026;
    * o documento do Rodrigo chama de "renovação automática, sem negociação").
    *
-   * O sinal é quem LANÇOU o contrato — `Responsável 1` = RECORRENCIA — numa
-   * linha de contrato em situação de Renovação. NÃO é o `Responsável 2` (a forma
-   * de cobrança), que foi o erro de agosto descrito acima.
+   * O sinal é quem LANÇOU o contrato — `Responsável 1` é um usuário de sistema da
+   * Pacto (`ehRoboDaPacto`) — numa linha de contrato em situação de Renovação. NÃO é
+   * o `Responsável 2` (a forma de cobrança), que foi o erro de agosto descrito acima.
    *
    * Medido em produção (04/10/2026): set/2026 teve 19 contratos assim (CP 11,
    * PP 8), todos de plano RECORRENTE, entrando como Renovação da consultora do
@@ -425,11 +425,27 @@ const PactoAdapter = {
    * `codigosPagos` não segura. Quem lançou = RECORRENCIA só aparece em renovação,
    * nunca em matrícula ou rematrícula; se um dia aparecer, a venda segue (não se
    * afirma o que não foi medido).
+   *
+   * 05/10/2026 — o Rodrigo conferiu setembro na Pacto e achou uma que passou: CP 7148,
+   * renovação de plano recorrente lançada por "PACTO - MÉTODO DE GESTÃO" (o usuário de
+   * sistema da Pacto, o mesmo da migração) e contada para a consultora do aluno. O sinal
+   * passou a ser "quem lançou é robô da Pacto", não só RECORRENCIA. Em set/2026 é o
+   * único contrato a mais (conferido no export real e no caderninho das duas unidades).
    */
   ehRenovacaoAutomatica(l) {
     if (!this.ehLinhaDeContrato(l)) return false;
-    const lancou = this.campo(l, 'resp1').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
-    return lancou === 'RECORRENCIA' && this.tipoDeVenda(this.campo(l, 'situacao')) === 'Renovação';
+    return this.ehRoboDaPacto(this.campo(l, 'resp1')) && this.tipoDeVenda(this.campo(l, 'situacao')) === 'Renovação';
+  },
+
+  /**
+   * Usuário de SISTEMA da Pacto que lança contrato sem ninguém vender: o robô da
+   * recorrência e "PACTO - MÉTODO DE GESTÃO". Só os dois que foram medidos —
+   * ADMINISTRADOR e SISTEMA são rótulos genéricos (`GENERICOS`), mas nunca apareceram
+   * lançando renovação; se aparecerem, a venda segue até alguém conferir.
+   */
+  ehRoboDaPacto(nome) {
+    const n = String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+    return n === 'RECORRENCIA' || /^PACTO\b/.test(n);
   },
 
   unidadeDe(l) {

@@ -769,6 +769,20 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   assert.strictEqual(robo.descartadas[0].contrato, '7277');
   assert.strictEqual(set([linha({ ...REC, resp1: 'Recorrência', resp2: 'RECORRENCIA' })]).vendas.length, 0, 'com acento e minúsculas também');
 
+  // 05/10/2026 (Rodrigo, CP 7148): o usuário de sistema "PACTO - MÉTODO DE GESTÃO" também lança
+  // renovação de recorrente sozinho — é robô igual, e a venda contava para a consultora do aluno.
+  const pacto = set([linha({ ...REC, contrato: '7148', resp1: 'PACTO - MÉTODO DE GESTÃO', resp2: 'RECORRENCIA', consultor: 'FRANCINI DAS CHAGAS' })]);
+  assert.strictEqual(pacto.vendas.length, 0, 'renovação lançada pelo usuário de sistema da Pacto não vira venda');
+  assert.deepStrictEqual([pacto.descartadas[0].contrato, pacto.descartadas[0].automatica], ['7148', true]);
+  assert.strictEqual(PA.ehRoboDaPacto('PACTO - MÉTODO DE GESTÃO'), true);
+  assert.strictEqual(PA.ehRoboDaPacto('pacto - metodo de gestao'), true, 'sem acento e em minúsculas');
+  assert.strictEqual(PA.ehRoboDaPacto('Recorrência'), true);
+  assert.strictEqual(PA.ehRoboDaPacto('ERICA FAUSTINO'), false);
+  assert.strictEqual(PA.ehRoboDaPacto('RODRIGO ROJAIS'), false, 'sócio que lança renovação é gente');
+  assert.strictEqual(PA.ehRoboDaPacto('ADMINISTRADOR'), false, 'rótulo genérico nunca medido lançando renovação: a venda segue');
+  assert.strictEqual(PA.ehRoboDaPacto(''), false);
+  assert.strictEqual(set([linha({ ...REC, situacao: 'Matrícula', resp1: 'PACTO - MÉTODO DE GESTÃO' })]).vendas.length, 1, 'fora de renovação, nada se afirma');
+
   // renovação fechada por gente, paga no cartão recorrente: continua sendo venda dela
   const gente = set([linha({ ...REC, resp1: 'ERICA FAUSTINO', resp2: 'RECORRENCIA' })]);
   assert.strictEqual(gente.vendas.length, 1);
@@ -789,7 +803,7 @@ const INICIO_ANTIGO = { inicio: '07/01/2026', termino: '06/01/2027' };
   assert.strictEqual(PA.INICIO_RENOVACAO_AUTOMATICA, '2026-09');
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'functions', 'pacto-adapter.js'), 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'pacto-adapter.js'), 'utf8'),
     'functions/pacto-adapter.js divergiu da raiz');
-  ok('renovação automática (contrato lançado pelo robô RECORRENCIA) fica fora da comissão de set/2026 em diante; renovação de gente no cartão recorrente segue pagando');
+  ok('renovação automática (contrato lançado por robô da Pacto: RECORRENCIA ou PACTO - MÉTODO DE GESTÃO) fica fora da comissão de set/2026 em diante; renovação de gente no cartão recorrente segue pagando');
 }
 
 console.log('\n' + n + '/' + n + ' casos passaram.');

@@ -12,7 +12,8 @@
 // mês que foi calculado ANTES da regra, sem reenviar o arquivo inteiro:
 //
 //   1. descobre os contratos pela REGRA (o export do mês passado pelo tradutor) e
-//      exige que a API diga o mesmo (`pacto_contratos.lancou = RECORRENCIA`);
+//      exige que a API diga o mesmo (`pacto_contratos.lancou` é robô da Pacto: RECORRENCIA
+//      ou PACTO - MÉTODO DE GESTÃO, `PactoAdapter.ehRoboDaPacto`);
 //   2. apaga só os lançamentos desses contratos (é o que o envio do arquivo faria:
 //      "apaga o que saiu da fonte"), com cópia em backups/;
 //   3. recalcula o mês pela MESMA conta da tela e do servidor (`comissoes-mes.js`),
@@ -81,7 +82,7 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
       const m = String(x.codigo || '').match(/^C(\d+)/);
       if (!m || !x.isContract || x.category !== 'renovacao') continue;
       const cad = (await db.collection('pacto_contratos').doc(sigla + '_' + m[1]).get()).data() || {};
-      if (String(cad.lancou || '').trim().toUpperCase() === 'RECORRENCIA' && !pelaApi.includes(m[1])) pelaApi.push(m[1]);
+      if (PA.ehRoboDaPacto(cad.lancou) && !pelaApi.includes(m[1])) pelaApi.push(m[1]);
     }
     pelaApi.sort();
     const alvo = processados.filter(d => { const m = String(d.data().codigo || '').match(/^C(\d+)(-\d+)?$/); return !!m && contratos.includes(m[1]); });
