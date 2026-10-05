@@ -19,6 +19,12 @@
 //   3. recalcula o mês pela MESMA conta da tela e do servidor (`comissoes-mes.js`),
 //      regrava os contratos já comissionados e registra no histórico e no audit_log.
 //
+// 05/10/2026 — passou a tirar também a MENSALIDADE SEGUINTE do mesmo plano recorrente
+// lançada à mão ("não é venda, seja quem for que lançou" — decisão do Rafael): os
+// contratos que `ComissoesMes.mensalidadesSeguintes` aponta lendo o caderninho. Antes,
+// rodar `scripts/completar-contrato-anterior.js --mes … --apply` (o caderninho precisa
+// saber de que contrato cada renovação veio).
+//
 // Sem --apply não grava nada: só mostra o que faria e o resultado previsto.
 // Para se o mês já tiver pagamento registrado. Imprime contratos e VENDEDORAS, nunca alunos.
 
@@ -47,7 +53,7 @@ if (MES < PA.INICIO_RENOVACAO_AUTOMATICA) { console.error('A regra só vale de '
 admin.initializeApp({ credential: admin.credential.cert(require(path.join(__dirname, `serviceAccount-${projeto}.json`))) });
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
-const AUTOR = { uid: 'sistema', email: 'sistema', name: 'Sistema (renovação automática fora da comissão)' };
+const AUTOR = { uid: 'sistema', email: 'sistema', name: 'Sistema (renovação de plano recorrente fora da comissão)' };
 const brl = v => 'R$ ' + (Number(v) || 0).toFixed(2).replace('.', ',');
 const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 0) + (Number(v.p4i) || 0) + (Number(v.p4p) || 0);
 
@@ -61,6 +67,9 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
   const auto = t.descartadas.filter(d => d.automatica);
   console.log(`${projeto.toUpperCase()} · ${MES} · ${APPLY ? 'GRAVANDO' : 'ensaio (nada é gravado)'}`);
   console.log(`arquivo: ${path.basename(ARQUIVO)} · renovações automáticas pela regra: ${auto.length} linha(s)`);
+  // mensalidade seguinte do mesmo plano recorrente, lançada à mão (lê o caderninho)
+  const seguintes = await CM.mensalidadesSeguintes({ db, Adapter: PA, linhas, mes: MES });
+  console.log(`mensalidades seguintes lançadas à mão (caderninho): ${seguintes.length ? seguintes.sort().join(', ') : '-'}`);
 
   const units = (await db.collection('units').get()).docs;
   for (const sigla of ['CP', 'PP']) {
@@ -70,8 +79,10 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
     const ref = db.collection('periodos').doc(periodId);
     const p = (await ref.get()).data();
     if (!p) { console.log(`\n${sigla}: o período ${periodId} não existe`); continue; }
-    const contratos = [...new Set(auto.filter(d => d.unidade === sigla).map(d => String(d.contrato)))].sort();
-    console.log(`\n=== ${sigla} · ${periodId} · último envio: ${p.fileName || '?'} · contratos pela regra: ${contratos.length}`);
+    const doRobo = [...new Set(auto.filter(d => d.unidade === sigla).map(d => String(d.contrato)))].sort();
+    const aMao = seguintes.filter(id => id.startsWith(sigla + '_')).map(id => id.slice(sigla.length + 1)).filter(c => !doRobo.includes(c)).sort();
+    const contratos = [...doRobo, ...aMao].sort();
+    console.log(`\n=== ${sigla} · ${periodId} · último envio: ${p.fileName || '?'} · pela regra: ${doRobo.length} do robô + ${aMao.length} lançada(s) à mão (${aMao.join(', ') || '-'})`);
 
     // a API tem que dizer o mesmo
     const pelaApi = [];
@@ -88,20 +99,26 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
     const alvo = processados.filter(d => { const m = String(d.data().codigo || '').match(/^C(\d+)(-\d+)?$/); return !!m && contratos.includes(m[1]); });
     const noBanco = [...new Set(alvo.map(d => String(d.data().codigo).match(/^C(\d+)/)[1]))].sort();
     console.log(`   lançamentos a tirar: ${alvo.length} (contratos ${noBanco.join(', ') || '-'})`);
-    if (JSON.stringify(noBanco) !== JSON.stringify(pelaApi)) {
-      console.log(`   🛑 a regra e a API não dizem o mesmo — nada foi feito nesta unidade. Pela API: ${pelaApi.join(', ') || '-'}`);
+    // Do robô: a regra (arquivo) e a API (quem lançou, no caderninho) têm que dizer o mesmo.
+    // As lançadas à mão vêm do caderninho e, por definição, não foram lançadas por robô.
+    const roboNoBanco = noBanco.filter(c => !aMao.includes(c));
+    if (JSON.stringify(roboNoBanco) !== JSON.stringify(pelaApi)) {
+      console.log(`   🛑 a regra e a API não dizem o mesmo sobre o robô — nada foi feito nesta unidade. Pela API: ${pelaApi.join(', ') || '-'}`);
       continue;
     }
     if (!alvo.length) { console.log('   nada a fazer.'); continue; }
-    const estranhos = alvo.filter(d => { const x = d.data(); return x.originalSplitId || String(x.item || '').includes('(Split:') || x.category !== 'renovacao'; });
-    if (estranhos.length) { console.log(`   🛑 ${estranhos.length} lançamento(s) dividido(s) ou fora da categoria renovação — conferir à mão. Nada foi feito.`); continue; }
+    // Dividido: conferir à mão. Do robô, só renovação. Da lançada à mão sai o contrato inteiro
+    // (a matrícula repetida do mesmo plano e a taxa que anda junto), como o tradutor faz.
+    const numero = d => String(d.data().codigo).match(/^C(\d+)/)[1];
+    const estranhos = alvo.filter(d => { const x = d.data(); return x.originalSplitId || String(x.item || '').includes('(Split:') || (!aMao.includes(numero(d)) && x.category !== 'renovacao'); });
+    if (estranhos.length) { console.log(`   🛑 ${estranhos.length} lançamento(s) dividido(s) ou, do robô, fora da categoria renovação — conferir à mão. Nada foi feito.`); continue; }
     const pags = await db.collection('pagamentos').where('periodId', '==', periodId).get();
     if (!pags.empty) { console.log(`   🛑 o mês já tem ${pags.size} pagamento(s) registrado(s) — não mexo. Nada foi feito.`); continue; }
 
     const antes = p.vendorSummary || {};
     const tot = p.totals || {};
     console.log(`   hoje: ativações ${tot.unitAtivacoes} · novos+retorno ${tot.unitNovosRetorno} · renovações ${tot.unitRenovacoes} · vouchers ${tot.unitVouchers}`);
-    alvo.forEach(d => { const x = d.data(); console.log(`     − ${x.codigo} · ${x.data} · ${String(x.item).slice(0, 44)} · ${x.vendedor} · P1+P2 ${brl((x.p1valor || 0) + (x.p2bonus || 0))}`); });
+    alvo.forEach(d => { const x = d.data(); console.log(`     − ${x.codigo} · ${x.data} · ${String(x.item).slice(0, 44)} · ${x.category} · ${x.vendedor} · P1+P2 ${brl((x.p1valor || 0) + (x.p2bonus || 0))}${aMao.includes(numero(d)) ? ' · lançada à mão' : ''}`); });
 
     if (!APPLY) {
       // previsão pela mesma conta (sem gravar): os processados menos os que saem
@@ -128,7 +145,7 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
     // 2. cópia e remoção
     const pasta = path.join(RAIZ, 'backups');
     if (!fs.existsSync(pasta)) fs.mkdirSync(pasta);
-    const arq = path.join(pasta, `renovacao-automatica-${projeto}-${periodId}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    const arq = path.join(pasta, `renovacao-recorrente-${projeto}-${periodId}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
     fs.writeFileSync(arq, JSON.stringify({ periodId, quando: new Date().toISOString(), periodo: { totals: p.totals, vendorSummary: p.vendorSummary, codigosPagos: p.codigosPagos || [], p4result: p.p4result || null },
       itens: alvo.map(d => ({ id: d.id, data: d.data() })) }, null, 2));
     console.log(`   cópia: backups/${path.basename(arq)}`);
@@ -138,10 +155,10 @@ const total = v => (Number(v.p1) || 0) + (Number(v.p2) || 0) + (Number(v.p3) || 
 
     // 3. recálculo pela conta de sempre, contratos já comissionados e registro
     const ops = CM.criar({ db, FieldValue, Timestamp, Engine: CE, Adapter: PA, Jornada: JC, Metas: MS, autor: AUTOR, log: console });
-    const itens = await ops.recalcularPeriodo(periodId, { type: 'config_change', label: 'Renovação automática do plano recorrente fora da comissão' });
+    const itens = await ops.recalcularPeriodo(periodId, { type: 'config_change', label: 'Renovação de plano recorrente (automática ou mensalidade seguinte lançada à mão) fora da comissão' });
     await ops.gravarCodigosPagos(periodId, itens);
     await db.collection('audit_log').add({ type: 'upload', unitId: u.id, userId: AUTOR.uid, userName: AUTOR.name, timestamp: FieldValue.serverTimestamp(),
-      details: `${periodId}: ${alvo.length} renovação(ões) automática(s) do plano recorrente tirada(s) da comissão (contratos ${noBanco.join(', ')}) e mês recalculado` });
+      details: `${periodId}: ${alvo.length} lançamento(s) de renovação de plano recorrente tirado(s) da comissão — do robô: ${roboNoBanco.join(', ') || '-'}; mensalidade seguinte lançada à mão: ${aMao.join(', ') || '-'} — e mês recalculado` });
 
     const d2 = (await ref.get()).data();
     const t2 = d2.totals || {};
