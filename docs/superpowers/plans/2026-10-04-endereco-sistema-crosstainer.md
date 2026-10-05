@@ -11,7 +11,8 @@
 **Arquivos:**
 - Modificar: `firebase-config.js` (único arquivo de produção)
 - Criar: `scripts/smoke-endereco-novo.js`, `scripts/publicar-site.js`, `scripts/smoke-publicar-site.js`
-- **Não tocar:** `index.html`, `commission.js`, `sw.js`, `manifest.json`, `firebase.json`
+- Modificar (entrou na execução): `firebase.json` — só a lista de ignorados da hospedagem (`docs/**`, `**/*.md`, regras, testes)
+- **Não tocar:** `index.html`, `commission.js`, `sw.js`, `manifest.json`
 
 **Sem bump de `?v=`:** na primeira publicação (fase `nenhuma`) a mudança só tem efeito no endereço novo, onde ninguém tem cache. Nas fases seguintes, o cache do GitHub Pages (10 min) vence sozinho; faixa 10 minutos atrasada não faz diferença.
 

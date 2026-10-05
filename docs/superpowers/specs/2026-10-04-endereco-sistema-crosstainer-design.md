@@ -55,7 +55,7 @@ Depois dele, o Firebase confirma o domínio e emite o certificado sozinho (de mi
 - Novo `scripts/publicar-site.js`: confere que o `main` local é igual ao `origin/main`, monta uma **cópia limpa do `main`** numa pasta temporária e publica a hospedagem a partir dela. Motivo: a hospedagem publica a pasta do disco (`public: "."`), e a pasta de trabalho tem `backups/` e `scratchpad/` com dado real.
 - Staging por padrão; produção só com `--project production` explícito (regra 3 do `CLAUDE.md`).
 - **Durante a transição, publicar = `git push origin main` + `publicar-site.js`** (o antigo ainda serve a faixa). Depois do redirecionamento, o GitHub Pages só precisa do `firebase-config.js` que redireciona.
-- `firebase.json` não muda.
+- `firebase.json`: a lista do que a hospedagem ignora ganhou `docs/**`, `**/*.md`, os arquivos de regras e os de teste. Achado ao conferir o staging em 04/10: `*.md` só pegava a raiz, e a pasta de documentos internos ia ao ar.
 
 ### 5. Ordem
 
