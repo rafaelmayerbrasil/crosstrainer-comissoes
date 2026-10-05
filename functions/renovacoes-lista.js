@@ -97,14 +97,14 @@ const RenovacoesLista = {
     return { tipo: 'renovacao', economico: this.temTermo(n, 'ECONOMICO') || this.temTermo(n, 'HORARIO ESPECIAL') };
   },
 
-  /**
-   * Mensal que a Pacto cobra em regime de recorrência renova sozinho, como o plano com
-   * "RECORRENTE" no nome (Rodrigo, 04/10/2026). A marca da Pacto sozinha não serve: toda
-   * degustação a tem, e o anual parcelado no cartão continua precisando de renovação.
-   */
-  ehMensalEmRecorrencia(nomePlano, recorrencia) {
-    return !!recorrencia && this.temTermo(this.norm(nomePlano), 'MENSAL');
-  },
+  // ⚠️ O MENSAL NÃO RENOVA SOZINHO, mesmo cobrado no cartão em recorrência (Rodrigo,
+  // 05/10/2026, conferido na Pacto: a opção "Renovável automaticamente" do plano só está
+  // ligada nos planos RECORRENTE; o mensal que venceu em 02/10 ficou inativo, e os mensais
+  // renovados em setembro foram lançados por consultoras). De 04 a 05/10/2026 a lista tirou
+  // o "mensal em recorrência" como se fosse recorrente — estava errado. Nenhum campo do
+  // contrato na API serve de sinal: `regimeRecorrencia` e `permiteRenovacaoAutomatica` vêm
+  // ligados em tudo que é cobrado no cartão (anual, mensal, degustação). Quem renova
+  // sozinho é só o plano com RECORRENTE no nome (`EXCLUSOES`).
 
   /**
    * "Renova sozinho, mas vale a conferência": recorrente que a Pacto, consultada 1 dia ou
@@ -390,9 +390,6 @@ const RenovacoesLista = {
       }
       if (cls.tipo === 'verificar' && g.blocoGestao) {
         cls = g.blocoGestao === 'excluir' ? { tipo: 'excluir', motivo: 'gestao' } : { tipo: g.blocoGestao };
-      }
-      if (cls.tipo === 'renovacao' && this.ehMensalEmRecorrencia(linha.planoOriginal || linha.plano, c && c.recorrencia)) {
-        cls = { tipo: 'excluir', motivo: 'recorrente' };
       }
       if ((cls.tipo === 'renovacao' || cls.tipo === 'degustacao') && !linha.vencimento) {
         cls = { tipo: 'verificar', motivo: 'Contrato sem data de vencimento na Pacto' };

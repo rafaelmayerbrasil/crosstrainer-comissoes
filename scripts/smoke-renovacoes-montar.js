@@ -334,11 +334,12 @@ const NUCLEO = {
     const d = (await db.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
     assert.deepStrictEqual(d.blocos.recorrentes.map(l => l.codigoContrato), ['401'], 'venceu em 03/10 e a Pacto, lida em 05/10, não registra a renovação');
     assert.strictEqual(d.blocos.recorrentes[0].consultora, 'ERICA', 'o vínculo do aluno apontado é lido');
-    assert.deepStrictEqual(d.blocos.renovacoes.map(l => l.codigoContrato), ['404'], 'o mensal em recorrência saiu do Bloco 1');
-    assert.deepStrictEqual(d.excluidos, { recorrente: 2 }, 'quem renovou sozinho e o mensal em recorrência que ainda não venceu');
+    assert.deepStrictEqual(d.blocos.renovacoes.map(l => l.codigoContrato), ['404', '403'], 'o mensal cobrado em recorrência fica no Bloco 1 (Rodrigo, 05/10/2026: não renova sozinho)');
+    assert.strictEqual(d.blocos.renovacoes.find(l => l.codigoContrato === '403').consultora, 'FRANCINI', 'e o vínculo do aluno dele é lido');
+    assert.deepStrictEqual(d.excluidos, { recorrente: 1 }, 'só quem renovou sozinho');
     assert.strictEqual(d.conferencia.bate, true);
-    assert.deepStrictEqual(gw.alunos.sort(), ['p41', 'p44'], 'recorrente que renovou ou ainda não venceu: não se pergunta pelo aluno');
-    assert.strictEqual(M.ficaNaLista('HIIT | MENSAL | 3X', '', { recorrencia: true, vigenciaAte: '20/10/2026', hoje: '2026-10-05' }), false);
+    assert.deepStrictEqual(gw.alunos.sort(), ['p41', 'p43', 'p44'], 'recorrente que renovou ou ainda não venceu: não se pergunta pelo aluno');
+    assert.strictEqual(M.ficaNaLista('HIIT | MENSAL | 3X', '', { recorrencia: true, vigenciaAte: '20/10/2026', hoje: '2026-10-05' }), true, 'mensal em recorrência fica');
     assert.strictEqual(M.ficaNaLista('HIIT | MENSAL | 3X', '', { recorrencia: false, vigenciaAte: '20/10/2026', hoje: '2026-10-05' }), true);
     assert.strictEqual(M.ficaNaLista(R, '', { recorrencia: true, vigenciaAte: '03/10/2026', hoje: '2026-10-05' }), true, 'vencido sem renovação: fica (apontado)');
     assert.strictEqual(M.ficaNaLista(R, '', { recorrencia: true, vigenciaAte: '03/10/2026', renovadoEm: '03/10/2026', hoje: '2026-10-05' }), false);
@@ -361,7 +362,8 @@ const NUCLEO = {
     const res = await M.montarTudo({ db: db1, clientesGw: { CP: gwFalso(prevNov) }, clienteNucleo: nucleoFalso({}), clientesContratos: { CP: gwContratos(hoje5, alunos) }, unidades: ['CP'], hoje: '2026-11-01', agora: () => 'T', dormir: SEM_ESPERA });
     assert.deepStrictEqual(res.map(x => x.id + ' ' + x.situacao), ['CP_2026-11 ok', 'CP_2026-10 ok']);
     const out = (await db1.collection('renovacoes_lista').doc('CP_2026-10').get()).data();
-    assert.deepStrictEqual(out.blocos.recorrentes.map(l => l.codigoContrato), ['403', '401'].sort(), 'no dia 1, o mensal em recorrência que venceu em outubro sem renovar também é apontado');
+    assert.deepStrictEqual(out.blocos.recorrentes.map(l => l.codigoContrato), ['401'], 'no dia 1 o recorrente segue apontado; o mensal vencido não é "recorrente"');
+    assert.deepStrictEqual(out.blocos.renovacoes.map(l => l.codigoContrato), ['404', '403'], 'ele está no Bloco 1 do mês que acabou');
     ok('recorrente: apontado 1 dia depois do vencimento com a consultora do aluno; fica como Sim ao renovar; dias 1 e 2 refazem o mês anterior');
   }
 

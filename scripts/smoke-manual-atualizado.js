@@ -349,7 +349,7 @@ function exige(txt, ondeNome, assuntos) {
   // renova sozinho (com conferência 1 dia depois) e quem já renovou sai da base dos 65%.
   exige(admin, 'manual-admin', {
     'horário especial': 'Horário Especial',
-    'mensal em recorrência': 'Mensal que a Pacto cobra em recorrência',
+    'o mensal não renova sozinho (05/10/2026)': 'Mensal não renova sozinho',
     'o bloco dos que não renovaram': 'Recorrentes que não renovaram sozinhos',
     'um dia depois do vencimento': 'um dia depois do vencimento',
     'fora do número oficial': 'não entram no total a renovar',
@@ -357,7 +357,7 @@ function exige(txt, ondeNome, assuntos) {
     'renovação automática fora da comissão': 'Renovação automática do plano recorrente não é venda',
     'o sinal é quem lançou': 'quem lançou o contrato',
   });
-  ok('renovações: Horário Especial, mensal em recorrência, bloco dos recorrentes que não renovaram e base dos 65%');
+  ok('renovações: Horário Especial, o mensal fica na lista, bloco dos recorrentes que não renovaram e base dos 65%');
 }
 {
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);

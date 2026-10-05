@@ -99,15 +99,15 @@ async function completarContratos({ db, clienteNucleo, unidade, brutos }) {
 
 /**
  * O contrato fica na lista (e por isso vale perguntar pela consultora do aluno)?
- * `c` (opcional): { recorrencia, vigenciaAte, renovadoEm, hoje, apontado } do contrato lido
- * agora — o recorrente só fica se venceu sem renovar (ou se já estava apontado na lista).
+ * `c` (opcional): { vigenciaAte, renovadoEm, hoje, apontado } do contrato lido agora — o
+ * recorrente (RECORRENTE no nome do plano) só fica se venceu sem renovar (ou se já estava
+ * apontado na lista). O mensal fica sempre: não renova sozinho (Rodrigo, 05/10/2026).
  */
 function ficaNaLista(nomePlano, planoOriginal, c) {
   const x = c || {};
   let nome = nomePlano;
   let cls = RL.classificarPlano(nome);
   if (cls.tipo === 'importacao' && planoOriginal) { nome = planoOriginal; cls = RL.classificarPlano(nome); }
-  if (cls.tipo === 'renovacao' && RL.ehMensalEmRecorrencia(nome, x.recorrencia)) cls = { tipo: 'excluir', motivo: 'recorrente' };
   if (cls.tipo === 'excluir' && cls.motivo === 'recorrente') {
     const vencimento = RL.iso(x.vigenciaAte);
     const renovadoEm = RL.iso(x.renovadoEm);
