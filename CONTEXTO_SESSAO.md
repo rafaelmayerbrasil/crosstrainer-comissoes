@@ -3,6 +3,22 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 85 (04/10/2026, noite) — 🌐 ENDEREÇO NOVO `sistema.crosstainer.com.br` + 🧭 MODERNIZAÇÃO (só conversa) · NADA DE CÓDIGO AINDA
+
+### ▶️▶️ RETOMAR AQUI
+**Dois projetos separados, nesta ordem (decisão do Rafael): 1º o endereço novo, 2º o roteiro da modernização.**
+
+**🌐 Endereço novo — desenho aprovado ("sim, pode registrar"), especificação em `docs/superpowers/specs/2026-10-04-endereco-sistema-crosstainer-design.md` (branch `endereco-sistema`, só a especificação; nada enviado ao GitHub).**
+- **Feito em produção (04/10, 23h07):** `sistema.crosstainer.com.br` registrado na hospedagem do Firebase de produção (API `customDomains`; estado "aguardando o registro no domínio"). Nada mudou para quem usa.
+- **O domínio é administrado no Wix** (`ns14/ns15.wixdns.net`); o login é do Rodrigo. **Um registro só:** CNAME `sistema` → `crosstrainer-comissoes.web.app`. O Rafael vai pedir ao Rodrigo (mensagem entregue na conversa).
+- ⚠️ **A hospedagem do Firebase de produção guarda uma publicação de 30/07/2026 e se comporta como staging** (`firebase-config.js` só trata o `github.io` como produção). Se o registro entrar no Wix antes de publicarmos, o endereço novo mostra essa versão velha ligada ao staging. Ninguém conhece o endereço, mas **o ideal é publicar antes**.
+- **Próximos passos:** o Rafael revisa a especificação → plano (`writing-plans`) → código (só `firebase-config.js` + `scripts/publicar-site.js` + smoke) → staging → OK → `main` + hospedagem de produção → conferir no endereço novo → avisar o time → ~2 semanas depois o antigo redireciona → repositório privado (hoje é **público**, exigência do GitHub Pages gratuito).
+- **Passo irmão, mesmo acesso ao Wix:** autenticar o domínio no SendGrid (e-mails fora do spam).
+
+**🧭 Modernização — o que o Rafael quer (04/10):** reorganizar a base para **empresa → filiais** (como a Pacto), **cadastros compartilhados**, **módulos novos** (CRM, financeiro), um dia **sair da Pacto** e **vender para outras academias**; e **IA + WhatsApp oficial** (cobrar e confirmar agenda, validar fechamento, cobrar professores; a pessoa responde no WhatsApp e o sistema se atualiza). Em 30/09 eu já tinha recomendado **não reescrever do zero** (ele não contestou). Medido: o banco já é um só (logins, unidades e Pessoas compartilhados), mas **nenhuma das ~55 coleções tem marca de empresa** e CP/PP são fixos. Frentes propostas: **A.** fundação (empresa/filial, cadastro único, módulos por empresa) → **B.** WhatsApp oficial + IA → **C.** CRM e financeiro → **D.** sair da Pacto. **Devo ao Rafael:** documento com o diagnóstico e o roteiro (inclui a decisão de manter ou trocar o banco). **Sem resposta ainda:** vender a outras academias é meta de 12 meses ou porta aberta? · há número para dedicar ao WhatsApp do sistema?
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 84 (04/10/2026) — 📨 AS RESPOSTAS DO RODRIGO SOBRE A LISTA DE RENOVAÇÕES · 🧪 CONSTRUÍDO E NO STAGING · NADA EM PRODUÇÃO
 
 ### ▶️▶️ RETOMAR AQUI
