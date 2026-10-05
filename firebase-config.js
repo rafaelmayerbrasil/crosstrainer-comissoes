@@ -91,7 +91,8 @@
     faixa.setAttribute('role', 'status');
 
     const texto = document.createElement('span');
-    texto.textContent = '📍 O sistema mudou de endereço: ' + ENDERECO_NOVO + '. Entre lá com o mesmo e-mail e senha.';
+    // curto de propósito: no celular a faixa cobre o cabeçalho até ser fechada
+    texto.textContent = '📍 Novo endereço: ' + ENDERECO_NOVO + ' (mesmo e-mail e senha)';
     faixa.appendChild(texto);
 
     const link = document.createElement('a');
