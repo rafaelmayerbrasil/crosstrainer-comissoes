@@ -42,11 +42,11 @@ Depois dele, o Firebase confirma o domínio e emite o certificado sozinho (de mi
 - **Aviso no endereço antigo:** quando o host é `rafaelmayerbrasil.github.io`, uma faixa fixa no topo: "O sistema mudou de endereço: sistema.crosstainer.com.br", com botão que leva à mesma tela no endereço novo.
 - **Redirecionamento (segunda publicação, ~2 semanas depois):** o endereço antigo passa a levar sozinho ao novo, preservando a tela (caminho sem o prefixo `/crosstrainer-comissoes`, mais `?…` e `#…`).
 - A decisão (produção ou staging · mostrar faixa · redirecionar · para onde) fica numa **função pura** que recebe o host e o caminho, com teste próprio que a **chama** — não que lê o texto do arquivo.
-- A fase (faixa ou redirecionamento) é uma constante no arquivo, trocada na segunda publicação.
+- A fase é uma constante no arquivo, com três valores: **`nenhuma`** (só reconhece o endereço novo; é como sai a primeira publicação, porque o endereço ainda não responde), **`aviso`** (faixa) e **`redirecionar`**. Cada troca de fase é uma publicação.
 
 ### 3. Login
 
-- `sistema.crosstainer.com.br` entra nos **domínios autorizados** do Auth de produção.
+- **Nada a configurar no Auth.** Conferido em 04/10: o endereço atual (`rafaelmayerbrasil.github.io`) nem está nos domínios autorizados de produção e o login por e-mail e senha funciona; essa lista só vale para login por janela/redirecionamento, que o sistema não usa.
 - A sessão é por endereço: **cada pessoa faz login uma vez** no endereço novo. E-mail e senha são os mesmos.
 - Quem instalou o ícone no celular **instala de novo** a partir do endereço novo (o `sw.js` se registra sozinho no endereço novo, sem alteração).
 
