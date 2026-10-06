@@ -3,6 +3,39 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 87 (06/10/2026) — 📋 "COMO FAZ PARA COPIAR A ESCALA PARA WHATSAPP?" · ✅ BOTÃO EM DESTAQUE E NAS OUTRAS ABAS, NO AR EM PRODUÇÃO (`b929759..9edf628`)
+
+### ▶️▶️ RETOMAR AQUI
+**O que aconteceu.** O Rafael Rojais perguntou no grupo (06/10, 8h55) como copiar a escala para o WhatsApp. O recurso existia desde 01/10 — pedido por ele mesmo — mas era um botão cinza na linha dos filtros, chamado "Texto para o WhatsApp", só em Sábados e Feriados. Era achabilidade, não falta de recurso (mesmo padrão de [[evento-criar-e-pontuar]] e [[escala-posto-e-equipe-do-dia]]). O Rafael Mayer pediu mais destaque e sugeriu levar para as outras abas; aprovou o desenho na conversa e disse **"pode seguir, e depois publicar, não vou conseguir validar"**.
+
+**🚀 PUBLICADO EM PRODUÇÃO em 06/10/2026 (~9h50):** `b929759..9edf628` no `main`, só frontend (sem Function, regra nem índice). GitHub Pages conferido arquivo por arquivo: 8 de 8 iguais ao `main` (`professores-escala-smart.js`, `scale-service.js`, `professores.html`, `manual-admin.html`; `index.html`, `commission.js`, `sw.js` e `manifest.json` intactos). `?v=20261006` nos dois scripts da escala. **Não passou pelo staging** (a hospedagem de lá segue com a branch `endereco-sistema`), por decisão do Rafael.
+
+**O que mudou na tela (Agenda → Escala Inteligente, visão da gestão):**
+- **Faixa verde logo abaixo das abas** — "Vai mandar no grupo? O sistema monta … em texto, pronto para colar no WhatsApp." — com botão de destaque **📋 Copiar a escala para o WhatsApp** (o verbo que ele usou). Saiu da linha dos filtros.
+- **Vale em todas as abas, menos Minhas datas:**
+  - **Sábados / Feriados** — a escala do mês, por dia ou por pessoa (como já era).
+  - **Por pessoa** — o mesmo texto, já aberto no formato por pessoa.
+  - **Fim de ano** — o período publicado, por dia (unidade → turno → quem) ou por pessoa. Horário de cada turno vai no rodapé quando é o mesmo o período inteiro; se algum dia foge, vai junto de cada dia.
+  - **Escola Interna** — as sessões publicadas do mês: data, horário, unidade e quem lidera ("líder a definir" quando não há).
+  - **Eventos** — a convocação de UM evento (abre no próximo; o que está aberto no painel vem escolhido): quem deve ir, quem poderia, e Vão / Não vão / Falta responder. As respostas são **relidas do banco a cada abertura**.
+- Continua a regra: **só entra o que está publicado**, e a janela diz o que ficou de fora. Evento não tem etapa de publicar.
+- O aviso de "Escala confirmada" passou a dizer onde está o botão.
+
+**Código.** Três funções puras novas em `scale-service.js` (`textoFimDeAnoWhatsApp`, `textoEscolaInternaWhatsApp`, `textoEventoWhatsApp`), com as peças comuns (`_nomeador`, `_diaCurto`, `_unidadeCurta`, `_juntar`) extraídas do texto de sábado/feriado. Na tela, `escalaWhatsDados()` virou um despacho por modo (`ESCALA_WHATS_DA_ABA`). Manual do admin atualizado.
+
+**Validação.** `scripts/smoke-escala-texto-whatsapp-abas.js` novo (10 ✓), `smoke-escala-whatsapp-tela.js` de 8 para 16 ✓ (renderiza a tela e chama as funções), `smoke-manual-atualizado.js` com 4 âncoras novas. **Suíte local 127 de 127** (`smoke-9.js` não conta: pede `--project staging`). Conferência visual feita por mim num servidor local com **dados de exemplo** (faixa, janela e as 6 abas; celular 375 px sem estouro; 0 erro de console). ⚠️ **Ninguém clicou logado**, nem no staging nem em produção, e os textos não foram vistos com dado real — o Rafael Rojais será o primeiro a usar.
+
+**🔴 Pendências que continuam (da sessão 86):** conferir as rodadas de 06/10 (4h: `periodos/{cp,pp}_2026-10.automatico` "atualizado" e `anterior` no caderninho; 5h: lista CP 24 · 13 e PP 14 · 9; termômetro = comissão) — **não conferi nesta sessão** · mandar o texto ao Rodrigo.
+
+**Resposta para o grupo (entregue na conversa):** Agenda → Escala Inteligente → faixa verde abaixo das abas → 📋 Copiar a escala para o WhatsApp → escolher mês e formato → Copiar.
+
+### 📝 Log da sessão 87
+- `scale-service.js` — 3 textos novos + peças comuns · `professores-escala-smart.js` — faixa de destaque, janela por modo, leitura das respostas do evento · `professores.html` — `?v=20261006` · `manual-admin.html` — card "Copiar a escala para o WhatsApp" · testes: 1 arquivo novo, 2 atualizados.
+- `.claude/launch.json` (fora do git) ganhou a configuração `crosstrainer-static-py` (servidor local em Python, porta 8124): a do `npx http-server` não subiu nesta máquina.
+- Rede desta máquina: `curl` para o GitHub Pages só funciona com `--ssl-no-revoke` (a checagem de revogação do certificado falha na rede da empresa).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 86 (05/10/2026) — 📨 O RODRIGO CONFERIU A LISTA E SETEMBRO NA PACTO · ✅ TUDO NO AR EM PRODUÇÃO (`1272261..58b355a` + 4 Functions) · setembro, meta da PP e consultoras ajustados
 
 > A sessão 85 (endereço novo `sistema.crosstainer.com.br` e roteiro da modernização) está registrada na branch `endereco-sistema`, que ainda não entrou no `main`. Esta branch saiu do `main`.
