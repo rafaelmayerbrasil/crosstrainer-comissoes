@@ -42,6 +42,8 @@ const FechamentoState = {
   avisosErro: null,            // mensagem, quando não deu pra checar
   horasPendencias: undefined,  // undefined = não checado · { aValidar, naoConferiram, trava }
   horasErro: null,             // mensagem, quando não deu pra checar
+  doisLugares: undefined,      // undefined = não checado · [] = ninguém · [{teacherId, dias, minutos}] = travam
+  doisLugaresErro: null,       // mensagem, quando não deu pra checar
   closingDoc: null,     // doc de monthly_closings (se já fechado)
   mode: 'select',       // 'select' | 'preview' | 'closed' | 'history'
   history: [],
@@ -262,6 +264,7 @@ async function loadFechamentoPreview() {
   await carregarTrocasAbertas();
   await carregarAvisosPendentes();
   await carregarHorasPendentes();
+  await carregarDoisLugares();
   renderFechamentoUI();
 }
 
@@ -298,6 +301,24 @@ async function carregarHorasPendentes() {
   } catch (err) {
     FechamentoState.horasPendencias = null;
     FechamentoState.horasErro = (err && err.message) || 'erro desconhecido';
+  }
+}
+
+/**
+ * Quem aparece em duas aulas no MESMO horário. A folha soma as duas — foi o
+ * caso do Theo em 04/09/2026: cobriu o Bruno na CP, as aulas dele na PP
+ * continuaram na agenda e o dia valia 14h45 em vez de 11h. Falha fechada.
+ */
+async function carregarDoisLugares() {
+  try {
+    const y = FechamentoState.selectedYear, m = FechamentoState.selectedMonth;
+    const [classes, tipos] = await Promise.all([
+      HourDeclarationService.aulasDoMes(y, m), HourDeclarationService.tiposDeEscala()]);
+    FechamentoState.doisLugares = HourDeclaration.emDoisLugares(classes, y, m, tipos);
+    FechamentoState.doisLugaresErro = null;
+  } catch (err) {
+    FechamentoState.doisLugares = null;
+    FechamentoState.doisLugaresErro = (err && err.message) || 'erro desconhecido';
   }
 }
 
@@ -459,6 +480,25 @@ function montarChecklist(data) {
       itens.push({ nivel: 'ok', titulo: 'Horas do mês', situacao: 'nada esperando validação',
         acao: { rotulo: 'Ver', fn: abrirHoras } });
     }
+  }
+
+  // 1d. Pessoa em dois lugares ao mesmo tempo — a hora seria paga duas vezes.
+  if (FechamentoState.doisLugaresErro) {
+    itens.push({ nivel: 'bloqueia', titulo: 'Pessoas em dois lugares ao mesmo tempo',
+      situacao: 'Não consegui verificar (' + escapeHtml(FechamentoState.doisLugaresErro)
+        + '). Fechar é irreversível — sem essa checagem, não dá.',
+      acao: null });
+  } else if (Array.isArray(FechamentoState.doisLugares)) {
+    const dl = FechamentoState.doisLugares;
+    const nomeDe2 = id => ((data.teachers || []).find(t => t.teacherId === id) || {}).teacherName || '—';
+    const diaBR = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+    itens.push(dl.length
+      ? { nivel: 'bloqueia', titulo: 'Pessoas em dois lugares ao mesmo tempo',
+          situacao: '<b>' + dl.length + '</b> pessoa(s) com duas aulas no mesmo horário — a hora seria paga duas vezes: '
+            + dl.map(x => escapeHtml(nomeDe2(x.teacherId)) + ' (' + x.dias.map(d => diaBR(d.dia)).join(', ')
+              + ' · ' + HourDeclaration.fmtHoras(x.minutos) + ' em dobro)').join('; '),
+          acao: { rotulo: 'Acertar', fn: abrirHoras } }
+      : { nivel: 'ok', titulo: 'Duas aulas no mesmo horário', situacao: 'ninguém em dois lugares ao mesmo tempo', acao: null });
   }
 
   // 2. Cadastro que faz a pessoa receber errado.
@@ -885,6 +925,8 @@ function renderTeacherTable(teachers, totals, readOnly) {
         <td>
           <div style="font-weight:600;">${escapeHtml(t.teacherName)}</div>
           <div style="font-size:10px;color:var(--text3);">${typeLabel}${t.isInternProportional ? ' · Excedente' : ''}</div>
+          ${readOnly || typeof horasGestaoAbrirMes !== 'function' ? '' : `<a href="#" style="font-size:11px;" title="Os dias e as horas desta pessoa no mês"
+            onclick="horasGestaoAbrirMes(${FechamentoState.selectedYear},${FechamentoState.selectedMonth},'${escapeHtml(t.teacherId)}');return false;">ver os dias e as horas</a>`}
         </td>
         <td style="font-size:11px;">${unidades}</td>
         <td class="mono" style="text-align:center;">${t.classesCount}</td>

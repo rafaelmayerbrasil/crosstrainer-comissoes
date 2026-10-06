@@ -978,6 +978,12 @@
     .horas-dia-inf { margin-top: 3px; color: var(--text); }
     .horas-min { color: var(--text3); font-size: 12px; margin-left: 4px; }
     .horas-sub { font-size: 12px; color: var(--text2); font-weight: 400; }
+    .horas-totais small.horas-sub { display: block; margin-top: 2px; }
+    .horas-alerta {
+      margin: 0 14px 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; color: var(--text);
+      border-left: 3px solid var(--orange); background: var(--surface2); border-radius: 4px;
+    }
+    .horas-detalhe .horas-alerta { margin: 6px 0 0; background: var(--surface); }
     .horas-dia-acoes { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     .horas-editor {
       background: var(--surface2); border-top: 1px dashed var(--border2);
@@ -3089,18 +3095,18 @@
   <!-- regras dos avisos do professor sobre a aula; o serviço (shared) depende dele -->
   <script src="class-avisos.js?v=20261001"></script>
   <!-- as contas de "Minhas horas do mês": agenda em turnos, resumo e o plano de ajuste das aulas -->
-  <script src="hour-declaration.js?v=20261002"></script>
+  <script src="hour-declaration.js?v=20261006b"></script>
   <script src="professores-shared.js?v=20261002"></script>
   <script src="professores-config-lock.js?v=20260813"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
   <script src="engagement-service.js?v=20260812"></script>
   <script src="professores-cadastro.js?v=20260825"></script>
-  <script src="professores-agenda.js?v=20261001"></script>
-  <script src="professores-substituicoes.js?v=20261001"></script>
+  <script src="professores-agenda.js?v=20261006b"></script>
+  <script src="professores-substituicoes.js?v=20261006b"></script>
   <script src="professores-avisos.js?v=20261001"></script>
-  <script src="professores-horas.js?v=20261002"></script>
-  <script src="professores-fechamento.js?v=20261002"></script>
+  <script src="professores-horas.js?v=20261006b"></script>
+  <script src="professores-fechamento.js?v=20261006b"></script>
   <script src="professores-pagamentos.js?v=20260905"></script>
   <script src="professores-escalas.js?v=20260811"></script>
   <script src="professores-ferias.js?v=20260812e"></script>

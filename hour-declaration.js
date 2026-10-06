@@ -84,14 +84,64 @@
     return Math.max(0, base - num(c.atrasoMinutos) - num(c.saidaAntecipadaMinutos) + num(c.horaExtraMinutos));
   }
 
+  /**
+   * Quanto a aula pesa na folha. É a MESMA regra do closing-payroll
+   * (`horasDasAulas`): o peso do tipo de escala, e sem tipo cadastrado o
+   * feriado conta em dobro. O teste compara as duas contas — se uma mudar e a
+   * outra não, ele quebra.
+   */
+  function pesoDaAula(c, scaleTypes) {
+    const id = c && c.specialScaleType;
+    if (id && scaleTypes) {
+      const st = typeof scaleTypes.get === 'function' ? scaleTypes.get(id)
+        : (Object.prototype.hasOwnProperty.call(scaleTypes, id) ? scaleTypes[id] : null);
+      const tem = typeof scaleTypes.has === 'function' ? scaleTypes.has(id) : !!st;
+      if (tem) return (st && st.weight) || 1;
+    }
+    return c && c.isHoliday === true ? 2 : 1;
+  }
+  const ehFeriado = (c) => !!c && (c.isHoliday === true || c.specialScaleType === 'feriado');
+
+  /** Junta intervalos que se tocam ou se cruzam. */
+  function unir(intervalos) {
+    const out = [];
+    intervalos.slice().sort((a, b) => a.ini - b.ini).forEach(x => {
+      const ult = out[out.length - 1];
+      if (ult && x.ini <= ult.fim) ult.fim = Math.max(ult.fim, x.fim);
+      else out.push({ ini: x.ini, fim: x.fim });
+    });
+    return out;
+  }
+  /** Tira o trecho [ini, fim) de uma lista de intervalos. */
+  function tirar(lista, ini, fim) {
+    return lista.flatMap(s => {
+      if (fim <= s.ini || ini >= s.fim) return [s];
+      const partes = [];
+      if (ini > s.ini) partes.push({ ini: s.ini, fim: ini });
+      if (fim < s.fim) partes.push({ ini: fim, fim: s.fim });
+      return partes;
+    });
+  }
+
   /* ── a agenda do mês, por dia ────────────────────────────────────── */
   /**
    * O mês de uma pessoa como a agenda registra, um item por dia. As aulas
    * seguidas viram um TURNO só (entrada e saída) — é o que tira o "de hora em
    * hora" da tela.
-   * @returns {Array<{dia, aulas:Array, turnos:Array<{inicio,fim}>, minutos:number}>}
+   *
+   * `minutos` é o que a agenda SOMA hoje (e o que a folha pagaria). Quando a
+   * pessoa está em duas aulas no mesmo horário — cobriu um colega numa unidade
+   * e as aulas dela na outra continuaram na agenda — essa soma conta o mesmo
+   * tempo duas vezes: `emDobro` diz quando, e `minutosEmDobro` quanto. Foi o
+   * caso do Theo em 04/09/2026 (14h45 na agenda, 11h00 trabalhadas).
+   *
+   * `minutosPagos` é a soma já com o peso da folha (feriado em dobro).
+   * @param {Map|object} [scaleTypes]  tipos de escala, para o peso
+   * @returns {Array<{dia, aulas:Array, turnos:Array<{inicio,fim}>, minutos:number,
+   *   minutosPagos:number, peso:number, feriado:boolean, holidayName:string|null,
+   *   emDobro:Array<{inicio,fim}>, minutosEmDobro:number, unidades:string[]}>}
    */
-  function agendaDoMes(classes, teacherId, ano, mes) {
+  function agendaDoMes(classes, teacherId, ano, mes, scaleTypes) {
     const prefixo = `${ano}-${String(mes).padStart(2, '0')}`;
     const porDia = new Map();
     (classes || []).forEach(c => {
@@ -106,6 +156,10 @@
         atraso: num(c.atrasoMinutos), saida: num(c.saidaAntecipadaMinutos), extra: num(c.horaExtraMinutos),
         unitId: c.unitId || null, modalityId: c.modalityId || null,
         isHoliday: c.isHoliday === true, holidayName: c.holidayName || null, monthClosingId: c.monthClosingId || null,
+        feriado: ehFeriado(c), peso: pesoDaAula(c, scaleTypes),
+        // aula que veio de uma troca confirmada: a pessoa está no lugar de outra
+        porTroca: c.status === 'substituida' || (!!c.originalTeacherId && c.originalTeacherId !== teacherId),
+        noLugarDe: (c.originalTeacherId && c.originalTeacherId !== teacherId) ? c.originalTeacherId : null,
       });
     });
     return Array.from(porDia.keys()).sort().map(dia => {
@@ -116,10 +170,27 @@
         if (ult && a.ini <= ult.fimMin) ult.fimMin = Math.max(ult.fimMin, a.fimMin);
         else turnos.push({ ini: a.ini, fimMin: a.fimMin });
       });
+      // O mesmo tempo em duas aulas. Vale o trecho que a aula CONTA (já sem o
+      // atraso e a saída antecipada): depois de corrigido, o dia não acusa mais.
+      const cruzados = []; let fimAnt = -1;
+      aulas.filter(a => a.minutos > 0)
+        .map(a => ({ ini: a.ini + a.atraso, fim: a.fimMin - a.saida })).filter(x => x.fim > x.ini)
+        .sort((x, y) => x.ini - y.ini)
+        .forEach(x => {
+          if (x.ini < fimAnt) cruzados.push({ ini: x.ini, fim: Math.min(fimAnt, x.fim) });
+          fimAnt = Math.max(fimAnt, x.fim);
+        });
+      const comFeriado = aulas.find(a => a.feriado) || null;
       return {
         dia, aulas,
         turnos: turnos.map(x => ({ inicio: paraHHMM(x.ini), fim: paraHHMM(x.fimMin) })),
         minutos: aulas.reduce((s, a) => s + a.minutos, 0),
+        minutosPagos: aulas.reduce((s, a) => s + a.minutos * a.peso, 0),
+        peso: aulas.reduce((m, a) => Math.max(m, a.peso), 1),
+        feriado: !!comFeriado, holidayName: comFeriado ? comFeriado.holidayName : null,
+        emDobro: unir(cruzados).map(x => ({ inicio: paraHHMM(x.ini), fim: paraHHMM(x.fim) })),
+        minutosEmDobro: cruzados.reduce((s, x) => s + (x.fim - x.ini), 0),
+        unidades: Array.from(new Set(aulas.map(a => a.unitId).filter(Boolean))),
       };
     });
   }
@@ -163,21 +234,37 @@
   /**
    * Agenda × informado, dia por dia. Dia que a pessoa não mexeu vale a agenda.
    * Dia que só existe na declaração (trabalhou fora da agenda) entra na lista.
+   *
+   * Além das horas TRABALHADAS, devolve as horas PARA PAGAMENTO (`minutosPagos…`):
+   * feriado conta em dobro na folha, e a tela não dizia. `opts.feriados` informa
+   * o peso dos dias que não estão na agenda da pessoa: `{ 'AAAA-MM-DD': { peso, nome } }`.
    */
-  function resumo(agenda, declaracao) {
+  function resumo(agenda, declaracao, opts) {
+    const feriados = (opts && opts.feriados) || {};
     const dias = (declaracao && declaracao.dias) || {};
     const porDia = new Map((agenda || []).map(a => [a.dia, a]));
     const todos = Array.from(new Set(Array.from(porDia.keys()).concat(Object.keys(dias)))).sort();
-    const out = { minutosAgenda: 0, minutosInformados: 0, delta: 0, diasDiferentes: 0, diasComMudanca: 0, dias: [] };
+    const out = { minutosAgenda: 0, minutosInformados: 0, delta: 0, diasDiferentes: 0, diasComMudanca: 0, dias: [],
+      minutosPagosAgenda: 0, minutosPagosInformados: 0, minutosEmDobro: 0 };
     todos.forEach(dia => {
       const ag = porDia.get(dia) || null;
       const dec = dias[dia] || null;
       const minutosAgenda = ag ? ag.minutos : 0;
       const v = dec ? validarDia(dec) : null;
       const minutosInformados = dec ? (v.ok ? v.turnos.reduce((s, t) => s + (t.fim - t.ini), 0) : 0) : minutosAgenda;
-      const mudou = !!dec && (dec.naoTrabalhei === true || !ag || !v.ok || !mesmosTurnos(ag.turnos, v.turnos));
+      // Dia em dois lugares ao mesmo tempo: confirmar os MESMOS horários já é
+      // correção — é o que faz o tempo contar uma vez só.
+      const mudou = !!dec && (dec.naoTrabalhei === true || !ag || !v.ok || !mesmosTurnos(ag.turnos, v.turnos)
+        || ag.minutosEmDobro > 0);
+      const fer = ag ? (ag.feriado ? { peso: ag.peso, nome: ag.holidayName } : null) : (feriados[dia] || null);
+      const peso = ag ? ag.peso : ((fer && fer.peso) || 1);
+      const minutosPagosAgenda = ag ? ag.minutosPagos : 0;
       const linha = {
         dia, declarado: !!dec, mudou,
+        feriado: !!fer, holidayName: (fer && fer.nome) || null, peso,
+        minutosPagosAgenda, minutosPagosInformados: dec ? minutosInformados * peso : minutosPagosAgenda,
+        emDobro: ag ? ag.emDobro : [], minutosEmDobro: ag ? ag.minutosEmDobro : 0,
+        unidades: ag ? ag.unidades : [],
         minutosAgenda, minutosInformados, delta: minutosInformados - minutosAgenda,
         turnosAgenda: ag ? ag.turnos : [],
         turnosInformados: dec && v.ok ? v.turnos.map(t => ({ inicio: paraHHMM(t.ini), fim: paraHHMM(t.fim) })) : [],
@@ -190,6 +277,9 @@
       out.dias.push(linha);
       out.minutosAgenda += minutosAgenda;
       out.minutosInformados += minutosInformados;
+      out.minutosPagosAgenda += linha.minutosPagosAgenda;
+      out.minutosPagosInformados += linha.minutosPagosInformados;
+      if (!dec) out.minutosEmDobro += linha.minutosEmDobro;
       if (linha.delta !== 0) out.diasDiferentes++;
       if (mudou) out.diasComMudanca++;
     });
@@ -209,6 +299,9 @@
    *   turno sem aula nenhuma por perto   → `novas` (vira aula avulsa)
    *   dia fora da agenda "no lugar de X" → `pendencias`: é TROCA de professor,
    *                                        não hora a mais (os dois receberiam)
+   *   duas aulas no mesmo horário        → o tempo conta UMA vez: vale a aula que
+   *                                        veio de troca confirmada; a outra sai
+   *                                        (`motivo: 'dois_lugares'`)
    *
    * @returns {{ops:Array, novas:Array, pendencias:Array, deltaMinutos:number, erro:string}}
    */
@@ -228,16 +321,28 @@
       return out;
     }
 
-    // 1) quanto de cada aula foi trabalhado
-    const alvos = aulas.map(a => {
-      const cortes = informado
+    // 1) quanto de cada aula foi trabalhado. Ninguém está em dois lugares ao
+    //    mesmo tempo: cada minuto informado é creditado a UMA aula só. Quem
+    //    escolhe primeiro é a aula que veio de troca confirmada (há registro de
+    //    que a pessoa estava lá); a aula da grade no mesmo horário fica sem o
+    //    tempo. Decisão do Rafael, 06/10/2026 — até então as duas contavam e a
+    //    validação do Theo (04/09) pagaria 3h15 a mais.
+    let livre = informado.map(t => ({ ini: t.ini, fim: t.fim }));
+    const porAula = new Map();
+    aulas.slice().sort((a, b) => ((b.porTroca ? 1 : 0) - (a.porTroca ? 1 : 0)) || (a.ini - b.ini)).forEach(a => {
+      const corta = (lista) => lista
         .map(t => ({ ini: Math.max(t.ini, a.ini), fim: Math.min(t.fim, a.fimMin) }))
-        .filter(s => s.fim > s.ini);
+        .filter(s => s.fim > s.ini).sort((x, y) => x.ini - y.ini);
+      const cortes = corta(livre);
       const trabalhado = cortes.reduce((s, x) => s + (x.fim - x.ini), 0);
-      if (!trabalhado) return { a, trabalhou: false, atraso: 0, saida: 0, extra: 0 };
+      const semDisputa = corta(informado).reduce((s, x) => s + (x.fim - x.ini), 0);
+      const doisLugares = semDisputa > trabalhado;      // perdeu tempo para outra aula
+      if (!trabalhado) { porAula.set(a, { a, trabalhou: false, atraso: 0, saida: 0, extra: 0, doisLugares }); return; }
+      cortes.forEach(c => { livre = tirar(livre, c.ini, c.fim); });
       const atraso = cortes[0].ini - a.ini;
-      return { a, trabalhou: true, atraso, saida: a.duracao - trabalhado - atraso, extra: 0 };
+      porAula.set(a, { a, trabalhou: true, atraso, saida: a.duracao - trabalhado - atraso, extra: 0, doisLugares });
     });
+    const alvos = aulas.map(a => porAula.get(a));
 
     // 2) o que foi trabalhado FORA da janela de qualquer aula
     let sobras = informado.map(t => ({ ini: t.ini, fim: t.fim }));
@@ -266,6 +371,7 @@
         out.ops.push({
           classId: a.id, inicio: a.inicio, fim: a.fim, antes: a.minutos, depois: 0,
           campos: { status: 'nao_realizada', atrasoMinutos: 0, saidaAntecipadaMinutos: 0, horaExtraMinutos: 0, faltaTipo: null },
+          motivo: x.doisLugares ? 'dois_lugares' : null, unitId: a.unitId,
         });
         out.deltaMinutos -= a.minutos;
         return;
@@ -275,6 +381,7 @@
         out.ops.push({
           classId: a.id, inicio: a.inicio, fim: a.fim, antes: a.minutos, depois,
           campos: { atrasoMinutos: x.atraso, saidaAntecipadaMinutos: x.saida, horaExtraMinutos: x.extra },
+          motivo: x.doisLugares ? 'dois_lugares' : null, unitId: a.unitId,
         });
       }
       out.deltaMinutos += depois - a.minutos;
@@ -309,6 +416,9 @@
   function aulaAvulsa(p) {
     const ref = (p.agendaDia && p.agendaDia.aulas && p.agendaDia.aulas[0]) || null;
     const padrao = p.padrao || {};
+    // Turno a mais num FERIADO em que a pessoa não tinha aula: sem a marca, a
+    // folha pagaria hora simples. `p.feriado` vem de quem conhece o dia inteiro.
+    const fer = (ref && ref.isHoliday) ? { nome: ref.holidayName } : (p.feriado || null);
     return {
       unitId: (ref && ref.unitId) || padrao.unitId || null,
       modalityId: (ref && ref.modalityId) || padrao.modalityId || null,
@@ -317,12 +427,75 @@
       status: 'realizada', registroAutomatico: false,
       scheduledDate: new Date(p.dia + 'T00:00:00'),
       generatedBy: 'horas-do-mes', horasDeclaracaoId: p.declaracaoId || null,
-      isHoliday: !!(ref && ref.isHoliday), holidayName: (ref && ref.holidayName) || null, holidayType: null,
+      isHoliday: !!fer, holidayName: (fer && fer.nome) || null, holidayType: null,
       remunerada: true, monthClosingId: null,
       atrasoMinutos: 0, saidaAntecipadaMinutos: 0, horaExtraMinutos: 0, faltaTipo: null,
       cancellationReason: null, cancellationNote: null,
       adjustmentNote: 'Turno informado em Minhas horas e validado pela gestão',
     };
+  }
+
+  /* ── o dia inteiro da academia: feriados, colegas, choques ───────── */
+  /** Os feriados do mês, vistos nas aulas de TODO MUNDO: `{ dia: { peso, nome } }`. */
+  function feriadosDasAulas(classes, scaleTypes) {
+    const out = {};
+    (classes || []).forEach(c => {
+      if (!ehFeriado(c)) return;
+      const dia = diaISO(c.scheduledDate);
+      if (!dia) return;
+      const peso = pesoDaAula(c, scaleTypes);
+      if (!out[dia] || peso > out[dia].peso) out[dia] = { peso, nome: c.holidayName || (out[dia] && out[dia].nome) || null };
+    });
+    return out;
+  }
+
+  /**
+   * Um dia que a pessoa informou "no lugar de um colega": o que a agenda tem
+   * do colega naquele horário. É o que a gestão passa para quem trabalhou.
+   *   aTransferir  — aulas ainda no nome do colega, dentro do horário informado
+   *   jaComAPessoa — aulas do colega que já estão com a pessoa (troca feita)
+   */
+  function aulasDoColega(classes, p) {
+    const turnos = (p.turnos || []).map(t => ({ ini: paraMin(t.inicio), fim: paraMin(t.fim) }))
+      .filter(t => t.ini != null && t.fim != null);
+    const cruza = (c) => {
+      const ini = paraMin(c.startTime), fim = paraMin(c.endTime);
+      return ini != null && fim != null && turnos.some(t => ini < t.fim && fim > t.ini);
+    };
+    const doDia = (classes || []).filter(c => c && diaISO(c.scheduledDate) === p.dia && cruza(c));
+    const ordena = (l) => l.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+    return {
+      aTransferir: ordena(doDia.filter(c => c.teacherId === p.colegaId && aulaConta(c))),
+      jaComAPessoa: ordena(doDia.filter(c => c.teacherId === p.pessoaId && c.originalTeacherId === p.colegaId)),
+    };
+  }
+
+  /**
+   * Aulas que a pessoa JÁ TEM no horário de uma aula que ela vai assumir. Se a
+   * troca for confirmada assim, ela fica em dois lugares ao mesmo tempo.
+   */
+  function choquesDeHorario(classesDaPessoa, aula) {
+    const dia = diaISO(aula && aula.scheduledDate);
+    const ini = paraMin(aula && aula.startTime), fim = paraMin(aula && aula.endTime);
+    if (!dia || ini == null || fim == null) return [];
+    return (classesDaPessoa || []).filter(c => {
+      if (!c || c.id === aula.id || !aulaConta(c) || diaISO(c.scheduledDate) !== dia) return false;
+      const i = paraMin(c.startTime), f = paraMin(c.endTime);
+      return i != null && f != null && i < fim && f > ini;
+    }).sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+  }
+
+  /** Quem está em dois lugares ao mesmo tempo no mês: trava o fechamento. */
+  function emDoisLugares(classes, ano, mes, scaleTypes) {
+    const ids = new Set();
+    (classes || []).forEach(c => { if (c && c.teacherId && aulaConta(c)) ids.add(c.teacherId); });
+    const out = [];
+    ids.forEach(id => {
+      const dias = agendaDoMes(classes, id, ano, mes, scaleTypes).filter(a => a.minutosEmDobro > 0)
+        .map(a => ({ dia: a.dia, minutos: a.minutosEmDobro, emDobro: a.emDobro }));
+      if (dias.length) out.push({ teacherId: id, dias, minutos: dias.reduce((s, d) => s + d.minutos, 0) });
+    });
+    return out;
   }
 
   /* ── situação e fechamento ───────────────────────────────────────── */
@@ -404,6 +577,7 @@
     INICIO_CONFERENCIA, STATUS_ATIVOS, ROTULOS, MAX_MINUTOS_DIA,
     paraMin, paraHHMM, fmtHoras, diaISO, aulaConta, minutosDaAula,
     agendaDoMes, validarDia, minutosDoDia, resumo, planoDoDia, plano, aulaAvulsa,
+    pesoDaAula, feriadosDasAulas, aulasDoColega, choquesDeHorario, emDoisLugares,
     situacao, pendenciasDoFechamento,
   };
 });

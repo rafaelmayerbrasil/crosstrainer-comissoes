@@ -322,6 +322,15 @@ function exige(txt, ondeNome, assuntos) {
     'dia fora da agenda': 'Incluir este dia',
     'só vale depois de validado': 'só passa a valer depois que a gestão validar',
     'no lugar de um colega é troca': 'no lugar de um colega',
+    // 06/10/2026 — "o feriado é o dobro né?" e o "−3h45" do Theo
+    'feriado conta em dobro, sem marcar': 'Feriado conta em dobro',
+    'dois lugares ao mesmo tempo': 'dois lugares ao mesmo tempo',
+  });
+  exige(admin, 'manual-admin', {
+    'ver os dias e horas de uma pessoa': 'Ver todos os dias e horas de uma pessoa',
+    'trabalhadas × para pagamento': 'Para pagamento',
+    'dois lugares trava o fechamento': 'Pessoa em dois lugares ao mesmo tempo',
+    'passar a aula do colega num clique': 'Passar para…',
   });
   exige(admin, 'manual-admin', {
     'a tela da gestão': 'id="horas-do-mes"',

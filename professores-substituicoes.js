@@ -128,6 +128,33 @@ async function subsAvisoAntesDeRegistrar(p) {
   return datas.length ? `${subsNomeProf(p.substitutoId)} fica com escalas próximas: ${subsListaDatas(datas)}` : '';
 }
 
+/**
+ * Quem vai assumir a aula JÁ TEM outra no mesmo horário? Se a troca for
+ * confirmada assim, a pessoa fica em dois lugares ao mesmo tempo e a hora
+ * conta em dobro — o Theo em 04/09/2026: cobriu o Bruno na CP das 16:30 às
+ * 21:15 com as próprias aulas da PP (18:00–21:30) ainda no nome dele.
+ * @returns {Promise<string>} '' quando não há o que avisar (ou não deu pra checar)
+ */
+async function subsAvisoDoisLugares(cls, substitutoId) {
+  try {
+    if (!cls || !substitutoId || typeof HourDeclaration !== 'object') return '';
+    const d = cls.scheduledDate && cls.scheduledDate.toDate ? cls.scheduledDate.toDate() : null;
+    if (!d) return '';
+    const snap = await db.collection('classes').where('teacherId', '==', substitutoId)
+      .where('scheduledDate', '>=', new Date(d.getFullYear(), d.getMonth(), d.getDate()))
+      .where('scheduledDate', '<', new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)).get();
+    const choques = HourDeclaration.choquesDeHorario(snap.docs.map(x => Object.assign({ id: x.id }, x.data())), cls);
+    if (!choques.length) return '';
+    const unidade = (id) => {
+      const u = ((typeof AgendaState === 'object' && AgendaState.units) || []).find(x => x.id === id);
+      return String((u && u.name) || id || '').replace(/^CrossTainer\s*/i, '');
+    };
+    const nome = subsNomeProf(substitutoId);
+    return `${nome} já tem aula nesse mesmo horário: ${choques.map(c => `${c.startTime}–${c.endTime}${c.unitId ? ' (' + unidade(c.unitId) + ')' : ''}`).join(', ')}. `
+      + `Ninguém dá duas aulas ao mesmo tempo: se ${nome} assumir esta, a outra precisa passar para quem deu (ou ser marcada como não realizada) — senão a hora conta em dobro e o fechamento do mês trava`;
+  } catch (e) { console.warn('[subs] aviso de dois lugares', e && e.message); return ''; }
+}
+
 const SUBS_STATUS_STYLE = {
   pending:           { label: 'Aguardando o colega confirmar', cor: 'var(--orange)' },
   aguardando_gestao: { label: 'Aguardando a gestão',           cor: 'var(--orange)' },
@@ -292,11 +319,20 @@ function renderSubCard(sub, lado) {
 async function subsHomologar(subId, semResposta) {
   const sub = (SubsState.todas || []).find(s => s.id === subId);
   const coladas = subsDatasColadas(sub);
-  const alerta = coladas.length
+  let choque = '';
+  if (sub && sub.classId) {
+    try {
+      const doc = await db.collection('classes').doc(sub.classId).get();
+      if (doc.exists) choque = await subsAvisoDoisLugares(Object.assign({ id: doc.id }, doc.data()), sub.substituteTeacherId);
+    } catch (e) { /* o aviso é ajuda, não trava */ }
+  }
+  const alerta = (coladas.length
     ? `⚠️ ${subsNomeProf(sub.substituteTeacherId)} fica com escalas próximas: ${subsListaDatas(coladas)}.
 
 `
-    : '';
+    : '') + (choque ? `⚠️ ${choque}.
+
+` : '');
   const aviso = alerta + (semResposta
     ? 'O professor ainda NÃO confirmou esta troca.\n\n'
       + 'Confirmando assim, a aula passa para o outro professor, o pagamento acompanha '

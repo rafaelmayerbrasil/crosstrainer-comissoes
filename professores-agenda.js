@@ -2208,6 +2208,15 @@ async function saveSubstitution() {
 Registrar a troca mesmo assim?`)) return;
   }
 
+  // Quem vai assumir já tem aula nesse horário? Avisa antes: confirmada assim,
+  // a pessoa fica em dois lugares ao mesmo tempo e a hora conta em dobro.
+  if (typeof subsAvisoDoisLugares === 'function') {
+    const choque = await subsAvisoDoisLugares(findClassAnywhere(classId), substituteTeacherId);
+    if (choque && !confirm(`${choque}.
+
+Registrar a troca mesmo assim?`)) return;
+  }
+
   const btn = document.getElementById('substitutionSaveBtn');
   btn.disabled = true; btn.textContent = 'Enviando…';
 

@@ -25,8 +25,10 @@ const HorasState = {
   // edição — o professor na própria tela, ou a gestão lançando por alguém (`alvo`)
   ano: null, mes: null, teacherId: null, alvo: null,
   classes: [], agenda: [], decl: null, dias: {}, editor: null, fechado: false, erro: null,
+  tipos: new Map(),     // tipos de escala (peso na folha)
+  feriados: {},         // feriados em dias que NÃO estão na agenda da pessoa: { dia: { peso, nome } }
   // lista da gestão
-  g: { ano: null, mes: null, classes: [], decls: [], vendo: null, erro: null },
+  g: { ano: null, mes: null, classes: [], decls: [], vendo: null, erro: null, tipos: new Map(), feriados: {} },
 };
 
 /* ─── utilidades ─────────────────────────────────────────────────── */
@@ -85,6 +87,32 @@ function horasPagina() {
   return document.getElementById(HorasState.alvo ? 'page-horas-do-mes' : 'page-minhas-horas');
 }
 function horasMinTxt(min) { return min >= 60 ? HourDeclaration.fmtHoras(min) : `${min} min`; }
+/** "CP", "PP" — como a academia fala. */
+function horasUnidade(id) {
+  const u = (AgendaState.units || []).find(x => x.id === id);
+  return String((u && u.name) || id || '').replace(/^CrossTainer\s*/i, '') || String(id || '');
+}
+function horasUnidadesTxt(ids) { return (ids || []).map(horasUnidade).filter(Boolean).join(' e '); }
+/** Feriado conta em dobro na folha — a tela fala em horas trabalhadas, então precisa dizer. */
+function horasChipPeso(l) {
+  if (!l || (!l.feriado && l.peso === 1)) return '';
+  const vezes = l.peso === 2 ? 'conta em dobro' : (l.peso !== 1 ? `conta ×${String(l.peso).replace('.', ',')}` : '');
+  const txt = [l.feriado ? 'feriado' : '', vezes].filter(Boolean).join(' · ');
+  return `<span class="chip-mini chip-orange" title="${escapeHtml(l.holidayName || '')}">${txt}</span>`;
+}
+/** "das 18:00 às 21:15" */
+function horasIntervalosTxt(lista) {
+  return (lista || []).map(x => `das ${x.inicio} às ${x.fim}`).join(' e ');
+}
+/** O aviso de quem aparece em duas aulas no mesmo horário. `quem`: 'você' ou o nome. */
+function horasDoisLugaresHtml(l, quem, comoResolver) {
+  if (!l || !(l.minutosEmDobro > 0)) return '';
+  const onde = (l.unidades || []).length > 1 ? ` (${horasUnidadesTxt(l.unidades)})` : '';
+  return `<div class="horas-alerta">⚠️ A agenda tem ${quem} em <b>dois lugares ao mesmo tempo</b> ${horasIntervalosTxt(l.emDobro)}${onde}
+    e soma <b>${HourDeclaration.fmtHoras(l.minutosEmDobro)} em dobro</b>. Vale uma vez só.${comoResolver ? ' ' + comoResolver : ''}</div>`;
+}
+/** Espera — separado para o teste não ter que esperar de verdade. */
+function horasEsperar(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /** Nomes de professor, modalidade e unidade — sem isso a tela mostra ID cru. */
 async function horasCarregarNomes() {
@@ -120,6 +148,29 @@ const HourDeclarationService = {
     const snap = await db.collection('classes')
       .where('scheduledDate', '>=', ini).where('scheduledDate', '<', fim).get();
     return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  },
+  /** Tipos de escala (peso na folha). Sem acesso ou sem cadastro, vale a regra padrão: feriado em dobro. */
+  async tiposDeEscala() {
+    try {
+      const snap = await db.collection('special_scale_types').get();
+      return new Map(snap.docs.map(d => [d.id, d.data()]));
+    } catch (e) { console.warn('[horas] tipos de escala', e && e.message); return new Map(); }
+  },
+  /** Todas as aulas de UM dia (de qualquer pessoa) — é como se sabe que o dia é feriado. */
+  async aulasDoDia(dia) {
+    const [a, m, d] = String(dia).split('-').map(Number);
+    const snap = await db.collection('classes')
+      .where('scheduledDate', '>=', new Date(a, m - 1, d)).where('scheduledDate', '<', new Date(a, m - 1, d + 1)).get();
+    return snap.docs.map(x => Object.assign({ id: x.id }, x.data()));
+  },
+  /** Feriados entre os dias pedidos: `{ dia: { peso, nome } }`. Falha vira "não sei" — nunca inventa feriado. */
+  async feriadosDosDias(dias, tipos) {
+    const out = {};
+    for (const dia of dias || []) {
+      try { Object.assign(out, HourDeclaration.feriadosDasAulas(await this.aulasDoDia(dia), tipos)); }
+      catch (e) { console.warn('[horas] feriado do dia', dia, e && e.message); }
+    }
+    return out;
   },
   // Por CONSULTA, não por leitura direta do documento: quando a declaração ainda
   // não existe, a regra do professor não tem o que comparar e a leitura direta
@@ -172,9 +223,15 @@ const HourDeclarationService = {
       if (classes.some(c => !!c.monthClosingId)) {
         return { success: false, error: 'Mês já fechado — as horas não podem mais ser ajustadas.' };
       }
-      const agenda = H.agendaDoMes(classes, teacherId, ano, m);
+      const tipos = await this.tiposDeEscala();
+      const agenda = H.agendaDoMes(classes, teacherId, ano, m, tipos);
       const pl = H.plano(agenda, decl);
       if (pl.erros.length) return { success: false, error: 'Há dia com horário inválido: ' + pl.erros.join(' · ') };
+      // Turno novo num dia em que a pessoa não tinha aula: se o dia é feriado,
+      // a aula nasce marcada — senão a folha pagaria hora simples.
+      const comAula = new Set(agenda.map(a => a.dia));
+      const feriados = await this.feriadosDosDias(
+        pl.porDia.filter(d => d.novas.length && !comAula.has(d.dia)).map(d => d.dia), tipos);
 
       const uid = currentUserId();
       const t = AgendaState.teachersMap.get(teacherId) || {};
@@ -195,7 +252,8 @@ const HourDeclarationService = {
       for (const d of pl.porDia) {
         d.ops.forEach(op => tocadas.set(op.classId, Object.assign({}, op.campos, carimbo)));
         for (const nova of d.novas) {
-          const aula = H.aulaAvulsa({ dia: d.dia, nova, teacherId, agendaDia: porDia.get(d.dia) || null, padrao, declaracaoId: id });
+          const aula = H.aulaAvulsa({ dia: d.dia, nova, teacherId, agendaDia: porDia.get(d.dia) || null, padrao, declaracaoId: id,
+            feriado: feriados[d.dia] || null });
           if (!aula.unitId) {
             return { success: false, error: 'Falta a unidade principal na ficha dessa pessoa — sem ela não dá para criar o turno de '
               + d.dia.slice(8, 10) + '/' + d.dia.slice(5, 7) + '.' };
@@ -313,18 +371,25 @@ async function horasCarregar() {
   HorasState.editor = null; HorasState.erro = null;
   try {
     await horasCarregarNomes();
-    const [classes, decl] = await Promise.all([
+    const [classes, decl, tipos] = await Promise.all([
       HourDeclarationService.aulasDaPessoa(teacherId, ano, mes),
       HourDeclarationService.daPessoa(teacherId, horasMesStr(ano, mes)),
+      HourDeclarationService.tiposDeEscala(),
     ]);
     HorasState.classes = classes;
-    HorasState.agenda = H.agendaDoMes(classes, teacherId, ano, mes);
+    HorasState.tipos = tipos;
+    HorasState.agenda = H.agendaDoMes(classes, teacherId, ano, mes, tipos);
     HorasState.decl = decl;
     HorasState.dias = Object.assign({}, (decl && decl.dias) || {});
     HorasState.fechado = classes.some(c => !!c.monthClosingId);
+    // Dia que a pessoa incluiu e não está na agenda dela: é feriado? Quem sabe
+    // é a agenda do dia inteiro ("o feriado é o dobro né?" — Theo, 06/10/2026).
+    const comAula = new Set(HorasState.agenda.map(a => a.dia));
+    HorasState.feriados = await HourDeclarationService.feriadosDosDias(
+      Object.keys(HorasState.dias).filter(d => !comAula.has(d)), tipos);
   } catch (err) {
     console.error('[horas] carregar', err);
-    HorasState.classes = []; HorasState.agenda = []; HorasState.decl = null; HorasState.dias = {};
+    HorasState.classes = []; HorasState.agenda = []; HorasState.decl = null; HorasState.dias = {}; HorasState.feriados = {};
     HorasState.erro = (err && err.message) || 'erro desconhecido';
   }
 }
@@ -382,10 +447,12 @@ function horasDesenhar() {
   // Depois de validada, a agenda JÁ É o que foi validado: pôr a declaração por
   // cima mostraria a mesma diferença duas vezes.
   const sobrepor = gestao || !(sit === 'validada' || sit === 'dispensada');
-  const r = H.resumo(HorasState.agenda, { dias: sobrepor ? HorasState.dias : {} });
+  const r = H.resumo(HorasState.agenda, { dias: sobrepor ? HorasState.dias : {} }, { feriados: HorasState.feriados });
   const linhas = r.dias.filter(l => l.dia <= hoje || l.declarado);
   const minAgenda = linhas.reduce((s, l) => s + l.minutosAgenda, 0);
   const minInf = linhas.reduce((s, l) => s + l.minutosInformados, 0);
+  const pagAgenda = linhas.reduce((s, l) => s + l.minutosPagosAgenda, 0);
+  const pagInf = linhas.reduce((s, l) => s + l.minutosPagosInformados, 0);
   const nMudou = linhas.filter(l => l.mudou).length;
   const mesEmAndamento = r.dias.length > linhas.length;
 
@@ -424,6 +491,8 @@ function horasDesenhar() {
       <div><span>Pela agenda${mesEmAndamento ? ' até hoje' : ''}</span><b>${H.fmtHoras(minAgenda)}</b></div>
       ${nMudou ? `<div><span>${gestao ? 'Informado' : 'Você informou'}</span><b>${H.fmtHoras(minInf)}</b></div>
       <div><span>Diferença</span><b class="${delta < 0 ? 'horas-menos' : 'horas-mais'}">${delta ? H.fmtHoras(delta, { sinal: true }) : 'nenhuma'}</b></div>` : ''}
+      ${(pagAgenda !== minAgenda || pagInf !== minInf) ? `<div><span>Para pagamento</span><b>${H.fmtHoras(nMudou ? pagInf : pagAgenda)}</b>
+        <small class="horas-sub">as horas ${nMudou ? (gestao ? 'informadas' : 'que você informou') : 'da agenda'}, com o feriado contando em dobro</small></div>` : ''}
     </div>`;
 
   /* — dias — */
@@ -468,9 +537,15 @@ function horasLinhaHtml(l, leitura) {
   const H = HourDeclaration;
   const editando = HorasState.editor && HorasState.editor.dia === l.dia;
   const fora = l.foraDaAgenda;
+  const gestao = !!HorasState.alvo;
+  const chipPeso = horasChipPeso(l);
   const daAgenda = fora
-    ? `não estava na agenda · ${fora === 'no_lugar_de' ? 'no lugar de ' + escapeHtml(horasNome(l.noLugarDe)) : 'turno a mais'}`
-    : `${horasTurnosTxt(l.turnosAgenda)} <span class="horas-min">${H.fmtHoras(l.minutosAgenda)}</span>`;
+    ? `não estava na agenda · ${fora === 'no_lugar_de' ? 'no lugar de ' + escapeHtml(horasNome(l.noLugarDe)) : 'turno a mais'} ${chipPeso}`
+      + (fora === 'no_lugar_de' ? `<div class="horas-sub">Estas horas entram na ${gestao ? 'conta da pessoa' : 'sua conta'} quando a gestão registrar a troca com ${escapeHtml(horasNome(l.noLugarDe))}${gestao ? ' — na lista, em "Ver o que muda"' : ' — você não precisa fazer mais nada'}.</div>` : '')
+    : `${horasTurnosTxt(l.turnosAgenda)} <span class="horas-min">${H.fmtHoras(l.minutosAgenda)}</span> ${chipPeso}`;
+  const doisLugares = horasDoisLugaresHtml(l, gestao ? 'essa pessoa' : 'você',
+    l.declarado ? 'O que foi informado neste dia já conta uma vez só.'
+      : (leitura ? '' : 'Toque em <b>Corrigir</b> e confirme os horários deste dia.'));
   let informado = '';
   if (l.mudou) {
     const oQue = l.erro ? `<span class="horas-menos">${escapeHtml(l.erro)}</span>`
@@ -489,6 +564,7 @@ function horasLinhaHtml(l, leitura) {
         <div class="horas-dia-info"><div class="horas-dia-turnos">${daAgenda}</div>${informado}</div>
         <div class="horas-dia-acoes">${acoes}</div>
       </div>
+      ${doisLugares}
       ${editando ? horasEditorHtml() : ''}
     </div>`;
 }
@@ -551,9 +627,18 @@ function horasPreviaTexto() {
   if (!v.ok) return '';
   const min = v.turnos.reduce((s, t) => s + (t.fim - t.ini), 0);
   const ag = horasAgendaDoDia(e.dia);
-  if (!ag) return `Neste dia: ${H.fmtHoras(min)}`;
+  if (!ag) {
+    const f = HorasState.feriados[e.dia];
+    return `Neste dia: ${H.fmtHoras(min)}` + (f && f.peso !== 1 ? ` · feriado: na folha conta ${H.fmtHoras(min * f.peso)}` : '');
+  }
   const d = min - ag.minutos;
-  return `Neste dia: ${H.fmtHoras(min)} · pela agenda: ${H.fmtHoras(ag.minutos)}${d ? ' · ' + H.fmtHoras(d, { sinal: true }) : ' · igual'}`;
+  // Sem isto a conta parece punição: "11h30 · pela agenda 14h45 · −3h15" num dia
+  // em que a pessoa só confirmou os horários (Theo, 04/09/2026).
+  const dobro = ag.minutosEmDobro > 0
+    ? ` — a agenda soma ${H.fmtHoras(ag.minutosEmDobro)} em dobro (dois lugares ao mesmo tempo, ${horasIntervalosTxt(ag.emDobro)}); vale uma vez só`
+    : '';
+  const fer = ag.feriado && ag.peso !== 1 ? ` · feriado: na folha conta ${H.fmtHoras(min * ag.peso)}` : '';
+  return `Neste dia: ${H.fmtHoras(min)} · pela agenda: ${H.fmtHoras(ag.minutos)}${d ? ' · ' + H.fmtHoras(d, { sinal: true }) : ' · igual'}${dobro}${fer}`;
 }
 function horasAtualizarPrevia() {
   const el = document.getElementById('horasPrevia');
@@ -647,6 +732,14 @@ function horasNovoDia(iso) {
   }
   HorasState.editor = { dia: iso, novo: true, erro: '', turnos: [{ inicio: '', fim: '' }], naoTrabalhei: false, fora: null, noLugarDe: null, obs: '' };
   horasDesenhar();
+  // É feriado? A pessoa não tem aula nesse dia, então quem diz é a agenda do dia.
+  if (!HorasState.feriados[iso]) {
+    HourDeclarationService.feriadosDosDias([iso], HorasState.tipos).then(f => {
+      if (!f[iso]) return;
+      Object.assign(HorasState.feriados, f);
+      horasAtualizarPrevia();
+    }).catch(() => {});
+  }
 }
 
 async function horasGravar(campos) {
@@ -683,7 +776,9 @@ async function horasConfirmarDia() {
   dec.turnos = v.turnos.map(t => ({ inicio: H.paraHHMM(t.ini), fim: H.paraHHMM(t.fim) }));
 
   const ag = horasAgendaDoDia(e.dia);
-  const igual = !!ag && !dec.naoTrabalhei && ag.turnos.length === dec.turnos.length
+  // Num dia em dois lugares ao mesmo tempo, confirmar os MESMOS horários já é
+  // correção: é o que faz o tempo contar uma vez só.
+  const igual = !!ag && !dec.naoTrabalhei && !(ag.minutosEmDobro > 0) && ag.turnos.length === dec.turnos.length
     && ag.turnos.every((t, i) => t.inicio === dec.turnos[i].inicio && t.fim === dec.turnos[i].fim);
   const tinha = !!HorasState.dias[e.dia];
   const antes = tinha ? HorasState.dias[e.dia] : undefined;
@@ -721,7 +816,7 @@ async function horasEnviar() {
     if (gestao) { toast('Nenhum dia foi corrigido. Para fechar sem mudança, use "Fechar valendo a agenda" na lista.', 'error'); return; }
     return horasConfirmarIgual();
   }
-  const r = H.resumo(HorasState.agenda, { dias: HorasState.dias });
+  const r = H.resumo(HorasState.agenda, { dias: HorasState.dias }, { feriados: HorasState.feriados });
   const comErro = r.dias.filter(l => l.erro);
   if (comErro.length) { toast(`Corrija o dia ${comErro[0].dia.slice(8, 10)}/${comErro[0].dia.slice(5, 7)}: ${comErro[0].erro}`, 'error'); return; }
 
@@ -752,6 +847,11 @@ async function horasConfirmarIgual() {
   if (n) { toast(`Você corrigiu ${n} ${n === 1 ? 'dia' : 'dias'}. Envie para a gestão, ou volte esses dias ao da agenda.`, 'error'); return; }
   const mesNome = horasMesNome(HorasState.ano, HorasState.mes);
   if (!horasPodeEnviar()) { toast(`O envio abre depois da última aula de ${mesNome}.`, 'error'); return; }
+  const emDobro = HorasState.agenda.filter(a => a.minutosEmDobro > 0);
+  if (emDobro.length) {
+    toast(`No dia ${emDobro[0].dia.slice(8, 10)}/${emDobro[0].dia.slice(5, 7)} a agenda tem você em dois lugares ao mesmo tempo. Toque em "Corrigir" nesse dia e confirme os seus horários antes de enviar.`, 'error', 9000);
+    return;
+  }
   const min = HorasState.agenda.reduce((s, a) => s + a.minutos, 0);
   if (!confirm(`Confirmar que ${mesNome} foi igual à agenda?\n\nTotal: ${H.fmtHoras(min)}\n\nSe algum dia foi diferente, cancele e corrija o dia antes.`)) return;
   const ok = await horasGravar({
@@ -789,21 +889,23 @@ async function renderHorasGestaoPage() {
   page.innerHTML = `<div class="loading"><div class="spinner"></div> Carregando…</div>`;
   try {
     await horasCarregarNomes();
-    const [classes, decls] = await Promise.all([
+    const [classes, decls, tipos] = await Promise.all([
       HourDeclarationService.aulasDoMes(g.ano, g.mes),
       HourDeclarationService.doMes(horasMesStr(g.ano, g.mes)),
+      HourDeclarationService.tiposDeEscala(),
     ]);
     g.classes = classes; g.decls = decls; g.erro = null;
+    g.tipos = tipos; g.feriados = HourDeclaration.feriadosDasAulas(classes, tipos);
   } catch (err) {
     console.error('[horas gestão] carregar', err);
-    g.classes = []; g.decls = []; g.erro = (err && err.message) || 'erro desconhecido';
+    g.classes = []; g.decls = []; g.feriados = {}; g.erro = (err && err.message) || 'erro desconhecido';
   }
   horasGestaoDesenhar();
 }
 
-/** Atalho de outras telas (fechamento, home): abre a lista já no mês certo. */
-function horasGestaoAbrirMes(ano, mes) {
-  HorasState.g.ano = Number(ano); HorasState.g.mes = Number(mes); HorasState.g.vendo = null;
+/** Atalho de outras telas (fechamento, home): abre a lista já no mês certo — e, com `id`, já nas horas da pessoa. */
+function horasGestaoAbrirMes(ano, mes, id) {
+  HorasState.g.ano = Number(ano); HorasState.g.mes = Number(mes); HorasState.g.vendo = id || null;
   if (typeof navigateTo === 'function') navigateTo('horas-do-mes');
 }
 async function horasGestaoMudarMes(valor) {
@@ -823,16 +925,20 @@ function horasGestaoPessoas() {
   g.decls.forEach(d => { if (d.teacherId) ids.add(d.teacherId); });
   const ordem = { enviada: 0, devolvida: 1, rascunho: 1, nao_conferiu: 1, validada: 3, dispensada: 3 };
   return Array.from(ids).map(id => {
-    const agenda = H.agendaDoMes(g.classes, id, g.ano, g.mes);
+    const agenda = H.agendaDoMes(g.classes, id, g.ano, g.mes, g.tipos);
     const decl = porPessoa.get(id) || null;
     const sit = H.situacao(decl);
     const aValidar = sit === 'enviada' && decl.semDiferenca !== true;
     const temDias = !!decl && Object.keys(decl.dias || {}).length > 0;
+    // Dias em dois lugares que NINGUÉM corrigiu ainda: a folha pagaria em dobro.
+    const corrigidos = (aValidar || sit === 'rascunho' || sit === 'devolvida') ? ((decl && decl.dias) || {}) : {};
+    const emDobro = agenda.filter(a => a.minutosEmDobro > 0 && !(aValidar && corrigidos[a.dia]));
     return {
-      id, nome: horasNome(id), agenda, decl, sit, aValidar, temDias,
+      id, nome: horasNome(id), agenda, decl, sit, aValidar, temDias, emDobro,
       fechado: g.classes.some(c => c.teacherId === id && !!c.monthClosingId),
       minutosAgenda: agenda.reduce((s, a) => s + a.minutos, 0),
-      r: temDias ? H.resumo(agenda, decl) : null,
+      minutosPagos: agenda.reduce((s, a) => s + a.minutosPagos, 0),
+      r: temDias ? H.resumo(agenda, decl, { feriados: g.feriados }) : null,
       pl: aValidar ? H.plano(agenda, decl) : null,
       peso: aValidar ? 0 : (sit === 'enviada' ? 2 : ordem[sit]),
     };
@@ -862,6 +968,7 @@ function horasGestaoDesenhar() {
   const naoConf = pessoas.filter(p => !p.fechado && (p.sit === 'nao_conferiu' || p.sit === 'rascunho' || p.sit === 'devolvida'));
   const cobra = horasMesStr(g.ano, g.mes) >= H.INICIO_CONFERENCIA;
   const pessoasTxt = (n) => `${n} ${n === 1 ? 'pessoa' : 'pessoas'}`;
+  const emDobro = pessoas.filter(p => !p.fechado && p.emDobro.length);
 
   const resumo = `<div class="info-callout" style="margin-bottom:12px;">
       ${aValidar.length
@@ -872,6 +979,11 @@ function horasGestaoDesenhar() {
         ? `<p><strong>${pessoasTxt(naoConf.length)} ainda não ${naoConf.length === 1 ? 'conferiu' : 'conferiram'}.</strong> ${cobra
             ? `Isso trava o fechamento de ${mesNome}: ou a pessoa confere, ou você decide em "Fechar valendo a agenda" (use "Ver as horas" antes).`
             : `Em ${mesNome} isso não trava o fechamento — a conferência passa a ser cobrada a partir de ${horasMesNome(...H.INICIO_CONFERENCIA.split('-').map(Number))}.`}</p>`
+        : ''}
+      ${emDobro.length
+        ? `<p>⚠️ <strong>${pessoasTxt(emDobro.length)} em dois lugares ao mesmo tempo:</strong> ${emDobro.map(p => escapeHtml(p.nome)).join(', ')}.
+            A agenda conta o mesmo horário duas vezes (em geral, cobriu um colega e a aula própria continuou no nome dela) — <strong>isso trava o fechamento</strong>.
+            Para acertar: "Lançar as horas" (ou "Corrigir") na linha da pessoa, "Corrigir" no dia marcado, confirmar os horários e validar. Se outra pessoa deu a aula que sobrou, registre a troca em Substituições.</p>`
         : ''}
     </div>`;
 
@@ -899,6 +1011,9 @@ function horasGestaoLinhaHtml(p) {
   else { chip = `<span class="chip-mini chip-yellow">${H.ROTULOS.nao_conferiu}</span>`; }
 
   const b = (rotulo, fn, cls) => `<button class="btn ${cls || 'btn-ghost'} btn-sm" onclick="${fn}('${p.id}')">${rotulo}</button>`;
+  if (!p.fechado && p.emDobro.length) {
+    chip += ` <span class="chip-mini chip-orange">⚠️ em dois lugares: ${p.emDobro.map(a => a.dia.slice(8, 10) + '/' + a.dia.slice(5, 7)).join(', ')}</span>`;
+  }
   const ver = b(aberto ? 'Fechar' : (p.aValidar ? 'Ver o que muda' : 'Ver as horas'), 'horasGestaoVer', 'btn-outline');
   let botoes = ver;
   if (!p.fechado) {
@@ -909,7 +1024,7 @@ function horasGestaoLinhaHtml(p) {
   }
   return `<div class="horas-dia horas-pessoa${p.aValidar ? ' horas-dia-mudou' : ''}">
       <div class="horas-dia-cab">
-        <div class="horas-dia-data" style="min-width:150px;"><b>${escapeHtml(p.nome)}</b><div class="horas-sub">agenda: ${H.fmtHoras(p.minutosAgenda)}</div></div>
+        <div class="horas-dia-data" style="min-width:150px;"><b>${escapeHtml(p.nome)}</b><div class="horas-sub">agenda: ${H.fmtHoras(p.minutosAgenda)}${p.minutosPagos !== p.minutosAgenda ? ` · para pagamento: ${H.fmtHoras(p.minutosPagos)}` : ''}</div></div>
         <div class="horas-dia-info">${chip}${texto ? `<div class="horas-sub" style="margin-top:4px;">${texto}</div>` : ''}</div>
         <div class="horas-dia-acoes">${botoes}</div>
       </div>
@@ -918,15 +1033,47 @@ function horasGestaoLinhaHtml(p) {
 }
 
 /** O que a pessoa informou, dia a dia, e o que isso muda nas aulas. Sem declaração, a agenda. */
+/**
+ * Um dia informado "no lugar de um colega": o que a agenda tem do colega e o
+ * botão que passa as aulas para quem trabalhou. Até 06/10/2026 a tela só dizia
+ * "registre a troca em Substituições" — e a gestão tinha que refazer à mão o
+ * que o professor já tinha informado.
+ */
+function horasPendenciaHtml(p, dia, turnos, colegaId) {
+  const H = HourDeclaration;
+  const x = H.aulasDoColega(HorasState.g.classes, { dia, turnos, colegaId, pessoaId: p.id });
+  const colega = escapeHtml(horasNome(colegaId));
+  const lista = (l) => l.map(c => `${c.startTime}–${c.endTime} · ${escapeHtml(horasUnidade(c.unitId))}${c.isHoliday === true || c.specialScaleType === 'feriado' ? ' · feriado' : ''}`).join(', ');
+  if (x.aTransferir.length) {
+    return `Na agenda desse dia, ${colega} tem: <b>${lista(x.aTransferir)}</b>.
+      ${p.fechado ? '' : `<button class="btn btn-primary btn-sm" style="width:auto;margin-left:6px;" onclick="horasGestaoPassarAulas('${p.id}','${dia}')">Passar para ${escapeHtml(p.nome)}</button>`}
+      <div class="horas-sub">A aula sai do nome de ${colega} e entra no de ${escapeHtml(p.nome)}; o pagamento acompanha. É a troca de professor, já confirmada por você.</div>`;
+  }
+  if (x.jaComAPessoa.length) return `✅ Troca registrada: ${lista(x.jaComAPessoa)} já ${x.jaComAPessoa.length === 1 ? 'está' : 'estão'} no nome de ${escapeHtml(p.nome)}.`;
+  return `Não achei aula de ${colega} nesse horário na agenda do dia. Confira com os dois e, se for o caso, registre a troca em Substituições.`;
+}
+
 function horasGestaoDetalheHtml(p) {
   const H = HourDeclaration;
   if (!p.temDias || p.sit === 'validada' || p.sit === 'dispensada') {
-    const dias = p.agenda.map(a => `<div class="horas-det-dia"><b>${horasDiaTexto(a.dia)}</b> · ${horasTurnosTxt(a.turnos)} · ${H.fmtHoras(a.minutos)}</div>`).join('');
-    const pend = (p.sit === 'validada' && p.decl.aplicado && (p.decl.aplicado.pendencias || []).length)
-      ? `<div class="horas-det-rodape">Informado no lugar de um colega, <b>não entrou por aqui</b> (registre a troca em Substituições): ${p.decl.aplicado.pendencias.map(x =>
-          `${x.dia.slice(8, 10)}/${x.dia.slice(5, 7)} ${x.inicio}–${x.fim}${x.noLugarDe ? ' (' + escapeHtml(horasNome(x.noLugarDe)) + ')' : ''}`).join(' · ')}</div>` : '';
+    const dias = p.agenda.map(a => {
+      const colegas = Array.from(new Set(a.aulas.map(x => x.noLugarDe).filter(Boolean)));
+      return `<div class="horas-det-dia"><b>${horasDiaTexto(a.dia)}</b> · ${horasTurnosTxt(a.turnos)}${a.unidades.length ? ' · ' + escapeHtml(horasUnidadesTxt(a.unidades)) : ''} · <b>${H.fmtHoras(a.minutos)}</b>
+        ${horasChipPeso(a)}${a.peso !== 1 ? ` <span class="horas-sub">na folha: ${H.fmtHoras(a.minutosPagos)}</span>` : ''}
+        ${colegas.length ? `<span class="chip-mini chip-green">troca · no lugar de ${colegas.map(c => escapeHtml(horasNome(c))).join(', ')}</span>` : ''}
+        ${horasDoisLugaresHtml(a, escapeHtml(p.nome), '')}</div>`;
+    }).join('');
+    const pendencias = (p.sit === 'validada' && p.decl.aplicado && p.decl.aplicado.pendencias) || [];
+    const porDiaPend = new Map();
+    pendencias.forEach(x => { if (!porDiaPend.has(x.dia)) porDiaPend.set(x.dia, []); porDiaPend.get(x.dia).push(x); });
+    const pend = pendencias.length
+      ? `<div class="horas-det-rodape">Informado <b>no lugar de um colega</b> — só entra quando a aula passar para ${escapeHtml(p.nome)}:
+          ${Array.from(porDiaPend.entries()).map(([dia, l]) => `<div class="horas-det-dia"><b>${horasDiaTexto(dia)}</b> · ${l.map(x => `${x.inicio}–${x.fim}`).join(' · ')} · no lugar de ${escapeHtml(horasNome(l[0].noLugarDe))}<br>
+            ${horasPendenciaHtml(p, dia, l.map(x => ({ inicio: x.inicio, fim: x.fim })), l[0].noLugarDe)}</div>`).join('')}</div>` : '';
+    const total = `<div class="horas-det-rodape">Trabalhadas: <b>${H.fmtHoras(p.minutosAgenda)}</b>${p.minutosPagos !== p.minutosAgenda
+      ? ` · Para pagamento: <b>${H.fmtHoras(p.minutosPagos)}</b> <span class="horas-sub">(${p.agenda.filter(a => a.peso !== 1).map(a => `${a.dia.slice(8, 10)}/${a.dia.slice(5, 7)}${a.feriado ? ', feriado,' : ''} conta ${a.peso === 2 ? 'em dobro' : '×' + String(a.peso).replace('.', ',')}`).join('; ')})</span>` : ''}</div>`;
     return `<div class="horas-detalhe"><div class="horas-sub" style="margin-bottom:6px;">O que a agenda registra em ${horasMesNome(HorasState.g.ano, HorasState.g.mes)}:</div>
-      ${dias || '<div class="horas-sub">Nenhuma aula que conta neste mês.</div>'}${pend}</div>`;
+      ${dias ? dias + total : '<div class="horas-sub">Nenhuma aula que conta neste mês.</div>'}${pend}</div>`;
   }
   const pl = p.pl || H.plano(p.agenda, p.decl);
   const porDia = new Map(pl.porDia.map(x => [x.dia, x]));
@@ -935,25 +1082,34 @@ function horasGestaoDetalheHtml(p) {
     const itens = [];
     pd.novas.forEach(n => itens.push(`${n.inicio}–${n.fim} — <b>turno novo</b> (${H.fmtHoras(n.minutos)}): vira aula na agenda da pessoa`));
     pd.ops.forEach(op => {
-      if (op.campos.status === 'nao_realizada') { itens.push(`${op.inicio}–${op.fim} — <b>não realizada</b>: sai da conta de horas`); return; }
+      const un = op.unitId && (l.unidades || []).length > 1 ? ` (${escapeHtml(horasUnidade(op.unitId))})` : '';
+      if (op.campos.status === 'nao_realizada') {
+        itens.push(op.motivo === 'dois_lugares'
+          ? `${op.inicio}–${op.fim}${un} — <b>sai da conta</b>: no mesmo horário a pessoa estava em outra aula (a da troca confirmada). A hora conta uma vez só. Se outra pessoa deu esta aula, registre a troca em Substituições.`
+          : `${op.inicio}–${op.fim}${un} — <b>não realizada</b>: sai da conta de horas`);
+        return;
+      }
       const c = op.campos, partes = [];
+      if (op.motivo === 'dois_lugares') partes.push('parte do horário já conta em outra aula');
       if (c.atrasoMinutos) partes.push(`entrou ${horasMinTxt(c.atrasoMinutos)} depois`);
       if (c.saidaAntecipadaMinutos) partes.push(`saiu ${horasMinTxt(c.saidaAntecipadaMinutos)} antes`);
       if (c.horaExtraMinutos) partes.push(`+${horasMinTxt(c.horaExtraMinutos)} além do horário`);
-      itens.push(`${op.inicio}–${op.fim} — ${partes.length ? partes.join(', ') : 'volta ao horário cheio'}`);
+      itens.push(`${op.inicio}–${op.fim}${un} — ${partes.length ? partes.join(', ') : 'volta ao horário cheio'}`);
     });
-    pd.pendencias.forEach(x => itens.push(`${x.inicio}–${x.fim} — <b>no lugar de ${escapeHtml(horasNome(x.noLugarDe))}</b>: não entra por aqui. Registre a troca em Substituições, senão os dois receberiam.`));
+    if (pd.pendencias.length) {
+      itens.push(`<b>no lugar de ${escapeHtml(horasNome(pd.pendencias[0].noLugarDe))}</b>: só entra quando a aula passar para ${escapeHtml(p.nome)} — senão os dois receberiam.<br>`
+        + horasPendenciaHtml(p, l.dia, pd.pendencias.map(x => ({ inicio: x.inicio, fim: x.fim })), pd.pendencias[0].noLugarDe));
+    }
     if (l.erro) itens.push(`<span class="horas-menos">${escapeHtml(l.erro)}</span>`);
     if (!itens.length) itens.push('sem mudança nas aulas');
     const de = l.turnosAgenda.length ? horasTurnosTxt(l.turnosAgenda) : 'fora da agenda';
     // A tela fala em horas TRABALHADAS. Em feriado a folha paga em dobro — dizer
     // aqui evita a gestão validar "+2h" e estranhar "+4h" no fechamento.
-    const agDia = p.agenda.find(a => a.dia === l.dia);
-    const feriado = !!agDia && agDia.aulas.some(a => a.isHoliday);
     const para = l.naoTrabalhei ? 'não trabalhou' : horasTurnosTxt(l.turnosInformados);
     return `<div class="horas-det-dia"><b>${horasDiaTexto(l.dia)}</b> · ${de} → <b>${para}</b>
         ${l.delta ? `<span class="chip-mini ${l.delta < 0 ? 'chip-yellow' : 'chip-green'}">${H.fmtHoras(l.delta, { sinal: true })}</span>` : ''}
-        ${feriado ? '<span class="chip-mini chip-orange">feriado · a folha paga em dobro</span>' : ''}
+        ${horasChipPeso(l)}
+        ${horasDoisLugaresHtml(l, escapeHtml(p.nome), 'Ao validar, fica a aula da troca confirmada e a outra sai (veja abaixo).')}
         ${l.obs ? `<div class="horas-sub">"${escapeHtml(l.obs)}"</div>` : ''}
         <ul>${itens.map(i => `<li>${i}</li>`).join('')}</ul></div>`;
   }).join('');
@@ -964,6 +1120,59 @@ function horasGestaoDetalheHtml(p) {
         ${pl.minutosPendentes ? ` ${H.fmtHoras(pl.minutosPendentes)} informadas no lugar de um colega não entram por aqui.` : ''}
         ${avisos ? ` ${avisos} aviso(s) da pessoa nesses dias ${avisos === 1 ? 'fica respondido' : 'ficam respondidos'}: vale o horário informado aqui.` : ''}</div>
     </div>`;
+}
+
+/**
+ * Passa para a pessoa as aulas do colega no dia que ela informou "no lugar de".
+ * É a troca de professor de sempre (registro + confirmação da gestão): a
+ * Function move a aula, a escala acompanha e os dois são avisados.
+ */
+async function horasGestaoPassarAulas(id, dia) {
+  const H = HourDeclaration;
+  if (!horasEhGestao()) return;
+  const g = HorasState.g;
+  const p = horasGestaoPessoas().find(x => x.id === id);
+  const dec = p && p.decl && p.decl.dias ? p.decl.dias[dia] : null;
+  if (!p || !dec || !dec.noLugarDe) { toast('Não achei esse dia nas horas informadas — atualize a tela.', 'error'); return; }
+  if (typeof SubstitutionService !== 'object') { toast('Não consegui registrar a troca por aqui. Use Substituições.', 'error'); return; }
+  const x = H.aulasDoColega(g.classes, { dia, turnos: dec.turnos || [], colegaId: dec.noLugarDe, pessoaId: id });
+  if (!x.aTransferir.length) { toast('Nenhuma aula do colega para passar nesse horário.', 'info'); return; }
+  if (x.aTransferir.some(c => !!c.monthClosingId)) { toast('O mês dessa aula já foi fechado.', 'error'); return; }
+  const colega = horasNome(dec.noLugarDe);
+  const quando = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+  const lista = x.aTransferir.map(c => `• ${c.startTime}–${c.endTime} · ${horasUnidade(c.unitId)}${c.isHoliday === true || c.specialScaleType === 'feriado' ? ' · feriado (conta em dobro)' : ''}`).join('\n');
+  if (!confirm(`Passar para ${p.nome} ${x.aTransferir.length === 1 ? 'a aula' : 'as aulas'} de ${colega} em ${quando}?\n\n${lista}\n\n`
+    + `${x.aTransferir.length === 1 ? 'A aula sai' : 'As aulas saem'} do nome de ${colega} e ${x.aTransferir.length === 1 ? 'entra' : 'entram'} no de ${p.nome}; o pagamento acompanha. Os dois são avisados.`)) return;
+
+  const motivo = `Informado por ${p.nome} em Minhas horas do mês${dec.obs ? ': ' + dec.obs : ''}`;
+  let feitas = 0; const falhas = [];
+  for (const c of x.aTransferir) {
+    const res = await SubstitutionService.create({ classId: c.id, substituteTeacherId: id, reason: motivo, registradoPor: 'gestao' });
+    if (!res.success) { falhas.push(`${c.startTime}: ${res.error || 'falha'}`); continue; }
+    const hom = await SubstitutionService.homologar(res.data.id, motivo);
+    if (!hom.success) { falhas.push(`${c.startTime}: registrada, mas não confirmada (${hom.error || 'falha'}) — confirme em Substituições`); continue; }
+    feitas++;
+  }
+  if (falhas.length) toast(`${feitas} aula(s) passada(s). Não consegui — ${falhas.join(' · ')}`, 'error', 10000);
+  if (!feitas) return;
+
+  // Quem move a aula é a Function, alguns segundos depois da confirmação.
+  const ids = x.aTransferir.map(c => c.id);
+  let moveu = false;
+  for (let i = 0; i < 12 && !moveu; i++) {
+    await horasEsperar(1500);
+    try {
+      const docs = await Promise.all(ids.map(cid => db.collection('classes').doc(cid).get()));
+      moveu = docs.some(d => d.exists && d.data().teacherId === id);
+    } catch (e) { /* tenta de novo */ }
+  }
+  if (!falhas.length) {
+    toast(moveu ? `Pronto: ${feitas === 1 ? 'a aula já está' : 'as aulas já estão'} no nome de ${p.nome}.`
+      : 'Troca confirmada. A agenda leva alguns instantes para atualizar — abra a tela de novo daqui a pouco.', moveu ? 'success' : 'info', 7000);
+  }
+  await renderHorasGestaoPage();
+  HorasState.g.vendo = id;
+  horasGestaoDesenhar();
 }
 
 function horasGestaoVer(id) {
@@ -1091,7 +1300,7 @@ Object.assign(window, {
   horasNaoTrabalhei, horasSetFora, horasSetNoLugarDe, horasSetObs, horasNovoDia, horasConfirmarDia, horasVoltarAgenda,
   horasEnviar, horasConfirmarIgual, horasReabrir,
   renderHorasGestaoPage, horasGestaoAbrirMes, horasGestaoMudarMes, horasGestaoVer, horasGestaoValidar, horasGestaoValidarTodas,
-  horasGestaoDevolver, horasGestaoDispensar, horasGestaoCorrigir, horasGestaoVoltar,
+  horasGestaoDevolver, horasGestaoDispensar, horasGestaoCorrigir, horasGestaoVoltar, horasGestaoPassarAulas,
 });
 
 console.log('[CrossTainer Professores] professores-horas.js carregado · horas do mês');
