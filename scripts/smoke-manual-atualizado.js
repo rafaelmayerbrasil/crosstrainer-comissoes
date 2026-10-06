@@ -248,7 +248,12 @@ function exige(txt, ondeNome, assuntos) {
     'a lista de troca mostra quem não pode': 'marcou Não posso',
     'quem entrou e quem saiu são avisados': 'quem entrou e quem saiu',
     'pessoa sem login é avisada por fora': 'avise por fora',
-    'escala em texto pro grupo': 'Texto para o WhatsApp',
+    'escala em texto pro grupo': 'Copiar a escala para o WhatsApp',
+    // 06/10/2026: o botão ganhou destaque e passou a valer nas outras abas.
+    'onde fica o botão': 'Vai mandar no grupo?',
+    'texto do fim de ano': 'o período inteiro, por dia',
+    'texto da Escola Interna': 'quem lidera',
+    'convocação do evento': 'ainda não respondeu',
     'só entra o que está publicado': 'ainda não publicada',
     'folga mínima configurável': 'Sábados de folga entre uma escala e outra',
     'troca entre professores avisa a gestão': 'escalas próximas',

@@ -1027,10 +1027,17 @@ async function renderEscalaGestao() {
       ${['futuros', 'todos', 'passados'].map(v => `<button onclick="escalaSetTimeframe('${v}')" style="font-size:12px;padding:6px 10px;border-radius:8px;cursor:pointer;border:1px solid ${EscalaSmartState.timeframe === v ? 'var(--blue)' : 'var(--border)'};background:${EscalaSmartState.timeframe === v ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${EscalaSmartState.timeframe === v ? '#5EA8FF' : 'var(--text2)'};">${v === 'futuros' ? 'Próximos' : v === 'passados' ? 'Passados' : 'Todos'}</button>`).join('')}
     </div>`;
 
-  // A escala em texto, pra colar no grupo (Rafael Rojais, 01/10/2026). Só nas
-  // abas de sábado e feriado, que são o que o texto cobre.
-  const whatsBtn = (tab === 'sabado' || tab === 'feriado')
-    ? `<button class="btn-secondary" style="margin-right:auto;" onclick="abrirTextoWhatsApp()">📋 Texto para o WhatsApp</button>`
+  // A escala em texto, pra colar no grupo (Rafael Rojais, 01/10/2026). Nasceu
+  // como um botão cinza na linha dos filtros, só em Sábados e Feriados — e em
+  // 06/10 ele mesmo perguntou "como faz para copiar a escala para WhatsApp?".
+  // Virou faixa própria logo abaixo das abas, com o verbo que ele usou, e vale
+  // em todas as abas menos "Minhas datas" (que é a candidatura da pessoa).
+  const whatsInfo = ESCALA_WHATS_DA_ABA[tab];
+  const whatsBar = whatsInfo
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--green-bg);border:1px solid var(--green);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+        <span style="font-size:13px;color:var(--text2);"><b style="color:var(--text);">Vai mandar no grupo?</b> O sistema monta ${whatsInfo.oQue} em texto, pronto para colar no WhatsApp.</span>
+        <button class="btn-primary" onclick="abrirTextoWhatsApp()">📋 ${whatsInfo.botao}</button>
+      </div>`
     : '';
 
   // 'minhas' e 'pessoa' são lista sozinha: não têm escala selecionada à direita.
@@ -1091,8 +1098,9 @@ async function renderEscalaGestao() {
     ${renderConfigEscalaHtml()}
     ${soLista ? '' : renderEquilibrioPainel()}
     ${tabsHtml}
+    ${whatsBar}
     ${tab === 'minhas' ? '' : revisaoBar + refazerBar}
-    <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:10px;">${whatsBtn}${tfSel}${yearSel}</div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:10px;">${tfSel}${yearSel}</div>
     ${tab === 'minhas' || !EscalaSmartState.selected.size ? '' : (EscalaSmartState.selected.size ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface2);border:1px solid var(--blue);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">${EscalaSmartState.selected.size} data(s) selecionada(s)</span>
       <div style="display:flex;gap:8px;"><button class="btn-secondary" onclick="escalaLimparSel()">Limpar</button><button class="btn-primary" onclick="openAbrirLote()">📨 Abrir janela nas selecionadas</button></div>
@@ -1112,54 +1120,211 @@ async function renderEscalaGestao() {
 const ESCALA_MESES = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 
 /**
- * Tudo o que a janela do texto mostra, calculado num lugar só — a janela e o
- * botão "Copiar" leem daqui, então não há como copiar um texto diferente do
- * que está na tela.
- *
- * Só entra escala PUBLICADA: é o que o professor já vê. Data montada e ainda
- * não publicada fica de fora, e a janela diz quais são — sumir calado faria a
- * gestão mandar pro grupo um mês com buraco sem perceber.
+ * O que a faixa "Vai mandar no grupo?" oferece em cada aba, e que texto a
+ * janela abre. Aba que não está aqui ("Minhas datas") não tem a faixa.
+ *   · escala          → sábados e feriados do mês (por dia ou por pessoa)
+ *   · fim_de_ano      → o período inteiro (por dia ou por pessoa)
+ *   · escola_interna  → as sessões do mês, com quem lidera
+ *   · evento          → a convocação de UM evento, com as respostas
  */
-function escalaWhatsDados() {
-  const tipos = ['sabado', 'feriado', 'domingo_especial'];
-  const doTipo = (EscalaSmartState.scales || []).filter(s =>
-    s && tipos.indexOf(s.tipo) !== -1 && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || '')));
-  const publicadas = doTipo.filter(s => s.published);
-  const meses = Array.from(new Set(publicadas.map(s => s.date.slice(0, 7)))).sort();
-  const st = EscalaSmartState._whats || {};
-  let mes = meses.indexOf(st.mes) !== -1 ? st.mes : null;
-  if (!mes) {
-    // Abre no mês da próxima data que ainda vai acontecer; sem nenhuma, no
-    // último que tem escala.
-    const hoje = escalaTodayISO();
-    const proxima = publicadas.map(s => s.date).filter(d => d >= hoje).sort()[0];
-    mes = proxima ? proxima.slice(0, 7) : (meses[meses.length - 1] || null);
-  }
-  const formato = st.formato === 'pessoa' ? 'pessoa' : 'dia';
-  if (!mes) return { meses, mes: null, formato, texto: '', fora: [] };
+const ESCALA_WHATS_DA_ABA = {
+  sabado:         { modo: 'escala',         botao: 'Copiar a escala para o WhatsApp',     oQue: 'a escala do mês' },
+  feriado:        { modo: 'escala',         botao: 'Copiar a escala para o WhatsApp',     oQue: 'a escala do mês' },
+  pessoa:         { modo: 'escala',         botao: 'Copiar a escala para o WhatsApp',     oQue: 'os dias de cada pessoa', formato: 'pessoa' },
+  fim_de_ano:     { modo: 'fim_de_ano',     botao: 'Copiar a escala para o WhatsApp',     oQue: 'o período de fim de ano' },
+  escola_interna: { modo: 'escola_interna', botao: 'Copiar as sessões para o WhatsApp',   oQue: 'as sessões do mês, com quem lidera' },
+  evento:         { modo: 'evento',         botao: 'Copiar a convocação para o WhatsApp', oQue: 'quem deve ir, quem poderia e quem já respondeu' },
+};
 
+const escalaWhatsNomeMes = (mes) => ESCALA_MESES[parseInt(mes.slice(5, 7), 10) - 1];
+const escalaWhatsRotMes = (m) => `${escalaWhatsNomeMes(m).toLowerCase()}/${m.slice(0, 4)}`;
+/** Nome do evento sem a data que o cadastro cola no fim ("Trilha 17/10/2026"). */
+const escalaWhatsNomeEvento = (s) => String((s && s.name) || '').replace(/\s*\d{2}\/\d{2}\/\d{4}\s*$/, '').trim() || 'Evento';
+
+/**
+ * O mês em que a janela abre: o que a gestão escolheu, se ainda existe; senão
+ * o da próxima data que ainda vai acontecer; sem nenhuma, o último que tem.
+ */
+function escalaWhatsMesPadrao(datas, escolhido) {
+  const meses = Array.from(new Set(datas.map(d => d.slice(0, 7)))).sort();
+  if (meses.indexOf(escolhido) !== -1) return { meses, mes: escolhido };
+  const hoje = escalaTodayISO();
+  const proxima = datas.filter(d => d >= hoje).sort()[0];
+  return { meses, mes: proxima ? proxima.slice(0, 7) : (meses[meses.length - 1] || null) };
+}
+
+function escalaWhatsMapas() {
   const unidadePorId = {};
   (EscalaSmartState.units || []).forEach(u => { unidadePorId[u.id] = u.name || u.id; });
   const modalidadePorId = {};
   if (EscalaSmartState.modMap) EscalaSmartState.modMap.forEach((m, id) => { modalidadePorId[id] = m.name; });
-  const texto = ScaleService.textoParaWhatsApp(publicadas.filter(s => s.date.slice(0, 7) === mes), {
-    formato, titulo: `ESCALA DE ${ESCALA_MESES[parseInt(mes.slice(5, 7), 10) - 1]}`,
-    nomePorId: escalaNomePorId(), unidadePorId, modalidadePorId,
-  });
+  return { nomePorId: escalaNomePorId(), unidadePorId, modalidadePorId };
+}
+
+const escalaWhatsDataValida = (s) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || ''));
+const escalaWhatsAvisoFora = (texto) =>
+  `<div style="font-size:12px;background:#3a2f1a;border:1px solid #caa23a;color:#caa23a;border-radius:8px;padding:8px 10px;margin-bottom:10px;">${texto}</div>`;
+
+/**
+ * Tudo o que a janela do texto mostra, calculado num lugar só — a janela e o
+ * botão "Copiar" leem daqui, então não há como copiar um texto diferente do
+ * que está na tela.
+ *
+ * Só entra escala PUBLICADA: é o que o professor já vê. O que está montado e
+ * ainda não publicado fica de fora, e a janela diz o quê — sumir calado faria
+ * a gestão mandar pro grupo um mês com buraco sem perceber. (Evento não tem
+ * etapa de publicar: vale assim que as pessoas são convidadas.)
+ *
+ * @returns {{modo, campo, opcoes:Array<{id,rotulo}>, opcao, temFormato, formato,
+ *            texto, aviso, semNada, semTexto, carregando}}
+ */
+function escalaWhatsDados() {
+  const st = EscalaSmartState._whats || {};
+  if (st.modo === 'fim_de_ano') return escalaWhatsFimDeAno(st);
+  if (st.modo === 'escola_interna') return escalaWhatsEscolaInterna(st);
+  if (st.modo === 'evento') return escalaWhatsEvento(st);
+  return escalaWhatsSabadoFeriado(st);
+}
+
+function escalaWhatsSabadoFeriado(st) {
+  const tipos = ['sabado', 'feriado', 'domingo_especial'];
+  const doTipo = (EscalaSmartState.scales || []).filter(s => escalaWhatsDataValida(s) && tipos.indexOf(s.tipo) !== -1);
+  const publicadas = doTipo.filter(s => s.published);
+  const { meses, mes } = escalaWhatsMesPadrao(publicadas.map(s => s.date), st.mes);
+  const formato = st.formato === 'pessoa' ? 'pessoa' : 'dia';
+  const out = {
+    modo: 'escala', campo: 'mes', opcoes: meses.map(m => ({ id: m, rotulo: escalaWhatsRotMes(m) })), opcao: mes,
+    temFormato: true, formato, texto: '', aviso: '',
+    semNada: 'Nenhuma escala publicada ainda. O texto sai das escalas de sábado e feriado que já foram publicadas na agenda — publique primeiro e volte aqui.',
+  };
+  if (!mes) return out;
+  out.texto = ScaleService.textoParaWhatsApp(publicadas.filter(s => s.date.slice(0, 7) === mes),
+    Object.assign({ formato, titulo: `ESCALA DE ${escalaWhatsNomeMes(mes)}` }, escalaWhatsMapas()));
   const fora = doTipo
     .filter(s => !s.published && s.date.slice(0, 7) === mes && (s.slots || []).some(x => x.assignedPersonId))
     .map(s => s.date).sort();
-  return { meses, mes, formato, texto, fora };
+  if (fora.length) {
+    out.aviso = escalaWhatsAvisoFora(`${fora.length === 1 ? '1 data deste mês ainda não publicada ficou' : `${fora.length} datas deste mês ainda não publicadas ficaram`} de fora:
+      ${escalaListaDatas(fora)}. Publique para entrar no texto.`);
+  }
+  return out;
 }
 
-function abrirTextoWhatsApp() {
-  EscalaSmartState._whats = EscalaSmartState._whats || {};
+function escalaWhatsEscolaInterna(st) {
+  const doTipo = (EscalaSmartState.scales || []).filter(s => escalaWhatsDataValida(s) && s.tipo === 'escola_interna');
+  const publicadas = doTipo.filter(s => s.published);
+  const { meses, mes } = escalaWhatsMesPadrao(publicadas.map(s => s.date), st.mes);
+  const out = {
+    modo: 'escola_interna', campo: 'mes', opcoes: meses.map(m => ({ id: m, rotulo: escalaWhatsRotMes(m) })), opcao: mes,
+    temFormato: false, formato: 'dia', texto: '', aviso: '',
+    semNada: 'Nenhuma sessão de Escola Interna publicada ainda. O texto sai das sessões que já foram publicadas na agenda — publique primeiro e volte aqui.',
+  };
+  if (!mes) return out;
+  out.texto = ScaleService.textoEscolaInternaWhatsApp(publicadas.filter(s => s.date.slice(0, 7) === mes),
+    Object.assign({ titulo: `ESCOLA INTERNA DE ${escalaWhatsNomeMes(mes)}` }, escalaWhatsMapas()));
+  const fora = doTipo.filter(s => !s.published && s.date.slice(0, 7) === mes).map(s => s.date).sort();
+  if (fora.length) {
+    out.aviso = escalaWhatsAvisoFora(`${fora.length === 1 ? '1 sessão deste mês ainda não publicada ficou' : `${fora.length} sessões deste mês ainda não publicadas ficaram`} de fora:
+      ${escalaListaDatas(fora)}. Publique para entrar no texto.`);
+  }
+  return out;
+}
+
+function escalaWhatsFimDeAno(st) {
+  const docs = (EscalaSmartState.scales || []).filter(s => escalaWhatsDataValida(s) && s.tipo === 'fim_de_ano')
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+  const publicados = docs.filter(s => s.published);
+  const rotulo = (s) => s.name || `Fim de ano ${s.date.slice(0, 4)}`;
+  // Sem escolha: o período mais recente publicado.
+  const atual = publicados.find(s => s.id === st.scaleId) || publicados[publicados.length - 1] || null;
+  const formato = st.formato === 'pessoa' ? 'pessoa' : 'dia';
+  const naoPublicados = docs.filter(s => !s.published && (s.slots || []).some(x => x.assignedPersonId));
+  const out = {
+    modo: 'fim_de_ano', campo: 'scaleId', opcoes: publicados.map(s => ({ id: s.id, rotulo: rotulo(s) })), opcao: atual ? atual.id : null,
+    temFormato: true, formato, texto: '', aviso: '',
+    semNada: naoPublicados.length
+      ? `O período "${rotulo(naoPublicados[naoPublicados.length - 1])}" está montado, mas ainda não foi publicado. O texto sai do que já está na agenda — publique o período e volte aqui.`
+      : 'Nenhum período de fim de ano publicado ainda. O texto sai do período que já foi publicado na agenda — publique primeiro e volte aqui.',
+  };
+  if (!atual) return out;
+  out.texto = ScaleService.textoFimDeAnoWhatsApp(atual,
+    Object.assign({ formato, titulo: rotulo(atual).toLocaleUpperCase('pt-BR') }, escalaWhatsMapas()));
+  if (naoPublicados.length) {
+    out.aviso = escalaWhatsAvisoFora(`${naoPublicados.map(s => `"${escalaEsc(rotulo(s))}"`).join(', ')} ${naoPublicados.length === 1 ? 'está montado, mas ainda não foi publicado — não aparece' : 'estão montados, mas ainda não foram publicados — não aparecem'} aqui.`);
+  }
+  return out;
+}
+
+function escalaWhatsEvento(st) {
+  const hoje = escalaTodayISO();
+  const todos = (EscalaSmartState.scales || []).filter(s => escalaWhatsDataValida(s) && s.tipo === 'evento')
+    .sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+  const futuros = todos.filter(s => s.date >= hoje);
+  // Sem escolha: o próximo evento; não havendo, o último que aconteceu.
+  const atual = todos.find(s => s.id === st.scaleId) || futuros[0] || todos[todos.length - 1] || null;
+  // A lista traz os que ainda vão acontecer, mais o escolhido se já passou.
+  const lista = futuros.slice();
+  if (atual && lista.indexOf(atual) === -1) lista.unshift(atual);
+  const out = {
+    modo: 'evento', campo: 'scaleId',
+    opcoes: lista.map(s => ({ id: s.id, rotulo: `${escalaWhatsNomeEvento(s)} · ${escalaDiaMes(s.date)}` })), opcao: atual ? atual.id : null,
+    temFormato: false, formato: 'dia', texto: '', aviso: '',
+    semNada: 'Nenhum evento criado ainda. Crie o evento, marque quem deve e quem poderia ir, e volte aqui.',
+  };
+  if (!atual) return out;
+  if (st.rsvpDe !== atual.id) { out.carregando = true; return out; }
+  if (!st.rsvp) { out.semTexto = 'Não consegui ler as respostas deste evento agora. Feche e abra de novo.'; return out; }
+  out.texto = ScaleService.textoEventoWhatsApp(atual, st.rsvp, escalaWhatsMapas());
+  if (!out.texto) {
+    out.semTexto = 'Ninguém foi convidado para este evento ainda. Marque quem deve e quem poderia ir, clique em "Salvar staff e convidar" e volte aqui.';
+  }
+  return out;
+}
+
+/**
+ * As respostas do evento escolhido não vêm com a lista de escalas — são lidas
+ * quando a janela abre ou quando a gestão troca de evento. Sempre do banco, e
+ * não do painel da direita: lá pode haver marcação que ainda não foi salva.
+ */
+async function escalaWhatsGarantirRsvp() {
+  const st = EscalaSmartState._whats || {};
+  if (st.modo !== 'evento') return;
+  const id = escalaWhatsDados().opcao;
+  if (!id || st.rsvpDe === id) return;
+  const rr = await ScaleService.listEventRsvp(id);
+  // Enquanto lia, a gestão pode ter trocado de evento ou fechado a janela.
+  const agora = EscalaSmartState._whats || {};
+  if (agora.modo !== 'evento' || escalaWhatsDados().opcao !== id) return;
+  EscalaSmartState._whats = Object.assign({}, agora, { rsvpDe: id, rsvp: rr.success ? (rr.data || []) : null });
+  const modal = document.getElementById('escalaModal');
+  if (modal && modal.style.display !== 'none') renderTextoWhatsApp();
+}
+
+/**
+ * Abre a janela do texto. Sem argumento, o texto é o da aba em que a gestão
+ * está; a escala aberta no painel da direita (fim de ano, evento) já vem
+ * escolhida.
+ */
+async function abrirTextoWhatsApp(modo) {
+  const daAba = ESCALA_WHATS_DA_ABA[EscalaSmartState.tab] || ESCALA_WHATS_DA_ABA.sabado;
+  const m = modo || daAba.modo;
+  const antes = EscalaSmartState._whats || {};
+  const st = (antes.modo || 'escala') === m ? Object.assign({}, antes, { modo: m }) : { modo: m };
+  if (!modo && daAba.formato) st.formato = daAba.formato;
+  const sel = (EscalaSmartState.scales || []).find(s => s.id === EscalaSmartState.selectedId);
+  if (sel && sel.tipo === m && (m === 'fim_de_ano' || m === 'evento')) st.scaleId = sel.id;
+  // Cada abertura relê as respostas do evento: "se alguém responder depois, é
+  // só abrir de novo" tem que ser verdade — e leitura que falhou tenta de novo.
+  delete st.rsvpDe; delete st.rsvp;
+  EscalaSmartState._whats = st;
   renderTextoWhatsApp();
+  await escalaWhatsGarantirRsvp();
 }
 
-function escalaWhatsSet(campo, valor) {
+async function escalaWhatsSet(campo, valor) {
   EscalaSmartState._whats = Object.assign({}, EscalaSmartState._whats, { [campo]: valor });
   renderTextoWhatsApp();
+  await escalaWhatsGarantirRsvp();
 }
 
 function renderTextoWhatsApp() {
@@ -1169,40 +1334,40 @@ function renderTextoWhatsApp() {
   overlay.style.display = 'flex';
   modal.style.display = 'block';
   const d = escalaWhatsDados();
+  const titulo = `<h2>📋 Copiar para o WhatsApp</h2>`;
   const fechar = `<button class="btn-secondary" onclick="closeEscalaModal()">Fechar</button>`;
-  if (!d.mes) {
+  if (!d.opcao) {
     modal.innerHTML = `
-      <h2>📋 Texto para o WhatsApp</h2>
-      <p style="color:var(--text2);">Nenhuma escala publicada ainda. O texto sai das escalas de sábado e feriado
-        que já foram publicadas na agenda — publique primeiro e volte aqui.</p>
+      ${titulo}
+      <p style="color:var(--text2);">${escalaEsc(d.semNada)}</p>
       <div style="margin-top:16px;display:flex;justify-content:flex-end;">${fechar}</div>`;
     return;
   }
-  const rotMes = (m) => `${ESCALA_MESES[parseInt(m.slice(5, 7), 10) - 1].toLowerCase()}/${m.slice(0, 4)}`;
   const btnFormato = (id, rot) => {
     const on = d.formato === id;
     return `<button onclick="escalaWhatsSet('formato','${id}')" style="font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid ${on ? 'var(--blue)' : 'var(--border)'};background:${on ? 'rgba(94,168,255,0.15)' : 'transparent'};color:${on ? 'var(--blue)' : 'var(--text2)'};">${rot}</button>`;
   };
-  const foraHtml = d.fora.length
-    ? `<div style="font-size:12px;background:#3a2f1a;border:1px solid #caa23a;color:#caa23a;border-radius:8px;padding:8px 10px;margin-bottom:10px;">
-        ${d.fora.length === 1 ? '1 data deste mês ainda não publicada ficou' : `${d.fora.length} datas deste mês ainda não publicadas ficaram`} de fora:
-        ${escalaListaDatas(d.fora)}. Publique para entrar no texto.</div>`
-    : '';
+  const corpo = d.carregando
+    ? `<p style="color:var(--text2);padding:12px 0;">Lendo as respostas do evento…</p>`
+    : (d.texto
+      ? `<textarea id="escalaWhatsTexto" class="input" readonly rows="16" style="width:100%;font-family:inherit;font-size:13px;line-height:1.45;">${escalaEsc(d.texto)}</textarea>`
+      : `<p style="color:var(--text2);padding:12px 0;">${escalaEsc(d.semTexto || d.semNada)}</p>`);
   modal.innerHTML = `
-    <h2>📋 Texto para o WhatsApp</h2>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">A escala publicada, pronta para colar no grupo.
-      Se trocar alguém depois, é só abrir de novo e copiar.</p>
+    ${titulo}
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">${d.modo === 'evento'
+      ? 'A convocação do evento, pronta para colar no grupo. Se alguém responder depois, é só abrir de novo e copiar.'
+      : 'O que está publicado, pronto para colar no grupo. Se trocar alguém depois, é só abrir de novo e copiar.'}</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-      <select class="input" style="width:auto;" onchange="escalaWhatsSet('mes', this.value)">
-        ${d.meses.map(m => `<option value="${m}"${m === d.mes ? ' selected' : ''}>${rotMes(m)}</option>`).join('')}
+      <select class="input" style="width:auto;max-width:100%;" onchange="escalaWhatsSet('${d.campo}', this.value)">
+        ${d.opcoes.map(o => `<option value="${escalaEsc(o.id)}"${o.id === d.opcao ? ' selected' : ''}>${escalaEsc(o.rotulo)}</option>`).join('')}
       </select>
-      ${btnFormato('dia', 'Por dia')}${btnFormato('pessoa', 'Por pessoa')}
+      ${d.temFormato ? btnFormato('dia', 'Por dia') + btnFormato('pessoa', 'Por pessoa') : ''}
     </div>
-    ${foraHtml}
-    <textarea id="escalaWhatsTexto" class="input" readonly rows="16" style="width:100%;font-family:inherit;font-size:13px;line-height:1.45;">${escalaEsc(d.texto)}</textarea>
+    ${d.aviso}
+    ${corpo}
     <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;">
       ${fechar}
-      <button class="btn-primary" onclick="copiarTextoWhatsApp()">Copiar</button>
+      ${d.texto ? `<button class="btn-primary" onclick="copiarTextoWhatsApp()">Copiar</button>` : ''}
     </div>`;
 }
 
@@ -2843,7 +3008,9 @@ async function confirmarEAvisar(batchId) {
   } else if (vagasSemAula) {
     toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s).${sobra}`, 'error', 10000);
   } else {
-    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s) com o dia e a unidade.`, 'success', 6000);
+    // É a hora em que a gestão quer mandar a escala no grupo — dizer onde está o botão.
+    toast(`Escala confirmada, ${aulasCriadas} aula(s) na agenda e ${avisados} escalado(s) avisado(s) com o dia e a unidade. `
+        + 'Para mandar no grupo: botão 📋 Copiar a escala para o WhatsApp, logo abaixo das abas.', 'success', 10000);
   }
   EscalaSmartState.remontando = null;
   closeEscalaModal();

@@ -1089,6 +1089,35 @@
     return segundo ? `${ws[0]} ${segundo}` : ws[0];
   }
 
+  // Peças comuns aos textos do WhatsApp (sábado/feriado, fim de ano, Escola
+  // Interna e evento) — num lugar só, pra os quatro falarem do mesmo jeito.
+  const RODAPE_WHATS = 'Algo errado? Avise a gestão e registre a troca no sistema.';
+  /** '2026-10-03' → 'Sáb 03/10'. */
+  const _diaCurto = (iso) => { const [, m, d] = String(iso).split('-'); return `${DIAS_CURTOS[new Date(iso + 'T12:00:00').getDay()]} ${d}/${m}`; };
+  const _horarioDaVaga = (sl) => (sl && sl.startTime && sl.endTime) ? `${sl.startTime}–${sl.endTime}` : '';
+  /** Nome da unidade como a equipe fala: sem o "CrossTainer" na frente. */
+  const _unidadeCurta = (unidadePorId) => {
+    const unidades = unidadePorId || {};
+    return (id) => String(unidades[id] || id || '').replace(/CrossTainer\s*/i, '') || String(id || '');
+  };
+  /** ['a','b','c'] → 'a, b e c'. */
+  const _juntar = (itens) => (itens.length > 1 ? `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}` : (itens[0] || ''));
+  /**
+   * Devolve a função id → nome do jeito que vai no texto: nome curto, a não
+   * ser que dois dos citados fiquem iguais — aí os dois saem por extenso,
+   * senão o grupo não sabe qual "Ana Silva" é.
+   */
+  function _nomeador(ids, nomePorId) {
+    const nomes = nomePorId || {};
+    const vezes = {};
+    new Set(ids || []).forEach(id => { if (nomes[id]) { const c = nomeCurto(nomes[id]); vezes[c] = (vezes[c] || 0) + 1; } });
+    return (id) => {
+      if (!nomes[id]) return String(id);
+      const c = nomeCurto(nomes[id]);
+      return vezes[c] > 1 ? _palavras(nomes[id]).join(' ') : c;
+    };
+  }
+
   /**
    * PURO: a escala em texto, do jeito que o grupo do WhatsApp já lia antes do
    * sistema (Rafael Rojais, 01/10/2026: "uma coisa mais fácil de ver, como se
@@ -1112,30 +1141,20 @@
       .slice().sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
     if (!lista.length) return '';
 
-    const nomes = opts.nomePorId || {};
-    const unidades = opts.unidadePorId || {};
+    const unidade = _unidadeCurta(opts.unidadePorId);
     const mods = opts.modalidadePorId || {};
-    const unidade = (id) => String(unidades[id] || id || '').replace(/CrossTainer\s*/i, '') || String(id || '');
     const modalidade = (sl) => sl.requiredModalityName || mods[sl.requiredModalityId] || '';
-    const horario = (sl) => (sl.startTime && sl.endTime) ? `${sl.startTime}–${sl.endTime}` : '';
+    const horario = _horarioDaVaga;
     const rotTipo = (s) => (s.tipo === 'feriado' ? 'feriado' : s.tipo === 'domingo_especial' ? 'domingo especial' : '');
-    const quando = (s) => { const [, m, d] = s.date.split('-'); return `${DIAS_CURTOS[new Date(s.date + 'T12:00:00').getDay()]} ${d}/${m}`; };
+    const quando = (s) => _diaCurto(s.date);
 
-    // Nome curto, a não ser que dois escalados fiquem iguais — aí os dois saem
-    // por extenso, senão o grupo não sabe qual "Ana Silva" é.
-    const ids = new Set();
-    lista.forEach(s => (s.slots || []).forEach(sl => { if (sl && sl.assignedPersonId) ids.add(sl.assignedPersonId); }));
-    const vezes = {};
-    ids.forEach(id => { if (nomes[id]) { const c = nomeCurto(nomes[id]); vezes[c] = (vezes[c] || 0) + 1; } });
-    const pessoa = (id) => {
-      if (!nomes[id]) return String(id);
-      const c = nomeCurto(nomes[id]);
-      return vezes[c] > 1 ? _palavras(nomes[id]).join(' ') : c;
-    };
+    const ids = [];
+    lista.forEach(s => (s.slots || []).forEach(sl => { if (sl && sl.assignedPersonId) ids.push(sl.assignedPersonId); }));
+    const pessoa = _nomeador(ids, opts.nomePorId);
     const horariosDe = (slots) => Array.from(new Set(slots.map(horario).filter(Boolean)));
 
     const linhas = [`*${opts.titulo || 'ESCALA'} · CrossTainer*`];
-    const rodape = 'Algo errado? Avise a gestão e registre a troca no sistema.';
+    const rodape = RODAPE_WHATS;
 
     if (opts.formato === 'pessoa') {
       linhas.push('_Quem trabalha em quais dias_', '');
@@ -1185,6 +1204,176 @@
       });
     });
     linhas.push('', rodape);
+    return linhas.join('\n');
+  }
+
+  const TURNO_ROTULO = { manha: 'manhã', tarde_noite: 'tarde/noite' };
+  const TURNO_ORDEM = { manha: 0, tarde_noite: 1 };
+
+  /**
+   * PURO: o período de fim de ano em texto (Rafael Rojais, 06/10/2026). É UM
+   * documento com vários dias — cada vaga traz `day`, unidade e turno —, então
+   * não cabe no texto de sábado/feriado, que é uma data por documento.
+   *
+   * O horário de cada turno vai no rodapé quando é o mesmo o período inteiro;
+   * se algum dia foge (meio período), o turno passa a levar o horário junto,
+   * em todos os dias — afirmar um horário só no rodapé seria errar um deles.
+   *
+   * @param {Object} scale escala `fim_de_ano`
+   * @param {{formato:'dia'|'pessoa', titulo:string, nomePorId:Object, unidadePorId:Object}} opts
+   * @returns {string} '' quando não há o que mostrar
+   */
+  function textoFimDeAnoWhatsApp(scale, opts) {
+    opts = opts || {};
+    if (!scale || scale.tipo !== 'fim_de_ano') return '';
+    const slots = (scale.slots || []).filter(sl => sl && /^\d{4}-\d{2}-\d{2}$/.test(String(sl.day || '')));
+    if (!slots.length) return '';
+
+    const unidade = _unidadeCurta(opts.unidadePorId);
+    const pessoa = _nomeador(slots.map(sl => sl.assignedPersonId).filter(Boolean), opts.nomePorId);
+    const turnoId = (sl) => sl.shift || '';
+    const rotTurno = (id) => TURNO_ROTULO[id] || String(id || '').replace(/_/g, ' ');
+    const ordemTurno = (a, b) => {
+      const oa = TURNO_ORDEM[a] != null ? TURNO_ORDEM[a] : 9, ob = TURNO_ORDEM[b] != null ? TURNO_ORDEM[b] : 9;
+      return oa !== ob ? oa - ob : String(a).localeCompare(String(b), 'pt-BR');
+    };
+
+    // Horário de cada turno no período: um só → rodapé; mais de um → junto do turno.
+    const horariosDoTurno = {};
+    slots.forEach(sl => {
+      const h = _horarioDaVaga(sl);
+      if (!h) return;
+      const set = horariosDoTurno[turnoId(sl)] || (horariosDoTurno[turnoId(sl)] = new Set());
+      set.add(h);
+    });
+    const varia = (id) => !!(horariosDoTurno[id] && horariosDoTurno[id].size > 1);
+    const turnoComHora = (sl) => rotTurno(turnoId(sl)) + (varia(turnoId(sl)) && _horarioDaVaga(sl) ? ` ${_horarioDaVaga(sl)}` : '');
+    const legenda = Object.keys(horariosDoTurno).filter(id => !varia(id)).sort(ordemTurno)
+      .map(id => { const r = rotTurno(id); return `${r.charAt(0).toLocaleUpperCase('pt-BR')}${r.slice(1)} ${Array.from(horariosDoTurno[id])[0]}`; });
+
+    const dias = Array.from(new Set(slots.map(sl => sl.day))).sort();
+    const linhas = [`*${opts.titulo || 'FIM DE ANO'} · CrossTainer*`];
+
+    if (opts.formato === 'pessoa') {
+      linhas.push('_Quem trabalha em quais dias_', '');
+      const porPessoa = new Map();
+      const abertas = [];
+      dias.forEach(dia => {
+        slots.filter(sl => sl.day === dia)
+          .sort((a, b) => ordemTurno(turnoId(a), turnoId(b)) || unidade(a.unitId).localeCompare(unidade(b.unitId), 'pt-BR'))
+          .forEach(sl => {
+            const item = `${_diaCurto(dia).toLocaleLowerCase('pt-BR')} ${unidade(sl.unitId)} ${turnoComHora(sl)}`.trim();
+            if (!sl.assignedPersonId) { abertas.push(item); return; }
+            if (!porPessoa.has(sl.assignedPersonId)) porPessoa.set(sl.assignedPersonId, []);
+            porPessoa.get(sl.assignedPersonId).push(item);
+          });
+      });
+      Array.from(porPessoa.entries())
+        .map(([id, itens]) => ({ nome: pessoa(id), itens }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        .forEach(p => linhas.push(`*${p.nome}*: ${p.itens.join(' · ')}`));
+      if (abertas.length) linhas.push('', `Vagas abertas: ${abertas.join(' · ')}`);
+      linhas.push('');
+    } else {
+      dias.forEach(dia => {
+        const doDia = slots.filter(sl => sl.day === dia);
+        linhas.push('', `*${_diaCurto(dia)}*${doDia.some(sl => sl.halfDay) ? ' · meio período' : ''}`);
+        const porUnidade = new Map();
+        doDia.forEach(sl => {
+          if (!porUnidade.has(sl.unitId)) porUnidade.set(sl.unitId, []);
+          porUnidade.get(sl.unitId).push(sl);
+        });
+        // Unidades em ordem alfabética: a mesma em todos os dias, seja qual for
+        // a ordem em que as vagas foram gravadas.
+        Array.from(porUnidade.keys()).sort((a, b) => unidade(a).localeCompare(unidade(b), 'pt-BR')).forEach(uid => {
+          const vagas = porUnidade.get(uid);
+          const turnos = Array.from(new Set(vagas.map(turnoId))).sort(ordemTurno).map(tid => {
+            const doTurno = vagas.filter(sl => turnoId(sl) === tid);
+            const quem = doTurno.map(sl => (sl.assignedPersonId ? pessoa(sl.assignedPersonId) : 'vaga aberta'));
+            return `${turnoComHora(doTurno[0])} — ${_juntar(quem)}`;
+          });
+          linhas.push(`${unidade(uid)}: ${turnos.join(' · ')}`);
+        });
+      });
+      linhas.push('');
+    }
+    if (legenda.length) linhas.push(`${legenda.join(' · ')}.`);
+    linhas.push(RODAPE_WHATS);
+    return linhas.join('\n');
+  }
+
+  /**
+   * PURO: as sessões de Escola Interna em texto — data, horário, unidade e
+   * quem lidera. Sessão sem líder APARECE ("a definir"): é o que o grupo
+   * precisa ver. Quem escolhe o mês e se entra só o publicado é a tela.
+   *
+   * @param {Array} scales
+   * @param {{titulo:string, nomePorId:Object, unidadePorId:Object}} opts
+   * @returns {string} '' quando não há sessão
+   */
+  function textoEscolaInternaWhatsApp(scales, opts) {
+    opts = opts || {};
+    const lista = (scales || [])
+      .filter(s => s && s.tipo === 'escola_interna' && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || '')))
+      .slice().sort((a, b) => (a.date > b.date ? 1 : a.date < b.date ? -1 : 0));
+    if (!lista.length) return '';
+
+    const unidade = _unidadeCurta(opts.unidadePorId);
+    const ids = [];
+    lista.forEach(s => (s.slots || []).forEach(sl => { if (sl && sl.assignedPersonId) ids.push(sl.assignedPersonId); }));
+    const pessoa = _nomeador(ids, opts.nomePorId);
+
+    const linhas = [`*${opts.titulo || 'ESCOLA INTERNA'} · CrossTainer*`];
+    lista.forEach(s => {
+      const slots = (s.slots || []).filter(Boolean);
+      const hs = Array.from(new Set(slots.map(_horarioDaVaga).filter(Boolean)));
+      const unico = hs.length === 1 ? hs[0] : null;
+      linhas.push('', `*${_diaCurto(s.date)}*${unico ? ` · ${unico}` : ''}`);
+      slots.forEach(sl => {
+        const hora = (!unico && _horarioDaVaga(sl)) ? ` (${_horarioDaVaga(sl)})` : '';
+        linhas.push(`${unidade(sl.unitId)}: líder ${sl.assignedPersonId ? pessoa(sl.assignedPersonId) : 'a definir'}${hora}`);
+      });
+    });
+    linhas.push('', RODAPE_WHATS);
+    return linhas.join('\n');
+  }
+
+  /**
+   * PURO: a convocação de um evento em texto — quem deve ir, quem poderia e
+   * as respostas até agora. As três linhas de resposta são as mesmas do
+   * painel da gestão (`summarizeRsvp`); linha sem ninguém não aparece.
+   *
+   * @param {Object} scale escala `evento`
+   * @param {Array} rsvpDocs [{ personId, tier:'obrigatorio'|'opcional', going:true|false|null }]
+   * @param {{nomePorId:Object}} opts
+   * @returns {string} '' quando ninguém foi convidado
+   */
+  function textoEventoWhatsApp(scale, rsvpDocs, opts) {
+    opts = opts || {};
+    if (!scale || scale.tipo !== 'evento') return '';
+    const docs = (rsvpDocs || []).filter(r => r && r.personId);
+    if (!docs.length) return '';
+
+    const pessoa = _nomeador(docs.map(r => r.personId), opts.nomePorId);
+    const nomes = (ids) => _juntar(ids.map(pessoa).sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    // O nome do evento é gravado com a data no fim ("Trilha 17/10/2026"); a
+    // data já vai na linha de baixo, com o dia da semana.
+    const nome = String(scale.name || '').replace(/\s*\d{2}\/\d{2}\/\d{4}\s*$/, '').trim() || 'Evento';
+    const linhas = [`*${nome.toLocaleUpperCase('pt-BR')} · CrossTainer*`];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(scale.date || ''))) linhas.push(_diaCurto(scale.date));
+    linhas.push('');
+
+    const devem = docs.filter(r => r.tier === 'obrigatorio').map(r => r.personId);
+    const podem = docs.filter(r => r.tier !== 'obrigatorio').map(r => r.personId);
+    if (devem.length) linhas.push(`Devem ir: ${nomes(devem)}`);
+    if (podem.length) linhas.push(`Podem ir: ${nomes(podem)}`);
+    linhas.push('');
+
+    const sum = summarizeRsvp(docs);
+    if (sum.vao.length) linhas.push(`Vão: ${nomes(sum.vao)}`);
+    if (sum.naoVao.length) linhas.push(`Não vão: ${nomes(sum.naoVao)}`);
+    if (sum.semResposta.length) linhas.push(`Falta responder: ${nomes(sum.semResposta)}`, '', 'Responda pelo app se você vai.');
+    while (linhas[linhas.length - 1] === '') linhas.pop();
     return linhas.join('\n');
   }
 
@@ -1892,5 +2081,5 @@
     }
   }
 
-  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, explicarVaga, contaDoMes, aulaServeNaVaga, nomeCurto, textoParaWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
+  return { templateSlots, templateSlotsFimDeAno, datesInRange, isDomingo, separarFeriadosPorDomingo, abasDaEscala, saturdaysOfYear, mergeVirtualWithDocs, parseFeriados, isLegacyScaleDoc, isWindowOpen, nowLocalMinute, filterByTimeframe, buildConsolidationMatrix, contarPorPessoa, tiposIrmaos, dataDeCorte, fmtDataLonga, escolaInternaSlots, assignSlot, reassignSlot, swapSlots, ScaleConfigService, createScale, updateScale, deleteScale, getScale, listScales, listScalesByBatch, openElection, closeElection, setStatus, setPreference, listPreferences, setDayPreference, listDayPreferences, setEventStaff, listEventRsvp, setRsvp, buildCandidates, setWindowQuota, listWindowQuotas, dayPrefsToAvailability, personsOnVacation, personsOnNearbyScale, vizinhancaDias, datasVizinhasDaPessoa, situacaoParaTroca, vizinhasDaTrocaDeAula, explicarVaga, contaDoMes, aulaServeNaVaga, nomeCurto, textoParaWhatsApp, textoFimDeAnoWhatsApp, textoEscolaInternaWhatsApp, textoEventoWhatsApp, equipeDoDia, deleteEvent, summarizeRsvp, isPersonAssigned, consolidate, consolidateByDay, publishToAgenda, unpublishFromAgenda, removeFromBatch, appendHistorico, diffEscalados, registrarHistorico, aplicarRebalanceamento };
 });
