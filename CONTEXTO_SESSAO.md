@@ -3,9 +3,17 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 88 (06/10/2026, tarde) — 🕒 HORAS DO MÊS: "−3h45" DO THEO, FERIADO EM DOBRO E AS 29h DA CARLA · 🧪 CONSTRUÍDO NA BRANCH `horas-dois-lugares-feriado` (`1845cdc`) · NADA EM PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 88 (06/10/2026, tarde) — 🕒 HORAS DO MÊS: "−3h45" DO THEO, FERIADO EM DOBRO E AS 29h DA CARLA · ✅ NO AR EM PRODUÇÃO (`feaf99f..069f0dd` + Function `onHourDeclarationSent`)
 
 ### ▶️▶️ RETOMAR AQUI
+**🚀 PUBLICADO EM PRODUÇÃO em 06/10/2026 (fim da tarde), com o "pode publicar" do Rafael:** `feaf99f..069f0dd` no `main` + Function `onHourDeclarationSent` republicada (`us-central1`; mesmo comportamento, só para o gêmeo ficar igual). Sem regra nem índice novo. **Conferido depois:** GitHub Pages serve os 12 arquivos conferidos iguais ao `main` (`?v=20261006b`); `index.html`, `commission.js`, `sw.js` e `manifest.json` intactos; a página de produção carrega sem erro de console com as funções novas. ⚠️ **Ninguém clicou logado em produção**; a homologação foi no staging, como gestão. A tela do professor logada e o aviso de choque ao registrar troca ficaram só com dados de exemplo e teste automático.
+
+**⚠️ Efeito imediato em produção:** o fechamento de **setembro passa a travar** por "Pessoas em dois lugares ao mesmo tempo" — Theo (04/09, 3h15) e Karin (01/09 1h, 28/09 30 min) — até a gestão acertar. Decisão do Rafael: fica como trava.
+
+**🔴 Com a gestão, agora:** passar ao Theo as aulas de 07/09 (Carla) e 19/09 (Bruno Claudino) pelo botão "Passar para…" e **só então validar** as horas dele · descobrir quem deu os sábados 05/09 (CP) e 26/09 (PP, "troquei com a Helena") que ele marcou como não trabalhados · confirmar quem deu as aulas da PP de 04/09 à noite · acertar os dois dias da Karin.
+
+*(O que segue é o registro de como foi achado, construído e homologado — onde diz "falta OK" ou "nada em produção", leia como histórico.)*
+
 **O que chegou do grupo (06/10, pelo Rodrigo):** o Theo corrigiu a sexta 04/09 em *Minhas horas* e a tela respondeu "−3h45"; perguntou se as horas "do Bruninho" e "o feriado da Carlinha" tinham que ser incluídas à mão e se "o feriado é o dobro"; pediu um botão para dizer que o dia é feriado. A Benny e o Rafael Rojais perguntaram como ver todos os dias e horas de uma pessoa e como conferir as 29h da Carla.
 
 **O que achei em produção (só leitura):**
