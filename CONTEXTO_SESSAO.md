@@ -3,6 +3,37 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 88 (06/10/2026, tarde) — 🕒 HORAS DO MÊS: "−3h45" DO THEO, FERIADO EM DOBRO E AS 29h DA CARLA · 🧪 CONSTRUÍDO NA BRANCH `horas-dois-lugares-feriado` (`1845cdc`) · NADA EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+**O que chegou do grupo (06/10, pelo Rodrigo):** o Theo corrigiu a sexta 04/09 em *Minhas horas* e a tela respondeu "−3h45"; perguntou se as horas "do Bruninho" e "o feriado da Carlinha" tinham que ser incluídas à mão e se "o feriado é o dobro"; pediu um botão para dizer que o dia é feriado. A Benny e o Rafael Rojais perguntaram como ver todos os dias e horas de uma pessoa e como conferir as 29h da Carla.
+
+**O que achei em produção (só leitura):**
+- **04/09 do Theo: pessoa em dois lugares ao mesmo tempo.** As 5 aulas do Bruno Claudino (CP, 16:30–21:15) estão com o Theo (troca confirmada) e as aulas dele mesmo na PP (18:00–21:30) continuaram na agenda. A agenda soma **14h45** num dia de **11h**. E o defeito de verdade: **ao validar, só os 30 min de atraso sairiam — a folha pagaria 3h15 a mais.** A Karin tem o mesmo em 01/09 (1h) e 28/09 (30 min).
+- **19/09 (Bruno Claudino) e 07/09 (Carla, feriado):** o Theo incluiu certo, "no lugar de um colega"; as aulas seguem no nome do Bruno e da Carla até a troca ser registrada.
+- **Carla: 25h trabalhadas, 29h na folha** (o feriado de 07/09, 4h, conta em dobro) — justamente o feriado que o Theo diz ter feito.
+- A declaração do Theo está **enviada** (20 dias): 166h45 trabalhadas, **170h45 para pagamento** — o número que ele escreveu no WhatsApp. `special_scale_types` está vazia em produção: o dobro do feriado vem da regra padrão (`isHoliday`).
+
+**Construído (decisões do Rafael: pode construir A–D; a troca confirmada vence a aula própria no mesmo horário):**
+- **A. Hora em dois lugares conta uma vez** (`hour-declaration.js` + gêmeo): `agendaDoMes` devolve `emDobro`/`minutosEmDobro`; `planoDoDia` credita cada minuto informado a UMA aula, primeiro a que veio de troca confirmada (`porTroca`), e a outra sai com `motivo:'dois_lugares'`. Confirmar o dia com os mesmos horários já é correção. A tela explica (linha, prévia do editor, "Ver o que muda"); "Está tudo igual à agenda" é recusado enquanto houver dia em dobro. **Trava nova no fechamento** ("Pessoas em dois lugares ao mesmo tempo", falha fechada) e **aviso ao registrar/confirmar uma troca** quando quem assume já tem aula no horário (`subsAvisoDoisLugares`).
+- **B. Feriado visível:** `pesoDaAula` (mesma regra do `closing-payroll`, com teste comparando as duas), chip "feriado · conta em dobro", total **Para pagamento**; dia incluído fora da agenda em feriado é reconhecido pela agenda do dia (`feriadosDosDias`), sem botão; turno a mais validado em feriado nasce `isHoliday`.
+- **C. "No lugar de um colega" num clique:** em "Ver o que muda" (e no detalhe da validada) a tela mostra a aula do colega no dia e o botão **Passar para…** — é a troca de sempre (`SubstitutionService.create` + `homologar`, `registradoPor:'gestao'`), e a tela espera a Function mover a aula. Feita **antes de validar**, o dia vira hora normal (e o que passou do horário entra como tempo além).
+- **D. "Ver as horas" completo:** dia com horário, unidade, feriado, troca e aviso de dois lugares; rodapé "Trabalhadas × Para pagamento"; na folha do fechamento, link "ver os dias e as horas" por pessoa (`horasGestaoAbrirMes(ano, mes, id)`).
+- Testes novos: `smoke-horas-dois-lugares-feriado` (11, contas, com o 04/09 real) e `smoke-horas-dois-lugares-tela` (13, telas + fechamento + aviso da troca). **Suíte 129 ✓** (fora o `smoke-9`). Manuais atualizados; `?v=20261006b` em 5 arquivos.
+- **Ensaio com os dados reais de produção (só leitura):** plano do Theo **+14h40**, pendente 8h50, somando os 166h45 informados; 04/09 = −3h45; as aulas a passar em 07/09 e 19/09 foram achadas; Carla 25h × 29h igual ao `closing-payroll`.
+- **Conferido no navegador** (servidor local, dados de exemplo, sem login): tela do professor no celular e lista da gestão, sem erro de console.
+
+**🔴 Falta:**
+1. **Homologar logado no staging.** Cenário pronto lá (marca `seedSource:'teste-dois-lugares-2026-10-06'`): Lucas em dois lugares em 04/09 (CP no lugar do Pedro × PP) e feriado de 07/09 da Ana. ⚠️ A **hospedagem do staging não foi republicada** (segue com a branch `endereco-sistema`); dá para homologar pelo servidor local (`localhost` fala com o Firebase do staging) com o Rafael logando.
+2. **OK do Rafael → produção:** `main` + push (só frontend; a Function `onHourDeclarationSent` usa o gêmeo mas não muda de comportamento — republicar junto para os gêmeos ficarem iguais). Sem regra nem índice novo.
+3. **Com a gestão, depois de publicar:** passar as aulas de 07/09 (Carla) e 19/09 (Bruno) para o Theo e **só então validar** · descobrir quem deu os sábados 05/09 (CP) e 26/09 (PP, "troquei com a Helena") que o Theo marcou como não trabalhados · confirmar que em 04/09 à noite ele estava na CP (e quem deu as aulas da PP) · acertar os dois dias da Karin. **Pedi no texto do grupo que não validem o Theo antes do ajuste entrar.**
+
+### 📝 Log da sessão 88
+- `hour-declaration.js` + `functions/hour-declaration.js` · `professores-horas.js` · `professores-fechamento.js` · `professores-substituicoes.js` · `professores-agenda.js` · `professores.html` (estilo `.horas-alerta`, `?v=`) · `manual-admin.html` · `manual-professores.html` · `scripts/smoke-horas-dois-lugares-feriado.js` · `scripts/smoke-horas-dois-lugares-tela.js` · `scripts/smoke-manual-atualizado.js`.
+- Memória: [[hora-em-dois-lugares-conta-em-dobro]].
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 87 (06/10/2026) — 📋 "COMO FAZ PARA COPIAR A ESCALA PARA WHATSAPP?" · ✅ BOTÃO EM DESTAQUE E NAS OUTRAS ABAS, NO AR EM PRODUÇÃO (`b929759..9edf628`)
 
 ### ▶️▶️ RETOMAR AQUI
