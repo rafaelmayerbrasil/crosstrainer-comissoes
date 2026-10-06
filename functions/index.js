@@ -1365,6 +1365,16 @@ exports.closeMonth = onCall({
     const stSnap = await firestore.collection('special_scale_types').get();
     const scaleTypesMap = new Map(stSnap.docs.map(d => [d.id, d.data()]));
 
+    // Vale-transporte por dia trabalhado (06/10/2026): o valor da passagem e o
+    // que a gestão corrigiu na conferência deste mês. A conta é a MESMA da
+    // prévia (closing-payroll.js) — aqui só se entrega o material.
+    const [vtCfgDoc, vtAjDoc] = await Promise.all([
+      firestore.collection('payroll_config').doc('vale_transporte').get(),
+      firestore.collection('payroll_adjustments').doc(closingId).get(),
+    ]);
+    const vtConfig = vtCfgDoc.exists ? vtCfgDoc.data() : null;
+    const ajustesVt = (vtAjDoc.exists && vtAjDoc.data().vt) || {};
+
     const teacherResults = [];
     // (o valor total é somado dos resultados em buildTotals — o banco de horas
     //  altera o valor do estagiário depois deste laço)
@@ -1410,7 +1420,13 @@ exports.closeMonth = onCall({
       const salary = salaryMap[tid] || null;
 
       const hours = calculateTeacherHoursCF(classes, scaleTypesMap);
-      const value = calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth);
+      const value = calculateTeacherValueCF(teacher, salary, hours, lastDayOfMonth, {
+        aulas: classes, vtConfig, ajusteVt: ajustesVt[tid] || null,
+      });
+      if (value.vt && value.vt.semTarifa) {
+        throw new HttpsError('failed-precondition',
+          `Vale-transporte de ${teacher.name || tid}: falta cadastrar o valor da passagem deste mês.`);
+      }
 
       // O pagamento é um só, mas o custo por unidade não pode se perder: a
       // gestão precisa saber quanto de hora cada unidade consumiu.
@@ -1445,6 +1461,7 @@ exports.closeMonth = onCall({
         valorHoras: value.valorHoras,
         mealAllowance: value.mealAllowance,
         transportAllowance: value.transportAllowance,
+        vt: value.vt || null,
         otherBenefits: value.otherBenefits,
         totalOutros: value.totalOutros,
         valorTotal: value.total,
@@ -2106,8 +2123,8 @@ const classEffectiveMinutesCF = (c) => payroll.minutosEfetivos(c);
 const calculateTeacherHoursCF = (classes, scaleTypesMap = null) =>
   payroll.horasDasAulas(classes, scaleTypesMap || new Map());
 const getEffectiveSalaryAtCF  = (salary, date) => payroll.salarioVigenteEm(salary, date);
-const calculateTeacherValueCF = (teacher, salary, hours, lastDayOfMonth) =>
-  payroll.valorDoProfessor(teacher, salary, hours, lastDayOfMonth);
+const calculateTeacherValueCF = (teacher, salary, hours, lastDayOfMonth, extras) =>
+  payroll.valorDoProfessor(teacher, salary, hours, lastDayOfMonth, extras);
 
 /** Formata valor monetário pra log (server-side). */
 function fmtCF(val) {

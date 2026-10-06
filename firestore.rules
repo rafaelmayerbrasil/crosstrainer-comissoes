@@ -136,6 +136,20 @@ service cloud.firestore {
       allow read, write: if isAuth() && isAdmin();
     }
 
+    // ⛔ Vale-transporte por dia trabalhado (06/10/2026) — SÓ ADMIN, como o salário.
+    // payroll_config: o valor da passagem. payroll_adjustments/{AAAA-MM}: o VT
+    // corrigido pela gestão naquele mês — e mês FECHADO não aceita mais correção
+    // (o id é o mesmo do fechamento).
+    match /payroll_config/{id} {
+      allow read, write: if isAuth() && isAdmin();
+    }
+    match /payroll_adjustments/{id} {
+      allow read: if isAuth() && isAdmin();
+      allow create, update: if isAuth() && isAdmin()
+        && !exists(/databases/$(database)/documents/monthly_closings/$(id));
+      allow delete: if false;
+    }
+
     match /teachers/{id} {
       allow read:   if isAuth() && hasProfModule();
       allow create: if isAuth() && isAdmin();                  // D9: só admin cria (wizard)

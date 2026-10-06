@@ -332,6 +332,12 @@ function exige(txt, ondeNome, assuntos) {
     'dois lugares trava o fechamento': 'Pessoa em dois lugares ao mesmo tempo',
     'passar a aula do colega num clique': 'Passar para…',
   });
+  // 06/10/2026 — pedido da Benny: o VT dos estagiários calculado pelo sistema
+  exige(admin, 'manual-admin', {
+    'VT por dia trabalhado': 'Vale-transporte por dia trabalhado',
+    'valor da passagem configurável': 'Alterar o valor da passagem',
+    'corrigir o VT no mês': 'Voltar ao calculado',
+  });
   exige(admin, 'manual-admin', {
     'a tela da gestão': 'id="horas-do-mes"',
     'o OK geral': 'Validar todas',

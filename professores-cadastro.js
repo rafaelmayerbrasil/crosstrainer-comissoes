@@ -1444,7 +1444,9 @@ function renderSalaryBenefits(s) {
       </div>
       <div>
         <div class="info-field-label">Vale Transporte (VT)</div>
-        <div class="info-field-value mono">${formatBRL(s.transportAllowance)}</div>
+        <div class="info-field-value mono">${s.vtPorDia === true
+          ? `por dia trabalhado · ${s.vtPassagensPorDia || 2} passagens/dia`
+          : formatBRL(s.transportAllowance)}</div>
       </div>
     </div>
     ${others.length > 0 ? `
@@ -1620,6 +1622,9 @@ function openSalaryModal(teacherId) {
   // B-02 — benefícios
   document.getElementById('salaryMealAllowance').value = (s && s.mealAllowance != null) ? s.mealAllowance : '';
   document.getElementById('salaryTransportAllowance').value = (s && s.transportAllowance != null) ? s.transportAllowance : '';
+  document.getElementById('salaryVtPorDia').checked = !!(s && s.vtPorDia === true);
+  document.getElementById('salaryVtPassagens').value = (s && s.vtPassagensPorDia) ? s.vtPassagensPorDia : 2;
+  salaryVtToggle();
   // otherBenefits: copia pra state local (pra evitar mutação do cache)
   SalaryFormState.otherBenefits = Array.isArray(s && s.otherBenefits)
     ? s.otherBenefits.map(b => ({ nome: b.nome || '', valor: Number(b.valor) || 0 }))
@@ -1790,6 +1795,15 @@ async function saveSalary() {
   data.mealAllowance = meal;
   data.transportAllowance = transport;
 
+  // VT por dia trabalhado: a marca e quantas passagens por dia
+  const vtPorDia = document.getElementById('salaryVtPorDia').checked;
+  const passagens = parseInt(document.getElementById('salaryVtPassagens').value, 10);
+  if (vtPorDia && !(Number.isInteger(passagens) && passagens >= 1 && passagens <= 10)) {
+    errEl.textContent = 'Passagens por dia deve ser um número de 1 a 10.'; return;
+  }
+  data.vtPorDia = vtPorDia;
+  data.vtPassagensPorDia = vtPorDia ? passagens : null;
+
   // Outros benefícios — validar que cada item tem nome (se valor > 0) ou pular itens em branco
   const cleanOthers = [];
   for (const ob of SalaryFormState.otherBenefits) {
@@ -1863,3 +1877,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 console.log('[CrossTainer Professores] professores-cadastro.js carregado · Sprint 1 ✅ + mini-sprint 1.5 (B-01 effectiveDate + B-02 VR/VT/Outros)');
+
+/** VT por dia trabalhado: mostra as passagens e trava o valor fixo, que deixa de valer. */
+function salaryVtToggle() {
+  const marcado = document.getElementById('salaryVtPorDia').checked;
+  const box = document.getElementById('salaryVtPorDiaBox');
+  if (box) box.style.display = marcado ? '' : 'none';
+  const fixo = document.getElementById('salaryTransportAllowance');
+  if (fixo) { fixo.disabled = marcado; fixo.title = marcado ? 'Com o VT por dia trabalhado, o valor fixo não é usado' : ''; }
+}
+window.salaryVtToggle = salaryVtToggle;

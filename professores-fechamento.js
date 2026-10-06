@@ -387,6 +387,7 @@ function renderPreviewContent() {
     ${renderKpis(data, bloqueios.length)}
     ${renderBlocoChecklist(checklist)}
     ${renderBlocoFolha(teachers, totals)}
+    ${renderBlocoVt(data)}
     ${renderBlocoEstagiarios(teachers)}
     ${renderBlocoTrocas()}
     ${renderBlocoCadastro(teachers)}
@@ -501,6 +502,15 @@ function montarChecklist(data) {
       : { nivel: 'ok', titulo: 'Duas aulas no mesmo horário', situacao: 'ninguém em dois lugares ao mesmo tempo', acao: null });
   }
 
+  // 1e. Vale-transporte por dia trabalhado sem o valor da passagem do mês.
+  const semTarifa = (data.teachers || []).filter(t => t.vt && t.vt.semTarifa);
+  if (semTarifa.length) {
+    itens.push({ nivel: 'bloqueia', titulo: 'Vale-transporte sem o valor da passagem',
+      situacao: '<b>' + semTarifa.length + '</b> pessoa(s) recebem VT por dia trabalhado e não há valor da passagem cadastrado para este mês: '
+        + listaDeNomes(semTarifa.map(t => t.teacherName)),
+      acao: { rotulo: 'Informar', fn: 'vtAlterarTarifa()' } });
+  }
+
   // 2. Cadastro que faz a pessoa receber errado.
   const semValor = (data.teachers || []).filter(t =>
     (t.avisos || []).some(a => a === 'sem_salario' || a === 'sem_valor_hora'));
@@ -605,6 +615,121 @@ function renderBlocoChecklist(itens) {
 function renderBlocoFolha(teachers, totals) {
   return blocoTabela('2 · A folha do mês', teachers.length + ' pessoas · uma linha cada',
     null, null, renderTeacherTable(teachers, totals, false));
+}
+
+/* ─── Vale-transporte por dia trabalhado ─────────────────────────────
+ * Pedido da Benny (06/10/2026): a conta "dias × 2 passagens × 6,20" era feita
+ * por fora. Aqui ela aparece aberta, pessoa a pessoa; o valor da passagem é
+ * configurável e o VT do mês pode ser corrigido — fica gravado quem e por quê.
+ */
+function vtMesNome(mes) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(mes || ''));
+  return m ? (MONTH_NAMES[Number(m[2]) - 1] || m[2]).toLowerCase() + '/' + m[1] : String(mes || '');
+}
+/** "21 úteis + 1 sábado/domingo + 1 feriado = 23 dias × 2 passagens × R$ 6,20" */
+function vtContaTexto(vt) {
+  if (!vt) return '';
+  if (vt.modo !== 'por_dia') return 'valor fixo do cadastro';
+  const partes = [];
+  if (vt.uteis) partes.push(vt.uteis + (vt.uteis === 1 ? ' dia útil' : ' dias úteis'));
+  if (vt.fimDeSemana) partes.push(vt.fimDeSemana + (vt.fimDeSemana === 1 ? ' sábado' : ' sábados'));
+  if (vt.feriados) partes.push(vt.feriados + (vt.feriados === 1 ? ' feriado' : ' feriados'));
+  const dias = partes.length > 1 ? partes.join(' + ') + ' = ' + vt.dias + ' dias' : (partes[0] || '0 dias');
+  return dias + ' × ' + vt.passagensPorDia + ' passagens × ' + (vt.valorPassagem != null ? fmt(vt.valorPassagem) : 'passagem sem valor');
+}
+
+function renderBlocoVt(data) {
+  const info = data.vt || {};
+  const linhasDe = (data.teachers || []).filter(t => t.vt && (t.vt.modo === 'por_dia' || t.vt.ajustado || t.transportAllowance > 0));
+  const tarifas = ((info.config && info.config.tarifas) || []).slice().sort((a, b) => String(a.desde).localeCompare(String(b.desde)));
+  const vigente = tarifas.filter(t => String(t.desde) <= String(info.mes)).pop() || null;
+  const proxima = tarifas.find(t => String(t.desde) > String(info.mes)) || null;
+  const cabecalho = `
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px 10px;font-size:13px;">
+      <div>Valor da passagem neste mês: <strong>${vigente ? fmt(vigente.valor) : 'não cadastrado'}</strong>
+        ${vigente ? `<span style="font-size:12px;color:var(--text2);">(desde ${vtMesNome(vigente.desde)})</span>` : ''}
+        ${proxima ? `<span style="font-size:12px;color:var(--text2);"> · muda para ${fmt(proxima.valor)} em ${vtMesNome(proxima.desde)}</span>` : ''}</div>
+      <button class="btn btn-sm btn-ghost" style="width:auto;" onclick="vtAlterarTarifa()">Alterar o valor da passagem</button>
+    </div>`;
+  if (!linhasDe.length) {
+    return blocoTabela('Vale-transporte', 'ninguém com vale-transporte neste mês', null, null,
+      cabecalho + `<div class="empty-state-small">Para calcular por dia trabalhado, marque <strong>Vale-transporte por dia trabalhado</strong> no cadastro salarial da pessoa (Pessoas → ficha → Salário).</div>`);
+  }
+  const linhas = linhasDe.map(t => {
+    const vt = t.vt;
+    return `
+      <tr>
+        <td style="font-weight:600;">${escapeHtml(t.teacherName)}</td>
+        <td style="font-size:12px;">${escapeHtml(vtContaTexto(vt))}</td>
+        <td class="mono" style="text-align:right;">${fmt(vt.calculado || 0)}</td>
+        <td class="mono" style="text-align:right;font-weight:700;${vt.ajustado ? 'color:var(--orange);' : ''}">${fmt(vt.valor || 0)}
+          ${vt.ajustado ? `<div style="font-size:11px;font-weight:400;font-family:inherit;">corrigido${vt.motivo ? ': ' + escapeHtml(vt.motivo) : ''}</div>` : ''}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn btn-sm btn-ghost" style="width:auto;" onclick="vtCorrigir('${escapeHtml(t.teacherId)}')">Corrigir</button>
+          ${vt.ajustado ? `<button class="btn btn-sm btn-ghost" style="width:auto;" onclick="vtDesfazer('${escapeHtml(t.teacherId)}')">Voltar ao calculado</button>` : ''}
+        </td>
+      </tr>`;
+  }).join('');
+  const total = linhasDe.reduce((s2, t) => s2 + (t.vt.valor || 0), 0);
+  const porDia = linhasDe.filter(t => t.vt.modo === 'por_dia').length;
+  return blocoTabela('Vale-transporte', linhasDe.length + ' pessoa(s) · ' + porDia + ' por dia trabalhado · total ' + fmt(total), null,
+    'Conta só o dia em que a pessoa <strong>deu aula</strong> (falta, aula cancelada e Escola Interna não contam). Para mudar quem recebe por dia trabalhado, ou as passagens por dia, use o cadastro salarial da pessoa. <strong>Corrigir</strong> vale só para este mês.',
+    cabecalho + '<div class="table-wrap"><table><thead><tr><th>Pessoa</th><th>A conta</th><th style="text-align:right;">Calculado</th>'
+      + '<th style="text-align:right;">VT do mês</th><th></th></tr></thead><tbody>' + linhas + '</tbody></table></div>');
+}
+
+/** Lê um valor em reais digitado pela pessoa ("6,20", "R$ 6.20"). */
+function vtLerValor(txt) {
+  const limpo = String(txt == null ? '' : txt).replace(/[^0-9.,]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+  const n = parseFloat(limpo);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function vtAlterarTarifa() {
+  const y = FechamentoState.selectedYear, m = FechamentoState.selectedMonth;
+  const mes = y + '-' + String(m).padStart(2, '0');
+  const atual = FechamentoState.previewData && FechamentoState.previewData.vt ? FechamentoState.previewData.vt.tarifa : null;
+  const v = prompt('Valor de UMA passagem, em reais (ex.: 6,20):', atual != null ? String(atual.toFixed(2)).replace('.', ',') : '');
+  if (v === null) return;
+  const valor = vtLerValor(v);
+  if (!(valor > 0)) { toast('Valor inválido. Digite algo como 6,20.', 'error'); return; }
+  const d = prompt('A partir de que mês esse valor vale? (formato AAAA-MM)' + String.fromCharCode(10) + String.fromCharCode(10)
+    + 'Meses anteriores a ele continuam com o valor antigo.', mes);
+  if (d === null) return;
+  const desde = String(d).trim();
+  if (!confirm('Passagem a ' + fmt(valor) + ' a partir de ' + vtMesNome(desde) + '?' + String.fromCharCode(10) + String.fromCharCode(10)
+    + 'Vale para todo mundo que recebe vale-transporte por dia trabalhado. Mês já fechado não muda.')) return;
+  const res = await PayrollVtService.setTarifa(desde, valor);
+  if (!res.success) { toast('Não gravei: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Valor da passagem atualizado.', 'success');
+  await loadFechamentoPreview();
+}
+
+async function vtCorrigir(teacherId) {
+  const y = FechamentoState.selectedYear, m = FechamentoState.selectedMonth;
+  const mes = y + '-' + String(m).padStart(2, '0');
+  const t = ((FechamentoState.previewData && FechamentoState.previewData.teachers) || []).find(x => x.teacherId === teacherId);
+  if (!t) { toast('Pessoa não encontrada — carregue a prévia de novo.', 'error'); return; }
+  const v = prompt('Vale-transporte de ' + t.teacherName + ' em ' + vtMesNome(mes) + ', em reais.' + String.fromCharCode(10) + String.fromCharCode(10)
+    + 'Calculado: ' + fmt((t.vt && t.vt.calculado) || 0) + ' (' + vtContaTexto(t.vt) + ')', String(((t.vt && t.vt.valor) || 0).toFixed(2)).replace('.', ','));
+  if (v === null) return;
+  const valor = vtLerValor(v);
+  if (valor === null || valor < 0) { toast('Valor inválido.', 'error'); return; }
+  const motivo = prompt('Por que o valor é diferente do calculado? (fica registrado e aparece na conferência)', (t.vt && t.vt.motivo) || '');
+  if (motivo === null) return;
+  if (!motivo.trim()) { toast('Escreva o motivo da correção.', 'error'); return; }
+  const res = await PayrollVtService.setAjuste(mes, teacherId, valor, motivo.trim());
+  if (!res.success) { toast('Não gravei: ' + (res.error || 'falha'), 'error'); return; }
+  toast('Vale-transporte de ' + t.teacherName + ' corrigido para ' + fmt(valor) + '.', 'success');
+  await loadFechamentoPreview();
+}
+
+async function vtDesfazer(teacherId) {
+  const mes = FechamentoState.selectedYear + '-' + String(FechamentoState.selectedMonth).padStart(2, '0');
+  if (!confirm('Voltar o vale-transporte desta pessoa ao valor calculado?')) return;
+  const res = await PayrollVtService.setAjuste(mes, teacherId, null);
+  if (!res.success) { toast('Não gravei: ' + (res.error || 'falha'), 'error'); return; }
+  await loadFechamentoPreview();
 }
 
 function renderBlocoEstagiarios(teachers) {
@@ -933,7 +1058,9 @@ function renderTeacherTable(teachers, totals, readOnly) {
         <td class="mono" style="text-align:right;">${t.totalHoras.toFixed(1)}h</td>
         <td class="mono" style="text-align:right;">${fmt(t.valorHoras)}</td>
         <td class="mono" style="text-align:right;">${t.mealAllowance ? fmt(t.mealAllowance) : '—'}</td>
-        <td class="mono" style="text-align:right;">${t.transportAllowance ? fmt(t.transportAllowance) : '—'}</td>
+        <td class="mono" style="text-align:right;" title="${escapeHtml(vtContaTexto(t.vt))}">${t.transportAllowance ? fmt(t.transportAllowance) : '—'}${
+          t.vt && (t.vt.modo === 'por_dia' || t.vt.ajustado)
+            ? `<div style="font-size:10px;color:var(--text3);font-family:inherit;">${t.vt.ajustado ? 'corrigido' : (t.vt.dias + ' dia' + (t.vt.dias === 1 ? '' : 's') + ' × ' + t.vt.passagensPorDia)}</div>` : ''}</td>
         <td style="text-align:right;font-size:12px;">${outrosList}</td>
         <td class="mono" style="text-align:right;font-weight:700;">${fmt(t.valorTotal)}</td>
       </tr>
@@ -1291,3 +1418,5 @@ function escapeHtml(str) {
 }
 
 console.log('[CrossTainer Professores] professores-fechamento.js carregado · Sprint 4a');
+
+Object.assign(window, { vtAlterarTarifa, vtCorrigir, vtDesfazer, vtContaTexto });

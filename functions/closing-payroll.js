@@ -137,6 +137,110 @@
     return r;
   }
 
+  /* ── vale-transporte por dia trabalhado ───────────────────────────── */
+  //
+  // Pedido da Benny (06/10/2026): "o valor é 6,20 por passagem. 24 dias x 2
+  // passagens = 48 passagens x 6,20 = 297,60. Dias úteis do mês + sábado/
+  // feriados que trabalharem." O VT era um valor fixo no cadastro (R$ 250) e a
+  // conta era feita por fora. Decisões do Rafael: conta só o dia em que a
+  // pessoa DEU AULA; quem entra é quem tem a marca no cadastro salarial
+  // (`vtPorDia`); passagens por dia ajustáveis por pessoa (padrão 2); o valor
+  // pode ser corrigido no fechamento (`ajuste`).
+
+  const PASSAGENS_PADRAO = 2;
+
+  /**
+   * A data no fuso de Brasília (UTC−3, sem horário de verão), como
+   * { dia:'AAAA-MM-DD', mes:'AAAA-MM', semana:0..6 }. A Function roda em UTC e
+   * a tela no fuso de quem abre: sem isto as duas poderiam contar dias diferentes.
+   */
+  function dataBR(v) {
+    const d = v && v.toDate ? v.toDate() : (v ? new Date(v) : null);
+    if (!d || isNaN(d)) return null;
+    const l = new Date(d.getTime() - 3 * 3600 * 1000);
+    const z = n => String(n).padStart(2, '0');
+    const mes = l.getUTCFullYear() + '-' + z(l.getUTCMonth() + 1);
+    return { dia: mes + '-' + z(l.getUTCDate()), mes, semana: l.getUTCDay() };
+  }
+
+  /** Valor da passagem que vale no mês 'AAAA-MM': a tarifa mais recente com `desde` <= mês. */
+  function tarifaVigente(vtConfig, mes) {
+    const lista = ((vtConfig && vtConfig.tarifas) || [])
+      .filter(t => t && typeof t.valor === 'number' && t.valor > 0 && /^\d{4}-\d{2}$/.test(String(t.desde || '')))
+      .filter(t => String(t.desde) <= String(mes))
+      .sort((a, b) => String(a.desde).localeCompare(String(b.desde)));
+    return lista.length ? lista[lista.length - 1].valor : null;
+  }
+
+  /**
+   * Os dias em que a pessoa deu aula: aula que paga, de pé, e que não virou
+   * falta. Várias aulas no mesmo dia contam UM dia.
+   * @returns {{dias:number, uteis:number, fimDeSemana:number, feriados:number, lista:string[]}}
+   */
+  function diasTrabalhados(aulas) {
+    const porDia = new Map();
+    for (const c of (aulas || [])) {
+      if (!c || STATUS_QUE_PAGAM.indexOf(c.status) === -1) continue;
+      if (!contaParaPagamento(c) || !(minutosEfetivos(c) > 0)) continue;
+      const d = dataBR(c.scheduledDate);
+      if (!d) continue;
+      const feriado = c.isHoliday === true || c.specialScaleType === 'feriado';
+      const atual = porDia.get(d.dia) || { feriado: false, semana: d.semana };
+      atual.feriado = atual.feriado || feriado;
+      porDia.set(d.dia, atual);
+    }
+    let uteis = 0, fimDeSemana = 0, feriados = 0;
+    porDia.forEach(x => {
+      if (x.feriado) feriados++;
+      else if (x.semana === 0 || x.semana === 6) fimDeSemana++;
+      else uteis++;
+    });
+    return { dias: porDia.size, uteis, fimDeSemana, feriados, lista: [...porDia.keys()].sort() };
+  }
+
+  /**
+   * O vale-transporte do mês de uma pessoa.
+   *   modo 'por_dia' — dias com aula × passagens por dia × valor da passagem
+   *   modo 'fixo'    — o valor mensal do cadastro (como sempre foi)
+   * `ajuste` ({ valor, motivo }) é a correção feita no fechamento: vale no
+   * lugar do calculado, e o calculado fica guardado ao lado.
+   *
+   * Sem tarifa cadastrada para o mês, `semTarifa` vem true e o valor é 0 — a
+   * tela trava o fechamento; pagar zero calado seria pior.
+   * Tudo que sai daqui vai para o Firestore: null, nunca undefined.
+   */
+  function valeTransporte(p) {
+    const o = p || {};
+    const eff = o.salary || {};
+    const fixo = (typeof eff.transportAllowance === 'number') ? eff.transportAllowance : 0;
+    const out = {
+      modo: 'fixo', valor: fixo, calculado: fixo, ajustado: false, motivo: null,
+      dias: null, uteis: null, fimDeSemana: null, feriados: null,
+      passagensPorDia: null, valorPassagem: null, semTarifa: false,
+    };
+    if (eff.vtPorDia === true) {
+      const d = diasTrabalhados(o.aulas);
+      const passagens = (typeof eff.vtPassagensPorDia === 'number' && eff.vtPassagensPorDia > 0)
+        ? eff.vtPassagensPorDia : PASSAGENS_PADRAO;
+      const tarifa = tarifaVigente(o.vtConfig, o.mes);
+      out.modo = 'por_dia';
+      out.dias = d.dias; out.uteis = d.uteis; out.fimDeSemana = d.fimDeSemana; out.feriados = d.feriados;
+      out.passagensPorDia = passagens;
+      out.valorPassagem = tarifa;
+      out.semTarifa = tarifa == null && d.dias > 0;
+      out.calculado = tarifa == null ? 0 : Math.round(d.dias * passagens * tarifa * 100) / 100;
+      out.valor = out.calculado;
+    }
+    const aj = o.ajuste;
+    if (aj && typeof aj.valor === 'number' && aj.valor >= 0) {
+      out.valor = Math.round(aj.valor * 100) / 100;
+      out.ajustado = true;
+      out.motivo = aj.motivo ? String(aj.motivo).slice(0, 300) : null;
+      out.semTarifa = false;      // a gestão informou o valor: não há o que travar
+    }
+    return out;
+  }
+
   /**
    * Quanto uma pessoa recebe pelas horas do mês, mais os benefícios.
    *
@@ -145,9 +249,14 @@
    *
    * O ajuste fino do estagiário (banco de horas, férias, saldo devedor) é feito
    * depois, em montarFolha — aqui fica só o retrato do cadastro.
+   *
+   * `extras` = { aulas, vtConfig, ajusteVt }: o que o vale-transporte por dia
+   * trabalhado precisa. A prévia (tela) e o fechamento (Function) passam os
+   * mesmos — é a mesma conta nos dois lados.
    */
-  function valorDoProfessor(teacher, salary, hours, ultimoDiaDoMes) {
+  function valorDoProfessor(teacher, salary, hours, ultimoDiaDoMes, extras) {
     const vazio = {
+      vt: null,
       total: 0, valorHoras: 0, mealAllowance: 0, transportAllowance: 0,
       otherBenefits: [], totalOutros: 0, hourlyRate: 0,
       isInternProportional: false, internStipendUsed: null,
@@ -160,7 +269,16 @@
     const eff = salarioVigenteEm(salary, ultimoDiaDoMes);
     const hourlyRate = (typeof eff.hourlyRate === 'number' && eff.hourlyRate > 0) ? eff.hourlyRate : 0;
     const meal = (typeof eff.mealAllowance === 'number') ? eff.mealAllowance : 0;
-    const transport = (typeof eff.transportAllowance === 'number') ? eff.transportAllowance : 0;
+    const x = extras || {};
+    const fim = dataBR(ultimoDiaDoMes instanceof Date ? ultimoDiaDoMes : new Date());
+    // A marca do VT por dia vale pelo cadastro de HOJE (não tem histórico): ligar
+    // a marca em outubro tem que valer para setembro, que ainda não fechou.
+    const vt = valeTransporte({
+      salary: Object.assign({}, eff, { vtPorDia: salary.vtPorDia === true, vtPassagensPorDia: salary.vtPassagensPorDia }),
+      aulas: x.aulas || [], vtConfig: x.vtConfig || null, ajuste: x.ajusteVt || null,
+      mes: fim.mes,
+    });
+    const transport = vt.valor;
     const otherBenefits = Array.isArray(eff.otherBenefits) ? eff.otherBenefits : [];
     const totalOutros = otherBenefits.reduce((s, b) => s + ((b && typeof b.valor === 'number') ? b.valor : 0), 0);
 
@@ -192,7 +310,7 @@
 
     return {
       total: valorHoras + meal + transport + totalOutros,
-      valorHoras, mealAllowance: meal, transportAllowance: transport,
+      valorHoras, mealAllowance: meal, transportAllowance: transport, vt,
       otherBenefits, totalOutros, hourlyRate,
       isInternProportional, internStipendUsed, internExcessHours, internExcessValue,
       isIntern, internLimitHours, internPropRate,
@@ -276,6 +394,8 @@
    *   scaleTypes: Map|obj tipo → { weight }
    *   ano, mes, ultimoDiaDoMes
    *   bancos: obj teacherId → { saldo, movimento, diasAfastado } (só estagiário)
+   *   vtConfig: { tarifas: [{ desde:'AAAA-MM', valor }] } — valor da passagem
+   *   ajustesVt: obj teacherId → { valor, motivo } — VT corrigido no fechamento
    * }} p
    */
   function montarFolha(p) {
@@ -305,7 +425,9 @@
       const ficha = pega(o.teachers, teacherId) || { id: teacherId, name: '(desconhecido)', type: 'efetivo' };
       const salary = pega(o.salaries, teacherId);
       const horas = horasDasAulas(aulas, scaleTypes);
-      const valor = valorDoProfessor(ficha, salary, horas, ultimoDiaDoMes);
+      const valor = valorDoProfessor(ficha, salary, horas, ultimoDiaDoMes, {
+        aulas, vtConfig: o.vtConfig || null, ajusteVt: (o.ajustesVt || {})[teacherId] || null,
+      });
 
       // divisão por unidade: o custo por unidade não pode se perder só porque
       // o pagamento passou a ser um só
@@ -333,6 +455,7 @@
         valorHoras: valor.valorHoras,
         mealAllowance: valor.mealAllowance,
         transportAllowance: valor.transportAllowance,
+        vt: valor.vt,
         otherBenefits: valor.otherBenefits,
         totalOutros: valor.totalOutros,
         valorTotal: valor.total,
@@ -401,5 +524,6 @@
     STATUS_QUE_PAGAM,
     contaParaPagamento, minutosEfetivos, horasDasAulas, ehBolsista, avisosDaLinha,
     salarioVigenteEm, valorDoProfessor, montarFolha, resumoPorUnidade,
+    PASSAGENS_PADRAO, tarifaVigente, diasTrabalhados, valeTransporte,
   };
 });

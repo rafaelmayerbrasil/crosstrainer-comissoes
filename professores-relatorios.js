@@ -426,7 +426,7 @@ function buildReceiptHtmlForExport(prof, closing) {
     '<tbody>' +
     '<tr><td>Horas trabalhadas (' + horas + 'h)</td><td class="text-right">' + valorHoras + '</td></tr>' +
     ((prof.mealAllowance || 0) > 0 ? '<tr><td>Vale Refeição (VR)</td><td class="text-right">' + Number(prof.mealAllowance).toFixed(2) + '</td></tr>' : '') +
-    ((prof.transportAllowance || 0) > 0 ? '<tr><td>Vale Transporte (VT)</td><td class="text-right">' + Number(prof.transportAllowance).toFixed(2) + '</td></tr>' : '') +
+    ((prof.transportAllowance || 0) > 0 ? '<tr><td>Vale Transporte (VT)' + (prof.vt && prof.vt.modo === 'por_dia' && !prof.vt.ajustado ? ' — ' + prof.vt.dias + ' dias × ' + prof.vt.passagensPorDia + ' passagens × R$ ' + Number(prof.vt.valorPassagem || 0).toFixed(2).replace('.', ',') : '') + '</td><td class="text-right">' + Number(prof.transportAllowance).toFixed(2) + '</td></tr>' : '') +
     ((prof.otherBenefits || 0) > 0 ? '<tr><td>Outros Benefícios</td><td class="text-right">' + Number(prof.otherBenefits).toFixed(2) + '</td></tr>' : '') +
     '<tr><td><strong>Total bruto do fechamento</strong></td><td class="text-right"><strong>' + valorTotalFechamento + '</strong></td></tr>' +
     '</tbody>' +

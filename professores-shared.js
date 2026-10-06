@@ -778,6 +778,11 @@ const SalaryService = {
         // 🆕 B-02 — benefícios mensais
         mealAllowance:      salaryData.mealAllowance      ?? (before && before.mealAllowance)      ?? null,
         transportAllowance: salaryData.transportAllowance ?? (before && before.transportAllowance) ?? null,
+        // VT por dia trabalhado (06/10/2026): dias com aula × passagens × valor da
+        // passagem. Sem histórico de propósito — a marca vale pelo cadastro de hoje.
+        vtPorDia:           salaryData.vtPorDia           ?? (before && before.vtPorDia)           ?? false,
+        vtPassagensPorDia:  salaryData.vtPassagensPorDia !== undefined
+          ? salaryData.vtPassagensPorDia : ((before && before.vtPassagensPorDia) ?? null),
         otherBenefits:      salaryData.otherBenefits      ?? (before && before.otherBenefits)      ?? null,
         salaryHistory: previousHistory,
         updatedAt: serverTs(),
@@ -2623,6 +2628,68 @@ const InternHourBankService = {
   },
 };
 
+/**
+ * Vale-transporte por dia trabalhado — o que a gestão configura.
+ *   payroll_config/vale_transporte   { tarifas: [{ desde:'AAAA-MM', valor }] }
+ *   payroll_adjustments/{AAAA-MM}    { vt: { [teacherId]: { valor, motivo, por, em } } }
+ * As duas coleções são só do Admin. A conta mora em closing-payroll.js.
+ */
+const PayrollVtService = {
+  async getConfig() {
+    const doc = await db.collection('payroll_config').doc('vale_transporte').get();
+    return doc.exists ? doc.data() : { tarifas: [] };
+  },
+  /** Valor da passagem a partir de um mês ('AAAA-MM'). Regravar o mesmo mês substitui. */
+  async setTarifa(desde, valor) {
+    try {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(desde || ''))) return { success: false, error: 'Mês de início inválido.' };
+      if (!(typeof valor === 'number' && valor > 0 && valor < 100)) return { success: false, error: 'Valor da passagem inválido.' };
+      const antes = await this.getConfig();
+      const tarifas = (antes.tarifas || []).filter(t => t && t.desde !== desde)
+        .concat([{ desde, valor: Math.round(valor * 100) / 100 }])
+        .sort((a, b) => String(a.desde).localeCompare(String(b.desde)));
+      await db.collection('payroll_config').doc('vale_transporte').set(
+        { tarifas, updatedAt: serverTs(), updatedBy: currentUserId() }, { merge: true });
+      await AuditService.log({
+        type: 'vt_tarifa_alterada', module: 'fechamento', entityType: 'payroll_config', entityId: 'vale_transporte',
+        details: `Valor da passagem: R$ ${valor.toFixed(2)} a partir de ${desde}`,
+        before: { tarifas: antes.tarifas || [] }, after: { tarifas },
+      });
+      return { success: true, data: { tarifas } };
+    } catch (err) {
+      console.error('[PayrollVtService.setTarifa]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+  async getAjustes(mes) {
+    const doc = await db.collection('payroll_adjustments').doc(mes).get();
+    return (doc.exists && doc.data().vt) || {};
+  },
+  /** Corrige o VT de uma pessoa no mês. `valor` null desfaz a correção (volta ao calculado). */
+  async setAjuste(mes, teacherId, valor, motivo) {
+    try {
+      if (!mes || !teacherId) return { success: false, error: 'Mês e pessoa são obrigatórios.' };
+      const ref = db.collection('payroll_adjustments').doc(mes);
+      const desfaz = valor === null || valor === undefined;
+      if (!desfaz && !(typeof valor === 'number' && valor >= 0 && valor < 5000)) return { success: false, error: 'Valor inválido.' };
+      // Lê, monta o mapa inteiro e regrava o documento (sem merge): assim tirar
+      // uma correção realmente tira, e corrigir uma pessoa não mexe na outra.
+      const vt = Object.assign({}, await this.getAjustes(mes));
+      if (desfaz) delete vt[teacherId];
+      else vt[teacherId] = { valor: Math.round(valor * 100) / 100, motivo: String(motivo || '').slice(0, 300), por: currentUserId(), em: new Date() };
+      await ref.set({ mes, vt, updatedAt: serverTs(), updatedBy: currentUserId() });
+      await AuditService.log({
+        type: desfaz ? 'vt_ajuste_desfeito' : 'vt_ajustado', module: 'fechamento', entityType: 'payroll_adjustment', entityId: `${mes}_${teacherId}`,
+        details: desfaz ? `VT de ${mes} voltou ao calculado` : `VT de ${mes} corrigido para R$ ${valor.toFixed(2)}${motivo ? ' — ' + motivo : ''}`,
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[PayrollVtService.setAjuste]', err);
+      return { success: false, error: err.message, code: err.code };
+    }
+  },
+};
+
 const ClosingService = {
   /**
    * ID do fechamento: `${ano}-${mes}` — do MÊS, não da unidade.
@@ -2652,13 +2719,19 @@ const ClosingService = {
       const startDate = new Date(year, month - 1, 1, 0, 0, 0);
       const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-      const [snap, stSnap, unitsRes] = await Promise.all([
+      const mesRef = this.getClosingId(year, month);
+      // O valor da passagem e o VT corrigido neste mês entram na conta. Se a
+      // leitura falhar, a prévia falha junto: mostrar um número que o
+      // fechamento não vai pagar é pior do que não mostrar.
+      const [snap, stSnap, unitsRes, vtConfig, ajustesVt] = await Promise.all([
         db.collection('classes')
           .where('scheduledDate', '>=', startDate)
           .where('scheduledDate', '<=', endDate)
           .get(),
         db.collection('special_scale_types').get(),
         UnitService.list(),
+        PayrollVtService.getConfig(),
+        PayrollVtService.getAjustes(mesRef),
       ]);
 
       const classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -2744,6 +2817,7 @@ const ClosingService = {
         units: new Map((unitsRes.success ? unitsRes.data : []).map(u => [u.id, u])),
         ano: year, mes: month, ultimoDiaDoMes: endDate,
         bancos,
+        vtConfig, ajustesVt,
       });
 
       // Custo por unidade: derivado das MESMAS linhas da folha, pra não existir
@@ -2760,6 +2834,7 @@ const ClosingService = {
           teachers: folha.pessoas,
           totals: folha.totais,
           isEmpty: false,
+          vt: { config: vtConfig, tarifa: ClosingPayroll.tarifaVigente(vtConfig, mesRef), mes: mesRef },
           conferencia: {
             statusAulas,
             aulasNoMes: classes.length,

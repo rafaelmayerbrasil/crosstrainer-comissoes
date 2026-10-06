@@ -551,7 +551,7 @@ function renderPessoaSalarialInfo(p, s) {
         <div><div class="info-field-label">R$/hora</div><div class="info-field-value">${fmt(s.hourlyRate)}</div></div>
       `}
       <div><div class="info-field-label">Vale Refeição</div><div class="info-field-value">${fmt(s.mealAllowance)}</div></div>
-      <div><div class="info-field-label">Vale Transporte</div><div class="info-field-value">${fmt(s.transportAllowance)}</div></div>
+      <div><div class="info-field-label">Vale Transporte</div><div class="info-field-value">${s.vtPorDia === true ? `por dia trabalhado · ${s.vtPassagensPorDia || 2} passagens/dia` : fmt(s.transportAllowance)}</div></div>
       <div><div class="info-field-label">Outros benefícios</div><div class="info-field-value">${(s.otherBenefits || []).map(b => escapeHtml(b.nome) + ' ' + fmt(b.valor)).join(' · ') || '—'}</div></div>
     </div>${editBtn}`;
 }
