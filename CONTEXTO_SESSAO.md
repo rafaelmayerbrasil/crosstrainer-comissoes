@@ -25,7 +25,15 @@
 
 **Validação.** `scripts/smoke-escala-texto-whatsapp-abas.js` novo (10 ✓), `smoke-escala-whatsapp-tela.js` de 8 para 16 ✓ (renderiza a tela e chama as funções), `smoke-manual-atualizado.js` com 4 âncoras novas. **Suíte local 127 de 127** (`smoke-9.js` não conta: pede `--project staging`). Conferência visual feita por mim num servidor local com **dados de exemplo** (faixa, janela e as 6 abas; celular 375 px sem estouro; 0 erro de console). ⚠️ **Ninguém clicou logado**, nem no staging nem em produção, e os textos não foram vistos com dado real — o Rafael Rojais será o primeiro a usar.
 
-**🔴 Pendências que continuam (da sessão 86):** conferir as rodadas de 06/10 (4h: `periodos/{cp,pp}_2026-10.automatico` "atualizado" e `anterior` no caderninho; 5h: lista CP 24 · 13 e PP 14 · 9; termômetro = comissão) — **não conferi nesta sessão** · mandar o texto ao Rodrigo.
+**✅ Rodadas de 06/10 conferidas em produção (só leitura, ~10h10), a pedido do Rafael — tudo como esperado:**
+- **4h (busca + termômetro + comissão automática):** 35 dias × 2 unidades relidos às 4h, todos "buscado", **nenhum com `ultimaFalha`** (o PP 12/09, que tinha falhado por rede no dia 05, voltou limpo). `periodos/{cp,pp}_2026-10.automatico` = **"atualizado"** às 04:15, dados até 05/10, sem dia com problema.
+- **Termômetro = comissão em outubro, nas duas unidades:** CP 5 ativações (4 novos+retorno · 0 renov · 1 voucher) · PP 10 (5 · 2 · 3). Setembro: CP 63 = 63; PP termômetro 47 × comissão 48 (a renovação paga com crédito, diferença conhecida desde a sessão 79).
+- **Regra da mensalidade seguinte na primeira rodada agendada:** todo contrato de plano recorrente de outubro com situação "Renovação" ganhou `anterior` no caderninho e ficou fora da venda — **CP 3 de 3** (7249, 7277, 7263), **PP 1 de 1** (4756). Os que entraram como venda são "Matrícula" (CP 7270 e 7271, sem contrato anterior; PP 4764, que vem de OUTRO plano encerrado em 17/09 — continua venda, como a regra manda).
+- **5h (lista de renovações):** CP **24 · 13** (05:08, 96/96 conferidos, conferência bate; 35 na segunda tentativa, 35 vieram) · PP **14 · 9** (05:11, 56/56, bate). Vouchers subiram 1 em cada (CP 10 → 11, PP 8 → 9), que é o mês andando. Bloco "recorrentes que não renovaram" e "verificar": 0 nas duas.
+- **Para saber:** na PP, o automático das 4h trocou a consultora de UM contrato de outubro (C4754, renovação de anual, R$ 199): saiu da **Kali** e foi para a **Isabela** (R$ 49,98 de comissão) — é a releitura do vínculo do aluno na Pacto (sessão 82), não erro. Vale avisar se alguma das duas perguntar.
+- **De brinde, na auditoria:** o Rafael Rojais respondeu **26 avisos de professores** hoje entre 8h51 e 8h54 (a pendência da sessão 81 que travava o fechamento de setembro).
+
+**🔴 Pendência que continua (da sessão 86):** mandar o texto ao Rodrigo (`relatorios pacto/texto-para-o-rodrigo-2026-10-05.md`).
 
 **Resposta para o grupo (entregue na conversa):** Agenda → Escala Inteligente → faixa verde abaixo das abas → 📋 Copiar a escala para o WhatsApp → escolher mês e formato → Copiar.
 
