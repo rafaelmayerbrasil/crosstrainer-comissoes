@@ -12,6 +12,8 @@
 
 **🔴 Com a gestão:** usar. O primeiro lançamento de um dia com várias aulas da mesma pessoa vai ser o deles (no staging só havia uma aula por pessoa por dia).
 
+**🔴 PARA CORRIGIR DEPOIS (pedido do Rafael, 07/10/2026): o e-mail dos botões antigos de troca.** Quando a gestão troca o professor por **⇄ Trocar professor** (janela da aula, `saveSubstitution` em `professores-agenda.js`) ou por **Passar para…** (Horas do mês, `horasGestaoPassarAulas` em `professores-horas.js`), o titular recebe o aviso `substitution_requested` — que vira e-mail "Uma troca de aula espera você" — mesmo com a gestão confirmando na sequência, ou seja, pedindo uma resposta que ninguém espera. A correção é passar `avisarQuemConfirma: false` no `SubstitutionService.create` desses dois caminhos (o parâmetro já existe, criado para a Falta do dia) e cobrir com teste; os dois lados continuam avisados da troca confirmada pela Function. Só frontend. Não foi feito nesta sessão.
+
 *(O que segue é o registro de como foi construído e homologado — onde diz "falta o pode publicar" ou "nada em produção", leia como histórico.)*
 
 **Branch `falta-do-dia` (a partir do `main` em `55f53bf`), commits `43899ae` e `213a2ab`.**
