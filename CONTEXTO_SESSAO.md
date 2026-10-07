@@ -3,10 +3,18 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 90 (07/10/2026) — 🚫 FALTA DO DIA: a gestão lança todas as aulas da pessoa (ou algumas) de uma vez · 🧪 CONSTRUÍDO E HOMOLOGADO NO STAGING · NADA EM PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 90 (07/10/2026) — 🚫 FALTA DO DIA: a gestão lança todas as aulas da pessoa (ou algumas) de uma vez · ✅ NO AR EM PRODUÇÃO (`55f53bf..e60474c`, só frontend)
 
 ### ▶️▶️ RETOMAR AQUI
-**Branch `falta-do-dia` (a partir do `main` em `55f53bf`), commits `43899ae` e `213a2ab`. Só frontend: nenhuma regra, índice ou Function mudou. Hospedagem do staging publicada desta branch. 🔴 Falta o "pode publicar" do Rafael → `main` + `git push origin main` (nada mais a publicar).**
+**🚀 PUBLICADO EM PRODUÇÃO em 07/10/2026, com o "pode publicar" do Rafael:** `55f53bf..e60474c` no `main` (`git push origin main`). Só frontend: nenhuma regra, índice ou Function mudou, e nada foi publicado no Firebase de produção.
+
+**Conferido depois, pelo navegador (sem login):** o GitHub Pages serve `falta-do-dia.js?v=20261007b`, `professores-falta-dia.js?v=20261007`, `professores-shared.js?v=20261007c` e `professores-agenda.js?v=20261007c`, com a janela, o botão, a correção do texto e os dois manuais; a página de produção carrega sem erro de console; `index.html`, `commission.js`, `sw.js` e `manifest.json` intactos. Antes do envio: suíte 133 ✓ e `validate-rules-comissoes.js` 6/6. ⚠️ **Ninguém clicou logado em produção**; a homologação foi no staging. (O terminal daqui não alcança `github.io`; a conferência do Pages é pelo navegador.)
+
+**🔴 Com a gestão:** usar. O primeiro lançamento de um dia com várias aulas da mesma pessoa vai ser o deles (no staging só havia uma aula por pessoa por dia).
+
+*(O que segue é o registro de como foi construído e homologado — onde diz "falta o pode publicar" ou "nada em produção", leia como histórico.)*
+
+**Branch `falta-do-dia` (a partir do `main` em `55f53bf`), commits `43899ae` e `213a2ab`.**
 
 **O pedido (gestão, 07/10, pelo Rafael):** marcar a falta em todas as aulas do dia, ou em algumas, sem abrir aula por aula. A falta era lançada na janela de cada aula: quem faltou um dia inteiro com 6 aulas exigia 6 aberturas.
 
