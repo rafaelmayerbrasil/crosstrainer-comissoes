@@ -1,162 +1,154 @@
 # crosstrainer-comissoes
 
-Sistema CrossTainer Elite — plataforma PWA para gestão da operação completa de uma rede de academias CrossTainer.
+Sistema **CrossTainer Elite** — plataforma PWA para a gestão de uma rede de academias CrossTainer: comissões da equipe comercial e toda a rotina dos professores (agenda, escala, horas, fechamento e pagamento).
 
-## 📦 Dois módulos coexistindo
+> O nome da marca é **CrossTainer**. `crosstrainer-comissoes` é só o identificador técnico do repositório e dos projetos do Firebase, e fica como está.
+
+## 📦 Dois módulos, os dois em produção
 
 | Módulo | Status | Arquivos principais |
 |--------|--------|---------------------|
-| **Comissões** (vendedores · Performance) | ✅ Em produção | `index.html`, `commission.js`, `sw.js`, `manifest.json` |
-| **Professores** (agenda · pagamento) | 🟡 Em desenvolvimento ativo (97% completo, em staging) | `professores.html`, `professores-*.js`, `functions/`, `firestore.rules` |
+| **Comissões** (equipe comercial) | ✅ Em produção | `index.html`, `commission.js`, `sw.js`, `manifest.json`, `renovacoes.html`, `termometro.html` |
+| **Professores** (agenda · escala · horas · fechamento) | ✅ Em produção desde 17/07/2026 | `professores.html`, `professores-*.js`, `functions/`, `firestore.rules` |
 
-## 🎯 Módulo Comissões (produção · `rafaelmayerbrasil.github.io`)
+## 🎯 Módulo Comissões
 
-Sistema para vendedoras e administradores acompanharem comissões, metas e desempenho de vendas.
+Para vendedoras e gestão acompanharem comissões, metas e desempenho de vendas.
 
-- Painel da vendedora: comissão acumulada (P1-P4), projeção de fim de mês, simulador interativo, gamificação
-- Painel administrativo: upload de fechamento, dashboard gerencial, edição/split de registros, emissão de recibos PDF, comparativo de períodos
-- Motor de comissões P1-P4: percentual sobre caixa, bônus por contrato, meta da unidade, conversão de voucher
-- Sistema de créditos automáticos pra divergências pós-pagamento
-- Tratamento especial: upgrade de plano, renovação balcão, validação de mês único
+- **Painel da vendedora:** comissão acumulada (P1–P4), projeção de fim de mês, simulador, gamificação
+- **Painel administrativo:** dashboard gerencial, edição e divisão de lançamentos, recibos em PDF, comparativo de períodos, pagamentos e créditos
+- **Motor de comissões P1–P4** (`commission.js`): percentual sobre o caixa, bônus por contrato, meta da unidade, conversão de voucher
+- **Regime de caixa** (de setembro/2026): a comissão é do mês em que o dinheiro entrou, uma vez só por contrato; estorno vira crédito no pagamento seguinte
 - **Comissão automática pela API da Pacto** (de outubro/2026): o mês se recalcula sozinho toda madrugada; a planilha exportada virou plano B
 - **Lista de renovações** das consultoras (`renovacoes.html`), **termômetro do mês** (`termometro.html`) e **meta sugerida** para mês sem meta
-- Regra do bônus da unidade de outubro/2026: três mínimos batidos = 100% · um não batido = 50% · dois ou mais = zera; mínimo individual pela jornada
+- **Regra do bônus da unidade** (de outubro/2026): três mínimos batidos = 100% · um não batido = 50% · dois ou mais = zera; mínimo individual pela jornada
+- A mensalidade seguinte do mesmo plano recorrente **não é venda**, seja quem for que lançou
 
-📄 Detalhamento técnico: [DOCUMENTACAO.md](DOCUMENTACAO.md) § Módulo Comissões
+📄 Detalhe técnico: `DOCUMENTACAO.md` § Módulo Comissões
 
-## 👥 Módulo Professores (em homologação · staging)
+## 👥 Módulo Professores
 
-Plataforma completa de gestão de professores: cadastro, agenda, substituições, fechamento mensal, pagamentos, recibos e escalas especiais.
+Cadastro, agenda, escala, trocas, horas, fechamento mensal, pagamentos e férias.
 
-**Funcionalidades entregues** (em staging, aguardando homologação final):
+**Pessoas e acesso**
+- **Hub Pessoas:** cadastro único de professores, vendedoras, gestão e supervisão; ficha em abas; desligar e religar pessoa; trocar o e-mail de acesso pela tela
+- **Aba Salarial só do Admin:** hora-aula ou bolsa, VR, VT (fixo **ou por dia trabalhado**), outros benefícios, histórico com data de vigência
 
-1. **Cadastro de Professores** — efetivo / estagiário / eventual, com vínculo a unidades e modalidades
-2. **Aba Salarial restrita** — apenas Admin, com histórico de alterações, VR/VT/Outros e `effectiveDate`
-3. **Agenda Semanal** — grade recorrente por unidade, slots livres, multi-select de dias em lote
-4. **Geração automática de aulas** — Cloud Function gera 4 semanas adiante via cron semanal
-5. **Minha Agenda** — professor vê próprias aulas filtradas
-6. **Agenda Geral** — visão multi-unidade somente leitura
-7. **Substituições** — direta (titular indica) + cobertura aberta (qualquer apto pega)
-8. **Notificações in-app** — sino na sidebar com badge e dropdown
-9. **Fechamento Mensal** — consolida horas, calcula valor por professor, congela aulas
-10. **Pagamentos + Recibos** — emissão individual ou em lote, página de impressão A4, confirmação de pagamento
-11. **Créditos automáticos** — divergências viram crédito abatido no próximo recibo
-12. **Escalas Especiais** — sábado/feriado/eventos com pesos diferenciados (×1, ×2, ×3)
-13. **Detecção automática de feriado nacional** — via BrasilAPI, cache 7 dias
-14. **Férias e Recesso (Sprint 6a)** — workflow CLT completo: professor solicita até 3 períodos, admin aprova/recusa, CF pula classes nas datas aprovadas
-15. **Pagamento de Férias (Sprint 6b)** — cálculo automático para efetivo (média 12 meses + 1/3 CLT) e estagiário (bolsa proporcional, Lei 11.788). Modo manual + sem pagamento + adiar. Integra com fechamento mensal + recibo A4. Rateio proporcional quando férias atravessa 2 meses
-16. **Controle Anual de Saldo (Sprint 6c)** — painel admin "📊 Saldos de Férias" com badges 🟢🟡🔴 por professor. Painel professor "📊 Meu Saldo" com período aquisitivo CLT (12 meses de admissão) + histórico. Soft warning ao exceder saldo (alerta + justificativa obrigatória). Alerta automático de **férias vencidas** (CLT Art. 134 — pagamento dobrado se concessivo expirar)
-17. **Relatórios e Exportações (Sprint 8)** — R1 Fechamentos · R2 Aulas · R3 Horas por Professor · R4 Recibos em lote (ZIP), tudo em Excel + PDF client-side com fallback local de libs (`/vendor`)
-18. **Shell integrado (sessão 32)** — navegação unificada dos 2 módulos: sidebar por domínio, seletor de módulo por `moduleAccess`, home como centro de pendências, deep-links entre módulos
-19. **Hub Pessoas (sessão 33)** — cadastro unificado de TODOS (professores, vendedoras, admins, supervisão): lista única (união `teachers`⊕`users`), wizard "Nova pessoa" (perfis → dados → 🔒salário → 🔑acesso opcional), ficha com 4 abas gated. Substituiu as telas "Professores" e "Gestão de Usuários"
+**Agenda**
+- **Grade de Horários** recorrente por unidade → aulas geradas 8 semanas adiante (toda segunda, 2h)
+- **Minha Agenda** (professor) e **Agenda Geral** (gestão), com registro automático da aula realizada (todo dia, 3h)
+- **Troca de professor da aula:** quem deu a aula registra → o dono confirma → a gestão confirma
+- **Avisos dos professores:** o professor avisa atraso, saída ou aula que não aconteceu, e a gestão responde num clique
+- **Notificações** no sino e por e-mail (5 tipos com prazo ou dinheiro)
 
-**Em desenvolvimento ou pendentes:**
+**Escala Inteligente**
+- Sábados, feriados, fim de ano, Escola Interna e eventos, com rodízio de verdade (contagem derivada das escalas), prévia antes de publicar e o porquê de cada vaga
+- Preferência por data, cota por pessoa, folga mínima configurável, ajuste com prévia, histórico de quem mexeu
+- **Copiar a escala para o WhatsApp**
 
-- **Homologação do cliente** — roteiro de 8 passos publicado (`roteiro-homologacao.html`) + manuais (`manual-admin.html`, `manual-professores.html`) + dados de demo no staging
-- Deploy em produção — após aprovação, seguir `docs/checklist-deploy-producao.md`
-- **Visão do professor otimizada pra celular** — compromisso pós-aprovação
-- Sprint 5b (opcional) — Workflow de aceite/recusa pelo professor · Sprint 7 — Notificações por email
+**Horas e fechamento**
+- **Minhas horas do mês:** o professor confere o mês, corrige o dia diferente e envia; a gestão valida, e validar ajusta as próprias aulas
+- Hora em dois lugares conta uma vez; feriado conta em dobro; banco de horas do estagiário
+- **Fechamento por pessoa/mês**, com conferência em blocos e checklist que trava o botão enquanto houver pendência
+- **Vale-transporte por dia trabalhado:** dias com aula × passagens por dia × valor da passagem, com correção no mês
+- **Pagamentos e recibos** (A4), créditos automáticos, **relatórios** em Excel e PDF
 
-📄 Detalhamento técnico: [DOCUMENTACAO.md](DOCUMENTACAO.md) § Módulo Professores
+**Férias, engajamento e PLR**
+- Férias e recesso (pedido, aprovação, pagamento com 1/3, saldo anual e alerta de férias vencidas)
+- Engajamento (presença em eventos, pontos e placar) e PLR (avaliação de desempenho)
+
+**Ajuda dentro do app:** item ❓ no menu e botão "?" nas telas, abrindo `manual-admin.html` ou `manual-professores.html` na seção certa.
+
+📄 Detalhe técnico: `DOCUMENTACAO.md` § Módulo Professores
 
 ## 🛠️ Stack
 
-- **Frontend:** HTML5/CSS3/Vanilla JS (módulos por arquivo, sem framework)
-- **Backend:** Firebase (Firestore NoSQL · Authentication · Cloud Functions 2nd gen · Hosting)
-- **Service Worker:** PWA offline + cache no módulo Comissões
-- **Bibliotecas:** SheetJS (Excel), Chart.js (gráficos), BrasilAPI (feriados)
+- **Frontend:** HTML, CSS e JavaScript puro (um arquivo por módulo, sem framework)
+- **Backend:** Firebase (Firestore · Authentication · Cloud Functions 2ª geração, Node 22 · Hosting)
+- **Regras de negócio em módulos puros**, sem Firebase, testáveis fora do navegador; os que a Function também usa têm cópia gêmea em `functions/`, e um teste falha se as duas divergirem
+- **Service Worker:** PWA no módulo Comissões
+- **Integrações:** API da Pacto (vendas e renovações), SendGrid (e-mail), BrasilAPI (feriados)
+- **Bibliotecas:** SheetJS, Chart.js, jsPDF, JSZip (com cópia local em `vendor/`)
 
 ## ☁️ Ambientes
 
-| Ambiente | Projeto Firebase | Hostname | Status |
-|----------|------------------|----------|--------|
-| **Produção** | `crosstrainer-comissoes` | `rafaelmayerbrasil.github.io/crosstrainer-comissoes` | Comissões ✅ · Professores ❌ (não deployado) |
-| **Staging** | `crosstrainer-comissoes-staging` | `localhost:5000` ou `crosstrainer-comissoes-staging.web.app` | Comissões + Professores |
+| Ambiente | Projeto Firebase | Endereço | Uso |
+|----------|------------------|----------|-----|
+| **Produção** | `crosstrainer-comissoes` | `rafaelmayerbrasil.github.io/crosstrainer-comissoes` | O que os usuários acessam |
+| **Staging** | `crosstrainer-comissoes-staging` | `crosstrainer-comissoes-staging.web.app` | Homologação antes de qualquer publicação |
 
-Detecção automática de ambiente via `firebase-config.js` (regra inviolável: só usa produção se hostname for exato).
+- `firebase-config.js` escolhe o ambiente pelo endereço: **só o GitHub Pages é produção**; qualquer outro cai em staging, de propósito.
+- **Produção tem duas portas.** O site é o GitHub Pages, que serve o `main`: publicar para o usuário é `git push origin main`. Regras, índices e Functions vão pelo Firebase, sempre com `--project production` explícito.
+- O padrão dos comandos do Firebase é o staging (`.firebaserc`).
 
 ## 📂 Estrutura de arquivos
 
 ```
 crosstrainer-comissoes/
-├── index.html, commission.js, sw.js, manifest.json   → Módulo Comissões (produção)
-├── professores.html, professores-*.js                → Módulo Professores (staging)
-├── pessoas-model.js, user-model.js                    → Modelos puros (junção pessoas · derivação de acesso) com smokes
-├── manual-admin.html, manual-professores.html         → Manuais de uso (identidade visual do sistema)
-├── roteiro-homologacao.html                           → Roteiro de homologação do cliente (8 passos)
-├── receipt.html                                       → Página standalone de impressão de recibos
-├── vendor/                                            → Fallback local das libs CDN (xlsx, jspdf, jszip…)
-├── functions/                                         → Cloud Functions (Node 22)
-│   └── index.js                                       → healthCheck, generateClasses*, processSubstitutionAcceptance, closeMonth, etc.
-├── scripts/                                           → Utilitários Node.js (Admin SDK)
-│   ├── smoke-{user-model,sidebar,pessoas-model}.js    → Smokes dos modelos puros
-│   ├── fixture-pessoas.js, seed-demo.js               → Fixture de validação + dados de demonstração (--cleanup)
-│   ├── validate-pessoas-rules.js                      → Validação das Security Rules via REST (auth real)
-│   ├── audit-{admin-gestao,units-duplicadas}.js       → Auditorias de dados
-│   └── admin.js, migrate-*.js, seed-special-*.js      → Smoke tests + migrações + seeds
-├── firestore.rules, firestore.indexes.json            → Configuração do Firestore
-├── CLAUDE.md, CONTEXTO_SESSAO.md                      → Estado do desenvolvimento (memória do projeto)
-├── DOCUMENTACAO.md                                    → Detalhes técnicos de cada módulo
-├── sprint-*.md, runbook-*.md                          → Playbooks das sprints (13 documentadas)
-└── docs/                                              → Specs do cliente + checklist-deploy-producao.md + superpowers/{specs,plans}
+├── index.html, commission.js, sw.js, manifest.json   → Comissões (não alterar sem autorização)
+├── renovacoes.*, termometro.*, pacto-*.js             → Renovações, termômetro e integração com a Pacto
+├── comissoes-mes.js, metas-sugeridas.js, jornada-comercial.js, estorno-comissao.js, upload-pela-api.js
+├── professores.html, professores-*.js                 → Telas do módulo Professores
+├── closing-payroll.js                                 → A conta da folha do mês (inclui o vale-transporte)
+├── hour-declaration.js, intern-hour-bank.js           → Horas do mês e banco de horas do estagiário
+├── scale-engine.js, scale-rebalance.js, scale-service.js → Escala Inteligente
+├── substitution-flow.js, class-avisos.js, class-propagation.js
+├── pessoas-model.js, user-model.js                    → Junção de pessoas e derivação de acesso
+├── manual-admin.html, manual-professores.html         → Manuais (abertos pela Ajuda do app)
+├── receipt.html                                       → Impressão de recibos
+├── vendor/                                            → Cópia local das bibliotecas
+├── functions/                                         → Cloud Functions (index.js + cópias gêmeas dos módulos puros)
+├── scripts/                                           → Testes, homologações e utilitários (Node, Admin SDK)
+│   ├── smoke-*.js                                     → Suíte local (não toca o banco)
+│   ├── e2e-*-staging.js, validate-*.js, validar-*.js  → Ponta a ponta e regras, contra o staging
+│   └── homologar-*.js, diag-*.js, conferir-*.js       → Conferências só de leitura
+├── firestore.rules, firestore.indexes.json, storage.rules
+├── CLAUDE.md, CONTEXTO_SESSAO.md                      → Estado e histórico do desenvolvimento
+├── DOCUMENTACAO.md                                    → Referência técnica (fora do git, só no disco)
+├── sprint-*.md, runbook-*.md                          → Playbooks das sprints
+└── docs/                                              → Propostas, conversas com a gestão, superpowers/{specs,plans}
 ```
 
-## 🚦 Pra começar (desenvolvimento)
+## 🚦 Para começar (desenvolvimento)
 
 ```bash
-# Setup uma vez
+# Uma vez
 firebase login
 cd functions && npm install
 cd scripts && npm install
-# Service account: baixar de Firebase Console → scripts/serviceAccount-staging.json (no .gitignore)
+# Service account: Firebase Console → scripts/serviceAccount-staging.json (está no .gitignore)
 
-# Servidor local (módulo Professores)
-firebase serve --only hosting --project staging
-# Abre em http://localhost:5000/professores.html
+# Suíte local (só o smoke-9 falha; é antigo)
+for f in scripts/smoke-*.js; do node "$f" > /dev/null 2>&1 || echo "FALHOU $f"; done
 
-# Smoke tests automatizados (Admin SDK)
-cd scripts && node admin.js --project staging smoke-4a unit-cp 2026 5
-cd scripts && node admin.js --project staging smoke-4b <closingId>
-cd scripts && node admin.js --project staging smoke-5a
-
-# Deploy em staging
+# Publicar no staging
 firebase deploy --only firestore:rules --project staging
-firebase deploy --only firestore:indexes --project staging
-firebase deploy --only functions --project staging
+firebase deploy --only functions:<nome> --project staging
 firebase deploy --only hosting --project staging
 ```
 
-## 📚 Documentos chave (ordem de leitura recomendada)
+Antes de publicar regras em produção: `node scripts/validate-rules-comissoes.js`.
+Ao mudar um arquivo de tela, trocar o `?v=` dele em `professores.html` (ou no `index.html`), senão o navegador serve o antigo.
 
-1. **[CLAUDE.md](CLAUDE.md)** — estado em uma frase (leia primeiro em cada sessão)
-2. **[CONTEXTO_SESSAO.md](CONTEXTO_SESSAO.md)** — log completo de sessões, decisões e próximos passos
-3. **[DOCUMENTACAO.md](DOCUMENTACAO.md)** — referência técnica detalhada de cada módulo
-4. **Playbooks de Sprint** — instruções passo-a-passo de cada sprint:
-   - [sprint-0B-infraestrutura.md](sprint-0B-infraestrutura.md)
-   - [sprint-1-cadastro-professores.md](sprint-1-cadastro-professores.md)
-   - [sprint-2-agenda.md](sprint-2-agenda.md)
-   - [sprint-3a-aulas-e-minha-agenda.md](sprint-3a-aulas-e-minha-agenda.md)
-   - [sprint-3b-agenda-geral-e-substituicoes.md](sprint-3b-agenda-geral-e-substituicoes.md)
-   - [sprint-4a-fechamento-mensal.md](sprint-4a-fechamento-mensal.md)
-   - [sprint-4b-pagamentos-recibos.md](sprint-4b-pagamentos-recibos.md)
-   - [sprint-5a-escalas-e-feriados.md](sprint-5a-escalas-e-feriados.md)
-   - [runbook-sprint-3b-finalize.md](runbook-sprint-3b-finalize.md)
-5. **Specs do cliente** (em `docs/`):
-   - `Proposta_Funcional_Consolidada_Modulo_Professores_CrossTainer_V3.md`
-   - `EspecificacaoTecnica_Modulo_Professores_CrossTainer_V1.md`
-   - `AgendaWireframes_design.html`
+## 📚 Documentos (ordem de leitura)
 
-## 🤖 Regras invioláveis (somente leitura)
+1. **[CLAUDE.md](CLAUDE.md)** — regras do projeto e o estado atual resumido
+2. **[CONTEXTO_SESSAO.md](CONTEXTO_SESSAO.md)** — onde paramos, decisões e o registro de cada sessão
+3. **`DOCUMENTACAO.md`** — referência técnica de cada módulo (fora do git)
+4. **`docs/superpowers/specs/` e `plans/`** — desenho e plano de cada entrega grande
+5. **Playbooks de sprint** (`sprint-*.md`) — a construção original do módulo Professores
+6. **Especificação e proposta funcional** — `EspecificacaoTecnica_Modulo_Professores_CrossTainer_V1.md`, `Proposta_Funcional_Consolidada_Modulo_Professores_CrossTainer_V3.md`, `AgendaWireframes_design.html`
 
-1. **Não tocar em `sw.js`** sem autorização explícita (serviço crítico de produção PWA).
-2. **Nunca mexer no nome `CrossTainer` em produção** (atual `CrossTrainer` precisa correção controlada — anotada em pendências).
-3. **Não fazer deploy em produção do módulo Professores** até homologação completa do cliente.
-4. **Service account keys** (`scripts/serviceAccount-*.json`) NUNCA vão pro git (gitignored).
-5. **Audit log** é append-only, nunca atualizar/deletar entries.
-6. **Mês fechado** (`monthly_closings` com aulas congeladas) é imutável — não permite alterações em status de aulas dele.
-7. **Histórico salarial** (`teacher_salaries.salaryHistory`) é append-only, com `effectiveDate` controlando aplicação retroativa.
-8. **Dados salariais** (coleção `teacher_salaries`) só visíveis pra Admin (Security Rule + UI condicional).
+## 🤖 Regras invioláveis
+
+1. **Não alterar `index.html`, `commission.js`, `manifest.json` ou `sw.js`** sem autorização explícita.
+2. **Produção só depois de homologar no staging** e com o OK explícito do responsável.
+3. **Service accounts e credenciais** (`scripts/serviceAccount-*.json`, `pacto-credencial*`) nunca vão para o git.
+4. **Dados salariais** (`teacher_salaries`, `monthly_closings`, `payroll_config`, `payroll_adjustments`) são só do Admin.
+5. **Mês fechado é irreversível:** regras e Function bloqueiam alteração.
+6. **`audit_log` só recebe registros novos;** nunca atualizar nem apagar.
+7. **A marca é `CrossTainer`** em todo texto visível; os identificadores do Firebase não mudam.
 
 ---
 
-**Última atualização:** 22/05/2026 · Sprint 5a validada em staging
+**Última atualização:** 06/10/2026 · sessão 89 (vale-transporte por dia trabalhado em produção)
