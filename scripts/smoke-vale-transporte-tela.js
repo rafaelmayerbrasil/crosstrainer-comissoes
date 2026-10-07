@@ -126,7 +126,18 @@ function novoApp(db) {
     await sb.vtAlterarTarifa();
     assert.ok(st.toasts.some(t => t.type === 'error'), 'valor que não é número é recusado');
     assert.strictEqual((await sb.PayrollVtService.setTarifa('2026-13', 6)).success, false, 'mês inexistente é recusado');
-    assert.strictEqual((await sb.PayrollVtService.setTarifa('2026-11', 7)).success, true);
+    // O mês é digitado como a pessoa escreve (11/2026), e mês que não existe é
+    // recusado ANTES da confirmação — achado clicando no staging em 06/10/2026:
+    // a tela confirmava "a partir de 2026-13" e só depois dizia que não gravou.
+    const confirmsAntes = st.confirms.length;
+    st.respostas = ['7,00', '13/2026']; st.toasts.length = 0;
+    await sb.vtAlterarTarifa();
+    assert.ok(st.toasts.some(t => t.type === 'error') && st.confirms.length === confirmsAntes, 'mês inexistente: erro sem pedir confirmação');
+    st.respostas = ['7,00', '11/2026'];
+    await sb.vtAlterarTarifa();
+    assert.ok(/novembro\/2026/.test(st.confirms[st.confirms.length - 1]), 'entende 11/2026');
+    const cfg2 = (await db.collection('payroll_config').doc('vale_transporte').get()).data();
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(cfg2.tarifas)), [{ desde: '2026-09', valor: 6.2 }, { desde: '2026-11', valor: 7 }]);
     assert.strictEqual((await previa()).vt.tarifa, 6.2, 'a tarifa de novembro não mexe em setembro');
     ok('valor da passagem configurável pela conferência, com mês de início');
   }

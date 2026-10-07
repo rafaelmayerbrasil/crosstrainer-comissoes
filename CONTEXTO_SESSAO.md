@@ -3,6 +3,38 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 89 (06/10/2026, noite) — 🚌 VALE-TRANSPORTE POR DIA TRABALHADO · 🧪 HOMOLOGADO NO STAGING · NADA EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+**Branch `vt-por-dia-trabalhado` (a partir do `main` em `7be5082`), commit `567fd4a`. Não enviada ao GitHub. Nada em produção.**
+
+**O pedido (Benny, 06/10):** "o valor é 6,20 por passagem. 24 dias × 2 passagens = 48 passagens × 6,20 = 297,60. Dias úteis do mês + sábado/feriados que trabalharem." O VT era um valor fixo no cadastro (R$ 250) e a conta era feita por fora.
+
+**Decisões do Rafael:** conta só o dia em que a pessoa **deu aula** (falta, aula cancelada e Escola Interna não geram passagem; várias aulas no dia = um dia; sábado e feriado entram quando trabalhados) · entra quem tem a marca **Vale-transporte por dia trabalhado** no cadastro salarial (`vtPorDia`), com passagens por dia por pessoa (`vtPassagensPorDia`, padrão 2) · o valor da passagem é um só para todos, com mês de início (`payroll_config/vale_transporte.tarifas[{desde,valor}]`) · o VT do mês pode ser corrigido no fechamento, com motivo (`payroll_adjustments/{AAAA-MM}.vt[teacherId]`), e o calculado fica guardado ao lado · sem valor da passagem para o mês, o fechamento **trava** (tela e Function) · a marca não tem histórico: ligar em outubro vale para setembro, que ainda não fechou · o R$ 250 fixo dos bolsistas é substituído pelo cálculo **a partir de setembro/2026**.
+
+**Construído:** a conta em `closing-payroll.js` + gêmeo (`valeTransporte`, `diasTrabalhados`, `tarifaVigente`; dia contado no fuso de Brasília, igual na tela e na Function) · `PayrollVtService` em `professores-shared.js` · bloco **Vale-transporte** na conferência do fechamento, com a conta aberta por pessoa, **Alterar o valor da passagem**, **Corrigir** e **Voltar ao calculado** · item novo no checklist que trava · marca e passagens no cadastro salarial · recibo mostra a conta · regras `payroll_config` e `payroll_adjustments` (só Admin; mês fechado não aceita correção; correção não se apaga) · Function `closeMonth` usa a mesma conta · manual do admin · `scripts/ligar-vt-por-dia.js` (liga a marca para os bolsistas com VT fixo e cadastra a passagem; sem `--apply` só mostra; guarda cópia em `backups/`).
+
+**Testes:** `smoke-vale-transporte-por-dia` (10) e `smoke-vale-transporte-tela` (8); suíte local **131 ✓** (fora o `smoke-9`).
+
+**Staging (06/10, noite):** publicados regras, Function `closeMonth` e hospedagem (esta branch). `validate-rules-comissoes.js` 6/6 antes e depois. **`scripts/e2e-vale-transporte-staging.js` (novo, ainda sem commit): 19/19** — fecha agosto de verdade pela Function com token de admin e desfaz tudo: sem passagem a Function recusa; professor não lê nem grava passagem e correção; Admin grava; ninguém apaga a correção; Marcos 14 dias (13 úteis + 1 sábado) × 2 × 6,20 = R$ 173,60 gravado igual ao módulo puro; Lucas corrigido para R$ 123,45 com o calculado (R$ 93,00) ao lado; "Nome de teste" continua no fixo de R$ 250; depois de fechado nem o Admin corrige. Staging voltou limpo (sem marca, sem passagem).
+
+**✅ Homologado na tela do staging, comigo clicando como gestão (o Rafael logou com a conta dele no navegador do app), sem erro de console:**
+- Cadastro salarial (Pessoas → ficha → Salário → Editar remuneração): marcar a caixa mostra as passagens e trava o valor fixo; "0 passagens" é recusado; Ana Paula (bolsista) gravada com 2 e Marcos com 3; a ficha passa a mostrar "por dia trabalhado · N passagens/dia". A marca feita em outubro valeu para setembro e não mexeu em bolsa nem em horas.
+- Conferência de setembro: item ⛔ "Vale-transporte sem o valor da passagem" com os dois nomes e o botão **Informar**; valor que não é número é recusado; desistir na confirmação não grava; com R$ 6,20 desde setembro a trava some e a conta aparece — Ana Paula 7 úteis + 2 sábados + 1 feriado = 10 dias × 2 × 6,20 = **R$ 124,00**; Marcos 11 + 1 + 1 = 13 dias × 3 × 6,20 = **R$ 241,80**; "Nome de teste" no fixo de R$ 250; total do bloco R$ 615,80; total do mês = soma das linhas.
+- **Corrigir** sem motivo é recusado; com motivo, Marcos foi a R$ 200,00 ("corrigido: …" no bloco e "corrigido" na folha, total da linha de R$ 1.700,13 para R$ 1.658,33); **Voltar ao calculado** pergunta antes e desfaz.
+- Passagem futura (R$ 7,50 a partir de novembro): setembro continua em R$ 6,20 e a tela avisa "muda para R$ 7,50 em novembro/2026".
+- **Achado e corrigido na hora:** o mês de início só era aceito como "2026-11"; quem digitasse "11/2026" recebia a confirmação e só depois "Não gravei". Agora a tela pede "mês/ano, ex.: 09/2026", entende os dois formatos (`vtLerMes`) e recusa mês que não existe **antes** de confirmar. Teste acrescentado em `smoke-vale-transporte-tela`; `professores-fechamento.js?v=20261007b`; hospedagem do staging republicada e o passo retestado na tela.
+
+**Como o staging ficou** (de propósito, para quem quiser olhar): Ana Paula (2 passagens) e Marcos (3) com a marca; passagem R$ 6,20 desde 09/2026 e R$ 7,50 desde 11/2026; nenhuma correção em setembro.
+
+**🔴 Falta:**
+1. OK do Rafael para produção: `main` + regras (`validate-rules-comissoes.js` antes) + Function `closeMonth` + `node scripts/ligar-vt-por-dia.js --project production --apply`.
+2. Ensaio em produção (só leitura): o script ligaria a marca para **10 pessoas** com R$ 250 fixo — Alan Brito, Camila Santos, Eduarda Santos, Helena Maria Borges, Heloísa Mayumi, João Vitor, Leonardo Silveira, Louise Gabrielle, Thaynara Silva, Thiago Valentim — e a passagem a R$ 6,20 desde 2026-09. **Setembro ainda não fechou: a folha de setembro dessas 10 muda de R$ 250 para o calculado.** Confirmar com a Benny antes de publicar.
+
+⚠️ A hospedagem do staging agora está com esta branch (antes estava com a das horas/`endereco-sistema`).
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 88 (06/10/2026, tarde) — 🕒 HORAS DO MÊS: "−3h45" DO THEO, FERIADO EM DOBRO E AS 29h DA CARLA · ✅ NO AR EM PRODUÇÃO (`feaf99f..069f0dd` + Function `onHourDeclarationSent`)
 
 ### ▶️▶️ RETOMAR AQUI

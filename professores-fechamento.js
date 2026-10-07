@@ -685,18 +685,30 @@ function vtLerValor(txt) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Lê o mês digitado pela pessoa ("09/2026", "9/2026", "2026-09") e devolve 'AAAA-MM', ou null. */
+function vtLerMes(txt) {
+  const s = String(txt == null ? '' : txt).trim();
+  let m = /^(\d{1,2})\s*[\/\-.]\s*(\d{4})$/.exec(s);
+  let ano, mes;
+  if (m) { mes = Number(m[1]); ano = Number(m[2]); }
+  else if ((m = /^(\d{4})\s*[\/\-.]\s*(\d{1,2})$/.exec(s))) { ano = Number(m[1]); mes = Number(m[2]); }
+  else return null;
+  if (!(mes >= 1 && mes <= 12) || !(ano >= 2020 && ano <= 2100)) return null;
+  return ano + '-' + String(mes).padStart(2, '0');
+}
+
 async function vtAlterarTarifa() {
   const y = FechamentoState.selectedYear, m = FechamentoState.selectedMonth;
-  const mes = y + '-' + String(m).padStart(2, '0');
   const atual = FechamentoState.previewData && FechamentoState.previewData.vt ? FechamentoState.previewData.vt.tarifa : null;
   const v = prompt('Valor de UMA passagem, em reais (ex.: 6,20):', atual != null ? String(atual.toFixed(2)).replace('.', ',') : '');
   if (v === null) return;
   const valor = vtLerValor(v);
   if (!(valor > 0)) { toast('Valor inválido. Digite algo como 6,20.', 'error'); return; }
-  const d = prompt('A partir de que mês esse valor vale? (formato AAAA-MM)' + String.fromCharCode(10) + String.fromCharCode(10)
-    + 'Meses anteriores a ele continuam com o valor antigo.', mes);
+  const d = prompt('A partir de que mês esse valor vale? (mês/ano, ex.: 09/2026)' + String.fromCharCode(10) + String.fromCharCode(10)
+    + 'Meses anteriores a ele continuam com o valor antigo.', String(m).padStart(2, '0') + '/' + y);
   if (d === null) return;
-  const desde = String(d).trim();
+  const desde = vtLerMes(d);
+  if (!desde) { toast('Não entendi o mês. Digite mês/ano, como 09/2026.', 'error'); return; }
   if (!confirm('Passagem a ' + fmt(valor) + ' a partir de ' + vtMesNome(desde) + '?' + String.fromCharCode(10) + String.fromCharCode(10)
     + 'Vale para todo mundo que recebe vale-transporte por dia trabalhado. Mês já fechado não muda.')) return;
   const res = await PayrollVtService.setTarifa(desde, valor);
