@@ -3,6 +3,35 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 90 (07/10/2026) — 🚫 FALTA DO DIA: a gestão lança todas as aulas da pessoa (ou algumas) de uma vez · 🧪 CONSTRUÍDO E HOMOLOGADO NO STAGING · NADA EM PRODUÇÃO
+
+### ▶️▶️ RETOMAR AQUI
+**Branch `falta-do-dia` (a partir do `main` em `55f53bf`), commits `43899ae` e `213a2ab`. Só frontend: nenhuma regra, índice ou Function mudou. Hospedagem do staging publicada desta branch. 🔴 Falta o "pode publicar" do Rafael → `main` + `git push origin main` (nada mais a publicar).**
+
+**O pedido (gestão, 07/10, pelo Rafael):** marcar a falta em todas as aulas do dia, ou em algumas, sem abrir aula por aula. A falta era lançada na janela de cada aula: quem faltou um dia inteiro com 6 aulas exigia 6 aberturas.
+
+**Decisão do Rafael:** a mesma tela também registra a aula que **um colega deu no lugar** (em vez de mandar a gestão resolver o dia em dois lugares).
+
+**Construído:**
+- **Agenda Geral → botão 🚫 Lançar falta do dia** (só admin e supervisão) e, dentro da janela da aula, o atalho *"Faltou em mais aulas neste dia? Lançar o dia de uma vez"*.
+- A janela pede **dia** e **quem faltou** (a lista traz só quem tem aula no dia) e mostra as aulas da pessoa, das duas unidades, **já marcadas como falta**. Por aula: **Faltou** · **Um colega deu** (escolhe quem) · **Deu a aula**. Atalhos: *Faltou em todas*, *Deu todas*, *Um colega deu todas*.
+- **Faltou** grava pelo `ClassService.updateStatus` (o mesmo da janela da aula: `nao_realizada` + `faltaTipo`, auditoria, aviso do professor dado como respondido). **Um colega deu** é a troca de sempre (`SubstitutionService.create` + `homologar`, `registradoPor:'gestao'`): a Function move a aula, o colega recebe e **não fica falta registrada**.
+- **Ficam de fora, com o motivo na linha:** mês fechado, aula cancelada, Escola Interna (não conta horas; a presença é do Engajamento) e aula com troca esperando confirmação. Falta já lançada aparece como está e nasce em "Não mexer".
+- **Aula que ainda não começou só aceita "falta avisada".** Colega que já tem aula no horário aparece marcado na lista, com o aviso de dois lugares na linha e na pergunta de confirmação; em aula de escala, entra também o aviso de escalas próximas.
+- **O professor recebe UM aviso no sino** (`falta_lancada`, "Falta registrada pela gestão"), com o dia e os horários. Não vira e-mail.
+- `SubstitutionService.create` ganhou `avisarQuemConfirma` (padrão `true`): lançando o dia, a gestão confirma na sequência e o titular **não recebe N pedidos de "uma troca de aula espera você"** — esse tipo vira e-mail. Os dois lados continuam avisados da troca confirmada, pela Function. ⚠️ Os caminhos antigos da gestão ("⇄ Trocar professor" e "Passar para…") seguem mandando esse pedido; não mexi.
+- Arquivos novos: `falta-do-dia.js` (regras, puro), `professores-falta-dia.js` (janela), `scripts/smoke-falta-do-dia.js` (7) e `scripts/smoke-falta-do-dia-tela.js` (10, arquivos reais contra banco de mentira). Manuais do admin (âncora `#falta-do-dia`) e do professor atualizados; `smoke-manual-atualizado` com o assunto. `?v=`: `falta-do-dia.js?v=20261007b`, `professores-falta-dia.js?v=20261007`, `professores-shared.js?v=20261007c`, `professores-agenda.js?v=20261007c`.
+- **Suíte local 133 ✓** (fora o `smoke-9`).
+
+**Homologado no staging comigo clicando, logado como Admin Teste (07/10):** a janela abriu com o dia de hoje e a consulta real; falta sem aviso do Marcos Estrela em 05/10 gravou (`nao_realizada`, `sem_aviso`, auditoria, agenda atualizada); aula da Bruna Lima de 06/10 passou para o Marcos pela Function de verdade (`substituida`, troca `accepted`); avisos conferidos no banco: **1 `falta_lancada` + 2 `substitution_accepted`, nenhum `substitution_requested`, nenhum e-mail**; o atalho de dentro da aula abriu na pessoa e no dia certos e mostrou "Já lançada como falta sem aviso". Visual conferido num servidor local com dados de exemplo (tema escuro e claro, celular 375 px sem estouro, 0 erro de console).
+- 🐛 Achado na homologação e corrigido (`213a2ab`): a pergunta dizia "Marcos Estrela é avisada"; agora "recebe um aviso no sino".
+- ⚠️ **Não homologado em tela:** dia com várias aulas da mesma pessoa (o staging só tem uma aula por pessoa por dia; a lógica está coberta pelos testes), perfil de supervisão, e o sino do professor mostrando o aviso.
+- **Ficou no staging como dado de teste:** a falta do Marcos em 05/10 e a troca Bruna → Marcos em 06/10.
+
+**Ponto de atenção dito ao Rafael:** a penalidade de pontos do engajamento é **por aula** — um dia de falta sem aviso com 6 aulas desconta 6 vezes. Já era assim; ficou como está.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 89 (06/10/2026, noite) — 🚌 VALE-TRANSPORTE POR DIA TRABALHADO · ✅ NO AR EM PRODUÇÃO (`7be5082..03dbbc3` + regras + Function `closeMonth` + marca ligada para 10 bolsistas)
 
 ### ▶️▶️ RETOMAR AQUI
