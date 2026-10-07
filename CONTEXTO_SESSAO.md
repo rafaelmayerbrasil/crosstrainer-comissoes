@@ -16,6 +16,10 @@
 
 **🔴 Com a gestão:** a Benny conferir os valores de setembro no bloco **Vale-transporte** da conferência do fechamento (e avisar se alguém usa mais ou menos de 2 passagens por dia, que muda no cadastro salarial) · quem mais deve receber por dia trabalhado (hoje só os 10 bolsistas; a Carla ficou no fixo).
 
+**📋 O que trava setembro, conferido em produção às ~22h de 06/10 (só leitura):** nenhum fechamento feito ainda · **avisos de professores: 0** sem resposta · **trocas: 0 em aberto** (14 confirmadas) · cadastro com aula valendo R$ 0: ninguém · aulas de setembro: 1.633 realizadas, 13 substituídas, 4 não realizadas. **Sobram duas travas:** (1) **pessoa em dois lugares** — Theo Rosa 04/09 (3h15) e Karin Kovalski 01/09 (1h) e 28/09 (30 min); (2) **horas do mês do Theo enviadas, esperando validação** (as do Thiago Valentim foram enviadas "igual à agenda" e não pedem validação). Do Theo ainda falta, antes de validar: passar para ele as aulas de 07/09 (Carla) e 19/09 (Bruno) pelo **Passar para…** e descobrir quem deu os sábados 05/09 (CP) e 26/09 (PP). O vale-transporte não trava, mas a Benny confere.
+
+**Fim da sessão 89:** escritos para o Rafael mandar no grupo o texto da Benny sobre o vale-transporte (com os valores de setembro por pessoa) e o resumo "o que entrou hoje no fechamento + o que falta para fechar setembro". `DOCUMENTACAO.md` atualizada (fora do git): vale-transporte, tabela do que trava o fechamento, seções novas 17 (Minhas horas do mês) e 18 (Avisos dos professores), Functions `onClassAvisoProfessor`/`onHourDeclarationSent` e coleções `payroll_config`, `payroll_adjustments`, `hour_declarations`, `scale_config` — ela estava sem nada das sessões 81 a 88. Memória nova: [[vale-transporte-por-dia-trabalhado]]. ⚠️ O `README.md` continua dizendo que o módulo Professores não está em produção (está desde 17/07).
+
 *(O que segue é o registro de como foi construído e homologado — onde diz "falta OK" ou "nada em produção", leia como histórico.)*
 
 **Branch `vt-por-dia-trabalhado` (a partir do `main` em `7be5082`), commits `567fd4a` e `03dbbc3`.**
