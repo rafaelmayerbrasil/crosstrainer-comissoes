@@ -3,10 +3,22 @@
 
 ---
 
-## 🔖 ONDE PARAMOS — sessão 89 (06/10/2026, noite) — 🚌 VALE-TRANSPORTE POR DIA TRABALHADO · 🧪 HOMOLOGADO NO STAGING · NADA EM PRODUÇÃO
+## 🔖 ONDE PARAMOS — sessão 89 (06/10/2026, noite) — 🚌 VALE-TRANSPORTE POR DIA TRABALHADO · ✅ NO AR EM PRODUÇÃO (`7be5082..03dbbc3` + regras + Function `closeMonth` + marca ligada para 10 bolsistas)
 
 ### ▶️▶️ RETOMAR AQUI
-**Branch `vt-por-dia-trabalhado` (a partir do `main` em `7be5082`), commit `567fd4a`. Não enviada ao GitHub. Nada em produção.**
+**🚀 PUBLICADO EM PRODUÇÃO em 06/10/2026 (~21h35), com o "pode publicar" do Rafael:** `7be5082..03dbbc3` no `main` + regras (`payroll_config`, `payroll_adjustments`; `validate-rules-comissoes.js` 6/6 antes) + Function `closeMonth` (`us-central1`) + `node scripts/ligar-vt-por-dia.js --project production --apply` (cópia de antes em `backups/vt-por-dia-production-2026-10-07T00-33-09-655Z.json`).
+
+**Conferido depois:** GitHub Pages serve os 12 arquivos conferidos iguais ao `main` (`professores-fechamento.js?v=20261007b`, os demais `?v=20261007`); `index.html`, `commission.js`, `sw.js` e `manifest.json` intactos; a página de produção carrega sem erro de console com as funções novas; sem login, `payroll_config` e `payroll_adjustments` respondem 403 e `closeMonth` responde `UNAUTHENTICATED`. ⚠️ **Ninguém clicou logado em produção**; a homologação foi no staging.
+
+**Em produção agora:** passagem a **R$ 6,20 desde 09/2026**; marca ligada (2 passagens por dia) para **10 bolsistas** que tinham R$ 250 fixo; o valor fixo continua guardado no cadastro (é para onde volta se a marca sair). **Setembro pela conta nova (só leitura, mesma função do fechamento), 1.650 aulas:** Alan Brito 22 dias R$ 272,80 · Camila Santos 22 R$ 272,80 · Eduarda Santos 23 R$ 285,20 · Helena Maria Borges 22 R$ 272,80 · Heloísa Mayumi 21 R$ 260,40 · João Vitor 21 R$ 260,40 · Leonardo Silveira 22 R$ 272,80 · Louise Gabrielle 23 R$ 285,20 · Thaynara Silva 23 R$ 285,20 · Thiago Valentim 22 R$ 272,80 — **total R$ 2.740,40** (no fixo eram R$ 2.500,00). Carla Fanti continua no fixo de R$ 150 (não é bolsista). Nenhuma trava de passagem.
+
+⚠️ **Todos os 10 aparecem com os 21 dias úteis de setembro** (22 menos o feriado de 07/09): nenhuma falta lançada tirou dia de ninguém. Se alguém faltou e não foi lançado, o VT está alto — a gestão acerta lançando a falta ou pelo botão **Corrigir**.
+
+**🔴 Com a gestão:** a Benny conferir os valores de setembro no bloco **Vale-transporte** da conferência do fechamento (e avisar se alguém usa mais ou menos de 2 passagens por dia, que muda no cadastro salarial) · quem mais deve receber por dia trabalhado (hoje só os 10 bolsistas; a Carla ficou no fixo).
+
+*(O que segue é o registro de como foi construído e homologado — onde diz "falta OK" ou "nada em produção", leia como histórico.)*
+
+**Branch `vt-por-dia-trabalhado` (a partir do `main` em `7be5082`), commits `567fd4a` e `03dbbc3`.**
 
 **O pedido (Benny, 06/10):** "o valor é 6,20 por passagem. 24 dias × 2 passagens = 48 passagens × 6,20 = 297,60. Dias úteis do mês + sábado/feriados que trabalharem." O VT era um valor fixo no cadastro (R$ 250) e a conta era feita por fora.
 
