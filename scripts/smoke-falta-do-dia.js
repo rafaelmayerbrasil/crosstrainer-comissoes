@@ -121,6 +121,7 @@ const AGORA = new Date(2026, 9, 7, 10, 0);   // 07/10, 10h: o dia 06 já passou 
     assert.ok(/2 faltas sem aviso/.test(t) && /07:00/.test(t) && /08:00/.test(t), 'quantas faltas, de que tipo e em que horários');
     assert.ok(/BIA LIMA/.test(t) && /18:00/.test(t), 'e qual aula passa para qual colega');
     assert.ok(/saem das horas pagas/i.test(t), 'e o efeito no pagamento');
+    assert.ok(/EDUARDA SANTOS recebe um aviso no sino/.test(t) && !/avisad[oa]/.test(t), 'sem adivinhar o gênero de quem faltou ("é avisada" saiu para o Marcos no staging)');
 
     const msg = F.mensagemParaOProfessor(p, DIA);
     assert.ok(/falta sem aviso/.test(msg) && /2 aulas/.test(msg) && /06\/10/.test(msg) && /07:00/.test(msg) && /gestão/.test(msg), 'o professor fica sabendo o que foi lançado: ' + msg);

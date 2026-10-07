@@ -187,7 +187,7 @@
       linhas.push(`• ${aulas.length === 1 ? 'a aula das' : 'as aulas das'} ${_horas(aulas)} ${aulas.length === 1 ? 'passa' : 'passam'} para ${quem}`);
     });
     linhas.push('');
-    if (p.faltas.length) linhas.push(`${p.faltas.length === 1 ? 'A falta sai' : 'As faltas saem'} das horas pagas e ${c.nome || 'a pessoa'} é avisada.`);
+    if (p.faltas.length) linhas.push(`${p.faltas.length === 1 ? 'A falta sai' : 'As faltas saem'} das horas pagas. ${c.nome || 'A pessoa'} recebe um aviso no sino.`);
     if (p.trocas.length) linhas.push('Aula dada por um colega troca de nome e o pagamento acompanha; não fica falta registrada nela.');
     return linhas.join('\n');
   }
