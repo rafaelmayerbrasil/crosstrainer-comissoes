@@ -2011,6 +2011,48 @@
     /* Wider modal para o form de professor */
     .modal-content-wide { max-width: 640px !important; }
 
+    /* ─── FALTA DO DIA (a gestão lança o dia inteiro de uma pessoa) ─── */
+    .falta-dia-topo { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .falta-dia-campo { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text2); flex: 0 0 150px; }
+    .falta-dia-campo-largo { flex: 1 1 220px; }
+    .falta-dia-campo input, .falta-dia-campo select, .falta-dia-colega select, .falta-dia-atalhos select, .falta-dia-bloco input {
+      width: 100%; padding: 8px 10px; font-size: 13px; font-family: inherit; background: var(--surface2); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+    }
+    .falta-dia-atalhos { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; font-size: 12px; color: var(--text2); }
+    .falta-dia-atalhos select { width: auto; flex: 1 1 170px; padding: 6px 8px; font-size: 12px; }
+    .falta-dia-lista { display: flex; flex-direction: column; gap: 8px; }
+    .falta-dia-linha { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--surface2); }
+    .falta-dia-bloqueada { opacity: .75; }
+    .falta-dia-titulo { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+    .falta-dia-hora { font-weight: 700; font-size: 14px; color: var(--text); }
+    .falta-dia-onde { font-size: 12.5px; color: var(--text2); }
+    .falta-dia-nota, .falta-dia-motivo { font-size: 12px; color: var(--text2); margin-top: 4px; }
+    .falta-dia-ops { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .falta-dia-op {
+      padding: 7px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; border-radius: 6px; font-family: inherit;
+      background: var(--surface); color: var(--text2); border: 1px solid var(--border); transition: all .15s;
+    }
+    /* No celular as três escolhas cabem numa linha só — quebrar deixava "Deu a aula" solta embaixo. */
+    @media (max-width: 480px) { .falta-dia-op { padding: 7px 8px; font-size: 12px; } }
+    .falta-dia-op:hover { border-color: var(--text2); color: var(--text); }
+    .falta-dia-op-falta  { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+    .falta-dia-op-colega { background: var(--orange-glow); color: var(--accent); border-color: var(--accent); }
+    .falta-dia-op-nada   { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+    .falta-dia-colega { margin-top: 8px; }
+    .falta-dia-alerta {
+      margin-top: 6px; padding: 8px 10px; font-size: 12.5px; line-height: 1.45; color: var(--text);
+      border-left: 3px solid var(--orange); background: var(--surface); border-radius: 4px;
+    }
+    .falta-dia-bloco { margin-top: 14px; }
+    .falta-dia-rotulo { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .falta-dia-rotulo .req { color: var(--red); }
+    .falta-dia-bloco .falta-dia-ops { margin-top: 0; }
+    .falta-dia-bloco .hint { font-size: 12px; color: var(--text3); }
+    .falta-dia-resumo { margin-top: 14px; font-size: 12.5px; line-height: 1.5; }
+    .falta-dia-atalho-aula { margin-top: 8px; font-size: 12.5px; }
+    .falta-dia-atalho-aula a { color: var(--accent); }
+
     @media (max-width: 600px) {
       .form-grid { grid-template-columns: 1fr; }
     }
@@ -2882,6 +2924,10 @@
               <option value="justificada">Faltou — avisou antes</option>
               <option value="sem_aviso">Faltou — sem aviso</option>
             </select>
+            <!-- Faltou o dia inteiro? Não precisa abrir aula por aula (07/10/2026). -->
+            <div class="falta-dia-atalho-aula">
+              <a href="#" onclick="abrirFaltaDoDiaDaAula();return false;">Faltou em mais aulas neste dia? Lançar o dia de uma vez →</a>
+            </div>
           </div>
           <div class="form-group">
             <label>Atraso (minutos)</label>
@@ -2948,6 +2994,17 @@
         <button class="btn" id="classSaveBtn" onclick="saveClassStatus()"
                 style="display:none;" data-edit-only="true">Salvar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ═════════ MODAL: Falta do dia (07/10/2026) — desenhada por professores-falta-dia.js ═════════ -->
+  <div class="modal" id="faltaDiaModal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h3>Lançar falta do dia</h3>
+        <button class="close-btn" onclick="fecharFaltaDoDia()">✕</button>
+      </div>
+      <div id="faltaDiaBody"></div>
     </div>
   </div>
 
@@ -3106,16 +3163,18 @@
   <script src="closing-payroll.js?v=20261007"></script>
   <!-- regras dos avisos do professor sobre a aula; o serviço (shared) depende dele -->
   <script src="class-avisos.js?v=20261001"></script>
+  <script src="falta-do-dia.js?v=20261007"></script>
   <!-- as contas de "Minhas horas do mês": agenda em turnos, resumo e o plano de ajuste das aulas -->
   <script src="hour-declaration.js?v=20261006b"></script>
-  <script src="professores-shared.js?v=20261007"></script>
+  <script src="professores-shared.js?v=20261007c"></script>
   <script src="professores-config-lock.js?v=20260813"></script>
   <script src="engagement-config.js?v=20260811"></script>
   <script src="points-engine.js?v=20260811"></script>
   <script src="engagement-service.js?v=20260812"></script>
   <script src="professores-cadastro.js?v=20261007"></script>
-  <script src="professores-agenda.js?v=20261006b"></script>
+  <script src="professores-agenda.js?v=20261007c"></script>
   <script src="professores-substituicoes.js?v=20261006b"></script>
+  <script src="professores-falta-dia.js?v=20261007"></script>
   <script src="professores-avisos.js?v=20261001"></script>
   <script src="professores-horas.js?v=20261006b"></script>
   <script src="professores-fechamento.js?v=20261007b"></script>

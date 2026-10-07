@@ -1838,6 +1838,7 @@ function renderAgendaGeralContent() {
           <select onchange="setAgendaGeralModality(this.value)">${modOpts}</select></label>
         ${(AgendaGeralState.teacherId || AgendaGeralState.modalityId)
           ? `<a href="#" onclick="limparFiltrosAgendaGeral();return false;" style="font-size:12px;color:var(--orange);">limpar filtros</a>` : ''}
+        ${agendaGeralBotaoFaltaDoDia()}
       </div>
     </div>
 
@@ -1848,6 +1849,16 @@ function renderAgendaGeralContent() {
           : renderAgendaGeralList(AgendaGeralState.classes))
     }
   `;
+}
+
+/**
+ * Faltou o dia inteiro? A gestão lança todas as aulas da pessoa de uma vez, em
+ * vez de abrir uma por uma (pedido da gestão, 07/10/2026). Só admin e
+ * supervisão — é o mesmo lançamento que tira a aula do pagamento.
+ */
+function agendaGeralBotaoFaltaDoDia() {
+  if (!(isAdminGestao() || isSupervisao()) || typeof abrirFaltaDoDia !== 'function') return '';
+  return `<button type="button" class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="abrirFaltaDoDia()">🚫 Lançar falta do dia</button>`;
 }
 
 function limparFiltrosAgendaGeral() {

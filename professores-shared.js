@@ -1814,6 +1814,7 @@ const NOTIF_TYPE_META = {
   // O professor avisou algo da aula → gestão; e a resposta da gestão → professor.
   class_aviso_professor:   { icon: '📣', title: 'Aviso de professor' },
   class_aviso_respondido:  { icon: '📣', title: 'Resposta ao seu aviso' },
+  falta_lancada:           { icon: '🚫', title: 'Falta registrada pela gestão' },
   horas_enviadas:          { icon: '🕒', title: 'Horas do mês a validar' },
   horas_validadas:         { icon: '🕒', title: 'Suas horas foram validadas' },
   horas_devolvidas:        { icon: '🕒', title: 'Horas devolvidas para corrigir' },
@@ -1976,8 +1977,13 @@ const SubstitutionService = {
    *                       registradoPor }
    *   registradoPor: 'titular' (o dono da aula passou), 'substituto' (quem deu a
    *   aula está registrando) ou 'gestao'.
+   *   avisarQuemConfirma: `false` quando quem registra já confirma na sequência
+   *   (a gestão lançando o dia inteiro de uma pessoa). O pedido de confirmação
+   *   vira e-mail ("uma troca de aula espera você") — seis aulas seriam seis
+   *   e-mails pedindo uma resposta que ninguém espera. Os dois lados continuam
+   *   avisados da troca confirmada, pela Function.
    */
-  async create({ classId, substituteTeacherId, substituteUserId, reason, registradoPor = 'titular' }) {
+  async create({ classId, substituteTeacherId, substituteUserId, reason, registradoPor = 'titular', avisarQuemConfirma = true }) {
     if (!classId) return { success: false, error: 'classId obrigatório' };
     if (!substituteTeacherId) return { success: false, error: 'Escolha um substituto' };
 
@@ -2043,7 +2049,7 @@ const SubstitutionService = {
 
       // Avisa o lado que precisa confirmar — o oposto de quem registrou.
       const confirmaUserId = userIdNoPedido(data, SubstitutionFlow.quemConfirma(data));
-      if (confirmaUserId) {
+      if (confirmaUserId && avisarQuemConfirma !== false) {
         await NotificationService.create({
           recipientUserId: confirmaUserId,
           type: 'substitution_requested',

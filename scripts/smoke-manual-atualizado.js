@@ -382,6 +382,19 @@ function exige(txt, ondeNome, assuntos) {
   ok('renovações: Horário Especial, o mensal fica na lista, bloco dos recorrentes que não renovaram e base dos 65%');
 }
 {
+  // Falta do dia (07/10/2026): a gestão lança o dia inteiro de uma pessoa.
+  exige(admin, 'manual-admin', {
+    'o botão da Agenda Geral': 'Lançar falta do dia',
+    'as três escolhas por aula': 'Um colega deu',
+    'os atalhos': 'Faltou em todas',
+    'o que fica de fora': 'troca de professor esperando confirmação',
+    'pontos por aula': 'desconta 6 vezes',
+  });
+  assert.ok(/id="falta-do-dia"/.test(admin), 'a âncora "falta-do-dia" sumiu do manual-admin');
+  exige(prof, 'manual-professores', { 'o aviso que o professor recebe': 'Falta registrada pela gestão' });
+  ok('falta do dia: botão, escolhas, atalhos, o que fica de fora — e o aviso ao professor');
+}
+{
   const ancorasAdmin = [...admin.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   const ancorasProf = [...prof.matchAll(/<h2[^>]*id="([^"]+)"/g)].map(m => m[1]);
   ['pessoas', 'agenda', 'escala', 'fechamento', 'pagamentos'].forEach(a =>
