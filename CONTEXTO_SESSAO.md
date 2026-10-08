@@ -3,6 +3,33 @@
 
 ---
 
+## 🔖 ONDE PARAMOS — sessão 91 (07/10/2026, noite) — 🧾 DUAS RECLAMAÇÕES DA ERICA SOBRE SETEMBRO · ✅ ACERTADO EM PRODUÇÃO (só dados, sem código publicado)
+
+### ▶️▶️ RETOMAR AQUI
+O Rodrigo encaminhou uma mensagem da Erica (07/10, 18h21): não achou no sistema uma renovação de 02/09 a 02/10 (aluna que pagou agosto e setembro juntos no TecnoFit) nem um aluno que "mudou do mensal para anual". Conferi produção (só leitura) e os dois casos procediam. O Rafael autorizou: **"pode pagar os dois e passar o Fernando para a Erica"**.
+
+**1. Comissão adiada que nunca voltou.** A aluna pagou dois meses em 21/07 no TecnoFit. O primeiro entrou em julho; o segundo foi adiado para setembro pela regra antiga dos 30 dias, que nunca devolvia nada (sessão de 09/09, `FIM_DO_DIFERIMENTO`). Na Pacto esse mês é contrato importado sem pagamento (6971), então setembro não tinha como ver. Era um dos dois itens dos "R$ 132,20 da Erica" que em 09/09 ficaram decididos como não pagos; o outro é uma renovação anual paga em 09/07 que começa em 04/09 (R$ 104,70). **A decisão de 09/09 foi revista para esses dois** (os únicos adiados com destino de agosto/2026 em diante). O restante dos adiados antigos continua como estava.
+
+**2. Contrato 7162 no nome da consultora da ficha.** Recorrente de 12 meses, R$ 239 em 04/09, renovação (R$ 25,98). A Pacto diz que quem lançou foi a Erica e que a consultora da ficha é a Francini; a regra paga a consultora da ficha. Passado para a Erica por decisão da gestão.
+
+**✅ FEITO EM PRODUÇÃO (07/10 ~22h43, `scripts/acertar-comissao-do-mes.js`, script novo; cópia em `backups/acerto-comissao-production-cp_2026-09-…json`; histórico do período e audit_log gravados):**
+- Dois lançamentos novos em `cp_2026-09` para a Erica, rótulo "Comissão adiada", **só com o P1 e o P2 da origem** (R$ 27,50 e R$ 104,70): caixa zero, não contam ativação nem renovação e ficam fora da base do bônus da unidade. Ids `adiada_<id do item de julho>`. As 11 linhas correspondentes de `comissoes_diferidas` ficaram `status: 'paga'`.
+- Lançamento do 7162: vendedora Francini → Erica (`vendedorAntes` guarda o nome anterior).
+- **Resultado, igual ao ensaio:** Erica R$ 2.496,19 → **R$ 2.669,32** (+132,20 das adiadas, +25,98 do contrato, +14,95 de bônus da unidade que acompanha o caixa do contrato) · Francini R$ 1.011,29 → **R$ 970,36** (−40,92). Unidade igual: 63 ativações, 37 novos+retorno, 16 renovações, 10 vouchers, Gold, caixa R$ 20.154,82, 85 contratos já comissionados.
+- Antes de produção: ensaio em produção (a conta do script reproduz o gravado antes de prever) e gravação de verdade no staging (`unit-pp_2026-10`, troca de vendedora + uma adiada), rodada duas vezes (a segunda não faz nada) e desfeita.
+
+**⚠️ Para saber:**
+- **O Rodrigo mexeu nas metas de setembro do CP em 07/10 às 18h19–18h20** (49/58/62; mínimo de renovações 16). Com 63 ativações a unidade está em **Gold**, não mais em Super. Os valores de setembro registrados nas sessões 84 e 86 (Erica R$ 1.998,28, Francini R$ 800,30) ficaram para trás.
+- **Os dois lançamentos de comissão adiada não existem no arquivo da Pacto.** Se alguém subir de novo o arquivo de setembro, eles saem ("apaga o que saiu da fonte"; vale para qualquer lançamento do "+ Adicionar"). É só rodar o script de novo. A troca de vendedora sobrevive.
+- Nenhum pagamento de setembro estava registrado; o script para se houver.
+- Em setembro há mais 4 contratos do CP em que quem lançou não é quem recebeu (7191 e 7185 lançados pela Francini e pagos à Erica, R$ 83,80; 7123 e 7177 lançados por não comissionáveis). Ninguém reclamou; não mexi.
+
+**🔴 Em aberto (outubro, com a gestão):** a aluna do item 1 tem **dois cadastros na Pacto** (matrículas 13041 e 13035, grafias diferentes). A renovação de 03/10 (contrato 7280) foi lançada no segundo como matrícula nova: em outubro conta como aluna nova para a Erica (R$ 40 em vez de R$ 27,50) e o 6971 aparece como não renovado na lista de renovações, uma a menos no mínimo de outubro do CP (regra nova: um mínimo não batido corta o bônus pela metade). Corrige-se unificando os cadastros na Pacto.
+
+**Arquivos:** `scripts/acertar-comissao-do-mes.js` (novo, sem commit ainda). Nenhum arquivo de produção tocado; nada publicado.
+
+---
+
 ## 🔖 ONDE PARAMOS — sessão 90 (07/10/2026) — 🚫 FALTA DO DIA: a gestão lança todas as aulas da pessoa (ou algumas) de uma vez · ✅ NO AR EM PRODUÇÃO (`55f53bf..e60474c`, só frontend)
 
 ### ▶️▶️ RETOMAR AQUI
