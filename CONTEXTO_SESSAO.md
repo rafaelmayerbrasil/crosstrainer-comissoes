@@ -18,6 +18,8 @@
 
 **🌐 Endereço novo, fim da noite:** o Firebase já viu o registro e o certificado está sendo distribuído (`CERT_PROPAGATING`); quando responder, conferir logado.
 
+**🔀 Caminho C confirmado com o Rodrigo (14/10, noite):** base nova ao lado do sistema atual; **CRM do zero** (o Rodrigo não tem nada pronto) é o primeiro módulo; a 1a no sistema atual está suspensa. O Rafael quer trabalhar no projeto **junto com o Rodrigo** — proposta de como na conversa da sessão 92. Próximo: desenho da base nova + CRM (brainstorming → especificação), com o Rodrigo respondendo como a equipe vende hoje.
+
 **🧭 Modernização — decisões do Rafael (14/10), registradas na seção 6 do `docs/roteiro-modernizacao-2026-10.md`:** vender = porta aberta, sem prazo · **base primeiro** (etapa **1a, empresa e filiais como cadastro**, é a próxima construção; cadastro na Meta em paralelo) · WhatsApp pelo **número da academia** (conferir se dá para manter o app junto com a API oficial) · **uma cópia do sistema por academia**. Em aberto: o CRM do Rodrigo e quem faz o cadastro na Meta. **Próximo passo: desenhar a 1a** (brainstorming → especificação → plano), nada construído ainda.
 
 ---

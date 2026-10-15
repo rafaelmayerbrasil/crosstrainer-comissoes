@@ -174,6 +174,8 @@ Os pedidos do dia a dia do Rodrigo continuam entrando no meio; cada etapa é peq
 
 ## 6. Para decidir
 
+> **🔀 MUDANÇA DE RUMO (14/10/2026, Rafael e Rodrigo de acordo): caminho C — base nova ao lado.** O sistema atual continua no ar recebendo os ajustes do dia a dia; uma plataforma nova nasce já com empresa/filiais, banco bom para dinheiro e relatórios e espaço para módulos e para o agente de IA. Começa pelo que não existe hoje (**CRM, feito do zero** — o Rodrigo não tem nada pronto — e cadastro de alunos), depois contratos/cobrança/financeiro (a Pacto vai saindo), e Comissões e Professores mudam para a base nova um de cada vez, levando as regras testadas. **A etapa 1a no sistema atual foi suspensa** (a base nova já nasce com empresa e filiais). As seções 2 a 4 abaixo descrevem a evolução do sistema atual e ficam como histórico até o desenho da base nova substituí-las.
+>
 > **✅ Decidido pelo Rafael em 14/10/2026:** (1) vender = **porta aberta, sem prazo** (a base nasce pensando nisso, sem piloto marcado) · (4) **base primeiro**: 1a agora, cadastro na Meta em paralelo · (2) número: **o da academia** — ⚠️ conferir antes se ele está no app WhatsApp Business e se a Meta permite usá-lo junto com a API oficial (o "uso simultâneo" do app com a API); se não permitir, o número sai do app do celular · (5) **uma cópia por academia** (2.1 A). **Em aberto:** (3) o CRM do Rodrigo; e quem faz o cadastro na Meta (CNPJ e acesso à conta comercial da academia).
 
 1. **Vender para outras academias** é meta para os próximos 12 meses ou é deixar a porta aberta? (Com meta, o piloto da segunda academia entra logo depois da Fase 1.)
