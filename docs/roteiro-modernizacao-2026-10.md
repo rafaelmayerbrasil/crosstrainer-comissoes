@@ -164,6 +164,8 @@ Os pedidos do dia a dia do Rodrigo continuam entrando no meio; cada etapa é peq
 
 ## 6. Para decidir
 
+> **✅ Decidido pelo Rafael em 14/10/2026:** (1) vender = **porta aberta, sem prazo** (a base nasce pensando nisso, sem piloto marcado) · (4) **base primeiro**: 1a agora, cadastro na Meta em paralelo · (2) número: **o da academia** — ⚠️ conferir antes se ele está no app WhatsApp Business e se a Meta permite usá-lo junto com a API oficial (o "uso simultâneo" do app com a API); se não permitir, o número sai do app do celular · (5) **uma cópia por academia** (2.1 A). **Em aberto:** (3) o CRM do Rodrigo; e quem faz o cadastro na Meta (CNPJ e acesso à conta comercial da academia).
+
 1. **Vender para outras academias** é meta para os próximos 12 meses ou é deixar a porta aberta? (Com meta, o piloto da segunda academia entra logo depois da Fase 1.)
 2. **WhatsApp**: há um número para dedicar ao sistema? Quem faz o cadastro na Meta (precisa do CNPJ e do acesso à conta comercial da academia)?
 3. **CRM do Rodrigo**: em que pé está e em que tecnologia? Vira um módulo daqui, ou continua separado e os dois se conversam?

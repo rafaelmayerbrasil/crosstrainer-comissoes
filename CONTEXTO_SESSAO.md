@@ -14,6 +14,8 @@
 - **🔴 Falta:** (1) o Firebase reler o DNS e emitir o certificado (no fim da sessão: `OWNERSHIP_MISSING` / `HOST_UNHOSTED` / `CERT_VALIDATING`; minutos a horas) · (2) conferir `https://sistema.crosstainer.com.br`: cadeado, console diz PRODUÇÃO, o Rafael entra e abre Comissões, Professores e Renovações · (3) fase `aviso` + texto para o grupo · (4) ~2 semanas depois, `redirecionar` · (5) repositório privado, fim do GitHub Pages, SendGrid com o mesmo acesso ao Wix.
 - **Daqui em diante, publicar o site = `git push origin main` + `node scripts/publicar-site.js --project production --apply`.**
 
+**🧭 Modernização — decisões do Rafael (14/10), registradas na seção 6 do `docs/roteiro-modernizacao-2026-10.md`:** vender = porta aberta, sem prazo · **base primeiro** (etapa **1a, empresa e filiais como cadastro**, é a próxima construção; cadastro na Meta em paralelo) · WhatsApp pelo **número da academia** (conferir se dá para manter o app junto com a API oficial) · **uma cópia do sistema por academia**. Em aberto: o CRM do Rodrigo e quem faz o cadastro na Meta. **Próximo passo: desenhar a 1a** (brainstorming → especificação → plano), nada construído ainda.
+
 ---
 
 ## 🔖 ONDE PARAMOS — sessão 91 (07/10/2026, noite) — 🧾 DUAS RECLAMAÇÕES DA ERICA SOBRE SETEMBRO · ✅ ACERTADO EM PRODUÇÃO (só dados, sem código publicado)
