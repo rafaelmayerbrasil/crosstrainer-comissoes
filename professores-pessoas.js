@@ -464,7 +464,7 @@ async function nomesDasComissoesRecentes() {
   snap.forEach(d => {
     const x = d.data();
     if ((x.year * 12 + (x.month - 1)) < corte) return;
-    Object.keys(x.vendorSummary || {}).forEach(n => nomes.add(n));
+    Object.keys(x.vendorSummary || {}).forEach(n => { if (VendedoraNome.norm(n) !== 'SEM VENDEDOR') nomes.add(n); });
   });
   PessoasState.nomesComissoes = [...nomes].sort();
   return PessoasState.nomesComissoes;
