@@ -132,6 +132,15 @@ Marco ao fim da Fase 1: **dá para montar a cópia de uma segunda academia** sem
 | **2d. IA entende texto livre** | Atraso, falta, troca e dúvida escritas do jeito da pessoa | 3 a 5 |
 | **2e. IA conferente do fechamento** | Resumo do que falta e do que está estranho; cobrança de quem não respondeu | 2 a 3 |
 
+### Agente dentro do sistema (decidido em 14/10/2026)
+Um assistente numa caixinha do sistema (e depois no WhatsApp) que **responde qualquer pergunta sobre os dados, cruzando informações**, e **age a pedido de quem tem permissão** (montar escala, trocar professor, lançar falta).
+- **Como:** IA da Anthropic (Claude) chamada por uma Function, com "ferramentas" que são as mesmas funções de serviço das telas. Nunca escreve direto no banco.
+- **Permissão no código, não na conversa:** cada ferramenta confere quem pediu, com as regras das telas (professor só o dele, vendedora só a comissão dela, salário só admin). Texto vindo dos dados nunca vira instrução.
+- **Agir = propor → a pessoa confirma → executa → fica no histórico** (o pedido, o que a IA entendeu, quem confirmou). Dinheiro, fechamento e pagamento seguem as regras da seção 3.
+- **Custo estimado:** 20 a 40 centavos por pergunta no modelo do dia a dia; R$ 50–200/mês para a gestão e ~20 professores. Medir no piloto antes de abrir.
+- **Etapas:** **A1.** piloto só leitura, só gestão (3 a 4 sessões) → **A2.** ações com confirmação (3 a 5) → **A3.** professores e vendedoras, cada um no que é seu → **A4.** o mesmo agente no WhatsApp. **A4 substitui os degraus 2d e 2e**: o WhatsApp passa a falar com o agente.
+- **Precisa:** conta na Anthropic com cobrança e a chave no cofre do Firebase.
+
 ### Fase 3 — Módulos novos
 - **Decidir o banco** (2.2) antes do financeiro.
 - **CRM**: depende de como está o projeto do Rodrigo (pergunta 3).
@@ -144,10 +153,11 @@ Contratos e matrículas, cobrança recorrente do aluno (com uma empresa de pagam
 ### Ordem que recomendo
 1. **Fase 0** e **2a** (o cadastro na Meta corre sozinho no calendário).
 2. **1a** — é a base de tudo e a mais barata.
-3. **2b e 2c** — entregam o que a gestão sente no dia a dia (cobrar e confirmar) e não dependem de 1b.
-4. **1b**, depois **1c**.
-5. **2d e 2e**.
-6. Fase 3, com a decisão do banco.
+3. **A1** — o agente só de leitura para a gestão (atualizado em 14/10).
+4. **2b e 2c** — entregam o que a gestão sente no dia a dia (cobrar e confirmar) e não dependem de 1b.
+5. **A2**, **1b**, depois **1c**.
+6. **A3 e A4** (no lugar de 2d e 2e).
+7. Fase 3, com a decisão do banco.
 
 Os pedidos do dia a dia do Rodrigo continuam entrando no meio; cada etapa é pequena o bastante para isso.
 
