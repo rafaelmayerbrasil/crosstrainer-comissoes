@@ -3289,7 +3289,8 @@
        BUMPAR A DATA A CADA PUBLICAÇÃO destes arquivos. -->
   <script src="commission.js?v=20260930"></script>
   <script src="metas-sugeridas.js?v=20261003"></script>
-  <script src="jornada-comercial.js?v=20260930"></script>
+  <script src="jornada-comercial.js?v=20261014"></script>
+  <script src="vendedora-nome.js?v=20261014"></script>
   <!-- Tradutor do export da Pacto → formato que o motor já entende (ago/2026).
        Não altera o commission.js: traduz antes, na entrada do upload. -->
   <script src="pacto-adapter.js?v=20261001"></script>
@@ -6627,6 +6628,9 @@
       } catch (e) { toast('Erro ao carregar períodos: ' + e.message, 'error'); }
     }
 
+    const MSG_SEM_COMISSAO_DELA = 'Nenhuma comissão sua neste período. Se você vendeu e não aparece, '
+      + 'peça à gestão para conferir o <strong>nome nas comissões</strong> do seu cadastro (Pessoas → aba Comercial).';
+
     async function loadVendorPeriod(periodId) {
       if (!periodId) return;
       window.currentVendorPeriodId = periodId;
@@ -6648,22 +6652,20 @@
       if (!doc.exists) return;
       const data = doc.data();
       window.currentVendorPeriodData = data;
-      const vendorName = userProfile.name?.toUpperCase();
       const vs = data.vendorSummary || {};
       const cfg = CommissionEngine.configDoMes({ unitConfig, metasMensais: data && data.metasMensais, mes: mesDoPeriodoId(periodId), minimosPorPessoa: data && data.minimosPorPessoa });
 
-      // Find vendor (case insensitive match)
-      let myData = null;
-      let myName = '';
-      Object.entries(vs).forEach(([name, v]) => {
-        if (name.toUpperCase() === vendorName || name.toUpperCase().includes(vendorName)) {
-          myData = v; myName = name;
-        }
-      });
+      // Quem é ela nas comissões: o "nome nas comissões" do cadastro e, sem ele,
+      // as palavras do nome (vendedora-nome.js). Até 14/10/2026 era o nome de
+      // exibição DENTRO do nome da venda — o cadastro da Francini foi encurtado
+      // e o painel dela ficou preto.
+      const myName = VendedoraNome.achar(userProfile, Object.keys(vs)) || '';
+      const myData = myName ? vs[myName] : null;
+      window.currentVendorMyName = myName;
 
       const el = document.getElementById('vendorDashboard');
       if (!myData) {
-        el.innerHTML = '<p style="color:var(--text2);padding:40px;text-align:center">Nenhum dado encontrado para o seu nome neste período.</p>';
+        el.innerHTML = '<p style="color:var(--text2);padding:40px;text-align:center">' + MSG_SEM_COMISSAO_DELA + '</p>';
         return;
       }
 
@@ -7234,6 +7236,14 @@
         const periodId = window.currentVendorPeriodId;
         const myName = window.currentVendorMyName;
         const data = window.currentVendorPeriodData;
+        // Sem saber quem ela é, nenhuma aba abre: com o nome vazio, "A receber"
+        // mostrava as vendas de TODAS as vendedoras e o Histórico a linha de uma
+        // colega (achado em 14/10/2026).
+        if (!myName) {
+          const alvo = target && target.firstElementChild;
+          if (alvo) alvo.innerHTML = '<p style="color:var(--text2);padding:40px;text-align:center">' + MSG_SEM_COMISSAO_DELA + '</p>';
+          return;
+        }
         if (tabId === 'vtabComissoes') renderVendorComissoesTab(periodId, myName, data);
         else if (tabId === 'vtabAtivacoes') renderVendorAtivacoesTab(periodId, myName);
         else if (tabId === 'vtabAReceber') renderAReceberTab('vendorAReceberContent', periodId, myName);
@@ -7246,7 +7256,12 @@
     // ── Aba Comissões (vendedora) ──
     async function renderVendorComissoesTab(periodId, myName, data) {
       const el = document.getElementById('vendorComissoesContent');
-      if (!el || !periodId || !myName) return;
+      if (!el) return;
+      // Antes saía calado e a aba ficava preta (14/10/2026)
+      if (!periodId || !myName) {
+        el.innerHTML = '<p style="color:var(--text2);padding:40px;text-align:center">' + MSG_SEM_COMISSAO_DELA + '</p>';
+        return;
+      }
       el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
 
       try {

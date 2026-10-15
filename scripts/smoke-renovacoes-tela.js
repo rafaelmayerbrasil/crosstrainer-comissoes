@@ -18,6 +18,7 @@ const sandbox = { console: { log() {}, error() {}, warn() {} }, Intl, Date, JSON
 sandbox.window = sandbox; sandbox.self = sandbox; sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(raiz, 'renovacoes-lista.js'), 'utf8'), sandbox, { filename: 'renovacoes-lista.js' });
+vm.runInContext(fs.readFileSync(path.join(raiz, 'vendedora-nome.js'), 'utf8'), sandbox, { filename: 'vendedora-nome.js' });
 vm.runInContext(fs.readFileSync(path.join(raiz, 'renovacoes.js'), 'utf8'), sandbox, { filename: 'renovacoes.js' });
 const T = sandbox.RenovacoesTela;
 const RL = sandbox.RenovacoesLista;
@@ -46,7 +47,7 @@ const H = '2026-10-05';
 {
   const html = fs.readFileSync(path.join(raiz, 'renovacoes.html'), 'utf8');
   const nossos = [...html.matchAll(/<script src="([a-z0-9-]+\.js)\?v=(\d{8})"><\/script>/g)].map(m => ({ f: m[1], v: m[2] }));
-  assert.deepStrictEqual(nossos.map(x => x.f), ['firebase-config.js', 'renovacoes-lista.js', 'renovacoes.js']);
+  assert.deepStrictEqual(nossos.map(x => x.f), ['firebase-config.js', 'renovacoes-lista.js', 'vendedora-nome.js', 'renovacoes.js']);
   assert.ok(nossos.every(x => x.v === nossos[0].v), 'todos com o mesmo ?v=');
   assert.ok(/firebase-functions-compat\.js/.test(html) && /firebase-firestore-compat\.js/.test(html) && /firebase-auth-compat\.js/.test(html));
   assert.ok(/<meta name="viewport"/.test(html), 'celular');
@@ -79,8 +80,11 @@ const H = '2026-10-05';
   assert.ok(t.includes('09/10/2026'), 'datas no formato brasileiro');
   assert.ok(t.includes('Vence em 4 dia(s) e ainda não houve contato'), 'o alerta aparece');
   assert.ok(t.includes('cód. 11') || t.includes('5011'), 'matrícula (ou o código do cliente)');
-  const soMinhas = lido(T.blocoHtml(T.BLOCOS[0], LISTA.blocos.renovacoes, {}, { hoje: H, soMinhas: true, meuNome: 'kali' }));
+  const soMinhas = lido(T.blocoHtml(T.BLOCOS[0], LISTA.blocos.renovacoes, {}, { hoje: H, soMinhas: true, eu: { name: 'kali' } }));
   assert.ok(/\(1\)/.test(soMinhas) && soMinhas.includes('ANA ANUAL') && !soMinhas.includes('EDU IMPORTADO'), 'filtro "só as minhas"');
+  // 14/10/2026: o nome de exibição mudou e a ligação fixa do cadastro segura
+  const pelaLigacao = lido(T.blocoHtml(T.BLOCOS[0], LISTA.blocos.renovacoes, {}, { hoje: H, soMinhas: true, eu: { name: 'Bá', nomeNasComissoes: 'BARBARA' } }));
+  assert.ok(pelaLigacao.includes('EDU IMPORTADO') && !pelaLigacao.includes('ANA ANUAL'), '"só as minhas" pela ligação fixa');
   const deg = lido(T.blocoHtml(T.BLOCOS[2], LISTA.blocos.degustacoes, {}, { hoje: H }));
   assert.ok(deg.includes('Converteu?') && deg.includes('Sem acompanhamento registrado nesta semana'));
   const html = T.blocoHtml(T.BLOCOS[0], [linha({ nome: '<img src=x onerror=alert(1)>' })], {}, { hoje: H });

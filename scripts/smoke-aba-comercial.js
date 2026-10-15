@@ -78,5 +78,30 @@ function recorta(ini, fim) {
     ok('professores.html carrega jornada-comercial.js antes do Hub');
   }
 
+  /* 5. nome nas comissões (14/10/2026): o cadastro da Francini foi encurtado e
+        o painel dela ficou preto — a ligação agora é um campo à parte */
+  {
+    sandbox.VendedoraNome = require(path.join(raiz, 'vendedora-nome.js'));
+    const ligar = vm.runInContext('ligacaoAoRenomear', sandbox);
+    assert.strictEqual(ligar({ role: 'vendedor', name: 'FRANCINI DAS CHAGAS' }, 'FRANCINI CHAGAS'), 'FRANCINI DAS CHAGAS', 'renomear guarda o nome antigo');
+    assert.strictEqual(ligar({ role: 'vendedor', name: 'FRANCINI DAS CHAGAS', nomeNasComissoes: 'X' }, 'FRAN'), null, 'já ligada: não mexe');
+    assert.strictEqual(ligar({ profiles: ['professor'], name: 'ANA SOUZA' }, 'ANA'), null, 'professor: não é vendedora');
+    assert.strictEqual(ligar({ role: 'vendedor', name: 'Kali Dutra' }, 'KALI DUTRA'), null, 'só caixa/acento: não é troca de nome');
+
+    const semLigacao = vm.runInContext('renderPessoaTabComercial', sandbox)({ key: 'U:f', user: { role: 'vendedor', name: 'FRANCINI CHAGAS' } });
+    assert.ok(semLigacao.includes('Nome nas comissões') && semLigacao.includes('Sem ligação'), 'aba avisa quando falta a ligação');
+    const comLigacao = vm.runInContext('renderPessoaTabComercial', sandbox)({ key: 'U:f', user: { role: 'vendedor', name: 'Fran', nomeNasComissoes: 'FRANCINI DAS CHAGAS' } });
+    assert.ok(comLigacao.includes('value="FRANCINI DAS CHAGAS"') && !comLigacao.includes('Sem ligação'));
+
+    sandbox.PessoasState.people.push({ key: 'U:f', uid: 'f1', user: { role: 'vendedor', name: 'FRANCINI CHAGAS' } });
+    sandbox.PessoasState.nomesComissoes = ['ERICA FAUSTINO', 'FRANCINI DAS CHAGAS'];
+    sandbox.document.getElementById = id => (id === 'vnNome' ? { value: '  francini  das chagas ' } : null);
+    await vm.runInContext('pessoaSalvarNomeComissao', sandbox)('U:f');
+    const g = gravados[gravados.length - 1];
+    assert.strictEqual(g.id, 'f1');
+    assert.strictEqual(g.obj.nomeNasComissoes, 'FRANCINI DAS CHAGAS', 'grava a grafia das comissões, não a digitada');
+    ok('nome nas comissões: renomear guarda o antigo, a aba avisa sem ligação, salvar grava o campo');
+  }
+
   console.log('\n✅ smoke-aba-comercial: ' + n);
 })().catch(e => { console.error(e); process.exit(1); });

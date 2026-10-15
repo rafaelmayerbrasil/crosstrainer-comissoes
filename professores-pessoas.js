@@ -266,6 +266,7 @@ function switchPessoaTab(tabId) {
 
 function afterPessoaFichaRender(p) {
   if (PessoasState.activeTab === 'salarial' && p.teacher) loadPessoaSalary(p);
+  if (PessoasState.activeTab === 'comercial') carregarNomesDasComissoes(p);
 }
 
 function renderPessoaTabContent(p) {
@@ -333,10 +334,10 @@ async function savePessoaIdentity(key) {
   const pix = document.getElementById('pessoaIdPix').value.trim();
   if (!name) { toast('Nome é obrigatório.', 'error'); return; }
   try {
-    await db.collection('users').doc(p.uid).update({
-      name, cpf, pix,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+    const mudancas = { name, cpf, pix, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    const ligacao = ligacaoAoRenomear(p.user, name);
+    if (ligacao) mudancas.nomeNasComissoes = ligacao;
+    await db.collection('users').doc(p.uid).update(mudancas);
     toast('Identidade atualizada.', 'success');
     await renderPessoasPage();
   } catch (e) { toast('Erro: ' + e.message, 'error'); }
@@ -367,7 +368,19 @@ function renderPessoaTabComercial(p) {
           ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="pessoaRemoverJornada('${p.key}', '${escapeHtml(j.desde)}')">Remover</button>`
           : '<span class="muted" title="Mês que já passou: a comissão dele pode ter sido paga">—</span>'}</td>
       </tr>`).join('');
+  const fixo = u.nomeNasComissoes || '';
   return `
+    <div class="form-group" style="margin-bottom:6px;">
+      <label>Nome nas comissões</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="text" id="vnNome" class="input" list="vnNomes" style="min-width:240px;flex:1;" value="${escapeHtml(fixo)}" placeholder="Ex.: FRANCINI DAS CHAGAS">
+        <datalist id="vnNomes"></datalist>
+        <button class="btn btn-primary btn-sm" onclick="pessoaSalvarNomeComissao('${p.key}')">Salvar</button>
+      </div>
+    </div>
+    <p class="muted" id="vnAviso" style="margin-bottom:12px;">${fixo
+      ? 'É por este nome que ela vê as comissões, as renovações e o mínimo do bônus. Mudar o nome do cadastro não muda isto.'
+      : '⚠️ <strong>Sem ligação.</strong> Hoje ela é achada pelo nome do cadastro; se ele mudar, pode deixar de ver as comissões. Escolha o nome exato com que ela aparece nas comissões.'}</p>
     <div class="info-callout" style="margin-bottom:12px;">
       <p>O <strong>mínimo de ativações</strong> para entrar no rateio do prêmio da unidade depende da jornada:
       <strong>integral</strong>, <strong>30 horas</strong> ou <strong>começando</strong> (adaptação). Vale da comissão
@@ -417,6 +430,81 @@ async function pessoaRemoverJornada(key, desde) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     toast('Jornada removida.', 'success');
+    PessoasState.activeTab = 'comercial';
+    await renderPessoasPage();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// ── Nome nas comissões (14/10/2026) ──────────────────────────────────
+// A comissão, a lista de renovações e o mínimo do bônus guardam a vendedora
+// pelo nome que vem da Pacto. O cadastro guarda esse nome em `nomeNasComissoes`
+// (vendedora-nome.js), separado do nome de exibição: em 14/10 o cadastro da
+// Francini foi encurtado e o painel dela ficou preto.
+
+function _ehVendedoraCadastro(u) {
+  const perfis = [].concat((u && u.profiles) || [], u && u.role ? [u.role] : []);
+  return perfis.indexOf('vendedor') >= 0;
+}
+
+/** Ao renomear uma vendedora ainda sem ligação: o nome antigo vira a ligação. */
+function ligacaoAoRenomear(u, nomeNovo) {
+  if (!u || !_ehVendedoraCadastro(u) || u.nomeNasComissoes) return null;
+  const antigo = String(u.name || '').trim();
+  if (!antigo || VendedoraNome.norm(antigo) === VendedoraNome.norm(nomeNovo)) return null;
+  return antigo;
+}
+
+/** Os nomes que aparecem nas comissões dos últimos meses (as duas unidades). */
+async function nomesDasComissoesRecentes() {
+  if (PessoasState.nomesComissoes) return PessoasState.nomesComissoes;
+  const agora = new Date();
+  const corte = agora.getFullYear() * 12 + agora.getMonth() - 3;  // ~4 meses
+  const snap = await db.collection('periodos').where('year', '>=', agora.getFullYear() - 1).get();
+  const nomes = new Set();
+  snap.forEach(d => {
+    const x = d.data();
+    if ((x.year * 12 + (x.month - 1)) < corte) return;
+    Object.keys(x.vendorSummary || {}).forEach(n => nomes.add(n));
+  });
+  PessoasState.nomesComissoes = [...nomes].sort();
+  return PessoasState.nomesComissoes;
+}
+
+async function carregarNomesDasComissoes(p) {
+  try {
+    const nomes = await nomesDasComissoesRecentes();
+    const lista = document.getElementById('vnNomes');
+    if (lista) lista.innerHTML = nomes.map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+    const u = p.user || {};
+    const campo = document.getElementById('vnNome');
+    const aviso = document.getElementById('vnAviso');
+    if (u.nomeNasComissoes || !campo || !aviso) return;
+    const sugestao = VendedoraNome.sugerir(u, nomes);
+    if (sugestao && !campo.value) {
+      campo.value = sugestao;
+      aviso.innerHTML = '⚠️ <strong>Sem ligação.</strong> Sugerido pelo nome do cadastro: <strong>' + escapeHtml(sugestao)
+        + '</strong>. Confira e clique em Salvar.';
+    }
+  } catch (e) { /* sem as sugestões, o campo continua funcionando */ }
+}
+
+async function pessoaSalvarNomeComissao(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid) return;
+  const nome = String(document.getElementById('vnNome').value || '').replace(/\s+/g, ' ').trim();
+  if (!nome) { toast('Informe o nome exato com que ela aparece nas comissões.', 'error'); return; }
+  let nomes = [];
+  try { nomes = await nomesDasComissoesRecentes(); } catch (e) { /* segue sem conferir */ }
+  // Grava a grafia das comissões quando o digitado é o mesmo nome (caixa, acento, espaço)
+  const igual = nomes.find(n => VendedoraNome.norm(n) === VendedoraNome.norm(nome));
+  if (nomes.length && !igual
+      && !confirm('"' + nome + '" não aparece nas comissões dos últimos meses. Gravar assim mesmo?')) return;
+  try {
+    await db.collection('users').doc(p.uid).update({
+      nomeNasComissoes: igual || nome,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('Ligação gravada. Ela passa a ver o que é de "' + (igual || nome) + '".', 'success');
     PessoasState.activeTab = 'comercial';
     await renderPessoasPage();
   } catch (e) { toast('Erro: ' + e.message, 'error'); }

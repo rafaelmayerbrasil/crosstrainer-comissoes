@@ -109,7 +109,9 @@
     const o = opcoes || {};
     const ac = acomps || {};
     let ls = linhas || [];
-    if (o.soMinhas && o.meuNome) ls = ls.filter(l => RL.norm(RL.consultoraDaLinha(l, ac[l.codigoContrato])) === RL.norm(o.meuNome));
+    // Pela ligação fixa do cadastro (`nomeNasComissoes`) e, sem ela, pelas palavras do
+    // nome: o cadastro encurtado ("FRANCINI CHAGAS") esvaziava a lista dela (14/10/2026)
+    if (o.soMinhas && o.eu) ls = ls.filter(l => window.VendedoraNome.ehDela(RL.consultoraDaLinha(l, ac[l.codigoContrato]), o.eu));
     const corpo = ls.length
       ? `<div class="tabela"><table><thead><tr><th>Nº</th><th>Consultora</th><th>Aluno</th><th>Contrato atual</th><th>Início</th><th>Vencimento</th><th>${esc(def.situacao)}</th><th>Avisos</th></tr></thead>
          <tbody>${ls.map(l => linhaHtml(l, ac[l.codigoContrato], def.id, o.hoje)).join('')}</tbody></table></div>`
@@ -240,7 +242,7 @@
   if (typeof document === 'undefined' || !document.getElementById || !document.getElementById('app')) return;
 
   const $ = id => document.getElementById(id);
-  const estado = { user: null, perfil: null, meuNome: '', unidades: [], unidade: null, lista: null, acomps: {} };
+  const estado = { user: null, perfil: null, eu: null, unidades: [], unidade: null, lista: null, acomps: {} };
 
   function mostrar(qual) {
     ['telaLogin', 'telaRestrita', 'app'].forEach(id => { $(id).hidden = id !== qual; });
@@ -263,7 +265,7 @@
   function desenhar() {
     const hoje = hojeSP();
     const l = estado.lista;
-    const opc = { hoje, soMinhas: $('soMinhas').checked, meuNome: estado.meuNome };
+    const opc = { hoje, soMinhas: $('soMinhas').checked, eu: estado.eu };
     let html = painelHtml(l, estado.acomps, estado.unidade, estado.perfil, hoje);
     if (l && l.situacao === 'ok') {
       blocosVisiveis(l, estado.perfil).forEach(b => { html += blocoHtml(b, l.blocos[b.id], estado.acomps, opc); });
@@ -391,7 +393,7 @@
         const u = snap.exists ? snap.data() : null;
         estado.user = user;
         estado.perfil = perfilDe(u);
-        estado.meuNome = (u && u.name) || '';
+        estado.eu = u;
         estado.unidades = unidadesDe(u, estado.perfil);
         if (!estado.perfil || !estado.unidades.length) { mostrar('telaRestrita'); return; }
         const perfis = [].concat((u && u.profiles) || [], u && u.role ? [u.role] : []);

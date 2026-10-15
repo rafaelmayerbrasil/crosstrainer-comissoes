@@ -38,13 +38,18 @@ const JornadaComercial = {
     return perfis.indexOf('vendedor') >= 0;
   },
 
-  /** { nome do cadastro: mínimo } das vendedoras com jornada valendo no mês. */
+  /**
+   * { nome nas comissões: mínimo } das vendedoras com jornada valendo no mês.
+   * A chave é `nomeNasComissoes` (o nome da venda) e, sem ele, o nome do cadastro:
+   * em 14/10/2026 o cadastro da Francini foi encurtado e o mínimo dela ia sumir.
+   */
   minimosDoMes(users, mes, cfg) {
     const out = {};
     (users || []).forEach(u => {
-      if (!this._ehVendedora(u) || !u.name) return;
+      const chave = (u && (u.nomeNasComissoes || u.name)) || '';
+      if (!this._ehVendedora(u) || !chave) return;
       const m = this.minimoDoMes(u.jornadasComerciais, mes, cfg);
-      if (typeof m === 'number') out[u.name] = m;
+      if (typeof m === 'number') out[chave] = m;
     });
     return out;
   },
