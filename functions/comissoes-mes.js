@@ -146,6 +146,62 @@ const ComissoesMes = {
       || null;
   },
 
+  /**
+   * A venda só fica com quem já trabalhava na data dela (16/10/2026, regra do Rodrigo,
+   * escolhida pelo Rafael). A Pacto põe em cada venda a consultora de HOJE do aluno:
+   * quando a carteira muda de dona, as vendas antigas mudam junto — em set/2026 as de
+   * 01–13/09 foram para a Isabela, que começou em 14/09.
+   *
+   * Para cada venda nova cuja vendedora ainda não tinha começado (ou já tinha saído)
+   * na data, segundo `comercialInicio`/`comercialFim` do cadastro:
+   *   • se o mês já tem a MESMA venda (cliente, data, item, valor) com quem trabalhava
+   *     na data (ou "Sem Vendedor"), fica a gravada — o id dela é reaproveitado;
+   *   • senão vai para "Sem Vendedor", e a gestão escolhe de quem é em Lançamentos.
+   * Vendedora sem data no cadastro não tem restrição. Puro: sem Firebase.
+   *
+   * @param {Array} itens         lançamentos do upload (só os `processed` são olhados)
+   * @param {Array} ids           id de cada item, na mesma ordem (idsComRepeticao)
+   * @param {Object} existentes   { id: lançamento já gravado (processed) }
+   * @param {Array} users         cadastros (`users`)
+   * @param {Function} trabalhavaEm (cadastro, 'DD/MM/AAAA') → boolean (JornadaComercial)
+   * @returns {Array<{indice, id, vendedor, naPacto, manteve}>} só os que mudam
+   */
+  _vendaDeQuemTrabalhava(itens, ids, existentes, users, trabalhavaEm) {
+    if (typeof trabalhavaEm !== 'function') return [];
+    const norm = s => this._normalizar(s).replace(/\s+/g, ' ');
+    const SEM = 'SEM VENDEDOR';
+    const pode = (nome, data) => {
+      if (!norm(nome) || norm(nome) === SEM) return true;
+      const u = this._cadastroDaVendedora(nome, users);
+      return !u || trabalhavaEm(u, data);
+    };
+    const chave = x => [norm(x.cliente), String(x.data || '').trim(), norm(x.item), Number(x.valorCaixa || 0).toFixed(2)].join('|');
+
+    const usados = new Set();
+    itens.forEach((it, k) => { if (it.type === 'processed' && pode(it.vendedor, it.data)) usados.add(ids[k]); });
+
+    const saida = [];
+    itens.forEach((it, k) => {
+      if (it.type !== 'processed' || pode(it.vendedor, it.data)) return;
+      const c = chave(it);
+      const candidatos = Object.entries(existentes || {})
+        .filter(([id, d]) => !usados.has(id) && chave(d) === c && norm(d.vendedor) !== norm(it.vendedor) && pode(d.vendedor, d.data))
+        .sort(([, a], [, b]) => (norm(a.vendedor) === SEM ? 1 : 0) - (norm(b.vendedor) === SEM ? 1 : 0));
+      if (candidatos.length) {
+        const [id, d] = candidatos[0];
+        usados.add(id);
+        saida.push({ indice: k, id, vendedor: d.vendedor || 'Sem Vendedor', naPacto: it.vendedor, manteve: true });
+        return;
+      }
+      const base = this.generateStableId({ ...it, vendedor: 'Sem Vendedor' });
+      let id = base, n = 1;
+      while (usados.has(id)) id = base + '_' + (++n);
+      usados.add(id);
+      saida.push({ indice: k, id, vendedor: 'Sem Vendedor', naPacto: it.vendedor, manteve: false });
+    });
+    return saida;
+  },
+
   /** Tira `undefined` (o Firestore recusa), sem mexer em Date nem em marcador do Firebase */
   _semIndefinidos(obj) {
     if (obj === null || typeof obj !== 'object') return obj;
@@ -523,6 +579,21 @@ const ComissoesMes = {
         const idsUpload = M.idsComRepeticao(allItems);
         const idDe = new Map(allItems.map((d, k) => [d, idsUpload[k]]));
 
+        // A venda só fica com quem já trabalhava na data dela (16/10/2026)
+        const cadastros = (await db.collection('users').get()).docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const foraDaData = M._vendaDeQuemTrabalhava(allItems, idsUpload, existingProcessedData, cadastros,
+          Jornada && typeof Jornada.trabalhavaEm === 'function' ? (u, data) => Jornada.trabalhavaEm(u, data) : null);
+        foraDaData.forEach(f => {
+          const item = allItems[f.indice];
+          idDe.set(item, f.id);
+          item.vendedor = f.vendedor;
+          if (!f.manteve) item.vendedoraNaPacto = f.naPacto;
+        });
+        if (foraDaData.length) {
+          log.info(`[gravar] ${periodId}: ${foraDaData.length} venda(s) com vendedora fora da data — `
+            + `${foraDaData.filter(f => f.manteve).length} ficaram com quem já estava, ${foraDaData.filter(f => !f.manteve).length} foram para "Sem Vendedor".`);
+        }
+
         let skipped = 0, replaced = 0, added = 0;
         for (let i = 0; i < allItems.length; i += 400) {
           const batch = db.batch();
@@ -661,7 +732,7 @@ const ComissoesMes = {
           await deferBatch.commit();
         }
 
-        return { periodId, skipped, added, replaced, removidos: removedStableIds.length, diferidos, itens };
+        return { periodId, skipped, added, replaced, removidos: removedStableIds.length, diferidos, foraDaData: foraDaData.length, itens };
       },
 
       /**

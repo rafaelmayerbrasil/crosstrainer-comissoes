@@ -381,6 +381,14 @@ function renderPessoaTabComercial(p) {
     <p class="muted" id="vnAviso" style="margin-bottom:12px;">${fixo
       ? 'É por este nome que ela vê as comissões, as renovações e o mínimo do bônus. Mudar o nome do cadastro não muda isto.'
       : '⚠️ <strong>Sem ligação.</strong> Hoje ela é achada pelo nome do cadastro; se ele mudar, pode deixar de ver as comissões. Escolha o nome exato com que ela aparece nas comissões.'}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:6px;">
+      <label class="form-group" style="margin:0">Começou em<input type="date" id="vcInicio" class="input" value="${escapeHtml(u.comercialInicio || '')}"></label>
+      <label class="form-group" style="margin:0">Saiu em<input type="date" id="vcFim" class="input" value="${escapeHtml(u.comercialFim || '')}"></label>
+      <button class="btn btn-primary btn-sm" onclick="pessoaSalvarPeriodoComercial('${p.key}')">Salvar</button>
+    </div>
+    <p class="muted" style="margin-bottom:12px;">A venda só fica com quem já trabalhava no dia dela. A Pacto mostra a consultora de
+      <strong>hoje</strong> do aluno: se a carteira passar para outra pessoa, uma venda de antes de ela começar continua com
+      quem estava, ou vai para <strong>Sem Vendedor</strong> para a gestão escolher em Lançamentos. Vale na próxima atualização do mês (a das 4h, ou ao subir o arquivo).</p>
     <div class="info-callout" style="margin-bottom:12px;">
       <p>O <strong>mínimo de ativações</strong> para entrar no rateio do prêmio da unidade depende da jornada:
       <strong>integral</strong>, <strong>30 horas</strong> ou <strong>começando</strong> (adaptação). Vale da comissão
@@ -413,6 +421,27 @@ async function pessoaAddJornada(key) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
     toast('Jornada registrada. Vale no próximo recálculo do mês.', 'success');
+    PessoasState.activeTab = 'comercial';
+    await renderPessoasPage();
+  } catch (e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// Quando ela trabalhou (16/10/2026): a venda só fica com quem já trabalhava no dia dela
+async function pessoaSalvarPeriodoComercial(key) {
+  const p = PessoasState.people.find(x => x.key === key);
+  if (!p || !p.uid) return;
+  const inicio = document.getElementById('vcInicio').value || '';
+  const fim = document.getElementById('vcFim').value || '';
+  const erros = JornadaComercial.validarPeriodo(inicio, fim);
+  if (erros.length) { toast(erros.join(' '), 'error'); return; }
+  try {
+    const del = firebase.firestore.FieldValue.delete();
+    await db.collection('users').doc(p.uid).update({
+      comercialInicio: inicio || del,
+      comercialFim: fim || del,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    toast('Datas gravadas. Valem na próxima atualização do mês.', 'success');
     PessoasState.activeTab = 'comercial';
     await renderPessoasPage();
   } catch (e) { toast('Erro: ' + e.message, 'error'); }

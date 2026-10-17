@@ -52,7 +52,8 @@ function bancoFalso(inicial) {
     doc: id => ref(id),
   };
   const db = {
-    collection: () => ({ doc: () => ({ collection: () => itemsRef }) }),
+    // `users`: a gravação lê os cadastros para a regra da data da venda (16/10/2026); aqui, nenhum
+    collection: nome => (nome === 'users' ? { get: async () => ({ docs: [] }) } : { doc: () => ({ collection: () => itemsRef }) }),
     batch: () => {
       const ops = [];
       return {
@@ -71,7 +72,7 @@ const ctx = { console: { log() {} }, Map, Set, Math, Number, String, Object, Dat
 ctx.generateStableId = item => ctx.M.generateStableId(item);
 vm.createContext(ctx);
 vm.runInContext(`async function gravar(db, periodId, result, uploadId, firebase) {
-  const Timestamp = firebase.firestore.Timestamp, PERIODOS = 'periodos', log = { info() {} };
+  const Timestamp = firebase.firestore.Timestamp, PERIODOS = 'periodos', log = { info() {} }, Jornada = null;
 ${bloco}
   return { skipped, added, replaced, uploadItemDeltas };
 }`, ctx);

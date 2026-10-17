@@ -54,6 +54,42 @@ const JornadaComercial = {
     return out;
   },
 
+  // ── Quando ela trabalhou (16/10/2026) ──────────────────────────────────
+  // A Pacto mostra em cada venda a consultora de HOJE do aluno: quando a carteira
+  // muda de dona, as vendas antigas mudam junto. Em set/2026 vendas de 01–13/09
+  // foram para a Isabela, que começou em 14/09. Regra pedida pelo Rodrigo e
+  // escolhida pelo Rafael: a venda só fica com quem já trabalhava na data dela.
+  // Datas no cadastro: `comercialInicio` / `comercialFim` ('AAAA-MM-DD'); sem data,
+  // não há restrição.
+
+  /** 'DD/MM/AAAA' ou 'AAAA-MM-DD' → 'AAAA-MM-DD' ('' se não for data) */
+  _iso(data) {
+    const s = String(data || '').trim();
+    let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (m) return m[3] + '-' + m[2] + '-' + m[1];
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? m[0] : '';
+  },
+
+  /** Ela já tinha começado e ainda não tinha saído nesta data? Sem data no cadastro = sim. */
+  trabalhavaEm(u, data) {
+    const d = this._iso(data);
+    if (!u || !d) return true;
+    const ini = this._iso(u.comercialInicio), fim = this._iso(u.comercialFim);
+    if (ini && d < ini) return false;
+    if (fim && d > fim) return false;
+    return true;
+  },
+
+  /** Erros de "começou em / saiu em" (vazio = pode gravar). Datas 'AAAA-MM-DD' ou vazias. */
+  validarPeriodo(inicio, fim) {
+    const erros = [];
+    const ok = v => !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!ok(inicio) || !ok(fim)) erros.push('Data inválida.');
+    else if (inicio && fim && fim < inicio) erros.push('A saída não pode ser antes do começo.');
+    return erros;
+  },
+
   /** Erros da entrada nova (vazio = pode gravar). */
   validarEntrada(entrada, existentes) {
     const e = entrada || {};
