@@ -168,6 +168,44 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('a busca boa seguinte limpa a marca de falha');
   }
   {
+    // A Pacto às vezes responde o dia SEM pagamentos e sem erro (16/10/2026: 11 de 15
+    // dias da PP voltaram vazios e o automático regravou outubro com 2 ativações).
+    assert.strictEqual(S.leituraPerdeuVendas(5, 0), true);
+    assert.strictEqual(S.leituraPerdeuVendas(6, 3), true, 'metade ou menos, com 4+ antes');
+    assert.strictEqual(S.leituraPerdeuVendas(6, 4), false);
+    assert.strictEqual(S.leituraPerdeuVendas(3, 1), false, 'dia pequeno: só o vazio desconfia');
+    assert.strictEqual(S.leituraPerdeuVendas(0, 0), false, 'domingo continua domingo');
+    ok('leituraPerdeuVendas: vazio depois de vendas, ou metade ou menos com 4+ antes');
+
+    const db = makeFakeDb();
+    let pags = [1, 2, 3, 4, 5, 6].map(i => pagamento(i, 600 + i, 0, 10 * i));
+    const p = pactoFalsa([[/resumoPeriodo/, () => ({ body: resumoCom(pags) })]]);
+    const c = criarCliente({ fetch: p.fetch, credencial: CRED, ...semPausa });
+    const doDia = async () => (await db.collection('pacto_sombra_dias').doc('PP_2026-10-07').get()).data();
+    await S.buscarDia({ db, cliente: c, unidade: 'PP', dia: '2026-10-07', agora: () => 'D1' });
+    assert.strictEqual(JSON.parse((await doDia()).linhas).length, 6);
+
+    pags = [];
+    const r = await S.buscarDia({ db, cliente: c, unidade: 'PP', dia: '2026-10-07', agora: () => 'D2' });
+    assert.strictEqual(r.situacao, 'leitura_menor', 'quem chamou fica sabendo');
+    let d = await doDia();
+    assert.strictEqual(d.situacao, 'buscado', 'o dia continua o que era');
+    assert.strictEqual(JSON.parse(d.linhas).length, 6, 'as 6 vendas ficam');
+    assert.strictEqual(d.ultimaFalha.situacao, 'leitura_menor');
+    assert.ok(/0 venda\(s\).*contra 6/.test(d.ultimaFalha.motivo), d.ultimaFalha.motivo);
+
+    pags = pags.concat([pagamento(1, 601, 0, 10), pagamento(2, 602, 0, 20)]);
+    await S.buscarDia({ db, cliente: c, unidade: 'PP', dia: '2026-10-07', agora: () => 'D3' });
+    assert.strictEqual(JSON.parse((await doDia()).linhas).length, 6, 'voltou com 2 de 6: também fica a anterior');
+
+    pags = [1, 2, 3, 4, 5].map(i => pagamento(i, 600 + i, 0, 10 * i));
+    await S.buscarDia({ db, cliente: c, unidade: 'PP', dia: '2026-10-07', agora: () => 'D4' });
+    d = await doDia();
+    assert.strictEqual(JSON.parse(d.linhas).length, 5, 'uma venda a menos (estorno, contrato que some) substitui normalmente');
+    assert.strictEqual(d.ultimaFalha, undefined, 'e a marca some');
+    ok('dia que tinha vendas e volta vazio (ou com metade ou menos) fica com a leitura anterior, marcado');
+  }
+  {
     // A Pacto às vezes responde {"erro": "..."} com HTTP 200 (visto em 22/09/2026,
     // intermitente). Era lido como "dia sem pagamento" e gravava vazio por cima.
     const e = classificar(200, '{"erro":"A JSONObject text must begin with \'{\' at 1"}');
@@ -607,5 +645,5 @@ const contratoBruto = (codigo) => ({ codigo, situacaoContrato: 'Matrícula', nom
     ok('degustação grátis: o vínculo relido refaz o registro com a vendedora de hoje; igual ou fora do mês, nada muda');
   }
 
-  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/28');
+  console.log('\n✅ smoke-pacto-sombra-busca: ' + n + '/30');
 })().catch(e => { console.error(e); process.exit(1); });

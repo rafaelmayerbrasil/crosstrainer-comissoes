@@ -167,6 +167,25 @@ async function gravarFalha(db, unidade, dia, situacao, motivo, quando) {
 }
 
 /**
+ * A leitura nova "perdeu" as vendas do dia? (17/10/2026) A Pacto às vezes responde
+ * o dia SEM pagamentos e sem erro — em 16/10, numa 4ª rodada no staging, 11 de 15
+ * dias da PP voltaram vazios e o automático regravou outubro com 2 ativações,
+ * apagando 93 lançamentos. Pagamento não some de um dia para o outro: o dia que
+ * tinha vendas e volta vazio, ou com metade ou menos (com 4+ antes), é desconfiado.
+ * @param {number} antes  linhas de venda da leitura gravada
+ * @param {number} depois linhas de venda da leitura nova
+ */
+function leituraPerdeuVendas(antes, depois) {
+  if (!(antes > 0)) return false;
+  if (depois === 0) return true;
+  return antes >= 4 && depois * 2 <= antes;
+}
+
+function _contarLinhas(doc) {
+  try { const l = JSON.parse((doc && doc.linhas) || '[]'); return Array.isArray(l) ? l.length : 0; } catch (_) { return 0; }
+}
+
+/**
  * Busca um dia de uma unidade e grava.
  * `gw` (opcional): cliente do gateway com a credencial DA UNIDADE — completa a
  * consultora (o Campeche só tem por ali) e traz o balcão do relatório de vendas.
@@ -355,6 +374,24 @@ async function buscarDia({ db, cliente, gw, unidade, dia, agora, anoCorrente, or
   m.avisos.push(...avisosGw);
 
   const situacao = L.situacaoDoDia({ resumo, avisos: m.avisos });
+
+  // Dia que tinha vendas e voltou vazio (ou com metade ou menos): fica a leitura
+  // anterior, marcada com `ultimaFalha` — a tela da Pacto e o termômetro já mostram
+  // a marca, e a próxima leitura boa substitui tudo (17/10/2026).
+  const ref = db.collection(COL_DIAS).doc(unidade + '_' + dia);
+  const anterior = await ref.get();
+  if (anterior.exists && COM_RESPOSTA.includes(anterior.data().situacao)) {
+    const antes = _contarLinhas(anterior.data()), depois = m.linhas.length;
+    if (leituraPerdeuVendas(antes, depois)) {
+      await ref.set({ ultimaFalha: {
+        situacao: 'leitura_menor',
+        motivo: `a Pacto devolveu ${depois} venda(s) neste dia, contra ${antes} da leitura anterior; ficou a anterior`,
+        em: quando,
+      } }, { merge: true });
+      return { situacao: 'leitura_menor', consultas, maiorContrato: null };
+    }
+  }
+
   await gravarDia(db, unidade, dia, {
     situacao,
     motivo: '',
@@ -588,4 +625,4 @@ async function buscar({ db, cliente, clientesGw, unidades = ['CP', 'PP'], dias, 
 
 module.exports = { PACTO_UNIDADES, COL_DIAS, COL_CONTRATOS, COL_CONSULTORAS, COL_TERMOMETRO, COL_TERMOMETRO_EQUIPE, COL_SEQ, COL_DEGUSTACOES, MAX_DIAS, FOLGA_VARREDURA, LIMITE_GW_POR_BUSCA,
   INICIO_RELEITURA, DIAS_RELER_VINCULO, JANELA_CONTRATO_NOVO, RESERVA_RELEITURA, precisaRelerVinculo, precisaDoAnterior, relerVinculoDasDegustacoes,
-  diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro };
+  diasParaBuscar, diasDaRotina, buscarDia, buscar, varrerContratosNovos, somarDias, atualizarTermometro, leituraPerdeuVendas };
