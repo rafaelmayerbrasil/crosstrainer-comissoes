@@ -129,6 +129,23 @@ const ComissoesMes = {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
   },
 
+  /**
+   * O cadastro de quem aparece com este nome nas vendas, ou null (vendedora nova).
+   * Primeiro quem está LIGADA pelo `nomeNasComissoes` (vendedora-nome.js); só sem
+   * ligação vale o nome do cadastro. Até 16/10/2026 só o nome contava: quem teve o
+   * cadastro encurtado ("FRANCINI CHAGAS", "ISABELA MARINHO") virava "nova" e a
+   * rodada das 4h de 15/10 criou um cadastro pendente repetido para cada uma.
+   */
+  _cadastroDaVendedora(nomeDaVenda, users) {
+    const norm = s => this._normalizar(s).replace(/\s+/g, ' ');
+    const alvo = norm(nomeDaVenda);
+    const igual = s => norm(s) === alvo;
+    const lista = users || [];
+    return lista.find(u => u && u.nomeNasComissoes && igual(u.nomeNasComissoes))
+      || lista.find(u => u && igual(u.name))
+      || null;
+  },
+
   /** Tira `undefined` (o Firestore recusa), sem mexer em Date nem em marcador do Firebase */
   _semIndefinidos(obj) {
     if (obj === null || typeof obj !== 'object') return obj;
@@ -396,8 +413,7 @@ const ComissoesMes = {
         const newVendors = [];
         const usersToUpdateUnit = [];
         vendorNames.forEach(vName => {
-          const normV = M._normalizar(vName);
-          const found = allUsers.find(u => M._normalizar(u.name) === normV);
+          const found = M._cadastroDaVendedora(vName, allUsers);
           if (!found) {
             newVendors.push(vName);
           } else {
